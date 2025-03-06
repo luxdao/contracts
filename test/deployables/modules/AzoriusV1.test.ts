@@ -1,7 +1,7 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
-import hre, { ethers } from 'hardhat';
+import { ethers } from 'hardhat';
 import {
   AzoriusV1,
   AzoriusV1__factory,
@@ -742,7 +742,7 @@ describe('AzoriusV1', () => {
           .connect(proposer)
           .submitProposal(await mockStrategy.getAddress(), '0x', [proposalTx], proposalMetadata);
 
-        const receipt = await hre.ethers.provider.getTransactionReceipt(tx.hash);
+        const receipt = await ethers.provider.getTransactionReceipt(tx.hash);
         if (!receipt) throw new Error('Transaction failed');
 
         const event = azorius.interface.decodeEventLog(
@@ -870,7 +870,7 @@ describe('AzoriusV1', () => {
         proposalId = 0;
 
         // Set voting end block to future block and mark as passed by default
-        const currentBlock = await ethers.provider.getBlockNumber();
+        const currentBlock = await time.latestBlock();
 
         await mockStrategy.setVotingEndBlock(proposalId, currentBlock + 10);
         await mockStrategy.setIsPassed(proposalId, true);
@@ -881,7 +881,7 @@ describe('AzoriusV1', () => {
         expect(await azorius.proposalState(proposalId)).to.equal(0); // ACTIVE
 
         // End voting immediately
-        await mockStrategy.setVotingEndBlock(proposalId, await ethers.provider.getBlockNumber());
+        await mockStrategy.setVotingEndBlock(proposalId, await time.latestBlock());
 
         // Should be in timelock since we set isPassed to true in beforeEach
         expect(await azorius.proposalState(proposalId)).to.equal(1); // TIMELOCKED
@@ -904,7 +904,7 @@ describe('AzoriusV1', () => {
         await mockToken.mint(await avatar.getAddress(), 1000);
 
         // End voting immediately
-        await mockStrategy.setVotingEndBlock(proposalId, await ethers.provider.getBlockNumber());
+        await mockStrategy.setVotingEndBlock(proposalId, await time.latestBlock());
 
         // Move past timelock
         await mine(TIMELOCK_PERIOD);
@@ -1008,7 +1008,7 @@ describe('AzoriusV1', () => {
       describe('Partial execution', () => {
         beforeEach(async () => {
           // Get current block number
-          const currentBlock = await ethers.provider.getBlockNumber();
+          const currentBlock = await time.latestBlock();
           const votingEndBlock = currentBlock + 10;
           await mockStrategy.setVotingEndBlock(0, votingEndBlock);
 
@@ -1067,7 +1067,7 @@ describe('AzoriusV1', () => {
           .submitProposal(await mockStrategy.getAddress(), '0x', [tx1, tx2], 'Test proposal');
 
         // Get current block number and set up proposal state
-        const currentBlock = await ethers.provider.getBlockNumber();
+        const currentBlock = await time.latestBlock();
         const votingEndBlock = currentBlock + 10;
         await mockStrategy.setVotingEndBlock(1, votingEndBlock);
         await mockStrategy.setIsPassed(1, true);
