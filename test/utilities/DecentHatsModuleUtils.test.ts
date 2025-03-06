@@ -1,35 +1,36 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  MockDecentHatsModuleUtils,
-  MockDecentHatsModuleUtils__factory,
-  MockHats,
-  MockHats__factory,
   ERC6551Registry,
   ERC6551Registry__factory,
+  GnosisSafeL2,
+  GnosisSafeL2__factory,
+  KeyValuePairs,
+  KeyValuePairs__factory,
+  MockDecentHatsModuleUtils,
+  MockDecentHatsModuleUtils__factory,
+  MockERC20,
+  MockERC20__factory,
+  MockHats,
+  MockHats__factory,
   MockHatsAccount,
   MockHatsAccount__factory,
   MockHatsModuleFactory,
   MockHatsModuleFactory__factory,
   MockSablierV2LockupLinear,
   MockSablierV2LockupLinear__factory,
-  MockERC20,
-  MockERC20__factory,
-  GnosisSafeL2,
-  GnosisSafeL2__factory,
-  KeyValuePairs,
-  KeyValuePairs__factory,
 } from '../../typechain-types';
 import {
   getGnosisSafeL2Singleton,
   getGnosisSafeProxyFactory,
 } from '../global/GlobalSafeDeployments.test';
 import {
-  getHatAccount,
-  topHatIdToHatId,
-  predictGnosisSafeAddress,
   executeSafeTransaction,
+  getHatAccount,
+  predictGnosisSafeAddress,
+  topHatIdToHatId,
 } from '../helpers';
 
 describe('DecentHatsModuleUtils', () => {
@@ -254,7 +255,7 @@ describe('DecentHatsModuleUtils', () => {
     });
 
     it('Creates an untermed hat with a stream', async () => {
-      const currentBlockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
+      const currentBlockTimestamp = await time.latest();
       const hatParams = {
         wearer: wearer.address,
         details: '',
@@ -327,7 +328,7 @@ describe('DecentHatsModuleUtils', () => {
     });
 
     it('Creates a termed hat with a stream', async () => {
-      const currentBlockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
+      const currentBlockTimestamp = await time.latest();
       const termEndDateTs = BigInt(Math.floor(Date.now() / 1000) + 100000);
       const hatParams = {
         wearer: wearer.address,

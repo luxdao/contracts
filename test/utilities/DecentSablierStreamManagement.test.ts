@@ -30,7 +30,6 @@ import {
   ModuleProxyFactory,
   ModuleProxyFactory__factory,
 } from '../../typechain-types';
-
 import {
   getGnosisSafeL2Singleton,
   getGnosisSafeProxyFactory,
@@ -160,7 +159,7 @@ describe('DecentSablierStreamManagement', () => {
       signers: [dao],
     });
 
-    currentBlockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
+    currentBlockTimestamp = await time.latest();
 
     mockHats = await new MockHats__factory(deployer).deploy();
     mockHatsAddress = await mockHats.getAddress();
