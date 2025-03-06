@@ -29,6 +29,7 @@ const config: HardhatUserConfig = {
       '@gnosis.pm/safe-contracts/contracts/libraries/MultiSendCallOnly.sol',
       '@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol',
       '@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol',
+      '@gnosis-guild/zodiac/contracts/factory/ModuleProxyFactory.sol',
     ],
   },
   namedAccounts: {
