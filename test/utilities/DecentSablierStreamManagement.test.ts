@@ -1,6 +1,7 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
-import type { ContractTransactionResponse, BigNumberish } from 'ethers';
+import type { BigNumberish, ContractTransactionResponse } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   DecentAutonomousAdminV1,
@@ -31,8 +32,8 @@ import {
 } from '../../typechain-types';
 
 import {
-  getGnosisSafeProxyFactory,
   getGnosisSafeL2Singleton,
+  getGnosisSafeProxyFactory,
 } from '../global/GlobalSafeDeployments.test';
 import {
   executeSafeTransaction,
@@ -267,8 +268,7 @@ describe('DecentSablierStreamManagement', () => {
     describe('When the stream has funds', () => {
       beforeEach(async () => {
         // Advance time to the end of the stream
-        await ethers.provider.send('evm_setNextBlockTimestamp', [currentBlockTimestamp + 2592000]);
-        await ethers.provider.send('evm_mine', []);
+        await time.increaseTo(currentBlockTimestamp + 2592000);
 
         // No action has been taken yet on the stream. Balance should be untouched.
         expect(await mockSablier.withdrawableAmountOf(streamId)).to.eq(streamFundsMax);
@@ -313,8 +313,7 @@ describe('DecentSablierStreamManagement', () => {
     describe('When the stream has no funds', () => {
       beforeEach(async () => {
         // Advance time to the end of the stream
-        await ethers.provider.send('evm_setNextBlockTimestamp', [currentBlockTimestamp + 2592000]);
-        await ethers.provider.send('evm_mine', []);
+        await time.increaseTo(currentBlockTimestamp + 2592000);
 
         const recipientHatAccount = await getHatAccount(
           roleHatId,
@@ -369,8 +368,7 @@ describe('DecentSablierStreamManagement', () => {
     describe('When the stream is active', () => {
       beforeEach(async () => {
         // Advance time to before the end of the stream
-        await ethers.provider.send('evm_setNextBlockTimestamp', [currentBlockTimestamp + 60000]); // 1 minute from now
-        await ethers.provider.send('evm_mine', []);
+        await time.increaseTo(currentBlockTimestamp + 60000);
 
         cancelTx = await executeSafeTransaction({
           safe: gnosisSafe,
@@ -401,11 +399,8 @@ describe('DecentSablierStreamManagement', () => {
 
     describe('When the stream has expired', () => {
       beforeEach(async () => {
-        // Advance time to the end of the stream
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
-          currentBlockTimestamp + 2592000 + 60000,
-        ]); // 30 days from now + 1 minute
-        await ethers.provider.send('evm_mine', []);
+        // Advance time to the end of the stream, 30 days from now + 1 minute
+        await time.increaseTo(currentBlockTimestamp + 2592000 + 60000);
 
         cancelTx = await executeSafeTransaction({
           safe: gnosisSafe,
@@ -435,8 +430,7 @@ describe('DecentSablierStreamManagement', () => {
     describe('When the stream has been previously cancelled', () => {
       beforeEach(async () => {
         // Advance time to before the end of the stream
-        await ethers.provider.send('evm_setNextBlockTimestamp', [currentBlockTimestamp + 120000]); // 2 minutes from now
-        await ethers.provider.send('evm_mine', []);
+        await time.increaseTo(currentBlockTimestamp + 120000);
 
         const stream = await mockSablier.getStream(streamId);
         expect(stream.endTime).to.be.greaterThan(currentBlockTimestamp);
@@ -452,8 +446,8 @@ describe('DecentSablierStreamManagement', () => {
           signers: [dao],
         });
 
-        await ethers.provider.send('evm_setNextBlockTimestamp', [currentBlockTimestamp + 240000]); // 4 minutes from now
-        await ethers.provider.send('evm_mine', []);
+        // Advance time to 4 minutes from now
+        await time.increaseTo(currentBlockTimestamp + 240000);
 
         cancelTx = await executeSafeTransaction({
           safe: gnosisSafe,
