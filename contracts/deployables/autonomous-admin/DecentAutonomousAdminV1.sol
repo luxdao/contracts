@@ -42,6 +42,7 @@ contract DecentAutonomousAdminV1 is
     ) public view override returns (bool) {
         return
             interfaceId == type(IDecentAutonomousAdminV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 
