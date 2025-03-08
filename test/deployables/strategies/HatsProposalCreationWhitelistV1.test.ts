@@ -7,7 +7,7 @@ import {
   MockHats,
   MockHats__factory,
 } from '../../../typechain-types';
-import { topHatIdToHatId } from '../../helpers';
+import { topHatIdToHatId } from '../../helpers/utils';
 
 describe('HatsProposalCreationWhitelistV1', () => {
   // Signers

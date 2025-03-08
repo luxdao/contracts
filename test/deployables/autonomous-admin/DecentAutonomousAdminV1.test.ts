@@ -10,7 +10,7 @@ import {
   MockHatsElectionsEligibility,
   MockHatsElectionsEligibility__factory,
 } from '../../../typechain-types';
-import { topHatIdToHatId } from '../../helpers';
+import { topHatIdToHatId } from '../../helpers/utils';
 
 describe('DecentAutonomousAdminHatV1', function () {
   // Signer accounts

@@ -8,8 +8,8 @@ import {
   MockERC20Votes,
   MockERC20Votes__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress } from '../../helpers';
+import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying ERC20FreezeVotingV1 instances
 async function deployERC20FreezeVotingProxy(

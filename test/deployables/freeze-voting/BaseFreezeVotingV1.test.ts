@@ -6,8 +6,8 @@ import {
   ConcreteBaseFreezeVotingV1,
   ConcreteBaseFreezeVotingV1__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress } from '../../helpers';
+import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying ConcreteBaseFreezeVoting instances
 async function deployConcreteBaseFreezeVotingProxy(
