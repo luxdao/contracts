@@ -7,7 +7,7 @@ import {
   MockHats,
   MockHats__factory,
 } from '../../../typechain-types';
-import { topHatIdToHatId } from '../../helpers/utils';
+import { runHatsProposerTests } from '../../helpers/hatsProposerTests';
 
 describe('HatsProposalCreationWhitelistV1', () => {
   // Signers
@@ -21,64 +21,20 @@ describe('HatsProposalCreationWhitelistV1', () => {
   let concreteHatsProposalCreationWhitelist: ConcreteHatsProposalCreationWhitelistV1;
   let mockHats: MockHats;
 
-  // Hat IDs
-  let topHatId: bigint;
-  let proposerHatId1: bigint;
-  let proposerHatId2: bigint;
-  let nonProposerHatId: bigint;
+  // Hat IDs - we can use any arbitrary values now
+  const proposerHatId1 = 1n;
+  const proposerHatId2 = 2n;
+  const nonProposerHatId = 3n;
 
   beforeEach(async () => {
     [deployer, owner, nonOwner, hatWearer, nonHatWearer] = await ethers.getSigners();
 
-    // Deploy the MockHats contract
+    // Deploy the ultra-minimal MockHats contract
     mockHats = await new MockHats__factory(deployer).deploy();
 
-    // Create hats for testing
-    // Mint a top hat
-    topHatId = topHatIdToHatId((await mockHats.lastTopHatId()) + 1n);
-    await mockHats.mintTopHat(deployer.address, '', '');
-
-    // Create the first proposer hat
-    proposerHatId1 = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Proposer Hat 1',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    // Create the second proposer hat
-    proposerHatId2 = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Proposer Hat 2',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    // Create a non-proposer hat
-    nonProposerHatId = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Non-Proposer Hat',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    // Mint the first proposer hat to the hat wearer
-    await mockHats.mintHat(proposerHatId1, hatWearer.address);
-
-    // Mint the non-proposer hat to the non-hat wearer (for testing adding/removing from whitelist)
-    await mockHats.mintHat(nonProposerHatId, nonHatWearer.address);
+    // Set up initial hat wearing status - this is all we need!
+    await mockHats.setWearerStatus(hatWearer.address, proposerHatId1, true);
+    await mockHats.setWearerStatus(nonHatWearer.address, nonProposerHatId, true);
 
     // Deploy the ConcreteHatsProposalCreationWhitelist contract
     concreteHatsProposalCreationWhitelist =
@@ -223,39 +179,16 @@ describe('HatsProposalCreationWhitelistV1', () => {
     });
   });
 
-  describe('isProposer', () => {
-    it('should return true for an address wearing any of the whitelisted hats', async () => {
-      expect(await concreteHatsProposalCreationWhitelist.isProposer(hatWearer.address)).to.equal(
-        true,
-      );
-    });
-
-    it('should return false for an address not wearing any of the whitelisted hats', async () => {
-      expect(await concreteHatsProposalCreationWhitelist.isProposer(nonHatWearer.address)).to.equal(
-        false,
-      );
-    });
-
-    it('should return false after a hat is removed from the whitelist', async () => {
-      await concreteHatsProposalCreationWhitelist
-        .connect(owner)
-        .removeHatFromWhitelist(proposerHatId1);
-      expect(await concreteHatsProposalCreationWhitelist.isProposer(hatWearer.address)).to.equal(
-        false,
-      );
-    });
-
-    it('should return true when an address starts wearing a whitelisted hat', async () => {
-      expect(await concreteHatsProposalCreationWhitelist.isProposer(nonHatWearer.address)).to.equal(
-        false,
-      );
-
-      await mockHats.mintHat(proposerHatId2, nonHatWearer.address);
-
-      expect(await concreteHatsProposalCreationWhitelist.isProposer(nonHatWearer.address)).to.equal(
-        true,
-      );
-    });
+  // Use the shared test utility for isProposer tests
+  runHatsProposerTests({
+    getMockHats: () => mockHats,
+    getContract: () => concreteHatsProposalCreationWhitelist,
+    hatWearer: () => hatWearer,
+    nonHatWearer: () => nonHatWearer,
+    tokenHolder: () => nonOwner, // Using nonOwner as tokenHolder since we don't have tokens in this test
+    owner: () => owner,
+    proposerHatId: proposerHatId1,
+    nonProposerHatId,
   });
 
   describe('getWhitelistedHatIds', () => {
