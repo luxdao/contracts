@@ -10,6 +10,7 @@ import {
   MockHats__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { runHatsProposerTests } from '../../helpers/hatsProposerTests';
 import { calculateProxyAddress } from '../../helpers/utils';
 
 /**
@@ -21,11 +22,6 @@ import { calculateProxyAddress } from '../../helpers/utils';
  * 2. The isProposer override (which uses the Hats implementation)
  * 3. The getVersion override
  */
-
-// Helper function to convert a top hat ID to a hat ID
-function topHatIdToHatId(topHatId: bigint | number): bigint {
-  return BigInt(topHatId) << 224n;
-}
 
 describe('LinearERC721VotingWithHatsProposalCreationV1', () => {
   // Signers
@@ -49,11 +45,10 @@ describe('LinearERC721VotingWithHatsProposalCreationV1', () => {
   const QUORUM_THRESHOLD = 5; // 5 votes required for quorum
   const BASIS_NUMERATOR = 500000; // 50% of 1000000
 
-  // Create hat IDs for testing
-  let topHatId: bigint;
-  let proposerHatId1: bigint;
-  let proposerHatId2: bigint;
-  let nonProposerHatId: bigint;
+  // Hat IDs - we can use any arbitrary values
+  const proposerHatId1 = 1n;
+  const proposerHatId2 = 2n;
+  const nonProposerHatId = 3n;
 
   async function deployLinearERC721VotingWithHatsProposalCreation(
     strategyOwner: SignerWithAddress,
@@ -121,58 +116,12 @@ describe('LinearERC721VotingWithHatsProposalCreationV1', () => {
     // Use nonOwner address as a mock azorius address for testing
     azoriusAddress = await nonOwner.getAddress();
 
-    // Deploy MockERC721 tokens
+    // Deploy MockERC721 NFTs
     mockNFT1 = await new MockERC721__factory(deployer).deploy();
     mockNFT2 = await new MockERC721__factory(deployer).deploy();
 
     // Deploy MockHats
     mockHats = await new MockHats__factory(deployer).deploy();
-
-    // Create hats for testing - using the correct approach
-    // Mint a top hat
-    topHatId = topHatIdToHatId((await mockHats.lastTopHatId()) + 1n);
-    await mockHats.mintTopHat(deployer.address, '', '');
-
-    // Create proposer hats (these will be whitelisted for proposing)
-    proposerHatId1 = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Proposer Hat 1',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    proposerHatId2 = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Proposer Hat 2',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    // Create a non-proposer hat (will not be whitelisted)
-    nonProposerHatId = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Non-Proposer Hat',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    // Mint proposer hats to hatWearer
-    await mockHats.mintHat(proposerHatId1, hatWearer.address);
-
-    // Mint non-proposer hats to nonHatWearer
-    await mockHats.mintHat(nonProposerHatId, nonHatWearer.address);
 
     // Deploy LinearERC721VotingWithHatsProposalCreation mastercopy
     linearERC721VotingWithHatsProposalCreationMastercopy =
@@ -181,9 +130,7 @@ describe('LinearERC721VotingWithHatsProposalCreationV1', () => {
     // Deploy LinearERC721VotingWithHatsProposalCreation strategy with proposerHatId1 and proposerHatId2 whitelisted
     // Create an array of NFT addresses
     const nftAddresses = [await mockNFT1.getAddress(), await mockNFT2.getAddress()];
-
-    // Each NFT has weight 1 (linear voting)
-    const nftWeights = [1, 1];
+    const nftWeights = [1, 2]; // Each NFT2 token counts as 2 votes
 
     linearERC721VotingWithHatsProposalCreation =
       await deployLinearERC721VotingWithHatsProposalCreation(
@@ -206,29 +153,21 @@ describe('LinearERC721VotingWithHatsProposalCreationV1', () => {
         const votingPeriod = await linearERC721VotingWithHatsProposalCreation.votingPeriod();
         expect(votingPeriod).to.equal(VOTING_PERIOD);
 
-        const quorum = await linearERC721VotingWithHatsProposalCreation.quorumThreshold();
-        expect(quorum).to.equal(QUORUM_THRESHOLD);
+        const quorumThreshold = await linearERC721VotingWithHatsProposalCreation.quorumThreshold();
+        expect(quorumThreshold).to.equal(QUORUM_THRESHOLD);
+
+        // Check vote token configuration
+        const nftAddresses = [await mockNFT1.getAddress(), await mockNFT2.getAddress()];
+        for (let i = 0; i < nftAddresses.length; i++) {
+          const weight = await linearERC721VotingWithHatsProposalCreation.tokenWeights(
+            nftAddresses[i],
+          );
+          expect(weight).to.equal(i === 0 ? 1 : 2); // NFT1 weight = 1, NFT2 weight = 2
+        }
 
         // proposerThreshold should be 0 since we're using hats
-        const propThreshold = await linearERC721VotingWithHatsProposalCreation.proposerThreshold();
-        expect(propThreshold).to.equal(0);
-
-        // Check token addresses
-        const addresses = await linearERC721VotingWithHatsProposalCreation.getAllTokenAddresses();
-        expect(addresses.length).to.equal(2);
-        expect(addresses[0]).to.equal(await mockNFT1.getAddress());
-        expect(addresses[1]).to.equal(await mockNFT2.getAddress());
-
-        // Check token weights
-        const weight1 = await linearERC721VotingWithHatsProposalCreation.tokenWeights(
-          await mockNFT1.getAddress(),
-        );
-        expect(weight1).to.equal(1);
-
-        const weight2 = await linearERC721VotingWithHatsProposalCreation.tokenWeights(
-          await mockNFT2.getAddress(),
-        );
-        expect(weight2).to.equal(1);
+        const threshold = await linearERC721VotingWithHatsProposalCreation.proposerThreshold();
+        expect(threshold).to.equal(0);
 
         // Check HatsProposalCreationWhitelistV1 parameters
         const hatsContract = await linearERC721VotingWithHatsProposalCreation.hatsContract();
@@ -271,47 +210,21 @@ describe('LinearERC721VotingWithHatsProposalCreationV1', () => {
           ],
         );
 
-        const setupCalldata =
-          linearERC721VotingWithHatsProposalCreationMastercopy.interface.encodeFunctionData(
-            'setUp',
-            [initializeParams],
-          );
-
-        await expect(linearERC721VotingWithHatsProposalCreation.setUp(setupCalldata)).to.be
+        await expect(linearERC721VotingWithHatsProposalCreation.setUp(initializeParams)).to.be
           .reverted;
       });
     });
 
-    describe('isProposer override', () => {
-      it('should use Hats implementation to determine proposers', async () => {
-        // hatWearer has proposerHatId1, which is whitelisted
-        const isHatWearerProposer = await linearERC721VotingWithHatsProposalCreation.isProposer(
-          hatWearer.address,
-        );
-        void expect(isHatWearerProposer).to.be.true;
-
-        // nonHatWearer has nonProposerHatId, which is not whitelisted
-        const isNonHatWearerProposer = await linearERC721VotingWithHatsProposalCreation.isProposer(
-          nonHatWearer.address,
-        );
-        void expect(isNonHatWearerProposer).to.be.false;
-
-        // tokenHolder1 has no hats at all, but has tokens
-        const isTokenHolder1Proposer = await linearERC721VotingWithHatsProposalCreation.isProposer(
-          tokenHolder1.address,
-        );
-        void expect(isTokenHolder1Proposer).to.be.false;
-
-        // Adding nonProposerHatId to the whitelist
-        await linearERC721VotingWithHatsProposalCreation
-          .connect(owner)
-          .whitelistHat(nonProposerHatId);
-
-        // Now nonHatWearer should be a proposer
-        const isNonHatWearerProposerAfterWhitelist =
-          await linearERC721VotingWithHatsProposalCreation.isProposer(nonHatWearer.address);
-        void expect(isNonHatWearerProposerAfterWhitelist).to.be.true;
-      });
+    // Use the shared test utility for isProposer tests
+    runHatsProposerTests({
+      getMockHats: () => mockHats,
+      getContract: () => linearERC721VotingWithHatsProposalCreation,
+      hatWearer: () => hatWearer,
+      nonHatWearer: () => nonHatWearer,
+      tokenHolder: () => tokenHolder1,
+      owner: () => owner,
+      proposerHatId: proposerHatId1,
+      nonProposerHatId,
     });
 
     describe('getVersion override', () => {

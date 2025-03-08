@@ -10,6 +10,7 @@ import {
   MockHats__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { runHatsProposerTests } from '../../helpers/hatsProposerTests';
 import { calculateProxyAddress } from '../../helpers/utils';
 
 /**
@@ -21,11 +22,6 @@ import { calculateProxyAddress } from '../../helpers/utils';
  * 2. The isProposer override (which uses the Hats implementation)
  * 3. The getVersion override
  */
-
-// Helper function to convert a top hat ID to a hat ID
-function topHatIdToHatId(topHatId: bigint | number): bigint {
-  return BigInt(topHatId) << 224n;
-}
 
 describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
   // Signers
@@ -48,11 +44,10 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
   const QUORUM_NUMERATOR = 300000; // 30% of 1000000
   const BASIS_NUMERATOR = 500000; // 50% of 1000000
 
-  // Create hat IDs for testing
-  let topHatId: bigint;
-  let proposerHatId1: bigint;
-  let proposerHatId2: bigint;
-  let nonProposerHatId: bigint;
+  // Hat IDs - we can use any arbitrary values
+  const proposerHatId1 = 1n;
+  const proposerHatId2 = 2n;
+  const nonProposerHatId = 3n;
 
   async function deployLinearERC20VotingWithHatsProposalCreation(
     strategyOwner: SignerWithAddress,
@@ -111,64 +106,8 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
     // Deploy MockERC20Votes token
     mockToken = await new MockERC20Votes__factory(deployer).deploy();
 
-    // Mint tokens to token holders
-    await mockToken.mint(tokenHolder1.address, 1000);
-    await mockToken.mint(hatWearer.address, 1000);
-    await mockToken.mint(nonHatWearer.address, 1000);
-
-    // Set up delegates
-    await mockToken.connect(tokenHolder1).delegate(tokenHolder1.address);
-    await mockToken.connect(hatWearer).delegate(hatWearer.address);
-    await mockToken.connect(nonHatWearer).delegate(nonHatWearer.address);
-
     // Deploy MockHats
     mockHats = await new MockHats__factory(deployer).deploy();
-
-    // Create hats for testing - using the correct approach
-    // Mint a top hat
-    topHatId = topHatIdToHatId((await mockHats.lastTopHatId()) + 1n);
-    await mockHats.mintTopHat(deployer.address, '', '');
-
-    // Create proposer hats (these will be whitelisted for proposing)
-    proposerHatId1 = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Proposer Hat 1',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    proposerHatId2 = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Proposer Hat 2',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    // Create a non-proposer hat (will not be whitelisted)
-    nonProposerHatId = await mockHats.getNextId(topHatId);
-    await mockHats.createHat(
-      topHatId,
-      'Non-Proposer Hat',
-      1,
-      deployer.address,
-      deployer.address,
-      true,
-      '',
-    );
-
-    // Mint proposer hats to hatWearer
-    await mockHats.mintHat(proposerHatId1, hatWearer.address);
-
-    // Mint non-proposer hats to nonHatWearer
-    await mockHats.mintHat(nonProposerHatId, nonHatWearer.address);
 
     // Deploy LinearERC20VotingWithHatsProposalCreation mastercopy
     linearERC20VotingWithHatsProposalCreationMastercopy =
@@ -239,36 +178,16 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
       });
     });
 
-    describe('isProposer override', () => {
-      it('should use Hats implementation to determine proposers', async () => {
-        // hatWearer has proposerHatId1, which is whitelisted
-        const isHatWearerProposer = await linearERC20VotingWithHatsProposalCreation.isProposer(
-          hatWearer.address,
-        );
-        void expect(isHatWearerProposer).to.be.true;
-
-        // nonHatWearer has nonProposerHatId, which is not whitelisted
-        const isNonHatWearerProposer = await linearERC20VotingWithHatsProposalCreation.isProposer(
-          nonHatWearer.address,
-        );
-        void expect(isNonHatWearerProposer).to.be.false;
-
-        // tokenHolder1 has no hats at all, but has tokens
-        const isTokenHolder1Proposer = await linearERC20VotingWithHatsProposalCreation.isProposer(
-          tokenHolder1.address,
-        );
-        void expect(isTokenHolder1Proposer).to.be.false;
-
-        // Adding nonProposerHatId to the whitelist
-        await linearERC20VotingWithHatsProposalCreation
-          .connect(owner)
-          .whitelistHat(nonProposerHatId);
-
-        // Now nonHatWearer should be a proposer
-        const isNonHatWearerProposerAfterWhitelist =
-          await linearERC20VotingWithHatsProposalCreation.isProposer(nonHatWearer.address);
-        void expect(isNonHatWearerProposerAfterWhitelist).to.be.true;
-      });
+    // Use the shared test utility for isProposer tests
+    runHatsProposerTests({
+      getMockHats: () => mockHats,
+      getContract: () => linearERC20VotingWithHatsProposalCreation,
+      hatWearer: () => hatWearer,
+      nonHatWearer: () => nonHatWearer,
+      tokenHolder: () => tokenHolder1,
+      owner: () => owner,
+      proposerHatId: proposerHatId1,
+      nonProposerHatId,
     });
 
     describe('getVersion override', () => {
