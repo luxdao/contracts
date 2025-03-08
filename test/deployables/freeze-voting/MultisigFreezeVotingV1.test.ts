@@ -3,13 +3,13 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  MultisigFreezeVotingV1,
-  MultisigFreezeVotingV1__factory,
   MockSafe,
   MockSafe__factory,
+  MultisigFreezeVotingV1,
+  MultisigFreezeVotingV1__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress } from '../../helpers';
+import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying MultisigFreezeVotingV1 proxy instances
 async function deployMultisigFreezeVotingProxy(

@@ -4,13 +4,13 @@ import { ethers } from 'hardhat';
 import {
   DecentPaymasterV1,
   DecentPaymasterV1__factory,
-  IPaymaster__factory,
   IDecentPaymasterV1__factory,
+  IPaymaster__factory,
   MockEntryPoint,
   MockEntryPoint__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress } from '../../helpers';
+import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { calculateProxyAddress } from '../../helpers/utils';
 
 interface PackedUserOperation {
   sender: string;

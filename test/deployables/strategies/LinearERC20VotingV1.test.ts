@@ -10,8 +10,8 @@ import {
   MockOwnership,
   MockOwnership__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress } from '../../helpers';
+import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { calculateProxyAddress } from '../../helpers/utils';
 
 describe('LinearERC20VotingV1', () => {
   // Signers
