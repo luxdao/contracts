@@ -7,7 +7,7 @@ import {IHats} from "../interfaces/hats/IHats.sol";
 import {IHatsModuleFactory} from "../interfaces/hats/IHatsModuleFactory.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IAvatar} from "@gnosis-guild/zodiac/contracts/interfaces/IAvatar.sol";
-import {ModuleProxyFactory} from "@gnosis-guild/zodiac/contracts/factory/ModuleProxyFactory.sol";
+import {IModuleProxyFactory} from "../interfaces/zodiac/IModuleProxyFactory.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract DecentHatsCreationModule is DecentHatsModuleUtils {
@@ -26,7 +26,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         IHats hatsProtocol;
         IERC6551Registry erc6551Registry;
         IHatsModuleFactory hatsModuleFactory;
-        ModuleProxyFactory moduleProxyFactory;
+        IModuleProxyFactory moduleProxyFactory;
         address keyValuePairs;
         address decentAutonomousAdminImplementation;
         address hatsAccountImplementation;
@@ -164,7 +164,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         address hatsAccountImplementation,
         uint256 topHatId,
         address topHatAccount,
-        ModuleProxyFactory moduleProxyFactory,
+        IModuleProxyFactory moduleProxyFactory,
         address decentAutonomousAdminImplementation,
         AdminHatParams calldata adminHat
     ) internal returns (uint256 adminHatId) {
