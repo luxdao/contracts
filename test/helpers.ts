@@ -12,6 +12,11 @@ import {
 } from '../typechain-types';
 import { getMockContract } from './global/GlobalSafeDeployments.test';
 
+export const Operation = {
+  Call: 0,
+  DelegateCall: 1,
+};
+
 export interface MetaTransaction {
   to: string;
   value: string | number | bigint;
