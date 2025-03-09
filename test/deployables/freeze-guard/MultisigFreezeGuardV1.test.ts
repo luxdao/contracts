@@ -3,6 +3,9 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  IERC165__factory,
+  IMultisigFreezeGuardV1__factory,
+  IVersion__factory,
   MockFreezeVoting,
   MockFreezeVoting__factory,
   MockSafe,
@@ -11,7 +14,7 @@ import {
   MultisigFreezeGuardV1__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying MultisigFreezeGuardV1 instances
 async function deployMultisigFreezeGuardProxy(
@@ -498,6 +501,47 @@ describe('MultisigFreezeGuardV1', () => {
   describe('Version', () => {
     it('should return correct version', async () => {
       expect(await multisigFreezeGuard.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let iVersionInterfaceId: string;
+    let iMultisigFreezeGuardV1InterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IMultisigFreezeGuardV1Interface = IMultisigFreezeGuardV1__factory.createInterface();
+      iMultisigFreezeGuardV1InterfaceId = calculateInterfaceId(IMultisigFreezeGuardV1Interface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await multisigFreezeGuard.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await multisigFreezeGuard.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IMultisigFreezeGuardV1 interface', async function () {
+      const supported = await multisigFreezeGuard.supportsInterface(
+        iMultisigFreezeGuardV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await multisigFreezeGuard.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

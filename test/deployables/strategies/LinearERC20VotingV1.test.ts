@@ -3,6 +3,11 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  IBaseQuorumPercentV1__factory,
+  IBaseStrategyV1__factory,
+  IBaseVotingBasisPercentV1__factory,
+  IERC165__factory,
+  IVersion__factory,
   LinearERC20VotingV1,
   LinearERC20VotingV1__factory,
   MockERC20Votes,
@@ -11,7 +16,7 @@ import {
   MockOwnership__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 describe('LinearERC20VotingV1', () => {
   // Signers
@@ -44,7 +49,7 @@ describe('LinearERC20VotingV1', () => {
 
   async function deployLinearERC20Voting(
     strategyOwner: SignerWithAddress,
-    governanceToken: MockERC20Votes,
+    governanceToken: string,
     azoriusAddr: string,
   ): Promise<LinearERC20VotingV1> {
     const salt = ethers.hexlify(ethers.randomBytes(32));
@@ -52,7 +57,7 @@ describe('LinearERC20VotingV1', () => {
       ['address', 'address', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
       [
         strategyOwner.address,
-        await governanceToken.getAddress(),
+        governanceToken,
         azoriusAddr,
         VOTING_PERIOD,
         REQUIRED_PROPOSER_WEIGHT,
@@ -105,7 +110,11 @@ describe('LinearERC20VotingV1', () => {
     linearERC20VotingMastercopy = await new LinearERC20VotingV1__factory(deployer).deploy();
 
     // Deploy LinearERC20Voting strategy
-    linearERC20Voting = await deployLinearERC20Voting(owner, mockToken, azoriusAddress);
+    linearERC20Voting = await deployLinearERC20Voting(
+      owner,
+      await mockToken.getAddress(),
+      azoriusAddress,
+    );
   });
 
   describe('Initialization', () => {
@@ -581,6 +590,68 @@ describe('LinearERC20VotingV1', () => {
       void expect(await linearERC20Voting.hasVoted(proposalId2, tokenHolder1.address)).to.be.true;
       void expect(await linearERC20Voting.hasVoted(proposalId1, tokenHolder2.address)).to.be.true;
       void expect(await linearERC20Voting.hasVoted(proposalId2, tokenHolder2.address)).to.be.true;
+    });
+  });
+
+  describe('ERC165', function () {
+    let iBaseStrategyV1InterfaceId: string;
+    let iBaseQuorumPercentV1InterfaceId: string;
+    let iBaseVotingBasisPercentV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IBaseQuorumPercentV1Interface = IBaseQuorumPercentV1__factory.createInterface();
+      iBaseQuorumPercentV1InterfaceId = calculateInterfaceId(IBaseQuorumPercentV1Interface);
+
+      const IBaseVotingBasisPercentV1Interface =
+        IBaseVotingBasisPercentV1__factory.createInterface();
+      iBaseVotingBasisPercentV1InterfaceId = calculateInterfaceId(
+        IBaseVotingBasisPercentV1Interface,
+      );
+
+      const IBaseStrategyV1Interface = IBaseStrategyV1__factory.createInterface();
+      iBaseStrategyV1InterfaceId = calculateInterfaceId(IBaseStrategyV1Interface);
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await linearERC20Voting.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseQuorumPercentV1 interface', async function () {
+      const supported = await linearERC20Voting.supportsInterface(iBaseQuorumPercentV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseVotingBasisPercentV1 interface', async function () {
+      const supported = await linearERC20Voting.supportsInterface(
+        iBaseVotingBasisPercentV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseStrategyV1 interface', async function () {
+      const supported = await linearERC20Voting.supportsInterface(iBaseStrategyV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await linearERC20Voting.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await linearERC20Voting.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

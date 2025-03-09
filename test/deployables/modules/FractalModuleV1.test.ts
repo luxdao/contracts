@@ -4,13 +4,16 @@ import { ethers } from 'hardhat';
 import {
   FractalModuleV1,
   FractalModuleV1__factory,
+  IERC165__factory,
+  IFractalModuleV1__factory,
+  IVersion__factory,
   MockAvatar,
   MockAvatar__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 // Helper functions for deploying FractalModuleV1 instances
 async function deployFractalModuleProxy(
@@ -556,6 +559,55 @@ describe('FractalModuleV1', () => {
       );
 
       expect(await fractalModule.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let fractalModuleInstance: FractalModuleV1;
+    let iFractalModuleV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Deploy a new instance for testing
+      fractalModuleInstance = await deployFractalModuleProxy(
+        fractalModuleMastercopy,
+        owner,
+        ethers.ZeroAddress,
+        ethers.ZeroAddress,
+        [],
+      );
+
+      // Dynamically calculate interface IDs
+      const IFractalModuleV1Interface = IFractalModuleV1__factory.createInterface();
+      iFractalModuleV1InterfaceId = calculateInterfaceId(IFractalModuleV1Interface);
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await fractalModuleInstance.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IFractalModuleV1 interface', async function () {
+      const supported = await fractalModuleInstance.supportsInterface(iFractalModuleV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await fractalModuleInstance.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await fractalModuleInstance.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

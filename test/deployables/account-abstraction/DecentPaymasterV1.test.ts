@@ -5,12 +5,14 @@ import {
   DecentPaymasterV1,
   DecentPaymasterV1__factory,
   IDecentPaymasterV1__factory,
+  IERC165__factory,
   IPaymaster__factory,
+  IVersion__factory,
   MockEntryPoint,
   MockEntryPoint__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 interface PackedUserOperation {
   sender: string;
@@ -404,39 +406,32 @@ describe('DecentPaymasterV1', function () {
   });
 
   describe('ERC165', function () {
+    // Interface IDs
     let iPaymasterInterfaceId: string;
     let iDecentPaymasterInterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
 
     beforeEach(async function () {
       // Calculate IPaymaster interface ID
       const IPaymasterInterface = IPaymaster__factory.createInterface();
-      const validatePaymasterUserOpSelector =
-        IPaymasterInterface.getFunction('validatePaymasterUserOp').selector;
-      const postOpSelector = IPaymasterInterface.getFunction('postOp').selector;
-      iPaymasterInterfaceId = ethers.hexlify(
-        ethers.toBeArray(BigInt(validatePaymasterUserOpSelector) ^ BigInt(postOpSelector)),
-      );
+      iPaymasterInterfaceId = calculateInterfaceId(IPaymasterInterface);
 
       // Calculate IDecentPaymaster interface ID
       const IDecentPaymasterInterface = IDecentPaymasterV1__factory.createInterface();
-      const setStrategyFunctionApprovalSelector = IDecentPaymasterInterface.getFunction(
-        'setStrategyFunctionApproval',
-      ).selector;
-      const isFunctionApprovedSelector =
-        IDecentPaymasterInterface.getFunction('isFunctionApproved').selector;
-      const setUpSelector = IDecentPaymasterInterface.getFunction('setUp').selector;
-      iDecentPaymasterInterfaceId = ethers.hexlify(
-        ethers.toBeArray(
-          BigInt(setStrategyFunctionApprovalSelector) ^
-            BigInt(isFunctionApprovedSelector) ^
-            BigInt(setUpSelector),
-        ),
-      );
+      iDecentPaymasterInterfaceId = calculateInterfaceId(IDecentPaymasterInterface);
+
+      // Calculate IVersion interface ID
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      // Calculate IERC165 interface ID
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
     });
 
     it('Should support IERC165 interface', async function () {
-      const IERC165InterfaceId = '0x01ffc9a7';
-      const supported = await decentPaymaster.supportsInterface(IERC165InterfaceId);
+      const supported = await decentPaymaster.supportsInterface(iERC165InterfaceId);
       void expect(supported).to.be.true;
     });
 
@@ -447,6 +442,11 @@ describe('DecentPaymasterV1', function () {
 
     it('Should support IDecentPaymaster interface', async function () {
       const supported = await decentPaymaster.supportsInterface(iDecentPaymasterInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await decentPaymaster.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
     });
 

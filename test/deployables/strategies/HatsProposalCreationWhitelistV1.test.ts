@@ -4,10 +4,14 @@ import { ethers } from 'hardhat';
 import {
   ConcreteHatsProposalCreationWhitelistV1,
   ConcreteHatsProposalCreationWhitelistV1__factory,
+  IERC165__factory,
+  IHatsProposalCreationWhitelistV1__factory,
+  IVersion__factory,
   MockHats,
   MockHats__factory,
 } from '../../../typechain-types';
 import { runHatsProposerTests } from '../../helpers/hatsProposerTests';
+import { calculateInterfaceId } from '../../helpers/utils';
 
 describe('HatsProposalCreationWhitelistV1', () => {
   // Signers
@@ -221,6 +225,53 @@ describe('HatsProposalCreationWhitelistV1', () => {
   describe('Version', () => {
     it('should return correct version', async () => {
       expect(await concreteHatsProposalCreationWhitelist.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let iHatsProposalCreationWhitelistV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IHatsProposalCreationWhitelistV1Interface =
+        IHatsProposalCreationWhitelistV1__factory.createInterface();
+      iHatsProposalCreationWhitelistV1InterfaceId = calculateInterfaceId(
+        IHatsProposalCreationWhitelistV1Interface,
+      );
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported =
+        await concreteHatsProposalCreationWhitelist.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IHatsProposalCreationWhitelistV1 interface', async function () {
+      const supported = await concreteHatsProposalCreationWhitelist.supportsInterface(
+        iHatsProposalCreationWhitelistV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported =
+        await concreteHatsProposalCreationWhitelist.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported =
+        await concreteHatsProposalCreationWhitelist.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });
