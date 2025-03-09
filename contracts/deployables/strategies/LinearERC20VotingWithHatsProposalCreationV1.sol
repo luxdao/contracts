@@ -87,4 +87,16 @@ contract LinearERC20VotingWithHatsProposalCreationV1 is
     {
         return 1;
     }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        virtual
+        override(HatsProposalCreationWhitelistV1, LinearERC20VotingV1)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
 }

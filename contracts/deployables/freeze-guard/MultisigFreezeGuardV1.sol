@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
+import {BaseGuardV1} from "./BaseGuardV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMultisigFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
-import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
-import {BaseGuard} from "@gnosis-guild/zodiac/contracts/guard/BaseGuard.sol";
 
 /**
  * Implementation of [IMultisigFreezeGuard](./interfaces/IMultisigFreezeGuard.md).
  */
 contract MultisigFreezeGuardV1 is
-    IVersion,
-    FactoryFriendly,
-    IGuard,
     IMultisigFreezeGuardV1,
-    BaseGuard
+    IVersion,
+    BaseGuardV1,
+    FactoryFriendly
 {
     /** Timelock period (in blocks). */
     uint32 public timelockPeriod;
@@ -167,7 +165,7 @@ contract MultisigFreezeGuardV1 is
         address payable,
         bytes memory signatures,
         address
-    ) external view override(BaseGuard, IGuard) {
+    ) external view override(BaseGuardV1) {
         bytes32 signaturesHash = keccak256(signatures);
 
         if (transactionTimelockedBlock[signaturesHash] == 0)
@@ -195,7 +193,7 @@ contract MultisigFreezeGuardV1 is
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseGuard, IGuard) {
+    ) external view override(BaseGuardV1) {
         // not implementated
     }
 
@@ -219,7 +217,16 @@ contract MultisigFreezeGuardV1 is
     }
 
     /// @inheritdoc IVersion
-    function getVersion() external pure virtual returns (uint16) {
+    function getVersion() external pure virtual override returns (uint16) {
         return 1;
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IMultisigFreezeGuardV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

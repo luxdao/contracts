@@ -5,9 +5,12 @@ import { ethers } from 'hardhat';
 import {
   ConcreteBaseFreezeVotingV1,
   ConcreteBaseFreezeVotingV1__factory,
+  IBaseFreezeVotingV1__factory,
+  IERC165__factory,
+  IVersion__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying ConcreteBaseFreezeVoting instances
 async function deployConcreteBaseFreezeVotingProxy(
@@ -380,6 +383,47 @@ describe('BaseFreezeVotingV1', () => {
   describe('Version', () => {
     it('should return correct version', async () => {
       expect(await freezeVoting.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let iBaseFreezeVotingV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IBaseFreezeVotingV1Interface = IBaseFreezeVotingV1__factory.createInterface();
+      iBaseFreezeVotingV1InterfaceId = calculateInterfaceId(IBaseFreezeVotingV1Interface);
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      // Cast the freezeVoting instance to any type to bypass TypeScript checking
+      // since we know the actual contract implements supportsInterface
+      const supported = await freezeVoting.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseFreezeVotingV1 interface', async function () {
+      const supported = await freezeVoting.supportsInterface(iBaseFreezeVotingV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await freezeVoting.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await freezeVoting.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

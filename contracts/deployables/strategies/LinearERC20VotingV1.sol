@@ -343,4 +343,21 @@ contract LinearERC20VotingV1 is
     {
         return 1;
     }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        virtual
+        override(
+            BaseQuorumPercentV1,
+            BaseStrategyV1,
+            BaseVotingBasisPercentV1,
+            ERC4337VoterSupportV1
+        )
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
 }

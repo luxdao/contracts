@@ -2,25 +2,21 @@
 pragma solidity ^0.8.28;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {IHatsProposalCreationWhitelistV1} from "../../interfaces/decent/deployables/IHatsProposalCreationWhitelistV1.sol";
 import {IHats} from "../../interfaces/hats/IHats.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 abstract contract HatsProposalCreationWhitelistV1 is
+    IHatsProposalCreationWhitelistV1,
     IVersion,
-    OwnableUpgradeable
+    OwnableUpgradeable,
+    ERC165
 {
-    event HatWhitelisted(uint256 hatId);
-    event HatRemovedFromWhitelist(uint256 hatId);
-
     IHats public hatsContract;
 
     /** Array to store whitelisted Hat IDs. */
     uint256[] private whitelistedHatIds;
-
-    error InvalidHatsContract();
-    error NoHatsWhitelisted();
-    error HatAlreadyWhitelisted();
-    error HatNotWhitelisted();
 
     /**
      * Sets up the contract with its initial parameters.
@@ -105,6 +101,16 @@ abstract contract HatsProposalCreationWhitelistV1 is
      */
     function getWhitelistedHatIds() public view returns (uint256[] memory) {
         return whitelistedHatIds;
+    }
+
+    /// @inheritdoc ERC165
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IHatsProposalCreationWhitelistV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     /// @inheritdoc IVersion

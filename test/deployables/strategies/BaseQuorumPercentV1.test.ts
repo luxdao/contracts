@@ -4,9 +4,12 @@ import { ethers } from 'hardhat';
 import {
   ConcreteBaseQuorumPercentV1,
   ConcreteBaseQuorumPercentV1__factory,
+  IBaseQuorumPercentV1__factory,
+  IERC165__factory,
+  IVersion__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 describe('BaseQuorumPercentV1', () => {
   // Signers
@@ -188,6 +191,47 @@ describe('BaseQuorumPercentV1', () => {
   describe('Version', () => {
     it('should return correct version', async () => {
       expect(await concreteQuorumPercent.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let iBaseQuorumPercentV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IBaseQuorumPercentV1Interface = IBaseQuorumPercentV1__factory.createInterface();
+      iBaseQuorumPercentV1InterfaceId = calculateInterfaceId(IBaseQuorumPercentV1Interface);
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await concreteQuorumPercent.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseQuorumPercentV1 interface', async function () {
+      const supported = await concreteQuorumPercent.supportsInterface(
+        iBaseQuorumPercentV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await concreteQuorumPercent.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await concreteQuorumPercent.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

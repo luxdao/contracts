@@ -2,6 +2,12 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  IBaseStrategyV1__factory,
+  IBaseVotingBasisPercentV1__factory,
+  IERC165__factory,
+  IERC721VotingStrategyV1__factory,
+  IHatsProposalCreationWhitelistV1__factory,
+  IVersion__factory,
   LinearERC721VotingWithHatsProposalCreationV1,
   LinearERC721VotingWithHatsProposalCreationV1__factory,
   MockERC721,
@@ -11,7 +17,7 @@ import {
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
 import { runHatsProposerTests } from '../../helpers/hatsProposerTests';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 /**
  * This test file only covers the specific functionality of LinearERC721VotingWithHatsProposalCreationV1,
@@ -231,6 +237,89 @@ describe('LinearERC721VotingWithHatsProposalCreationV1', () => {
       it('should return correct version', async () => {
         const version = await linearERC721VotingWithHatsProposalCreation.getVersion();
         expect(version).to.equal(1);
+      });
+    });
+
+    describe('ERC165', function () {
+      let iERC721VotingStrategyV1InterfaceId: string;
+      let iBaseVotingBasisPercentV1InterfaceId: string;
+      let iBaseStrategyV1InterfaceId: string;
+      let iHatsProposalCreationWhitelistV1InterfaceId: string;
+      let iVersionInterfaceId: string;
+      let iERC165InterfaceId: string;
+
+      beforeEach(async function () {
+        // Dynamically calculate interface IDs
+        const IERC721VotingStrategyV1Interface = IERC721VotingStrategyV1__factory.createInterface();
+        iERC721VotingStrategyV1InterfaceId = calculateInterfaceId(IERC721VotingStrategyV1Interface);
+
+        const IBaseVotingBasisPercentV1Interface =
+          IBaseVotingBasisPercentV1__factory.createInterface();
+        iBaseVotingBasisPercentV1InterfaceId = calculateInterfaceId(
+          IBaseVotingBasisPercentV1Interface,
+        );
+
+        const IBaseStrategyV1Interface = IBaseStrategyV1__factory.createInterface();
+        iBaseStrategyV1InterfaceId = calculateInterfaceId(IBaseStrategyV1Interface);
+
+        const IHatsProposalCreationWhitelistV1Interface =
+          IHatsProposalCreationWhitelistV1__factory.createInterface();
+        iHatsProposalCreationWhitelistV1InterfaceId = calculateInterfaceId(
+          IHatsProposalCreationWhitelistV1Interface,
+        );
+
+        const IVersionInterface = IVersion__factory.createInterface();
+        iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+        const IERC165Interface = IERC165__factory.createInterface();
+        iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+      });
+
+      it('Should support IERC165 interface', async function () {
+        const supported =
+          await linearERC721VotingWithHatsProposalCreation.supportsInterface(iERC165InterfaceId);
+        void expect(supported).to.be.true;
+      });
+
+      it('Should support IERC721VotingStrategyV1 interface', async function () {
+        const supported = await linearERC721VotingWithHatsProposalCreation.supportsInterface(
+          iERC721VotingStrategyV1InterfaceId,
+        );
+        void expect(supported).to.be.true;
+      });
+
+      it('Should support IHatsProposalCreationWhitelistV1 interface', async function () {
+        const supported = await linearERC721VotingWithHatsProposalCreation.supportsInterface(
+          iHatsProposalCreationWhitelistV1InterfaceId,
+        );
+        void expect(supported).to.be.true;
+      });
+
+      it('Should support IBaseVotingBasisPercentV1 interface', async function () {
+        const supported = await linearERC721VotingWithHatsProposalCreation.supportsInterface(
+          iBaseVotingBasisPercentV1InterfaceId,
+        );
+        void expect(supported).to.be.true;
+      });
+
+      it('Should support IBaseStrategyV1 interface', async function () {
+        const supported = await linearERC721VotingWithHatsProposalCreation.supportsInterface(
+          iBaseStrategyV1InterfaceId,
+        );
+        void expect(supported).to.be.true;
+      });
+
+      it('Should support IVersion interface', async function () {
+        const supported =
+          await linearERC721VotingWithHatsProposalCreation.supportsInterface(iVersionInterfaceId);
+        void expect(supported).to.be.true;
+      });
+
+      it('Should not support random interface', async function () {
+        const randomInterfaceId = '0x12345678';
+        const supported =
+          await linearERC721VotingWithHatsProposalCreation.supportsInterface(randomInterfaceId);
+        void expect(supported).to.be.false;
       });
     });
   });

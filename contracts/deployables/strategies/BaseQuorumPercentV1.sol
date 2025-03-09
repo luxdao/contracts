@@ -2,23 +2,25 @@
 pragma solidity ^0.8.28;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {IBaseQuorumPercentV1} from "../../interfaces/decent/deployables/IBaseQuorumPercentV1.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * An Azorius extension contract that enables percent based quorums.
  * Intended to be implemented by [BaseStrategy](./BaseStrategy.md) implementations.
  */
-abstract contract BaseQuorumPercentV1 is IVersion, OwnableUpgradeable {
+abstract contract BaseQuorumPercentV1 is
+    IBaseQuorumPercentV1,
+    IVersion,
+    OwnableUpgradeable,
+    ERC165
+{
     /** The numerator to use when calculating quorum (adjustable). */
     uint256 public quorumNumerator;
 
     /** The denominator to use when calculating quorum (1,000,000). */
     uint256 public constant QUORUM_DENOMINATOR = 1_000_000;
-
-    /** Ensures the numerator cannot be larger than the denominator. */
-    error InvalidQuorumNumerator();
-
-    event QuorumNumeratorUpdated(uint256 quorumNumerator);
 
     /**
      * Updates the quorum required for future Proposals.
@@ -72,4 +74,14 @@ abstract contract BaseQuorumPercentV1 is IVersion, OwnableUpgradeable {
 
     /// @inheritdoc IVersion
     function getVersion() external pure virtual returns (uint16);
+
+    /// @inheritdoc ERC165
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IBaseQuorumPercentV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
 }

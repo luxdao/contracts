@@ -5,16 +5,18 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {IBaseStrategyV1} from "../../interfaces/decent/deployables/IBaseStrategyV1.sol";
 import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * The base abstract contract for all voting strategies in Azorius.
  */
 abstract contract BaseStrategyV1 is
+    IBaseStrategyV1,
     IVersion,
     OwnableUpgradeable,
     FactoryFriendly,
-    IBaseStrategyV1
+    ERC165
 {
     event AzoriusSet(address indexed azoriusModule);
     event StrategySetUp(address indexed azoriusModule, address indexed owner);
@@ -66,6 +68,16 @@ abstract contract BaseStrategyV1 is
         emit AzoriusSet(_azoriusModule);
     }
 
+    /// @inheritdoc ERC165
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IBaseStrategyV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
     /// @inheritdoc IVersion
-    function getVersion() external pure virtual returns (uint16);
+    function getVersion() external pure virtual override returns (uint16);
 }
