@@ -5,8 +5,10 @@ import {
   DecentAutonomousAdminV1,
   DecentAutonomousAdminV1__factory,
   IDecentAutonomousAdminV1__factory,
+  IERC165__factory,
   IVersion__factory,
 } from '../../../typechain-types';
+import { calculateInterfaceId } from '../../helpers/utils';
 
 describe('DecentAutonomousAdminV1', function () {
   // Signer accounts
@@ -23,44 +25,46 @@ describe('DecentAutonomousAdminV1', function () {
     decentAutonomousAdminInstance = await new DecentAutonomousAdminV1__factory(deployer).deploy();
   });
 
-  describe('supportsInterface', function () {
-    it('should support IDecentAutonomousAdminV1 interface', async function () {
-      // Get the interface ID from the factory
-      const decentAdminInterfaceId =
-        IDecentAutonomousAdminV1__factory.createInterface().getFunction(
-          'triggerStartNextTerm',
-        ).selector;
+  describe('ERC165', function () {
+    let iDecentAutonomousAdminV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
 
-      // Check if the contract supports this interface
-      const supports =
-        await decentAutonomousAdminInstance.supportsInterface(decentAdminInterfaceId);
-      void expect(supports).to.be.true;
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IDecentAutonomousAdminV1Interface = IDecentAutonomousAdminV1__factory.createInterface();
+      iDecentAutonomousAdminV1InterfaceId = calculateInterfaceId(IDecentAutonomousAdminV1Interface);
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
     });
 
-    it('should support IVersion interface', async function () {
-      // Get the interface ID from the factory
-      const versionInterfaceId =
-        IVersion__factory.createInterface().getFunction('getVersion').selector;
-
-      // Check if the contract supports this interface
-      const supports = await decentAutonomousAdminInstance.supportsInterface(versionInterfaceId);
-      void expect(supports).to.be.true;
+    it('Should support IERC165 interface', async function () {
+      const supported = await decentAutonomousAdminInstance.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
     });
 
-    it('should support ERC165 interface', async function () {
-      // ERC165 interface id is well-known
-      const erc165InterfaceId = '0x01ffc9a7';
+    it('Should support IDecentAutonomousAdminV1 interface', async function () {
+      const supported = await decentAutonomousAdminInstance.supportsInterface(
+        iDecentAutonomousAdminV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
 
-      const supports = await decentAutonomousAdminInstance.supportsInterface(erc165InterfaceId);
-      void expect(supports).to.be.true;
+    it('Should support IVersion interface', async function () {
+      const supported = await decentAutonomousAdminInstance.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
     });
 
     it('should not support random interface', async function () {
       // Random interface id
       const randomInterfaceId = '0x12345678';
 
-      const supports = await decentAutonomousAdminInstance.supportsInterface(randomInterfaceId);
-      void expect(supports).to.be.false;
+      const supported = await decentAutonomousAdminInstance.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 

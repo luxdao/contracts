@@ -3,8 +3,9 @@ pragma solidity ^0.8.28;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IOwnershipV1} from "../../interfaces/decent/deployables/IOwnershipV1.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-abstract contract ERC4337VoterSupportV1 is IVersion {
+abstract contract ERC4337VoterSupportV1 is IVersion, ERC165 {
     /**
      * Returns the address of the voter which owns the voting weight
      * @param _msgSender address of the sender. It can be the wallet address, or the smart account address with EOA as owner
@@ -30,6 +31,15 @@ abstract contract ERC4337VoterSupportV1 is IVersion {
         } catch {
             return _msgSender;
         }
+    }
+
+    /// @inheritdoc ERC165
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     /// @inheritdoc IVersion

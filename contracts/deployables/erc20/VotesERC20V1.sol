@@ -3,6 +3,10 @@ pragma solidity ^0.8.28;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
+import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {NoncesUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
 import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
@@ -15,7 +19,8 @@ contract VotesERC20V1 is
     IVersion,
     ERC20VotesUpgradeable,
     ERC20PermitUpgradeable,
-    FactoryFriendly
+    FactoryFriendly,
+    ERC165
 {
     constructor() {
         _disableInitializers();
@@ -72,6 +77,18 @@ contract VotesERC20V1 is
         returns (uint256)
     {
         return super.nonces(owner);
+    }
+
+    /// @inheritdoc ERC165
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IVersion).interfaceId ||
+            interfaceId == type(IERC20).interfaceId ||
+            interfaceId == type(IERC20Permit).interfaceId ||
+            interfaceId == type(IVotes).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     /// @inheritdoc IVersion

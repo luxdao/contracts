@@ -4,11 +4,13 @@ import { ethers } from 'hardhat';
 import {
   AzoriusFreezeGuardV1,
   AzoriusFreezeGuardV1__factory,
+  IERC165__factory,
+  IVersion__factory,
   MockFreezeVoting,
   MockFreezeVoting__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying AzoriusFreezeGuardV1 instances
 async function deployAzoriusFreezeGuardProxy(
@@ -221,6 +223,36 @@ describe('AzoriusFreezeGuardV1', () => {
 
     it('should return correct version', async () => {
       expect(await azoriusFreezeGuard.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await azoriusFreezeGuard.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await azoriusFreezeGuard.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await azoriusFreezeGuard.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

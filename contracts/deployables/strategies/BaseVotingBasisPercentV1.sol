@@ -2,7 +2,9 @@
 pragma solidity ^0.8.28;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {IBaseVotingBasisPercentV1} from "../../interfaces/decent/deployables/IBaseVotingBasisPercentV1.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * An Azorius extension contract that enables percent based voting basis calculations.
@@ -13,16 +15,17 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
  * See https://en.wikipedia.org/wiki/Voting#Voting_basis.
  * See https://en.wikipedia.org/wiki/Supermajority.
  */
-abstract contract BaseVotingBasisPercentV1 is IVersion, OwnableUpgradeable {
+abstract contract BaseVotingBasisPercentV1 is
+    IBaseVotingBasisPercentV1,
+    IVersion,
+    OwnableUpgradeable,
+    ERC165
+{
     /** The numerator to use when calculating basis (adjustable). */
     uint256 public basisNumerator;
 
     /** The denominator to use when calculating basis (1,000,000). */
     uint256 public constant BASIS_DENOMINATOR = 1_000_000;
-
-    error InvalidBasisNumerator();
-
-    event BasisNumeratorUpdated(uint256 basisNumerator);
 
     /**
      * Updates the `basisNumerator` for future Proposals.
@@ -65,4 +68,16 @@ abstract contract BaseVotingBasisPercentV1 is IVersion, OwnableUpgradeable {
 
     /// @inheritdoc IVersion
     function getVersion() external pure virtual returns (uint16);
+
+    /**
+     * @inheritdoc ERC165
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IBaseVotingBasisPercentV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
 }
