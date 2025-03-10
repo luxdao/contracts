@@ -148,7 +148,7 @@ contract MultisigFreezeGuardV1 is
 
     /** @inheritdoc IMultisigFreezeGuardV1*/
     function updateExecutionPeriod(uint32 _executionPeriod) external onlyOwner {
-        executionPeriod = _executionPeriod;
+        _updateExecutionPeriod(_executionPeriod);
     }
 
     /**
