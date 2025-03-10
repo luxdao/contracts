@@ -8,9 +8,11 @@ import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 /**
  * @title MockERC20Votes
  * @dev Mock ERC20 token with IVotes implementation for testing voting functionality
+ * Enhanced with proper historical snapshot support
  */
 contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
     mapping(address => mapping(uint256 => uint256)) private _mockPastVotes;
+    mapping(uint256 => uint256) private _mockPastTotalSupply;
     mapping(address => address) private _delegates;
 
     constructor()
@@ -39,6 +41,18 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
         uint256 votes
     ) external {
         _mockPastVotes[account][blockNumber] = votes;
+    }
+
+    /**
+     * @dev Sets a specific past total supply for a specific block
+     * @param blockNumber The block number to set total supply at
+     * @param totalSupply The total supply to set
+     */
+    function setPastTotalSupply(
+        uint256 blockNumber,
+        uint256 totalSupply
+    ) external {
+        _mockPastTotalSupply[blockNumber] = totalSupply;
     }
 
     /**
@@ -79,6 +93,7 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
 
     /**
      * @dev Overrides getPastVotes to return our mock values
+     * Enhanced to properly handle historical snapshots
      */
     function getPastVotes(
         address account,
@@ -87,15 +102,22 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
         if (_mockPastVotes[account][blockNumber] > 0) {
             return _mockPastVotes[account][blockNumber];
         }
+        // If no explicit value is set for this block, return the current balance
+        // In a real implementation, this would use a checkpoint system
         return balanceOf(account);
     }
 
     /**
-     * @dev Required IVotes implementation - not used in tests
+     * @dev Enhanced implementation that properly handles historical snapshots
      */
     function getPastTotalSupply(
-        uint256
+        uint256 blockNumber
     ) public view override returns (uint256) {
+        if (_mockPastTotalSupply[blockNumber] > 0) {
+            return _mockPastTotalSupply[blockNumber];
+        }
+        // If no explicit value is set for this block, return the current total supply
+        // In a real implementation, this would use a checkpoint system
         return totalSupply();
     }
 }
