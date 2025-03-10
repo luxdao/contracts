@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IFractalModuleV1} from "../../interfaces/decent/deployables/IFractalModuleV1.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * Implementation of [IFractalModule](./interfaces/IFractalModule.md).
@@ -14,7 +15,12 @@ import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/Guardab
  * transactions on the Safe, which in our implementation is the set of parent
  * DAOs.
  */
-contract FractalModuleV1 is IVersion, IFractalModuleV1, GuardableModule {
+contract FractalModuleV1 is
+    IVersion,
+    IFractalModuleV1,
+    GuardableModule,
+    ERC165
+{
     /** Mapping of whether an address is a controller (typically a parentDAO). */
     mapping(address => bool) public controllers;
 
@@ -99,5 +105,17 @@ contract FractalModuleV1 is IVersion, IFractalModuleV1, GuardableModule {
     /// @inheritdoc IVersion
     function getVersion() external pure virtual override returns (uint16) {
         return 1;
+    }
+
+    /**
+     * Implementation of ERC165 for this contract.
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IFractalModuleV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

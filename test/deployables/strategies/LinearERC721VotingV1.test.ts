@@ -3,6 +3,11 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  IBaseStrategyV1__factory,
+  IBaseVotingBasisPercentV1__factory,
+  IERC165__factory,
+  IERC721VotingStrategyV1__factory,
+  IVersion__factory,
   LinearERC721VotingV1,
   LinearERC721VotingV1__factory,
   MockERC721,
@@ -10,7 +15,7 @@ import {
   MockOwnership__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 describe('LinearERC721VotingV1', () => {
   // Signers
@@ -868,6 +873,70 @@ describe('LinearERC721VotingV1', () => {
   describe('Version', () => {
     it('should return correct version', async () => {
       expect(await linearERC721Voting.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let iERC721VotingStrategyV1InterfaceId: string;
+    let iBaseStrategyV1InterfaceId: string;
+    let iBaseVotingBasisPercentV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IERC721VotingStrategyV1Interface = IERC721VotingStrategyV1__factory.createInterface();
+      iERC721VotingStrategyV1InterfaceId = calculateInterfaceId(IERC721VotingStrategyV1Interface);
+
+      const IBaseVotingBasisPercentV1Interface =
+        IBaseVotingBasisPercentV1__factory.createInterface();
+      iBaseVotingBasisPercentV1InterfaceId = calculateInterfaceId(
+        IBaseVotingBasisPercentV1Interface,
+      );
+
+      const IBaseStrategyV1Interface = IBaseStrategyV1__factory.createInterface();
+      iBaseStrategyV1InterfaceId = calculateInterfaceId(IBaseStrategyV1Interface);
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC721VotingStrategyV1 interface', async function () {
+      const supported = await linearERC721Voting.supportsInterface(
+        iERC721VotingStrategyV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await linearERC721Voting.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseVotingBasisPercentV1 interface', async function () {
+      const supported = await linearERC721Voting.supportsInterface(
+        iBaseVotingBasisPercentV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseStrategyV1 interface', async function () {
+      const supported = await linearERC721Voting.supportsInterface(iBaseStrategyV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await linearERC721Voting.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await linearERC721Voting.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

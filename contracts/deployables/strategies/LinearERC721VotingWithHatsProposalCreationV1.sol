@@ -90,4 +90,16 @@ contract LinearERC721VotingWithHatsProposalCreationV1 is
     {
         return 1;
     }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        virtual
+        override(HatsProposalCreationWhitelistV1, LinearERC721VotingV1)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
 }

@@ -1,9 +1,15 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
-import { ConcreteBaseStrategyV1, ConcreteBaseStrategyV1__factory } from '../../../typechain-types';
+import {
+  ConcreteBaseStrategyV1,
+  ConcreteBaseStrategyV1__factory,
+  IBaseStrategyV1__factory,
+  IERC165__factory,
+  IVersion__factory,
+} from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 describe('BaseStrategyV1', () => {
   // Signers
@@ -173,6 +179,45 @@ describe('BaseStrategyV1', () => {
   describe('Version', () => {
     it('should return correct version', async () => {
       expect(await concreteStrategy.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    let iBaseStrategyV1InterfaceId: string;
+    let iVersionInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Dynamically calculate interface IDs
+      const IBaseStrategyV1Interface = IBaseStrategyV1__factory.createInterface();
+      iBaseStrategyV1InterfaceId = calculateInterfaceId(IBaseStrategyV1Interface);
+
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await concreteStrategy.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IBaseStrategyV1 interface', async function () {
+      const supported = await concreteStrategy.supportsInterface(iBaseStrategyV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await concreteStrategy.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await concreteStrategy.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });

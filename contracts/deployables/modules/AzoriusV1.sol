@@ -5,6 +5,7 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IBaseStrategyV1} from "../../interfaces/decent/deployables/IBaseStrategyV1.sol";
 import {IAzoriusV1, Enum} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * A Safe module which allows for composable governance.
@@ -16,7 +17,7 @@ import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModu
  * All voting details are delegated to [BaseStrategy](./BaseStrategy.md) implementations, of which an Azorius DAO can
  * have any number.
  */
-contract AzoriusV1 is IVersion, IAzoriusV1, GuardableModule {
+contract AzoriusV1 is IVersion, IAzoriusV1, GuardableModule, ERC165 {
     /**
      * The sentinel node of the linked list of enabled [BaseStrategies](./BaseStrategy.md).
      *
@@ -465,5 +466,17 @@ contract AzoriusV1 is IVersion, IAzoriusV1, GuardableModule {
     /// @inheritdoc IVersion
     function getVersion() external pure virtual override returns (uint16) {
         return 1;
+    }
+
+    /**
+     * Implementation of ERC165 for this contract.
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IAzoriusV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

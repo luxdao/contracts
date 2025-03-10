@@ -1,9 +1,17 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
-import { VotesERC20V1, VotesERC20V1__factory } from '../../../typechain-types';
+import {
+  IERC165__factory,
+  IERC20__factory,
+  IERC20Permit__factory,
+  IVersion__factory,
+  IVotes__factory,
+  VotesERC20V1,
+  VotesERC20V1__factory,
+} from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying VotesERC20V1 instances
 async function deployVotesERC20Proxy(
@@ -155,6 +163,74 @@ describe('VotesERC20V1', () => {
 
     it('should return correct version', async () => {
       expect(await votesERC20.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    // Interface IDs
+    let iVersionInterfaceId: string;
+    let iERC20InterfaceId: string;
+    let iERC20PermitInterfaceId: string;
+    let iVotesInterfaceId: string;
+    let iERC165InterfaceId: string;
+
+    beforeEach(async function () {
+      // Deploy VotesERC20 for this test section
+      votesERC20 = await deployVotesERC20Proxy(
+        votesERC20Mastercopy,
+        owner,
+        TOKEN_NAME,
+        TOKEN_SYMBOL,
+        [],
+        [],
+      );
+
+      // Calculate interface IDs
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC20Interface = IERC20__factory.createInterface();
+      iERC20InterfaceId = calculateInterfaceId(IERC20Interface);
+
+      const IERC20PermitInterface = IERC20Permit__factory.createInterface();
+      iERC20PermitInterfaceId = calculateInterfaceId(IERC20PermitInterface);
+
+      const IVotesInterface = IVotes__factory.createInterface();
+      iVotesInterfaceId = calculateInterfaceId(IVotesInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await votesERC20.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await votesERC20.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IERC20 interface', async function () {
+      const supported = await votesERC20.supportsInterface(iERC20InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IERC20Permit interface', async function () {
+      const supported = await votesERC20.supportsInterface(iERC20PermitInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVotes interface', async function () {
+      const supported = await votesERC20.supportsInterface(iVotesInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await votesERC20.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
     });
   });
 });
