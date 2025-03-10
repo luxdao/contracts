@@ -9,8 +9,8 @@ import {
   MockHats,
   MockHats__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress } from '../../helpers';
+import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { calculateProxyAddress } from '../../helpers/utils';
 
 /**
  * This test file only covers the specific functionality of LinearERC20VotingWithHatsProposalCreationV1,

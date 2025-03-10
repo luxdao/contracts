@@ -3,15 +3,15 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  MultisigFreezeGuardV1,
-  MultisigFreezeGuardV1__factory,
   MockFreezeVoting,
   MockFreezeVoting__factory,
   MockSafe,
   MockSafe__factory,
+  MultisigFreezeGuardV1,
+  MultisigFreezeGuardV1__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress } from '../../helpers';
+import { getModuleProxyFactory } from '../../helpers/globals.test';
+import { calculateProxyAddress } from '../../helpers/utils';
 
 // Helper function for deploying MultisigFreezeGuardV1 instances
 async function deployMultisigFreezeGuardProxy(
