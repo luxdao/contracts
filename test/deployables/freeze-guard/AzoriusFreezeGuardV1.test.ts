@@ -8,7 +8,7 @@ import {
   MockFreezeVoting__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress, Operation } from '../../helpers';
+import { calculateProxyAddress } from '../../helpers';
 
 // Helper function for deploying AzoriusFreezeGuardV1 instances
 async function deployAzoriusFreezeGuardProxy(
@@ -44,6 +44,11 @@ async function deployAzoriusFreezeGuardProxy(
 }
 
 describe('AzoriusFreezeGuardV1', () => {
+  const Operation = {
+    Call: 0,
+    DelegateCall: 1,
+  };
+
   // signers
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
