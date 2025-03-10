@@ -11,7 +11,7 @@ import {
   MockSafe__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../global/GlobalSafeDeployments.test';
-import { calculateProxyAddress, Operation } from '../../helpers';
+import { calculateProxyAddress } from '../../helpers';
 
 // Helper function for deploying MultisigFreezeGuardV1 instances
 async function deployMultisigFreezeGuardProxy(
@@ -50,6 +50,11 @@ async function deployMultisigFreezeGuardProxy(
 }
 
 describe('MultisigFreezeGuardV1', () => {
+  const Operation = {
+    Call: 0,
+    DelegateCall: 1,
+  };
+
   // signers
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
