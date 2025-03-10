@@ -6,7 +6,6 @@ import {
   DecentPaymasterV1__factory,
   IPaymaster__factory,
   IDecentPaymasterV1__factory,
-  ModuleProxyFactory,
   MockEntryPoint,
   MockEntryPoint__factory,
 } from '../../../typechain-types';
@@ -25,24 +24,60 @@ interface PackedUserOperation {
   signature: string;
 }
 
+// Helper function for deploying DecentPaymasterV1 instances
+async function deployDecentPaymasterProxy(
+  decentPaymasterMastercopy: DecentPaymasterV1,
+  owner: SignerWithAddress,
+  entryPoint: string,
+): Promise<DecentPaymasterV1> {
+  const moduleProxyFactory = getModuleProxyFactory();
+  const salt = ethers.hexlify(ethers.randomBytes(32));
+
+  // Encode initialization parameters
+  const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
+    ['address', 'address'],
+    [owner.address, entryPoint],
+  );
+
+  // Deploy proxy through factory
+  const decentPaymasterSetupCalldata =
+    DecentPaymasterV1__factory.createInterface().encodeFunctionData('setUp', [initializeParams]);
+
+  await moduleProxyFactory
+    .connect(owner)
+    .deployModule(await decentPaymasterMastercopy.getAddress(), decentPaymasterSetupCalldata, salt);
+
+  const predictedDecentPaymasterAddress = await calculateProxyAddress(
+    moduleProxyFactory,
+    await decentPaymasterMastercopy.getAddress(),
+    decentPaymasterSetupCalldata,
+    salt,
+  );
+
+  return DecentPaymasterV1__factory.connect(predictedDecentPaymasterAddress, owner);
+}
+
 describe('DecentPaymasterV1', function () {
+  // contracts
   let decentPaymaster: DecentPaymasterV1;
   let decentPaymasterMastercopy: DecentPaymasterV1;
   let entryPoint: MockEntryPoint;
-  let moduleProxyFactory: ModuleProxyFactory;
+
+  // signers
   let owner: SignerWithAddress;
   let strategy: SignerWithAddress;
   let nonOwner: SignerWithAddress;
-  let mockUserOp: PackedUserOperation;
 
+  // test data
+  let mockUserOp: PackedUserOperation;
   const MOCK_FUNCTION_SELECTOR = '0x12345678';
   const MOCK_FUNCTION_SELECTOR_2 = '0x87654321';
   const MOCK_FUNCTION_SELECTOR_3 = '0x11223344';
   const MOCK_INVALID_SELECTOR = '0x99999999';
 
   beforeEach(async function () {
+    // Get signers
     [owner, strategy, nonOwner] = await ethers.getSigners();
-    moduleProxyFactory = getModuleProxyFactory();
 
     // Deploy mock EntryPoint
     const EntryPointFactory = new MockEntryPoint__factory(owner);
@@ -52,34 +87,12 @@ describe('DecentPaymasterV1', function () {
     const DecentPaymasterFactory = new DecentPaymasterV1__factory(owner);
     decentPaymasterMastercopy = await DecentPaymasterFactory.deploy();
 
-    // Encode initialization parameters
-    const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'address'],
-      [owner.address, await entryPoint.getAddress()],
+    // Deploy DecentPaymaster proxy
+    decentPaymaster = await deployDecentPaymasterProxy(
+      decentPaymasterMastercopy,
+      owner,
+      await entryPoint.getAddress(),
     );
-
-    // Deploy proxy through factory
-    const decentPaymasterSetupCalldata = DecentPaymasterFactory.interface.encodeFunctionData(
-      'setUp',
-      [initializeParams],
-    );
-
-    await moduleProxyFactory
-      .connect(owner)
-      .deployModule(
-        await decentPaymasterMastercopy.getAddress(),
-        decentPaymasterSetupCalldata,
-        '10031021',
-      );
-
-    const predictedDecentPaymasterAddress = await calculateProxyAddress(
-      moduleProxyFactory,
-      await decentPaymasterMastercopy.getAddress(),
-      decentPaymasterSetupCalldata,
-      '10031021',
-    );
-
-    decentPaymaster = DecentPaymasterV1__factory.connect(predictedDecentPaymasterAddress, owner);
 
     // Create mock UserOperation
     const mockCallData = ethers.concat([

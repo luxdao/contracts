@@ -5,7 +5,6 @@ import { ethers } from 'hardhat';
 import {
   AzoriusV1,
   AzoriusV1__factory,
-  ModuleProxyFactory,
   MockAvatar,
   MockAvatar__factory,
   MockERC20,
@@ -58,9 +57,6 @@ describe('AzoriusV1', () => {
   let proposer: SignerWithAddress;
   let user: SignerWithAddress;
 
-  // deployment dependencies
-  let moduleProxyFactory: ModuleProxyFactory;
-
   // mocks and mastercopies
   let azoriusMastercopy: AzoriusV1;
 
@@ -70,9 +66,6 @@ describe('AzoriusV1', () => {
   beforeEach(async () => {
     // Get signers
     [owner, proposer, user] = await ethers.getSigners();
-
-    // deployment dependencies
-    moduleProxyFactory = getModuleProxyFactory();
 
     // Deploy mastercopy contract
     azoriusMastercopy = await new AzoriusV1__factory(owner).deploy();
@@ -206,7 +199,7 @@ describe('AzoriusV1', () => {
               100,
               200,
             ),
-          ).to.be.revertedWithCustomError(moduleProxyFactory, 'FailedInitialization');
+          ).to.be.revertedWithCustomError(getModuleProxyFactory(), 'FailedInitialization');
         });
 
         it('should not allow sentinel address as strategy', async () => {
@@ -220,7 +213,7 @@ describe('AzoriusV1', () => {
               100,
               200,
             ),
-          ).to.be.revertedWithCustomError(moduleProxyFactory, 'FailedInitialization');
+          ).to.be.revertedWithCustomError(getModuleProxyFactory(), 'FailedInitialization');
         });
       });
 
@@ -303,7 +296,7 @@ describe('AzoriusV1', () => {
               100,
               200,
             ),
-          ).to.be.revertedWithCustomError(moduleProxyFactory, 'FailedInitialization');
+          ).to.be.revertedWithCustomError(getModuleProxyFactory(), 'FailedInitialization');
         });
       });
     });
