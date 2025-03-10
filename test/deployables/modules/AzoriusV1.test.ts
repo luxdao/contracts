@@ -7,8 +7,8 @@ import {
   AzoriusV1__factory,
   MockAvatar,
   MockAvatar__factory,
-  MockERC20,
-  MockERC20__factory,
+  MockERC20Votes,
+  MockERC20Votes__factory,
   MockVotingStrategy,
   MockVotingStrategy__factory,
 } from '../../../typechain-types';
@@ -682,7 +682,7 @@ describe('AzoriusV1', () => {
   describe('Proposal Tests', () => {
     let azorius: AzoriusV1;
     let avatar: MockAvatar;
-    let mockToken: MockERC20;
+    let mockToken: MockERC20Votes;
     let mockStrategy: MockVotingStrategy;
 
     const TIMELOCK_PERIOD = 100; // blocks
@@ -690,7 +690,7 @@ describe('AzoriusV1', () => {
 
     beforeEach(async () => {
       // Deploy mock contracts
-      mockToken = await new MockERC20__factory(owner).deploy();
+      mockToken = await new MockERC20Votes__factory(owner).deploy();
 
       // Deploy initial strategy
       mockStrategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);

@@ -6,8 +6,8 @@ import {
   FractalModuleV1__factory,
   MockAvatar,
   MockAvatar__factory,
-  MockERC20,
-  MockERC20__factory,
+  MockERC20Votes,
+  MockERC20Votes__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
 import { calculateProxyAddress } from '../../helpers/utils';
@@ -57,7 +57,7 @@ describe('FractalModuleV1', () => {
 
   // mocks and mastercopies
   let fractalModuleMastercopy: FractalModuleV1;
-  let mockToken: MockERC20;
+  let mockToken: MockERC20Votes;
 
   beforeEach(async () => {
     // Get signers
@@ -65,7 +65,7 @@ describe('FractalModuleV1', () => {
 
     // Deploy mastercopy contract
     fractalModuleMastercopy = await new FractalModuleV1__factory(owner).deploy();
-    mockToken = await new MockERC20__factory(owner).deploy();
+    mockToken = await new MockERC20Votes__factory(owner).deploy();
   });
 
   describe('Initialization', () => {
