@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -251,8 +251,8 @@ describe('LinearERC20VotingV1', () => {
       await linearERC20Voting.connect(nonOwner).initializeProposal(initializeData);
 
       // Check that proposal was initialized correctly
-      const votingEndBlock = await linearERC20Voting.votingEndBlock(proposalId);
-      expect(votingEndBlock).to.not.equal(0);
+      const votingEndTimestamp = await linearERC20Voting.votingEndTimestamp(proposalId);
+      expect(votingEndTimestamp).to.not.equal(0);
     });
 
     it('should determine proposer status based on voting weight', async () => {
@@ -653,6 +653,105 @@ describe('LinearERC20VotingV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await linearERC20Voting.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('Timestamp-based voting', () => {
+    let proposalId: number;
+
+    beforeEach(async () => {
+      // Initialize a proposal
+      proposalId = 100;
+      const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
+      await linearERC20Voting.connect(nonOwner).initializeProposal(initializeData);
+
+      // Mint tokens to a voter for testing
+      await mockToken.mint(tokenHolder1.address, 1000);
+      await mockToken.connect(tokenHolder1).delegate(tokenHolder1.address);
+    });
+
+    it('should enforce voting end by timestamp', async () => {
+      // Get the voting end timestamp
+      const [, , , , endTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+      // Cast a vote before voting ends
+      await linearERC20Voting.connect(tokenHolder1).vote(proposalId, VoteType.YES);
+
+      // Advance time to just after voting end
+      await time.increaseTo(Number(endTimestamp) + 1);
+
+      // Try to vote after voting ended - should revert
+      await expect(
+        linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES),
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+    });
+
+    it('should use timestamp for voting weight snapshot', async () => {
+      // Get the proposal start timestamp
+      const [, , , startTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+      // Set the past votes to a specific value for testing at the proposal's start timestamp
+      await mockToken.setPastVotes(tokenHolder1.address, startTimestamp, 500);
+
+      // Check that the voting weight is determined by snapshot at start timestamp
+      const votingWeight = await linearERC20Voting.getVotingWeight(
+        tokenHolder1.address,
+        proposalId,
+      );
+      expect(votingWeight).to.equal(500);
+
+      // If user gets more tokens now, voting weight shouldn't change for this proposal
+      const oldBalance = await mockToken.balanceOf(tokenHolder1.address);
+      await mockToken.mint(tokenHolder1.address, 500);
+
+      // Verify total balance increased
+      expect(await mockToken.balanceOf(tokenHolder1.address)).to.be.gt(oldBalance);
+
+      // But voting weight for this proposal should remain the same
+      const newWeight = await linearERC20Voting.getVotingWeight(tokenHolder1.address, proposalId);
+      expect(newWeight).to.equal(500);
+    });
+
+    it('should determine proposal state based on timestamp', async () => {
+      // Set the past votes and total supply at the proposal's start timestamp
+      const [, , , startTimestamp, ,] = await linearERC20Voting.getProposalVotes(proposalId);
+      await mockToken.setPastVotes(tokenHolder1.address, startTimestamp, 600);
+      await mockToken.setPastTotalSupply(startTimestamp, 1000);
+
+      // Cast votes to meet quorum and basis requirements
+      await linearERC20Voting.connect(tokenHolder1).vote(proposalId, VoteType.YES);
+
+      // Before voting end, proposal should not be passed
+      void expect(await linearERC20Voting.isPassed(proposalId)).to.be.false;
+
+      // Get voting end timestamp
+      const [, , , , endTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+      // Advance time to just after voting end
+      await time.increaseTo(Number(endTimestamp) + 1);
+
+      // Proposal should pass
+      void expect(await linearERC20Voting.isPassed(proposalId)).to.be.true;
+    });
+
+    it('should handle exact boundary conditions for timestamps', async () => {
+      // Get voting end timestamp
+      const [, , , , endTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+      // Advance time to 2 seconds before the voting end timestamp
+      await time.increaseTo(Number(endTimestamp) - 2);
+
+      // Should still be able to vote before end timestamp
+      await linearERC20Voting.connect(tokenHolder1).vote(proposalId, VoteType.YES);
+
+      // Advance to end timestamp with a single mine operation
+      // This avoids the "same timestamp" error by using mine with a timestamp parameter
+      await ethers.provider.send('evm_mine', [Number(endTimestamp)]);
+
+      // Should no longer be able to vote at exactly the end timestamp
+      await expect(
+        linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES),
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
     });
   });
 });

@@ -35,8 +35,8 @@ contract LinearERC20VotingV1 is
      * Defines the current state of votes on a particular Proposal.
      */
     struct ProposalVotes {
-        uint32 votingStartBlock; // block that voting starts at
-        uint32 votingEndBlock; // block that voting ends
+        uint48 votingStartTimestamp; // time that voting starts at
+        uint48 votingEndTimestamp; // time that voting ends
         uint256 noVotes; // current number of NO votes for the Proposal
         uint256 yesVotes; // current number of YES votes for the Proposal
         uint256 abstainVotes; // current number of ABSTAIN votes for the Proposal
@@ -45,7 +45,7 @@ contract LinearERC20VotingV1 is
 
     IVotes public governanceToken;
 
-    /** Number of blocks a new Proposal can be voted on. */
+    /** Time that a new Proposal can be voted on. */
     uint32 public votingPeriod;
 
     /** Voting weight required to be able to submit Proposals. */
@@ -56,7 +56,7 @@ contract LinearERC20VotingV1 is
 
     event VotingPeriodUpdated(uint32 votingPeriod);
     event RequiredProposerWeightUpdated(uint256 requiredProposerWeight);
-    event ProposalInitialized(uint32 proposalId, uint32 votingEndBlock);
+    event ProposalInitialized(uint32 proposalId, uint48 votingEndTimestamp);
     event Voted(
         address voter,
         uint32 proposalId,
@@ -152,8 +152,8 @@ contract LinearERC20VotingV1 is
      * @return noVotes current count of "NO" votes
      * @return yesVotes current count of "YES" votes
      * @return abstainVotes current count of "ABSTAIN" votes
-     * @return startBlock block number voting starts
-     * @return endBlock block number voting ends
+     * @return startTimestamp timestamp voting starts
+     * @return endTimestamp timestamp voting ends
      */
     function getProposalVotes(
         uint32 _proposalId
@@ -165,16 +165,16 @@ contract LinearERC20VotingV1 is
             uint256 noVotes,
             uint256 yesVotes,
             uint256 abstainVotes,
-            uint32 startBlock,
-            uint32 endBlock,
+            uint48 startTimestamp,
+            uint48 endTimestamp,
             uint256 votingSupply
         )
     {
         noVotes = proposalVotes[_proposalId].noVotes;
         yesVotes = proposalVotes[_proposalId].yesVotes;
         abstainVotes = proposalVotes[_proposalId].abstainVotes;
-        startBlock = proposalVotes[_proposalId].votingStartBlock;
-        endBlock = proposalVotes[_proposalId].votingEndBlock;
+        startTimestamp = proposalVotes[_proposalId].votingStartTimestamp;
+        endTimestamp = proposalVotes[_proposalId].votingEndTimestamp;
         votingSupply = getProposalVotingSupply(_proposalId);
     }
 
@@ -183,12 +183,14 @@ contract LinearERC20VotingV1 is
         bytes memory _data
     ) public virtual override onlyAzorius {
         uint32 proposalId = abi.decode(_data, (uint32));
-        uint32 _votingEndBlock = uint32(block.number) + votingPeriod;
+        uint48 _votingEndTimestamp = uint48(block.timestamp) + votingPeriod;
 
-        proposalVotes[proposalId].votingEndBlock = _votingEndBlock;
-        proposalVotes[proposalId].votingStartBlock = uint32(block.number);
+        proposalVotes[proposalId].votingEndTimestamp = _votingEndTimestamp;
+        proposalVotes[proposalId].votingStartTimestamp = uint48(
+            block.timestamp
+        );
 
-        emit ProposalInitialized(proposalId, _votingEndBlock);
+        emit ProposalInitialized(proposalId, _votingEndTimestamp);
     }
 
     /**
@@ -209,7 +211,8 @@ contract LinearERC20VotingV1 is
     function isPassed(
         uint32 _proposalId
     ) public view virtual override returns (bool) {
-        return (block.number > proposalVotes[_proposalId].votingEndBlock && // voting period has ended
+        return (block.timestamp >
+            proposalVotes[_proposalId].votingEndTimestamp && // voting period has ended
             meetsQuorum(
                 getProposalVotingSupply(_proposalId),
                 proposalVotes[_proposalId].yesVotes,
@@ -234,7 +237,7 @@ contract LinearERC20VotingV1 is
     ) public view virtual returns (uint256) {
         return
             governanceToken.getPastTotalSupply(
-                proposalVotes[_proposalId].votingStartBlock
+                proposalVotes[_proposalId].votingStartTimestamp
             );
     }
 
@@ -252,7 +255,7 @@ contract LinearERC20VotingV1 is
         return
             governanceToken.getPastVotes(
                 _voter,
-                proposalVotes[_proposalId].votingStartBlock
+                proposalVotes[_proposalId].votingStartTimestamp
             );
     }
 
@@ -266,10 +269,10 @@ contract LinearERC20VotingV1 is
     }
 
     /** @inheritdoc BaseStrategyV1*/
-    function votingEndBlock(
+    function votingEndTimestamp(
         uint32 _proposalId
-    ) public view virtual override returns (uint32) {
-        return proposalVotes[_proposalId].votingEndBlock;
+    ) public view virtual override returns (uint48) {
+        return proposalVotes[_proposalId].votingEndTimestamp;
     }
 
     /** Internal implementation of `updateVotingPeriod`. */
@@ -301,9 +304,9 @@ contract LinearERC20VotingV1 is
         uint8 _voteType,
         uint256 _weight
     ) internal virtual {
-        if (proposalVotes[_proposalId].votingEndBlock == 0)
+        if (proposalVotes[_proposalId].votingEndTimestamp == 0)
             revert InvalidProposal();
-        if (block.number > proposalVotes[_proposalId].votingEndBlock)
+        if (block.timestamp > proposalVotes[_proposalId].votingEndTimestamp)
             revert VotingEnded();
         if (proposalVotes[_proposalId].hasVoted[_voter]) revert AlreadyVoted();
 

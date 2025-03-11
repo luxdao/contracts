@@ -1,4 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -232,6 +233,48 @@ describe('VotesERC20V1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await votesERC20.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('Timestamp-based clock functions', () => {
+    beforeEach(async () => {
+      votesERC20 = await deployVotesERC20Proxy(
+        votesERC20Mastercopy,
+        owner,
+        TOKEN_NAME,
+        TOKEN_SYMBOL,
+        [owner.address],
+        [ethers.parseEther('100')],
+      );
+    });
+
+    it('should return current timestamp from clock()', async () => {
+      const currentTime = await ethers.provider.getBlock('latest').then(b => b!.timestamp);
+      const clockTime = await votesERC20.clock();
+
+      // Allow small variance due to block mining time
+      expect(Number(clockTime)).to.be.closeTo(currentTime, 5);
+    });
+
+    it("should return 'mode=timestamp' from CLOCK_MODE()", async () => {
+      expect(await votesERC20.CLOCK_MODE()).to.equal('mode=timestamp');
+    });
+
+    it('should use timestamp for vote checkpoints', async () => {
+      // Delegate to another address
+      await votesERC20.connect(owner).delegate(alice.address);
+
+      // Mine a block to move forward in time
+      await mine(1);
+
+      // Get current timestamp which is now > the delegation timestamp
+      const currentTime = await time.latest();
+
+      // The voting power at the previous timestamp should be available
+      const votingPower = await votesERC20.getPastVotes(alice.address, currentTime - 1);
+
+      // Should match the owner's balance since we just delegated
+      expect(votingPower).to.equal(await votesERC20.balanceOf(owner.address));
     });
   });
 });

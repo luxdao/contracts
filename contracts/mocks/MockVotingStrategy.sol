@@ -6,7 +6,7 @@ import {IBaseStrategyV1} from "../interfaces/decent/deployables/IBaseStrategyV1.
 contract MockVotingStrategy is IBaseStrategyV1 {
     address public proposer;
     mapping(uint32 => bool) private _isPassed;
-    mapping(uint32 => uint32) private _votingEndBlock;
+    mapping(uint32 => uint48) private _votingEndTimestamp;
 
     constructor(address _proposer) {
         proposer = _proposer;
@@ -28,16 +28,19 @@ contract MockVotingStrategy is IBaseStrategyV1 {
         return _proposer == proposer;
     }
 
-    function votingEndBlock(
+    function votingEndTimestamp(
         uint32 proposalId
-    ) external view override returns (uint32) {
-        return _votingEndBlock[proposalId];
+    ) external view override returns (uint48) {
+        return _votingEndTimestamp[proposalId];
     }
 
     // setters, for testing
 
-    function setVotingEndBlock(uint32 proposalId, uint32 endBlock) external {
-        _votingEndBlock[proposalId] = endBlock;
+    function setVotingEndTimestamp(
+        uint32 proposalId,
+        uint48 endTimestamp
+    ) external {
+        _votingEndTimestamp[proposalId] = endTimestamp;
     }
 
     function setIsPassed(uint32 proposalId, bool passed) external {

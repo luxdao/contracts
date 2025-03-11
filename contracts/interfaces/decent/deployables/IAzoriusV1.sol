@@ -50,8 +50,8 @@ interface IAzoriusV1 {
     /** Holds details pertaining to a single proposal. */
     struct Proposal {
         uint32 executionCounter; // count of transactions that have been executed within the proposal
-        uint32 timelockPeriod; // time (in blocks) this proposal will be timelocked for if it passes
-        uint32 executionPeriod; // time (in blocks) this proposal has to be executed after timelock ends before it is expired
+        uint32 timelockPeriod; // time this proposal will be timelocked for if it passes
+        uint32 executionPeriod; // time this proposal has to be executed after timelock ends before it is expired
         address strategy; // BaseStrategy contract this proposal was created on
         bytes32[] txHashes; // hashes of the transactions that are being proposed
     }
@@ -89,14 +89,14 @@ interface IAzoriusV1 {
      * Updates the `timelockPeriod` for newly created Proposals.
      * This has no effect on existing Proposals, either `ACTIVE` or completed.
      *
-     * @param _timelockPeriod timelockPeriod (in blocks) to be used for new Proposals
+     * @param _timelockPeriod new timelock period
      */
     function updateTimelockPeriod(uint32 _timelockPeriod) external;
 
     /**
      * Updates the execution period for future Proposals.
      *
-     * @param _executionPeriod new execution period (in blocks)
+     * @param _executionPeriod new execution period
      */
     function updateExecutionPeriod(uint32 _executionPeriod) external;
 
@@ -233,8 +233,8 @@ interface IAzoriusV1 {
      * @param _proposalId identifier of the Proposal
      * @return _strategy address of the BaseStrategy contract the Proposal is on
      * @return _txHashes hashes of the transactions the Proposal contains
-     * @return _timelockPeriod time (in blocks) the Proposal is timelocked for
-     * @return _executionPeriod time (in blocks) the Proposal must be executed within, after timelock ends
+     * @return _timelockPeriod time the Proposal is timelocked for
+     * @return _executionPeriod time the Proposal must be executed within, after timelock ends
      * @return _executionCounter counter of how many of the Proposals transactions have been executed
      */
     function getProposal(

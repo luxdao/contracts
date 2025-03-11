@@ -41,8 +41,8 @@ contract LinearERC721VotingV1 is
      * Defines the current state of votes on a particular Proposal.
      */
     struct ProposalVotes {
-        uint32 votingStartBlock; // block that voting starts at
-        uint32 votingEndBlock; // block that voting ends
+        uint48 votingStartTimestamp; // timestamp that voting starts at
+        uint48 votingEndTimestamp; // timestamp that voting ends
         uint256 noVotes; // current number of NO votes for the Proposal
         uint256 yesVotes; // current number of YES votes for the Proposal
         uint256 abstainVotes; // current number of ABSTAIN votes for the Proposal
@@ -80,7 +80,7 @@ contract LinearERC721VotingV1 is
     event VotingPeriodUpdated(uint32 votingPeriod);
     event QuorumThresholdUpdated(uint256 quorumThreshold);
     event ProposerThresholdUpdated(uint256 proposerThreshold);
-    event ProposalInitialized(uint32 proposalId, uint32 votingEndBlock);
+    event ProposalInitialized(uint32 proposalId, uint48 votingEndTimestamp);
     event Voted(
         address voter,
         uint32 proposalId,
@@ -222,8 +222,8 @@ contract LinearERC721VotingV1 is
      * @return noVotes current count of "NO" votes
      * @return yesVotes current count of "YES" votes
      * @return abstainVotes current count of "ABSTAIN" votes
-     * @return startBlock block number voting starts
-     * @return endBlock block number voting ends
+     * @return startTimestamp timestamp voting starts
+     * @return endTimestamp timestamp voting ends
      */
     function getProposalVotes(
         uint32 _proposalId
@@ -235,15 +235,15 @@ contract LinearERC721VotingV1 is
             uint256 noVotes,
             uint256 yesVotes,
             uint256 abstainVotes,
-            uint32 startBlock,
-            uint32 endBlock
+            uint48 startTimestamp,
+            uint48 endTimestamp
         )
     {
         noVotes = proposalVotes[_proposalId].noVotes;
         yesVotes = proposalVotes[_proposalId].yesVotes;
         abstainVotes = proposalVotes[_proposalId].abstainVotes;
-        startBlock = proposalVotes[_proposalId].votingStartBlock;
-        endBlock = proposalVotes[_proposalId].votingEndBlock;
+        startTimestamp = proposalVotes[_proposalId].votingStartTimestamp;
+        endTimestamp = proposalVotes[_proposalId].votingEndTimestamp;
     }
 
     /**
@@ -325,19 +325,22 @@ contract LinearERC721VotingV1 is
         bytes memory _data
     ) public virtual override onlyAzorius {
         uint32 proposalId = abi.decode(_data, (uint32));
-        uint32 _votingEndBlock = uint32(block.number) + votingPeriod;
+        uint48 _votingEndTimestamp = uint48(block.timestamp) + votingPeriod;
 
-        proposalVotes[proposalId].votingEndBlock = _votingEndBlock;
-        proposalVotes[proposalId].votingStartBlock = uint32(block.number);
+        proposalVotes[proposalId].votingEndTimestamp = _votingEndTimestamp;
+        proposalVotes[proposalId].votingStartTimestamp = uint48(
+            block.timestamp
+        );
 
-        emit ProposalInitialized(proposalId, _votingEndBlock);
+        emit ProposalInitialized(proposalId, _votingEndTimestamp);
     }
 
     /** @inheritdoc BaseStrategyV1*/
     function isPassed(
         uint32 _proposalId
     ) public view virtual override returns (bool) {
-        return (block.number > proposalVotes[_proposalId].votingEndBlock && // voting period has ended
+        return (block.timestamp >
+            proposalVotes[_proposalId].votingEndTimestamp && // voting period has ended
             quorumThreshold <=
             proposalVotes[_proposalId].yesVotes +
                 proposalVotes[_proposalId].abstainVotes && // yes + abstain votes meets the quorum
@@ -365,10 +368,10 @@ contract LinearERC721VotingV1 is
     }
 
     /** @inheritdoc BaseStrategyV1*/
-    function votingEndBlock(
+    function votingEndTimestamp(
         uint32 _proposalId
-    ) public view virtual override returns (uint32) {
-        return proposalVotes[_proposalId].votingEndBlock;
+    ) public view virtual override returns (uint48) {
+        return proposalVotes[_proposalId].votingEndTimestamp;
     }
 
     /** Internal implementation of `addGovernanceToken` */
@@ -456,9 +459,9 @@ contract LinearERC721VotingV1 is
 
         ProposalVotes storage proposal = proposalVotes[_proposalId];
 
-        if (proposal.votingEndBlock == 0) revert InvalidProposal();
+        if (proposal.votingEndTimestamp == 0) revert InvalidProposal();
 
-        if (block.number > proposal.votingEndBlock) revert VotingEnded();
+        if (block.timestamp > proposal.votingEndTimestamp) revert VotingEnded();
 
         if (_voteType == uint8(VoteType.NO)) {
             proposal.noVotes += weight;
