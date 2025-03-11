@@ -3,16 +3,13 @@ pragma solidity ^0.8.28;
 
 import {BasePaymasterV1, IEntryPoint} from "./BasePaymasterV1.sol";
 import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {PackedUserOperation, IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract DecentPaymasterV1 is
-    IDecentPaymasterV1,
-    IVersion,
-    BasePaymasterV1,
-    ERC165
-{
+contract DecentPaymasterV1 is IDecentPaymasterV1, Version, BasePaymasterV1 {
+    uint16 private constant VERSION = 1;
+
     // Mapping: strategy address => function selector => is approved
     mapping(address => mapping(bytes4 => bool)) public approvedFunctions;
 
@@ -105,19 +102,17 @@ contract DecentPaymasterV1 is
         return (abi.encode(), 0);
     }
 
-    /// @inheritdoc ERC165
+    /// @inheritdoc Version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
+    }
+
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IDecentPaymasterV1).interfaceId ||
             interfaceId == type(IPaymaster).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
-    }
-
-    /// @inheritdoc IVersion
-    function getVersion() public pure virtual override returns (uint16) {
-        return 1;
     }
 }

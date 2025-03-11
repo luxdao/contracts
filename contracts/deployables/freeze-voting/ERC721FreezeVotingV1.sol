@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
+import {Version} from "../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /**
  * A [BaseFreezeVoting](./BaseFreezeVoting.md) implementation which handles
  * freezes on ERC721 based token voting DAOs.
  */
-contract ERC721FreezeVotingV1 is BaseFreezeVotingV1 {
+contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
+    uint16 private constant VERSION = 1;
+
     /** A reference to the voting strategy of the parent DAO. */
     IERC721VotingStrategyV1 public strategy;
 
@@ -116,8 +118,14 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1 {
         return votes;
     }
 
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual override returns (uint16) {
-        return 1;
+    /// Implementation for the version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(BaseFreezeVotingV1, Version) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }

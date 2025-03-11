@@ -13,11 +13,4 @@ contract ConcreteERC4337VoterSupportV1 is ERC4337VoterSupportV1 {
     function voter(address msgSender) public view returns (address) {
         return _voter(msgSender);
     }
-
-    /**
-     * Implementation of the getVersion function.
-     */
-    function getVersion() external pure override returns (uint16) {
-        return 1;
-    }
 }

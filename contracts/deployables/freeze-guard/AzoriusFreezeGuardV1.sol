@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {BaseGuardV1} from "./BaseGuardV1.sol";
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
@@ -13,7 +13,9 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
  *
  * See https://docs.safe.global/learn/safe-core/safe-core-protocol/guards.
  */
-contract AzoriusFreezeGuardV1 is IVersion, BaseGuardV1, FactoryFriendly {
+contract AzoriusFreezeGuardV1 is Version, BaseGuardV1, FactoryFriendly {
+    uint16 private constant VERSION = 1;
+
     /**
      * A reference to the freeze voting contract, which manages the freeze
      * voting process and maintains the frozen / unfrozen state of the DAO.
@@ -85,16 +87,14 @@ contract AzoriusFreezeGuardV1 is IVersion, BaseGuardV1, FactoryFriendly {
         // not implementated
     }
 
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual override returns (uint16) {
-        return 1;
+    /// @inheritdoc Version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+    ) public view virtual override(BaseGuardV1, Version) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }

@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IHatsProposalCreationWhitelistV1} from "../../interfaces/decent/deployables/IHatsProposalCreationWhitelistV1.sol";
 import {IHats} from "../../interfaces/hats/IHats.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 abstract contract HatsProposalCreationWhitelistV1 is
     IHatsProposalCreationWhitelistV1,
-    IVersion,
     OwnableUpgradeable,
     ERC165
 {
@@ -103,16 +101,11 @@ abstract contract HatsProposalCreationWhitelistV1 is
         return whitelistedHatIds;
     }
 
-    /// @inheritdoc ERC165
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IHatsProposalCreationWhitelistV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
-
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual returns (uint16);
 }

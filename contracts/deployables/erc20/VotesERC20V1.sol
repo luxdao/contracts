@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -16,12 +16,13 @@ import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/
  * An implementation of the OpenZeppelin `IVotes` voting token standard.
  */
 contract VotesERC20V1 is
-    IVersion,
+    Version,
     ERC20VotesUpgradeable,
     ERC20PermitUpgradeable,
-    FactoryFriendly,
-    ERC165
+    FactoryFriendly
 {
+    uint16 private constant VERSION = 1;
+
     constructor() {
         _disableInitializers();
     }
@@ -79,20 +80,18 @@ contract VotesERC20V1 is
         return super.nonces(owner);
     }
 
-    /// @inheritdoc ERC165
+    /// @inheritdoc Version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
+    }
+
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IVersion).interfaceId ||
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(IERC20Permit).interfaceId ||
             interfaceId == type(IVotes).interfaceId ||
             super.supportsInterface(interfaceId);
-    }
-
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual returns (uint16) {
-        return 1;
     }
 }

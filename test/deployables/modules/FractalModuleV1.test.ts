@@ -549,15 +549,20 @@ describe('FractalModuleV1', () => {
   });
 
   describe('Version', () => {
-    it('should return correct version number', async () => {
-      const fractalModule = await deployFractalModuleProxy(
+    let fractalModule: FractalModuleV1;
+
+    beforeEach(async () => {
+      fractalModule = await deployFractalModuleProxy(
         fractalModuleMastercopy,
         owner,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
         [],
       );
+    });
 
+    // Use the shared version test utility
+    it('should return the correct version number', async () => {
       expect(await fractalModule.getVersion()).to.equal(1);
     });
   });
