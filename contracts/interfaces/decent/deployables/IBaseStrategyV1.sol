@@ -50,10 +50,12 @@ interface IBaseStrategyV1 {
     function isProposer(address _address) external view returns (bool);
 
     /**
-     * Returns the block number voting ends on a given Proposal.
+     * Returns the absolute timestamp that voting ends on a given Proposal.
      *
      * @param _proposalId proposalId to check
-     * @return uint32 block number when voting ends on the Proposal
+     * @return uint48 timestamp when voting ends on the Proposal
      */
-    function votingEndBlock(uint32 _proposalId) external view returns (uint32);
+    function votingEndTimestamp(
+        uint32 _proposalId
+    ) external view returns (uint48);
 }

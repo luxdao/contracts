@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -342,8 +342,8 @@ describe('LinearERC721VotingV1', () => {
       await linearERC721Voting.connect(nonOwner).initializeProposal(initializeData);
 
       // Check that proposal was initialized correctly
-      const votingEndBlock = await linearERC721Voting.votingEndBlock(proposalId);
-      expect(votingEndBlock).to.not.equal(0);
+      const votingEndTimestamp = await linearERC721Voting.votingEndTimestamp(proposalId);
+      expect(votingEndTimestamp).to.not.equal(0);
     });
 
     it('should determine proposer status based on NFT ownership', async () => {
@@ -840,13 +840,15 @@ describe('LinearERC721VotingV1', () => {
       const proposalId = 200;
       const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
 
-      // Get current block number to calculate expected end block
-      const currentBlockNumber = await ethers.provider.getBlockNumber();
-      const expectedEndBlock = currentBlockNumber + 1 + VOTING_PERIOD; // +1 because the proposal will be in the next block
+      // Get current block timestmp to calculate expected end timestamp
+      const currentBlockTimestamp = await time.latest();
+
+      // +1 because the proposal will be in the next block, and that block's timestamp will be increased by one second
+      const expectedEndTimestamp = currentBlockTimestamp + 1 + VOTING_PERIOD;
 
       await expect(linearERC721Voting.connect(nonOwner).initializeProposal(initializeData))
         .to.emit(linearERC721Voting, 'ProposalInitialized')
-        .withArgs(proposalId, expectedEndBlock);
+        .withArgs(proposalId, expectedEndTimestamp);
     });
   });
 
@@ -938,6 +940,105 @@ describe('LinearERC721VotingV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await linearERC721Voting.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('Timestamp-based voting', () => {
+    let proposalId: number;
+
+    beforeEach(async () => {
+      // Initialize a proposal
+      proposalId = 100;
+      const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
+      await linearERC721Voting.connect(nonOwner).initializeProposal(initializeData);
+    });
+
+    it('should enforce voting end by timestamp', async () => {
+      // Get the voting end timestamp
+      const [, , , , endTimestamp] = await linearERC721Voting.getProposalVotes(proposalId);
+
+      // Cast a vote before voting ends
+      await linearERC721Voting
+        .connect(tokenHolder1)
+        .vote(proposalId, VoteType.YES, [await mockNFT1.getAddress()], [tokenHolder1Ids[0]]);
+
+      // Advance time to just after voting end
+      await time.increaseTo(Number(endTimestamp) + 1);
+
+      // Try to vote after voting ended - should revert
+      await expect(
+        linearERC721Voting
+          .connect(tokenHolder1)
+          .vote(proposalId, VoteType.YES, [await mockNFT1.getAddress()], [tokenHolder1Ids[1]]),
+      ).to.be.revertedWithCustomError(linearERC721Voting, 'VotingEnded');
+    });
+
+    it('should determine proposal state based on timestamp', async () => {
+      // Vote yes with several NFTs to ensure quorum and basis are met
+      await linearERC721Voting
+        .connect(tokenHolder1)
+        .vote(
+          proposalId,
+          VoteType.YES,
+          [await mockNFT1.getAddress(), await mockNFT1.getAddress()],
+          [tokenHolder1Ids[0], tokenHolder1Ids[1]],
+        );
+
+      // Add more votes to ensure quorum (we need at least 5 votes)
+      await linearERC721Voting
+        .connect(tokenHolder3)
+        .vote(
+          proposalId,
+          VoteType.YES,
+          [await mockNFT2.getAddress(), await mockNFT2.getAddress()],
+          [tokenHolder3Ids[0], tokenHolder3Ids[1]],
+        );
+
+      // Also add votes from tokenHolder2 to meet quorum
+      await linearERC721Voting
+        .connect(tokenHolder2)
+        .vote(proposalId, VoteType.YES, [await mockNFT1.getAddress()], [tokenHolder2Ids[0]]);
+
+      // Get voting end timestamp
+      const [, , , , endTimestamp] = await linearERC721Voting.getProposalVotes(proposalId);
+
+      // Before advancing time, proposal should not be passed
+      void expect(await linearERC721Voting.isPassed(proposalId)).to.be.false;
+
+      // Advance time to AFTER the voting end timestamp (critical for isPassed)
+      await ethers.provider.send('evm_mine', [Number(endTimestamp) + 1]);
+
+      // Now the proposal should pass (past end timestamp + meets quorum + meets basis)
+      void expect(await linearERC721Voting.isPassed(proposalId)).to.be.true;
+    });
+
+    it('should handle exact boundary conditions for timestamps', async () => {
+      // Get voting end timestamp
+      const [, , , , endTimestamp] = await linearERC721Voting.getProposalVotes(proposalId);
+
+      // Advance time to 3 seconds before the voting end timestamp
+      await time.increaseTo(Number(endTimestamp) - 3);
+
+      // Should still be able to vote before end timestamp
+      await linearERC721Voting
+        .connect(tokenHolder1)
+        .vote(proposalId, VoteType.YES, [await mockNFT1.getAddress()], [tokenHolder1Ids[0]]);
+
+      // Mine a block to ensure timestamp advances by 1 second
+      await mine(1);
+
+      // Now, jump directly to the end timestamp using evm_mine with a specific timestamp
+      // This approach avoids the "same timestamp" error by directly setting the block timestamp
+      const endTimeNum = Number(endTimestamp);
+      await ethers.provider.send('evm_setNextBlockTimestamp', [endTimeNum]);
+      await ethers.provider.send('evm_mine', []);
+
+      // Should no longer be able to vote at exactly the end timestamp
+      await expect(
+        linearERC721Voting
+          .connect(tokenHolder1)
+          .vote(proposalId, VoteType.YES, [await mockNFT1.getAddress()], [tokenHolder1Ids[1]]),
+      ).to.be.revertedWithCustomError(linearERC721Voting, 'VotingEnded');
     });
   });
 });

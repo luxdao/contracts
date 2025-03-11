@@ -55,10 +55,10 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
     /** Total number of submitted Proposals. */
     uint32 public totalProposalCount;
 
-    /** Delay (in blocks) between when a Proposal is passed and when it can be executed. */
+    /** Delay between when a Proposal is passed and when it can be executed. */
     uint32 public timelockPeriod;
 
-    /** Time (in blocks) between when timelock ends and the Proposal expires. */
+    /** Time between when timelock ends and the Proposal expires. */
     uint32 public executionPeriod;
 
     /** Proposals by `proposalId`. */
@@ -331,9 +331,9 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
 
         IBaseStrategyV1 _strategy = IBaseStrategyV1(_proposal.strategy);
 
-        uint256 votingEndBlock = _strategy.votingEndBlock(_proposalId);
+        uint256 votingEndTimestamp = _strategy.votingEndTimestamp(_proposalId);
 
-        if (block.number <= votingEndBlock) {
+        if (block.timestamp <= votingEndTimestamp) {
             return ProposalState.ACTIVE;
         } else if (!_strategy.isPassed(_proposalId)) {
             return ProposalState.FAILED;
@@ -342,11 +342,13 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
             // this allows for the potential for on-chain voting for
             // "off-chain" executed decisions
             return ProposalState.EXECUTED;
-        } else if (block.number <= votingEndBlock + _proposal.timelockPeriod) {
+        } else if (
+            block.timestamp <= votingEndTimestamp + _proposal.timelockPeriod
+        ) {
             return ProposalState.TIMELOCKED;
         } else if (
-            block.number <=
-            votingEndBlock +
+            block.timestamp <=
+            votingEndTimestamp +
                 _proposal.timelockPeriod +
                 _proposal.executionPeriod
         ) {
@@ -447,7 +449,7 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
     /**
      * Updates the `timelockPeriod` for future Proposals.
      *
-     * @param _timelockPeriod new timelock period (in blocks)
+     * @param _timelockPeriod new timelock period
      */
     function _updateTimelockPeriod(uint32 _timelockPeriod) internal {
         timelockPeriod = _timelockPeriod;
@@ -457,7 +459,7 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
     /**
      * Updates the `executionPeriod` for future Proposals.
      *
-     * @param _executionPeriod new execution period (in blocks)
+     * @param _executionPeriod new execution period
      */
     function _updateExecutionPeriod(uint32 _executionPeriod) internal {
         executionPeriod = _executionPeriod;
