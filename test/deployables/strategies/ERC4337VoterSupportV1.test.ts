@@ -4,12 +4,9 @@ import { ethers } from 'hardhat';
 import {
   ConcreteERC4337VoterSupportV1,
   ConcreteERC4337VoterSupportV1__factory,
-  IERC165__factory,
-  IVersion__factory,
   MockOwnership,
   MockOwnership__factory,
 } from '../../../typechain-types';
-import { calculateInterfaceId } from '../../helpers/utils';
 
 describe('ERC4337VoterSupportV1', () => {
   // Signers
@@ -66,43 +63,6 @@ describe('ERC4337VoterSupportV1', () => {
         const voter = await concreteERC4337VoterSupport.voter(contractAddress);
         expect(voter).to.equal(contractAddress);
       });
-    });
-  });
-
-  describe('Version', () => {
-    it('should return correct version', async () => {
-      expect(await concreteERC4337VoterSupport.getVersion()).to.equal(1);
-    });
-  });
-
-  describe('ERC165', function () {
-    // Interface IDs
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
-
-    beforeEach(async function () {
-      // Dynamically calculate interface IDs for standard interfaces
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-    });
-
-    it('Should support IERC165 interface', async function () {
-      const supported = await concreteERC4337VoterSupport.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported = await concreteERC4337VoterSupport.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      const supported = await concreteERC4337VoterSupport.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
     });
   });
 });

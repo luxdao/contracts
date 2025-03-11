@@ -6,7 +6,6 @@ import {
   ConcreteBaseStrategyV1__factory,
   IBaseStrategyV1__factory,
   IERC165__factory,
-  IVersion__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
 import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
@@ -162,9 +161,8 @@ describe('BaseStrategyV1', () => {
 
   describe('onlyAzorius modifier', () => {
     it('should allow calls from Azorius address', async () => {
-      // Use the dedicated Azorius signer directly
-      // Call a function that uses the onlyAzorius modifier
-      await expect(concreteStrategy.connect(azoriusSigner).concreteOnlyAzoriusFunction()).to.not.be
+      // Call from the Azorius address should succeed
+      await expect(concreteStrategy.connect(azoriusSigner).concreteOnlyAzoriusFunction()).not.to.be
         .reverted;
     });
 
@@ -176,24 +174,14 @@ describe('BaseStrategyV1', () => {
     });
   });
 
-  describe('Version', () => {
-    it('should return correct version', async () => {
-      expect(await concreteStrategy.getVersion()).to.equal(1);
-    });
-  });
-
   describe('ERC165', function () {
     let iBaseStrategyV1InterfaceId: string;
-    let iVersionInterfaceId: string;
     let iERC165InterfaceId: string;
 
     beforeEach(async function () {
       // Dynamically calculate interface IDs
       const IBaseStrategyV1Interface = IBaseStrategyV1__factory.createInterface();
       iBaseStrategyV1InterfaceId = calculateInterfaceId(IBaseStrategyV1Interface);
-
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
@@ -206,11 +194,6 @@ describe('BaseStrategyV1', () => {
 
     it('Should support IBaseStrategyV1 interface', async function () {
       const supported = await concreteStrategy.supportsInterface(iBaseStrategyV1InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported = await concreteStrategy.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
     });
 

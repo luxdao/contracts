@@ -3,16 +3,17 @@ pragma solidity ^0.8.28;
 
 import {IHatsElectionsEligibility} from "../../interfaces/hats/modules/IHatsElectionsEligibility.sol";
 import {IDecentAutonomousAdminV1} from "../../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract DecentAutonomousAdminV1 is
     IDecentAutonomousAdminV1,
-    IVersion,
-    ERC165,
+    Version,
     FactoryFriendly
 {
+    uint16 private constant VERSION = 1;
+
     // //////////////////////////////////////////////////////////////
     //                         initializer
     // //////////////////////////////////////////////////////////////
@@ -37,17 +38,16 @@ contract DecentAutonomousAdminV1 is
         }
     }
 
+    /// @inheritdoc Version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
+    }
+
     function supportsInterface(
         bytes4 interfaceId
     ) public view override returns (bool) {
         return
             interfaceId == type(IDecentAutonomousAdminV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
-    }
-
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual returns (uint16) {
-        return 1;
     }
 }

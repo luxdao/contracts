@@ -24,11 +24,4 @@ contract ConcreteBaseVotingBasisPercentV1 is BaseVotingBasisPercentV1 {
         __Ownable_init(_owner);
         _updateBasisNumerator(_basisNumerator);
     }
-
-    /**
-     * Concrete implementation of the abstract getVersion function.
-     */
-    function getVersion() external pure override returns (uint16) {
-        return 1;
-    }
 }

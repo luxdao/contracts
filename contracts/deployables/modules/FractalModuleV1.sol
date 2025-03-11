@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {IFractalModuleV1} from "../../interfaces/decent/deployables/IFractalModuleV1.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * Implementation of [IFractalModule](./interfaces/IFractalModule.md).
@@ -15,12 +14,9 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * transactions on the Safe, which in our implementation is the set of parent
  * DAOs.
  */
-contract FractalModuleV1 is
-    IVersion,
-    IFractalModuleV1,
-    GuardableModule,
-    ERC165
-{
+contract FractalModuleV1 is IFractalModuleV1, GuardableModule, Version {
+    uint16 private constant VERSION = 1;
+
     /** Mapping of whether an address is a controller (typically a parentDAO). */
     mapping(address => bool) public controllers;
 
@@ -102,9 +98,9 @@ contract FractalModuleV1 is
         emit ControllersAdded(_controllers);
     }
 
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual override returns (uint16) {
-        return 1;
+    /// Implementation for the version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
     }
 
     /**
@@ -115,7 +111,6 @@ contract FractalModuleV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IFractalModuleV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

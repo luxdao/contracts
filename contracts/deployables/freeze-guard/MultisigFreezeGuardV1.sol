@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {BaseGuardV1} from "./BaseGuardV1.sol";
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMultisigFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
@@ -14,10 +14,12 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
  */
 contract MultisigFreezeGuardV1 is
     IMultisigFreezeGuardV1,
-    IVersion,
+    Version,
     BaseGuardV1,
     FactoryFriendly
 {
+    uint16 private constant VERSION = 1;
+
     /** Timelock period (in blocks). */
     uint32 public timelockPeriod;
 
@@ -216,17 +218,16 @@ contract MultisigFreezeGuardV1 is
         emit ExecutionPeriodUpdated(_executionPeriod);
     }
 
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual override returns (uint16) {
-        return 1;
+    /// @inheritdoc Version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override returns (bool) {
+    ) public view virtual override(BaseGuardV1, Version) returns (bool) {
         return
             interfaceId == type(IMultisigFreezeGuardV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

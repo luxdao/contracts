@@ -472,7 +472,8 @@ describe('ERC20FreezeVotingV1', () => {
   });
 
   describe('Version', () => {
-    it('should return correct version', async () => {
+    // Use the shared version test utility
+    it('should return the correct version number', async () => {
       expect(await freezeVoting.getVersion()).to.equal(1);
     });
   });

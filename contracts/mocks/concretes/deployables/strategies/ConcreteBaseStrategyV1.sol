@@ -59,11 +59,4 @@ contract ConcreteBaseStrategyV1 is BaseStrategyV1 {
     function votingEndBlock(uint32) external view override returns (uint32) {
         return uint32(block.number + 100);
     }
-
-    /**
-     * Concrete implementation of the abstract getVersion function.
-     */
-    function getVersion() external pure override returns (uint16) {
-        return 1;
-    }
 }

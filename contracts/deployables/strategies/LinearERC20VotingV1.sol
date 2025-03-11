@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {BaseStrategyV1} from "./BaseStrategyV1.sol";
 import {BaseQuorumPercentV1} from "./BaseQuorumPercentV1.sol";
 import {BaseVotingBasisPercentV1} from "./BaseVotingBasisPercentV1.sol";
@@ -17,8 +17,11 @@ contract LinearERC20VotingV1 is
     BaseStrategyV1,
     BaseQuorumPercentV1,
     BaseVotingBasisPercentV1,
-    ERC4337VoterSupportV1
+    ERC4337VoterSupportV1,
+    Version
 {
+    uint16 private constant VERSION = 1;
+
     /**
      * The voting options for a Proposal.
      */
@@ -328,20 +331,11 @@ contract LinearERC20VotingV1 is
             QUORUM_DENOMINATOR;
     }
 
-    /// @inheritdoc IVersion
-    function getVersion()
-        external
-        pure
-        virtual
-        override(
-            BaseQuorumPercentV1,
-            BaseStrategyV1,
-            BaseVotingBasisPercentV1,
-            ERC4337VoterSupportV1
-        )
-        returns (uint16)
-    {
-        return 1;
+    /**
+     * Implementation of version
+     */
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
     }
 
     function supportsInterface(
@@ -354,7 +348,7 @@ contract LinearERC20VotingV1 is
             BaseQuorumPercentV1,
             BaseStrategyV1,
             BaseVotingBasisPercentV1,
-            ERC4337VoterSupportV1
+            Version
         )
         returns (bool)
     {

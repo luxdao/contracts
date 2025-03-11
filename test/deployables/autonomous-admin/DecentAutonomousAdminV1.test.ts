@@ -68,10 +68,9 @@ describe('DecentAutonomousAdminV1', function () {
     });
   });
 
-  describe('getVersion', function () {
-    it('should return version 1', async function () {
-      const version = await decentAutonomousAdminInstance.getVersion();
-      void expect(version).to.equal(1);
+  describe('Version', () => {
+    it('should return the correct version number', async () => {
+      expect(await decentAutonomousAdminInstance.getVersion()).to.equal(1);
     });
   });
 });

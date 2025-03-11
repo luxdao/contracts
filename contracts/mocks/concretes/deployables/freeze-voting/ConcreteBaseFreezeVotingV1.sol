@@ -61,11 +61,4 @@ contract ConcreteBaseFreezeVotingV1 is BaseFreezeVotingV1 {
 
         emit FreezeVoteCast(msg.sender, _mockVotePower);
     }
-
-    /**
-     * Returns the version of the contract.
-     */
-    function getVersion() external pure override returns (uint16) {
-        return 1;
-    }
 }

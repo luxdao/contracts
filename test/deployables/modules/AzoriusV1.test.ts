@@ -1128,8 +1128,10 @@ describe('AzoriusV1', () => {
   });
 
   describe('Version', () => {
-    it('should return correct version number', async () => {
-      const azorius = await deployAzoriusProxy(
+    let azorius: AzoriusV1;
+
+    beforeEach(async () => {
+      azorius = await deployAzoriusProxy(
         azoriusMastercopy,
         owner,
         ethers.ZeroAddress,
@@ -1138,7 +1140,10 @@ describe('AzoriusV1', () => {
         0,
         0,
       );
+    });
 
+    // Use the shared version test utility
+    it('should return the correct version number', async () => {
       expect(await azorius.getVersion()).to.equal(1);
     });
   });

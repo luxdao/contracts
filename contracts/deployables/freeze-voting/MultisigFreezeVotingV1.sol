@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
+import {Version} from "../Version.sol";
 
 /**
  * A BaseFreezeVoting implementation which handles freezes on multi-sig (Safe) based DAOs.
  */
-contract MultisigFreezeVotingV1 is BaseFreezeVotingV1 {
-    ISafe public parentGnosisSafe;
+contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
+    uint16 private constant VERSION = 1;
+
+    ISafe public parentSafe;
 
     event MultisigFreezeVotingSetup(
         address indexed owner,
-        address indexed parentGnosisSafe
+        address indexed parentSafe
     );
 
     error NotOwner();
@@ -24,7 +26,7 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1 {
      *
      * @param initializeParams encoded initialization parameters: `address _owner`,
      * `uint256 _freezeVotesThreshold`, `uint256 _freezeProposalPeriod`, `uint256 _freezePeriod`,
-     * `address _parentGnosisSafe`
+     * `address _parentSafeSafe`
      */
     function setUp(bytes memory initializeParams) public override initializer {
         (
@@ -32,7 +34,7 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1 {
             uint256 _freezeVotesThreshold,
             uint32 _freezeProposalPeriod,
             uint32 _freezePeriod,
-            address _parentGnosisSafe
+            address _parentSafe
         ) = abi.decode(
                 initializeParams,
                 (address, uint256, uint32, uint32, address)
@@ -42,14 +44,14 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1 {
         _updateFreezeVotesThreshold(_freezeVotesThreshold);
         _updateFreezeProposalPeriod(_freezeProposalPeriod);
         _updateFreezePeriod(_freezePeriod);
-        parentGnosisSafe = ISafe(_parentGnosisSafe);
+        parentSafe = ISafe(_parentSafe);
 
-        emit MultisigFreezeVotingSetup(_owner, _parentGnosisSafe);
+        emit MultisigFreezeVotingSetup(_owner, _parentSafe);
     }
 
     /** @inheritdoc BaseFreezeVotingV1*/
     function castFreezeVote() external override {
-        if (!parentGnosisSafe.isOwner(msg.sender)) revert NotOwner();
+        if (!parentSafe.isOwner(msg.sender)) revert NotOwner();
 
         if (block.number > freezeProposalCreatedBlock + freezeProposalPeriod) {
             // create a new freeze proposal and count the caller's vote
@@ -73,8 +75,14 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1 {
         emit FreezeVoteCast(msg.sender, 1);
     }
 
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual override returns (uint16) {
-        return 1;
+    /// Implementation for the version
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(BaseFreezeVotingV1, Version) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }
