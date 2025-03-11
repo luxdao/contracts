@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {LinearERC20VotingV1} from "./LinearERC20VotingV1.sol";
 import {HatsProposalCreationWhitelistV1} from "./HatsProposalCreationWhitelistV1.sol";
 
@@ -14,6 +14,8 @@ contract LinearERC20VotingWithHatsProposalCreationV1 is
     HatsProposalCreationWhitelistV1,
     LinearERC20VotingV1
 {
+    uint16 private constant VERSION = 1;
+
     /**
      * Sets up the contract with its initial parameters.
      *
@@ -24,7 +26,11 @@ contract LinearERC20VotingWithHatsProposalCreationV1 is
      */
     function setUp(
         bytes memory initializeParams
-    ) public override(HatsProposalCreationWhitelistV1, LinearERC20VotingV1) {
+    )
+        public
+        virtual
+        override(HatsProposalCreationWhitelistV1, LinearERC20VotingV1)
+    {
         (
             address _owner,
             address _governanceToken,
@@ -71,21 +77,18 @@ contract LinearERC20VotingWithHatsProposalCreationV1 is
     )
         public
         view
+        virtual
         override(HatsProposalCreationWhitelistV1, LinearERC20VotingV1)
         returns (bool)
     {
         return HatsProposalCreationWhitelistV1.isProposer(_address);
     }
 
-    /// @inheritdoc IVersion
-    function getVersion()
-        external
-        pure
-        virtual
-        override(HatsProposalCreationWhitelistV1, LinearERC20VotingV1)
-        returns (uint16)
-    {
-        return 1;
+    /**
+     * Implementation of version
+     */
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
     }
 
     function supportsInterface(

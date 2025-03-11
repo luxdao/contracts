@@ -6,7 +6,6 @@ import {
   ConcreteBaseVotingBasisPercentV1__factory,
   IBaseVotingBasisPercentV1__factory,
   IERC165__factory,
-  IVersion__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
 import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
@@ -204,15 +203,8 @@ describe('BaseVotingBasisPercentV1', () => {
     });
   });
 
-  describe('Version', () => {
-    it('should return correct version', async () => {
-      expect(await concreteVotingBasis.getVersion()).to.equal(1);
-    });
-  });
-
   describe('ERC165', function () {
     let iBaseVotingBasisPercentV1InterfaceId: string;
-    let iVersionInterfaceId: string;
     let iERC165InterfaceId: string;
 
     beforeEach(async function () {
@@ -222,9 +214,6 @@ describe('BaseVotingBasisPercentV1', () => {
       iBaseVotingBasisPercentV1InterfaceId = calculateInterfaceId(
         IBaseVotingBasisPercentV1Interface,
       );
-
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
@@ -239,11 +228,6 @@ describe('BaseVotingBasisPercentV1', () => {
       const supported = await concreteVotingBasis.supportsInterface(
         iBaseVotingBasisPercentV1InterfaceId,
       );
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported = await concreteVotingBasis.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
     });
 

@@ -6,7 +6,6 @@ import {
   ConcreteBaseQuorumPercentV1__factory,
   IBaseQuorumPercentV1__factory,
   IERC165__factory,
-  IVersion__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
 import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
@@ -182,30 +181,21 @@ describe('BaseQuorumPercentV1', () => {
 
   describe('quorumVotes', () => {
     it('should return correct quorum votes value', async () => {
-      // concrete implementation uses a fixed total supply of 1000000
-      const expectedQuorumVotes = (1000000 * INITIAL_QUORUM_NUMERATOR) / QUORUM_DENOMINATOR;
-      expect(await concreteQuorumPercent.quorumVotes(1)).to.equal(expectedQuorumVotes);
-    });
-  });
-
-  describe('Version', () => {
-    it('should return correct version', async () => {
-      expect(await concreteQuorumPercent.getVersion()).to.equal(1);
+      const totalSupply = 1000000; // Value from mock
+      const result = await concreteQuorumPercent.quorumVotes(1);
+      const expected = (totalSupply * INITIAL_QUORUM_NUMERATOR) / QUORUM_DENOMINATOR;
+      expect(result).to.equal(expected);
     });
   });
 
   describe('ERC165', function () {
     let iBaseQuorumPercentV1InterfaceId: string;
-    let iVersionInterfaceId: string;
     let iERC165InterfaceId: string;
 
     beforeEach(async function () {
       // Dynamically calculate interface IDs
       const IBaseQuorumPercentV1Interface = IBaseQuorumPercentV1__factory.createInterface();
       iBaseQuorumPercentV1InterfaceId = calculateInterfaceId(IBaseQuorumPercentV1Interface);
-
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
@@ -220,11 +210,6 @@ describe('BaseQuorumPercentV1', () => {
       const supported = await concreteQuorumPercent.supportsInterface(
         iBaseQuorumPercentV1InterfaceId,
       );
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported = await concreteQuorumPercent.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
     });
 

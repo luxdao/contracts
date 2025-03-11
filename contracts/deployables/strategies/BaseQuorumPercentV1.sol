@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IBaseQuorumPercentV1} from "../../interfaces/decent/deployables/IBaseQuorumPercentV1.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -12,7 +11,6 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  */
 abstract contract BaseQuorumPercentV1 is
     IBaseQuorumPercentV1,
-    IVersion,
     OwnableUpgradeable,
     ERC165
 {
@@ -72,16 +70,11 @@ abstract contract BaseQuorumPercentV1 is
         uint32 _proposalId
     ) public view virtual returns (uint256);
 
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual returns (uint16);
-
-    /// @inheritdoc ERC165
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IBaseQuorumPercentV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

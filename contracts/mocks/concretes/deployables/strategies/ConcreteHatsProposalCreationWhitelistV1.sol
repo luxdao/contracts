@@ -17,11 +17,4 @@ contract ConcreteHatsProposalCreationWhitelistV1 is
         __Ownable_init(msg.sender);
         super.setUp(initializeParams);
     }
-
-    /**
-     * Implementation of the abstract getVersion function.
-     */
-    function getVersion() external pure override returns (uint16) {
-        return 1;
-    }
 }

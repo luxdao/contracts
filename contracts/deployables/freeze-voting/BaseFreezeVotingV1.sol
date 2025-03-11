@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -24,7 +23,6 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * a Safe Transaction Guard, until the `freezePeriod` has elapsed.
  */
 abstract contract BaseFreezeVotingV1 is
-    IVersion,
     FactoryFriendly,
     IBaseFreezeVotingV1,
     ERC165
@@ -144,16 +142,11 @@ abstract contract BaseFreezeVotingV1 is
         emit FreezePeriodUpdated(_freezePeriod);
     }
 
-    /// @inheritdoc ERC165
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
-
-    /// @inheritdoc IVersion
-    function getVersion() external pure virtual override returns (uint16);
 }
