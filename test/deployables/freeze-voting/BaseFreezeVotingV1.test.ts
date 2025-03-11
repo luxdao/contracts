@@ -7,7 +7,6 @@ import {
   ConcreteBaseFreezeVotingV1__factory,
   IBaseFreezeVotingV1__factory,
   IERC165__factory,
-  IVersion__factory,
 } from '../../../typechain-types';
 import { getModuleProxyFactory } from '../../helpers/globals.test';
 import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
@@ -380,24 +379,14 @@ describe('BaseFreezeVotingV1', () => {
     });
   });
 
-  describe('Version', () => {
-    it('should return correct version', async () => {
-      expect(await freezeVoting.getVersion()).to.equal(1);
-    });
-  });
-
   describe('ERC165', function () {
     let iBaseFreezeVotingV1InterfaceId: string;
-    let iVersionInterfaceId: string;
     let iERC165InterfaceId: string;
 
     beforeEach(async function () {
       // Dynamically calculate interface IDs
       const IBaseFreezeVotingV1Interface = IBaseFreezeVotingV1__factory.createInterface();
       iBaseFreezeVotingV1InterfaceId = calculateInterfaceId(IBaseFreezeVotingV1Interface);
-
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
@@ -412,11 +401,6 @@ describe('BaseFreezeVotingV1', () => {
 
     it('Should support IBaseFreezeVotingV1 interface', async function () {
       const supported = await freezeVoting.supportsInterface(iBaseFreezeVotingV1InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported = await freezeVoting.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
     });
 

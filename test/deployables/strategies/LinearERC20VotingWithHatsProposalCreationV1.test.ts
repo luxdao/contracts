@@ -184,22 +184,23 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
       });
     });
 
-    // Use the shared test utility for isProposer tests
-    runHatsProposerTests({
-      getMockHats: () => mockHats,
-      getContract: () => linearERC20VotingWithHatsProposalCreation,
-      hatWearer: () => hatWearer,
-      nonHatWearer: () => nonHatWearer,
-      tokenHolder: () => tokenHolder1,
-      owner: () => owner,
-      proposerHatId: proposerHatId1,
-      nonProposerHatId,
+    describe('isProposer override', () => {
+      runHatsProposerTests({
+        getMockHats: () => mockHats,
+        getContract: () => linearERC20VotingWithHatsProposalCreation,
+        hatWearer: () => hatWearer,
+        nonHatWearer: () => nonHatWearer,
+        tokenHolder: () => tokenHolder1,
+        owner: () => owner,
+        proposerHatId: proposerHatId1,
+        nonProposerHatId,
+      });
     });
 
     describe('getVersion override', () => {
-      it('should return correct version', async () => {
-        const version = await linearERC20VotingWithHatsProposalCreation.getVersion();
-        expect(version).to.equal(1);
+      // Use the shared version test utility
+      it('should return the correct version number', async () => {
+        expect(await linearERC20VotingWithHatsProposalCreation.getVersion()).to.equal(1);
       });
     });
   });

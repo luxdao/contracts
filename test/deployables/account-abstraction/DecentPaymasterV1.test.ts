@@ -457,10 +457,9 @@ describe('DecentPaymasterV1', function () {
     });
   });
 
-  describe('Version', function () {
-    it('Should have a version', async function () {
-      const version = await decentPaymaster.getVersion();
-      void expect(version).to.equal(1);
+  describe('Version', () => {
+    it('should return the correct version number', async () => {
+      expect(await decentPaymaster.getVersion()).to.equal(1);
     });
   });
 });

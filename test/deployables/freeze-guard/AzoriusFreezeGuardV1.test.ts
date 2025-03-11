@@ -221,7 +221,8 @@ describe('AzoriusFreezeGuardV1', () => {
       );
     });
 
-    it('should return correct version', async () => {
+    // Use the shared version test utility
+    it('should return the correct version number', async () => {
       expect(await azoriusFreezeGuard.getVersion()).to.equal(1);
     });
   });

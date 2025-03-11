@@ -33,11 +33,4 @@ contract ConcreteBaseQuorumPercentV1 is BaseQuorumPercentV1 {
         uint256 totalSupply = 1000000; // Concrete fixed total supply
         return (totalSupply * quorumNumerator) / QUORUM_DENOMINATOR;
     }
-
-    /**
-     * Concrete implementation of the abstract getVersion function.
-     */
-    function getVersion() external pure override returns (uint16) {
-        return 1;
-    }
 }

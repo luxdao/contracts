@@ -6,7 +6,6 @@ import {
   ConcreteHatsProposalCreationWhitelistV1__factory,
   IERC165__factory,
   IHatsProposalCreationWhitelistV1__factory,
-  IVersion__factory,
   MockHats,
   MockHats__factory,
 } from '../../../typechain-types';
@@ -183,16 +182,17 @@ describe('HatsProposalCreationWhitelistV1', () => {
     });
   });
 
-  // Use the shared test utility for isProposer tests
-  runHatsProposerTests({
-    getMockHats: () => mockHats,
-    getContract: () => concreteHatsProposalCreationWhitelist,
-    hatWearer: () => hatWearer,
-    nonHatWearer: () => nonHatWearer,
-    tokenHolder: () => nonOwner, // Using nonOwner as tokenHolder since we don't have tokens in this test
-    owner: () => owner,
-    proposerHatId: proposerHatId1,
-    nonProposerHatId,
+  describe('isProposer override', () => {
+    runHatsProposerTests({
+      getMockHats: () => mockHats,
+      getContract: () => concreteHatsProposalCreationWhitelist,
+      hatWearer: () => hatWearer,
+      nonHatWearer: () => nonHatWearer,
+      tokenHolder: () => nonOwner, // Using nonOwner as tokenHolder since we don't have tokens in this test
+      owner: () => owner,
+      proposerHatId: proposerHatId1,
+      nonProposerHatId,
+    });
   });
 
   describe('getWhitelistedHatIds', () => {
@@ -222,15 +222,8 @@ describe('HatsProposalCreationWhitelistV1', () => {
     });
   });
 
-  describe('Version', () => {
-    it('should return correct version', async () => {
-      expect(await concreteHatsProposalCreationWhitelist.getVersion()).to.equal(1);
-    });
-  });
-
   describe('ERC165', function () {
     let iHatsProposalCreationWhitelistV1InterfaceId: string;
-    let iVersionInterfaceId: string;
     let iERC165InterfaceId: string;
 
     beforeEach(async function () {
@@ -240,9 +233,6 @@ describe('HatsProposalCreationWhitelistV1', () => {
       iHatsProposalCreationWhitelistV1InterfaceId = calculateInterfaceId(
         IHatsProposalCreationWhitelistV1Interface,
       );
-
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
@@ -258,12 +248,6 @@ describe('HatsProposalCreationWhitelistV1', () => {
       const supported = await concreteHatsProposalCreationWhitelist.supportsInterface(
         iHatsProposalCreationWhitelistV1InterfaceId,
       );
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported =
-        await concreteHatsProposalCreationWhitelist.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
     });
 

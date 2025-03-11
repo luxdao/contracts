@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
 import {BaseVotingBasisPercentV1} from "./BaseVotingBasisPercentV1.sol";
 import {BaseStrategyV1} from "./BaseStrategyV1.sol";
@@ -23,8 +23,11 @@ contract LinearERC721VotingV1 is
     BaseStrategyV1,
     BaseVotingBasisPercentV1,
     IERC721VotingStrategyV1,
-    ERC4337VoterSupportV1
+    ERC4337VoterSupportV1,
+    Version
 {
+    uint16 private constant VERSION = 1;
+
     /**
      * The voting options for a Proposal.
      */
@@ -470,19 +473,11 @@ contract LinearERC721VotingV1 is
         emit Voted(_voter, _proposalId, _voteType, _tokenAddresses, _tokenIds);
     }
 
-    /// @inheritdoc IVersion
-    function getVersion()
-        external
-        pure
-        virtual
-        override(
-            BaseStrategyV1,
-            BaseVotingBasisPercentV1,
-            ERC4337VoterSupportV1
-        )
-        returns (uint16)
-    {
-        return 1;
+    /**
+     * Implementation of version
+     */
+    function getVersion() public view virtual override returns (uint16) {
+        return VERSION;
     }
 
     function supportsInterface(
@@ -491,11 +486,7 @@ contract LinearERC721VotingV1 is
         public
         view
         virtual
-        override(
-            BaseStrategyV1,
-            BaseVotingBasisPercentV1,
-            ERC4337VoterSupportV1
-        )
+        override(BaseStrategyV1, BaseVotingBasisPercentV1, Version)
         returns (bool)
     {
         return
