@@ -56,7 +56,9 @@ contract ConcreteBaseStrategyV1 is BaseStrategyV1 {
     /**
      * Concrete implementation of the abstract votingEndBlock function.
      */
-    function votingEndBlock(uint32) external view override returns (uint32) {
-        return uint32(block.number + 100);
+    function votingEndTimestamp(
+        uint32
+    ) external view override returns (uint48) {
+        return uint48(block.timestamp) + 100;
     }
 }

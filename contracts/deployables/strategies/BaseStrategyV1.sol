@@ -52,9 +52,9 @@ abstract contract BaseStrategyV1 is
     function isProposer(address _address) external view virtual returns (bool);
 
     /** @inheritdoc IBaseStrategyV1*/
-    function votingEndBlock(
+    function votingEndTimestamp(
         uint32 _proposalId
-    ) external view virtual returns (uint32);
+    ) external view virtual returns (uint48);
 
     /**
      * Sets the address of the [Azorius](Azorius.md) module contract.
