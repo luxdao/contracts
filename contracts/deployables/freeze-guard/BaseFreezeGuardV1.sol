@@ -4,8 +4,13 @@ pragma solidity ^0.8.28;
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 
-abstract contract BaseGuardV1 is IGuard, ERC165 {
+abstract contract BaseFreezeGuardV1 is IGuard, ERC165, FactoryFriendly {
+    constructor() {
+        _disableInitializers();
+    }
+
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
