@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {BaseGuardV1} from "./BaseGuardV1.sol";
+import {BaseFreezeGuardV1} from "./BaseFreezeGuardV1.sol";
 import {Version} from "../Version.sol";
 import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMultisigFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
-import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
 /**
@@ -15,8 +14,7 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 contract MultisigFreezeGuardV1 is
     IMultisigFreezeGuardV1,
     Version,
-    BaseGuardV1,
-    FactoryFriendly
+    BaseFreezeGuardV1
 {
     uint16 private constant VERSION = 1;
 
@@ -167,7 +165,7 @@ contract MultisigFreezeGuardV1 is
         address payable,
         bytes memory signatures,
         address
-    ) external view override(BaseGuardV1) {
+    ) external view override(BaseFreezeGuardV1) {
         bytes32 signaturesHash = keccak256(signatures);
 
         if (transactionTimelockedBlock[signaturesHash] == 0)
@@ -195,7 +193,7 @@ contract MultisigFreezeGuardV1 is
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseGuardV1) {
+    ) external view override(BaseFreezeGuardV1) {
         // not implementated
     }
 
@@ -225,7 +223,7 @@ contract MultisigFreezeGuardV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseGuardV1, Version) returns (bool) {
+    ) public view virtual override(BaseFreezeGuardV1, Version) returns (bool) {
         return
             interfaceId == type(IMultisigFreezeGuardV1).interfaceId ||
             super.supportsInterface(interfaceId);
