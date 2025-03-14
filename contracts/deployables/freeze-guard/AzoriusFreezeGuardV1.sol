@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {BaseGuardV1} from "./BaseGuardV1.sol";
+import {BaseFreezeGuardV1} from "./BaseFreezeGuardV1.sol";
 import {Version} from "../Version.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
-import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
 /**
@@ -13,7 +12,7 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
  *
  * See https://docs.safe.global/learn/safe-core/safe-core-protocol/guards.
  */
-contract AzoriusFreezeGuardV1 is Version, BaseGuardV1, FactoryFriendly {
+contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
     uint16 private constant VERSION = 1;
 
     /**
@@ -70,7 +69,7 @@ contract AzoriusFreezeGuardV1 is Version, BaseGuardV1, FactoryFriendly {
         address payable,
         bytes memory,
         address
-    ) external view override(BaseGuardV1) {
+    ) external view override(BaseFreezeGuardV1) {
         // if the DAO is currently frozen, revert
         // see BaseFreezeVoting for freeze voting details
         if (freezeVoting.isFrozen()) revert DAOFrozen();
@@ -83,7 +82,7 @@ contract AzoriusFreezeGuardV1 is Version, BaseGuardV1, FactoryFriendly {
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseGuardV1) {
+    ) external view override(BaseFreezeGuardV1) {
         // not implementated
     }
 
@@ -94,7 +93,7 @@ contract AzoriusFreezeGuardV1 is Version, BaseGuardV1, FactoryFriendly {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseGuardV1, Version) returns (bool) {
+    ) public view virtual override(BaseFreezeGuardV1, Version) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }
