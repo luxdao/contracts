@@ -3,10 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Version} from "../Version.sol";
 import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
-import {BaseVotingBasisPercentV1} from "./BaseVotingBasisPercentV1.sol";
 import {BaseStrategyV1} from "./BaseStrategyV1.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IBaseVotingBasisPercentV1} from "../../interfaces/decent/deployables/IBaseVotingBasisPercentV1.sol";
 
 /**
  * An Azorius strategy that allows multiple ERC721 tokens to be registered as governance tokens,
@@ -21,10 +21,10 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
  */
 contract LinearERC721VotingV1 is
     BaseStrategyV1,
-    BaseVotingBasisPercentV1,
     IERC721VotingStrategyV1,
     ERC4337VoterSupportV1,
-    Version
+    Version,
+    IBaseVotingBasisPercentV1
 {
     uint16 private constant VERSION = 1;
 
@@ -76,6 +76,12 @@ contract LinearERC721VotingV1 is
      * The minimum number of voting power required to create a new proposal.
      */
     uint256 public proposerThreshold;
+
+    /** The numerator to use when calculating basis (adjustable). */
+    uint256 public basisNumerator;
+
+    /** The denominator to use when calculating basis (1,000,000). */
+    uint256 public constant BASIS_DENOMINATOR = 1_000_000;
 
     event VotingPeriodUpdated(uint32 votingPeriod);
     event QuorumThresholdUpdated(uint256 quorumThreshold);
@@ -201,6 +207,17 @@ contract LinearERC721VotingV1 is
         uint256 _proposerThreshold
     ) external virtual onlyOwner {
         _updateProposerThreshold(_proposerThreshold);
+    }
+
+    /**
+     * Updates the `basisNumerator` for future Proposals.
+     *
+     * @param _basisNumerator numerator to use
+     */
+    function updateBasisNumerator(
+        uint256 _basisNumerator
+    ) public virtual onlyOwner {
+        _updateBasisNumerator(_basisNumerator);
     }
 
     /**
@@ -412,6 +429,18 @@ contract LinearERC721VotingV1 is
         emit ProposerThresholdUpdated(_proposerThreshold);
     }
 
+    /** Internal implementation of `updateBasisNumerator`. */
+    function _updateBasisNumerator(uint256 _basisNumerator) internal virtual {
+        if (
+            _basisNumerator > BASIS_DENOMINATOR ||
+            _basisNumerator < BASIS_DENOMINATOR / 2
+        ) revert InvalidBasisNumerator();
+
+        basisNumerator = _basisNumerator;
+
+        emit BasisNumeratorUpdated(_basisNumerator);
+    }
+
     /**
      * Internal function for casting a vote on a Proposal.
      *
@@ -477,6 +506,22 @@ contract LinearERC721VotingV1 is
     }
 
     /**
+     * Calculates whether a vote meets its basis.
+     *
+     * @param _yesVotes number of votes in favor
+     * @param _noVotes number of votes against
+     * @return bool whether the yes votes meets the set basis
+     */
+    function meetsBasis(
+        uint256 _yesVotes,
+        uint256 _noVotes
+    ) public view returns (bool) {
+        return
+            _yesVotes >
+            ((_yesVotes + _noVotes) * basisNumerator) / BASIS_DENOMINATOR;
+    }
+
+    /**
      * Implementation of version
      */
     function getVersion() public view virtual override returns (uint16) {
@@ -485,15 +530,10 @@ contract LinearERC721VotingV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    )
-        public
-        view
-        virtual
-        override(BaseStrategyV1, BaseVotingBasisPercentV1, Version)
-        returns (bool)
-    {
+    ) public view virtual override(BaseStrategyV1, Version) returns (bool) {
         return
             interfaceId == type(IERC721VotingStrategyV1).interfaceId ||
+            interfaceId == type(IBaseVotingBasisPercentV1).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
