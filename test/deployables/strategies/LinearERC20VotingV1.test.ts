@@ -208,19 +208,6 @@ describe('LinearERC20VotingV1', () => {
       ).to.be.revertedWithCustomError(linearERC20Voting, 'OwnableUnauthorizedAccount');
     });
 
-    it('should allow owner to update quorum numerator', async () => {
-      const newQuorumNumerator = 400000;
-      await linearERC20Voting.connect(owner).updateQuorumNumerator(newQuorumNumerator);
-      expect(await linearERC20Voting.quorumNumerator()).to.equal(newQuorumNumerator);
-    });
-
-    it('should not allow non-owner to update quorum numerator', async () => {
-      const newQuorumNumerator = 400000;
-      await expect(
-        linearERC20Voting.connect(nonOwner).updateQuorumNumerator(newQuorumNumerator),
-      ).to.be.revertedWithCustomError(linearERC20Voting, 'OwnableUnauthorizedAccount');
-    });
-
     it('should allow owner to update basis numerator', async () => {
       const newBasisNumerator = 600000;
       await linearERC20Voting.connect(owner).updateBasisNumerator(newBasisNumerator);
@@ -752,6 +739,101 @@ describe('LinearERC20VotingV1', () => {
       await expect(
         linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES),
       ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+    });
+  });
+
+  describe('Quorum Functionality', () => {
+    it('should allow owner to update quorumNumerator', async () => {
+      const newQuorumNumerator = 500000; // 50%
+      await linearERC20Voting.connect(owner).updateQuorumNumerator(newQuorumNumerator);
+      expect(await linearERC20Voting.quorumNumerator()).to.equal(newQuorumNumerator);
+    });
+
+    it('should emit QuorumNumeratorUpdated event when quorumNumerator is updated', async () => {
+      const newQuorumNumerator = 500000; // 50%
+      await expect(linearERC20Voting.connect(owner).updateQuorumNumerator(newQuorumNumerator))
+        .to.emit(linearERC20Voting, 'QuorumNumeratorUpdated')
+        .withArgs(newQuorumNumerator);
+    });
+
+    it('should not allow non-owner to update quorumNumerator', async () => {
+      const newQuorumNumerator = 500000; // 50%
+      await expect(
+        linearERC20Voting.connect(nonOwner).updateQuorumNumerator(newQuorumNumerator),
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'OwnableUnauthorizedAccount');
+    });
+
+    it('should revert when quorumNumerator is greater than QUORUM_DENOMINATOR', async () => {
+      const invalidQuorumNumerator = 1_000_001; // QUORUM_DENOMINATOR + 1
+      await expect(
+        linearERC20Voting.connect(owner).updateQuorumNumerator(invalidQuorumNumerator),
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'InvalidQuorumNumerator');
+    });
+
+    it('should allow quorumNumerator to be zero', async () => {
+      const newQuorumNumerator = 0;
+      await linearERC20Voting.connect(owner).updateQuorumNumerator(newQuorumNumerator);
+      expect(await linearERC20Voting.quorumNumerator()).to.equal(newQuorumNumerator);
+    });
+
+    it('should allow quorumNumerator to be equal to QUORUM_DENOMINATOR', async () => {
+      const newQuorumNumerator = 1_000_000; // QUORUM_DENOMINATOR
+      await linearERC20Voting.connect(owner).updateQuorumNumerator(newQuorumNumerator);
+      expect(await linearERC20Voting.quorumNumerator()).to.equal(newQuorumNumerator);
+    });
+
+    it('should correctly calculate quorum based on total supply', async () => {
+      // Set up a proposal
+      const proposalId = 100;
+      const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
+      await linearERC20Voting.connect(nonOwner).initializeProposal(initializeData);
+
+      // Get the proposal start timestamp
+      const [, , , startTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+      // Set the past total supply to 1000 tokens
+      await mockToken.setPastTotalSupply(startTimestamp, 1000);
+
+      // With 30% quorum (300000/1000000), should require 300 votes
+      const quorumVotesRequired = await linearERC20Voting.quorumVotes(proposalId);
+      expect(quorumVotesRequired).to.equal(300);
+
+      // Update quorum to 50%
+      await linearERC20Voting.connect(owner).updateQuorumNumerator(500000);
+      const newQuorumVotesRequired = await linearERC20Voting.quorumVotes(proposalId);
+      expect(newQuorumVotesRequired).to.equal(500);
+    });
+
+    describe('meetsQuorum', () => {
+      it('should return true when yes + abstain votes exceed quorum threshold', async () => {
+        // With 30% quorum (300000/1000000), 1000 total supply requires 300 votes
+        // 400 votes (300 YES + 100 ABSTAIN) > 300 required
+        void expect(await linearERC20Voting.meetsQuorum(1000, 300, 100)).to.be.true;
+      });
+
+      it('should return true when yes + abstain votes equal quorum threshold', async () => {
+        // With 30% quorum (300000/1000000), 1000 total supply requires 300 votes
+        // 300 votes (250 YES + 50 ABSTAIN) = 300 required
+        void expect(await linearERC20Voting.meetsQuorum(1000, 250, 50)).to.be.true;
+      });
+
+      it('should return false when yes + abstain votes are below quorum threshold', async () => {
+        // With 30% quorum (300000/1000000), 1000 total supply requires 300 votes
+        // 250 votes (200 YES + 50 ABSTAIN) < 300 required
+        void expect(await linearERC20Voting.meetsQuorum(1000, 200, 50)).to.be.false;
+      });
+
+      it('should handle zero votes correctly', async () => {
+        // With 30% quorum (300000/1000000), 1000 total supply requires 300 votes
+        // 0 votes < 300 required
+        void expect(await linearERC20Voting.meetsQuorum(1000, 0, 0)).to.be.false;
+      });
+
+      it('should handle zero total supply correctly', async () => {
+        // With 30% quorum (300000/1000000), 0 total supply requires 0 votes
+        // Any number of votes (including 0) should meet the quorum
+        void expect(await linearERC20Voting.meetsQuorum(0, 0, 0)).to.be.true;
+      });
     });
   });
 });
