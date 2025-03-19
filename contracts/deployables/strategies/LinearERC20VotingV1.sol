@@ -3,10 +3,11 @@ pragma solidity ^0.8.28;
 
 import {Version} from "../Version.sol";
 import {BaseStrategyV1} from "./BaseStrategyV1.sol";
-import {BaseQuorumPercentV1} from "./BaseQuorumPercentV1.sol";
 import {BaseVotingBasisPercentV1} from "./BaseVotingBasisPercentV1.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import {IBaseQuorumPercentV1} from "../../interfaces/decent/deployables/IBaseQuorumPercentV1.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * An [Azorius](./Azorius.md) [BaseStrategy](./BaseStrategy.md) implementation that
@@ -14,11 +15,12 @@ import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
  * in an `ERC20Votes` token equals 1 vote for a Proposal.
  */
 contract LinearERC20VotingV1 is
+    ERC165,
     BaseStrategyV1,
-    BaseQuorumPercentV1,
     BaseVotingBasisPercentV1,
     ERC4337VoterSupportV1,
-    Version
+    Version,
+    IBaseQuorumPercentV1
 {
     uint16 private constant VERSION = 1;
 
@@ -50,6 +52,12 @@ contract LinearERC20VotingV1 is
 
     /** Voting weight required to be able to submit Proposals. */
     uint256 public requiredProposerWeight;
+
+    /** The numerator to use when calculating quorum (adjustable). */
+    uint256 public quorumNumerator;
+
+    /** The denominator to use when calculating quorum (1,000,000). */
+    uint256 public constant QUORUM_DENOMINATOR = 1_000_000;
 
     /** `proposalId` to `ProposalVotes`, the voting state of a Proposal. */
     mapping(uint256 => ProposalVotes) internal proposalVotes;
@@ -127,6 +135,17 @@ contract LinearERC20VotingV1 is
         uint256 _requiredProposerWeight
     ) external virtual onlyOwner {
         _updateRequiredProposerWeight(_requiredProposerWeight);
+    }
+
+    /**
+     * Updates the quorum required for future Proposals.
+     *
+     * @param _quorumNumerator numerator to use when calculating quorum (over 1,000,000)
+     */
+    function updateQuorumNumerator(
+        uint256 _quorumNumerator
+    ) public virtual onlyOwner {
+        _updateQuorumNumerator(_quorumNumerator);
     }
 
     /**
@@ -289,6 +308,16 @@ contract LinearERC20VotingV1 is
         emit RequiredProposerWeightUpdated(_requiredProposerWeight);
     }
 
+    /** Internal implementation of `updateQuorumNumerator`. */
+    function _updateQuorumNumerator(uint256 _quorumNumerator) internal virtual {
+        if (_quorumNumerator > QUORUM_DENOMINATOR)
+            revert InvalidQuorumNumerator();
+
+        quorumNumerator = _quorumNumerator;
+
+        emit QuorumNumeratorUpdated(_quorumNumerator);
+    }
+
     /**
      * Internal function for casting a vote on a Proposal.
      *
@@ -325,10 +354,34 @@ contract LinearERC20VotingV1 is
         emit Voted(_voter, _proposalId, _voteType, _weight);
     }
 
-    /** @inheritdoc BaseQuorumPercentV1*/
+    /**
+     * Calculates whether a vote meets quorum. This is calculated based on yes votes + abstain
+     * votes.
+     *
+     * @param _totalSupply the total supply of tokens
+     * @param _yesVotes number of votes in favor
+     * @param _abstainVotes number of votes abstaining
+     * @return bool whether the total number of yes votes + abstain meets the quorum
+     */
+    function meetsQuorum(
+        uint256 _totalSupply,
+        uint256 _yesVotes,
+        uint256 _abstainVotes
+    ) public view returns (bool) {
+        return
+            _yesVotes + _abstainVotes >=
+            (_totalSupply * quorumNumerator) / QUORUM_DENOMINATOR;
+    }
+
+    /**
+     * Calculates the total number of votes required for a proposal to meet quorum.
+     *
+     * @param _proposalId The ID of the proposal to get quorum votes for
+     * @return uint256 The quantity of votes required to meet quorum
+     */
     function quorumVotes(
         uint32 _proposalId
-    ) public view virtual override returns (uint256) {
+    ) public view virtual returns (uint256) {
         return
             (quorumNumerator * getProposalVotingSupply(_proposalId)) /
             QUORUM_DENOMINATOR;
@@ -347,14 +400,11 @@ contract LinearERC20VotingV1 is
         public
         view
         virtual
-        override(
-            BaseQuorumPercentV1,
-            BaseStrategyV1,
-            BaseVotingBasisPercentV1,
-            Version
-        )
+        override(BaseStrategyV1, BaseVotingBasisPercentV1, Version, ERC165)
         returns (bool)
     {
-        return super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IBaseQuorumPercentV1).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }
