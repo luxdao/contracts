@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {Version} from "../Version.sol";
 import {IFractalModuleV1} from "../../interfaces/decent/deployables/IFractalModuleV1.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * Implementation of [IFractalModule](./interfaces/IFractalModule.md).
@@ -14,7 +15,12 @@ import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/Guardab
  * transactions on the Safe, which in our implementation is the set of parent
  * DAOs.
  */
-contract FractalModuleV1 is IFractalModuleV1, GuardableModule, Version {
+contract FractalModuleV1 is
+    IFractalModuleV1,
+    GuardableModule,
+    Version,
+    UUPSUpgradeable
+{
     uint16 private constant VERSION = 1;
 
     /** Mapping of whether an address is a controller (typically a parentDAO). */
@@ -38,6 +44,34 @@ contract FractalModuleV1 is IFractalModuleV1, GuardableModule, Version {
     }
 
     /**
+     * Initialize function for the UUPS pattern.
+     *
+     * @param _owner Address that will own the contract
+     * @param _avatar Address of the avatar (e.g., the Safe)
+     * @param _target Address that avatar calls are directed to
+     * @param _controllers Array of controller addresses to enable
+     */
+    function initialize(
+        address _owner,
+        address _avatar,
+        address _target,
+        address[] memory _controllers
+    ) public initializer {
+        // Initializer owner with the msg.sender first,
+        // needed for setting the avatar and target, which are ownable functions
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+
+        // Setup module parameters
+        setAvatar(_avatar);
+        setTarget(_target);
+        addControllers(_controllers);
+
+        // Transfer ownership to the provided owner
+        transferOwnership(_owner);
+    }
+
+    /**
      * Initialize function, will be triggered when a new instance is deployed.
      *
      * @param initializeParams encoded initialization parameters: `address _owner`,
@@ -53,13 +87,16 @@ contract FractalModuleV1 is IFractalModuleV1, GuardableModule, Version {
                 initializeParams,
                 (address, address, address, address[])
             );
-
-        __Ownable_init(msg.sender);
-        setAvatar(_avatar);
-        setTarget(_target);
-        addControllers(_controllers);
-        transferOwnership(_owner);
+        initialize(_owner, _avatar, _target, _controllers);
     }
+
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /** @inheritdoc IFractalModuleV1*/
     function removeControllers(
