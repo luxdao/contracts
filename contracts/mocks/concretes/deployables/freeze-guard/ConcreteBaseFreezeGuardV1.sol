@@ -8,11 +8,6 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
  * A concrete implementation of BaseGuardV1 for testing
  */
 contract ConcreteBaseFreezeGuardV1 is BaseFreezeGuardV1 {
-    function setUp(bytes memory initializeParams) public override initializer {
-        address _owner = abi.decode(initializeParams, (address));
-        __Ownable_init(_owner);
-    }
-
     function checkTransaction(
         address,
         uint256,
