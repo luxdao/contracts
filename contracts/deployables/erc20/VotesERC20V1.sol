@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import {Version} from "../Version.sol";
-import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -11,15 +10,19 @@ import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/
 import {NoncesUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
 import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * An implementation of the OpenZeppelin `IVotes` voting token standard.
+ * Implements the UUPS proxy pattern for upgradeability.
  */
 contract VotesERC20V1 is
     Version,
     ERC20VotesUpgradeable,
     ERC20PermitUpgradeable,
-    FactoryFriendly
+    UUPSUpgradeable,
+    OwnableUpgradeable
 {
     uint16 private constant VERSION = 1;
 
@@ -28,32 +31,30 @@ contract VotesERC20V1 is
     }
 
     /**
-     * Initialize function, will be triggered when a new instance is deployed.
+     * Initialize function, will be triggered when a new proxy instance is deployed.
      *
-     * @param initializeParams encoded initialization parameters: `string memory _name`,
-     * `string memory _symbol`, `address[] memory _allocationAddresses`,
-     * `uint256[] memory _allocationAmounts`
+     * @param name Token name
+     * @param symbol Token symbol
+     * @param allocationAddresses Addresses of initial allocations
+     * @param allocationAmounts Amounts of initial allocations
+     * @param owner Address that will own the proxy and be able to upgrade it
      */
-    function setUp(
-        bytes memory initializeParams
-    ) public virtual override initializer {
-        (
-            string memory _name, // token name
-            string memory _symbol, // token symbol
-            address[] memory _allocationAddresses, // addresses of initial allocations
-            uint256[] memory _allocationAmounts // amounts of initial allocations
-        ) = abi.decode(
-                initializeParams,
-                (string, string, address[], uint256[])
-            );
-
-        __ERC20_init(_name, _symbol);
-        __ERC20Permit_init(_name);
+    function initialize(
+        string memory name,
+        string memory symbol,
+        address[] memory allocationAddresses,
+        uint256[] memory allocationAmounts,
+        address owner
+    ) public initializer {
+        __ERC20_init(name, symbol);
+        __ERC20Permit_init(name);
         __ERC20Votes_init();
+        __UUPSUpgradeable_init();
+        __Ownable_init(owner);
 
-        uint256 holderCount = _allocationAddresses.length;
+        uint256 holderCount = allocationAddresses.length;
         for (uint256 i; i < holderCount; ) {
-            _mint(_allocationAddresses[i], _allocationAmounts[i]);
+            _mint(allocationAddresses[i], allocationAmounts[i]);
             unchecked {
                 ++i;
             }
@@ -66,6 +67,18 @@ contract VotesERC20V1 is
 
     function CLOCK_MODE() public pure override returns (string memory) {
         return "mode=timestamp";
+    }
+
+    /**
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
+     * Called by {upgradeTo} and {upgradeToAndCall}.
+     *
+     * Reverts if the sender is not the owner of the contract.
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {
+        // Authorization is handled by the onlyOwner modifier
     }
 
     function _update(

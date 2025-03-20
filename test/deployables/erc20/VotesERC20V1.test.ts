@@ -3,6 +3,7 @@ import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   IERC165__factory,
   IERC20__factory,
   IERC20Permit__factory,
@@ -11,83 +12,70 @@ import {
   VotesERC20V1,
   VotesERC20V1__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper function for deploying VotesERC20V1 instances
+// Helper function for deploying VotesERC20V1 instances using ERC1967Proxy
 async function deployVotesERC20Proxy(
-  votesERC20Mastercopy: VotesERC20V1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   name: string,
   symbol: string,
   allocationAddresses: string[],
   allocationAmounts: bigint[],
 ): Promise<VotesERC20V1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
+  // Create initialization data with function selector
+  const fullInitData =
+    VotesERC20V1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
+        ['string', 'string', 'address[]', 'uint256[]', 'address'],
+        [name, symbol, allocationAddresses, allocationAmounts, owner.address],
+      )
+      .slice(2);
 
-  const votesERC20SetupCalldata = VotesERC20V1__factory.createInterface().encodeFunctionData(
-    'setUp',
-    [
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['string', 'string', 'address[]', 'uint256[]'],
-        [name, symbol, allocationAddresses, allocationAmounts],
-      ),
-    ],
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  await moduleProxyFactory.deployModule(
-    await votesERC20Mastercopy.getAddress(),
-    votesERC20SetupCalldata,
-    salt,
-  );
-
-  const predictedVotesERC20Address = await calculateProxyAddress(
-    moduleProxyFactory,
-    await votesERC20Mastercopy.getAddress(),
-    votesERC20SetupCalldata,
-    salt,
-  );
-
-  return VotesERC20V1__factory.connect(predictedVotesERC20Address, owner);
+  // Return a contract instance connected to the proxy
+  return VotesERC20V1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('VotesERC20V1', () => {
   // signers
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let alice: SignerWithAddress;
   let bob: SignerWithAddress;
   let carol: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
 
   // contracts
-  let votesERC20Mastercopy: VotesERC20V1;
   let votesERC20: VotesERC20V1;
-
-  // constants
-  const TOKEN_NAME = 'Test Voting Token';
-  const TOKEN_SYMBOL = 'TVT';
+  let masterCopy: string;
 
   beforeEach(async () => {
     // Get signers
-    [owner, alice, bob, carol] = await ethers.getSigners();
+    [proxyDeployer, owner, alice, bob, carol, nonOwner] = await ethers.getSigners();
 
-    // Deploy mastercopy
-    votesERC20Mastercopy = await new VotesERC20V1__factory(owner).deploy();
+    masterCopy = await (await new VotesERC20V1__factory(owner).deploy()).getAddress();
   });
 
   describe('Initialization', () => {
     it('should initialize with correct name and symbol', async () => {
       votesERC20 = await deployVotesERC20Proxy(
-        votesERC20Mastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
+        'Test Voting Token',
+        'TVT',
         [],
         [],
       );
 
-      expect(await votesERC20.name()).to.equal(TOKEN_NAME);
-      expect(await votesERC20.symbol()).to.equal(TOKEN_SYMBOL);
+      expect(await votesERC20.name()).to.equal('Test Voting Token');
+      expect(await votesERC20.symbol()).to.equal('TVT');
     });
 
     it('should mint initial tokens according to allocations', async () => {
@@ -99,10 +87,11 @@ describe('VotesERC20V1', () => {
       ];
 
       votesERC20 = await deployVotesERC20Proxy(
-        votesERC20Mastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
+        'Test Voting Token',
+        'TVT',
         allocationAddresses,
         allocationAmounts,
       );
@@ -117,10 +106,11 @@ describe('VotesERC20V1', () => {
 
     it('should handle empty allocation arrays', async () => {
       votesERC20 = await deployVotesERC20Proxy(
-        votesERC20Mastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
+        'Test Voting Token',
+        'TVT',
         [],
         [],
       );
@@ -130,22 +120,70 @@ describe('VotesERC20V1', () => {
 
     it('should not allow reinitialization', async () => {
       votesERC20 = await deployVotesERC20Proxy(
-        votesERC20Mastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
+        'Test Voting Token',
+        'TVT',
         [],
         [],
       );
 
-      const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['string', 'string', 'address[]', 'uint256[]'],
-        ['New Name', 'NEW', [], []],
+      await expect(
+        votesERC20.initialize('New Name', 'NEW', [], [], owner.address),
+      ).to.be.revertedWithCustomError(votesERC20, 'InvalidInitialization');
+    });
+
+    it('Should have initialization disabled in the implementation', async function () {
+      const implementationContract = VotesERC20V1__factory.connect(masterCopy, proxyDeployer);
+
+      await expect(
+        implementationContract.initialize('New Name', 'NEW', [], [], owner.address),
+      ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
+    });
+
+    it('should set the owner correctly', async () => {
+      votesERC20 = await deployVotesERC20Proxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Voting Token',
+        'TVT',
+        [],
+        [],
       );
 
-      await expect(votesERC20.setUp(setupData)).to.be.revertedWithCustomError(
+      expect(await votesERC20.owner()).to.equal(owner.address);
+    });
+  });
+
+  describe('Ownership', () => {
+    beforeEach(async () => {
+      votesERC20 = await deployVotesERC20Proxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Voting Token',
+        'TVT',
+        [],
+        [],
+      );
+    });
+
+    it('should set the owner correctly', async () => {
+      const currentOwner = await votesERC20.owner();
+      expect(currentOwner).to.equal(owner.address);
+    });
+
+    it('should allow the owner to call authorized functions', async () => {
+      await votesERC20.connect(owner).renounceOwnership();
+      expect(await votesERC20.owner()).to.equal(ethers.ZeroAddress);
+    });
+
+    it('should not allow non-owners to call owner-only functions', async () => {
+      await expect(votesERC20.connect(alice).renounceOwnership()).to.be.revertedWithCustomError(
         votesERC20,
-        'InvalidInitialization',
+        'OwnableUnauthorizedAccount',
       );
     });
   });
@@ -153,16 +191,16 @@ describe('VotesERC20V1', () => {
   describe('Version', () => {
     beforeEach(async () => {
       votesERC20 = await deployVotesERC20Proxy(
-        votesERC20Mastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
+        'Test Voting Token',
+        'TVT',
         [],
         [],
       );
     });
 
-    // Use the shared version test utility
     it('should return the correct version number', async () => {
       expect(await votesERC20.getVersion()).to.equal(1);
     });
@@ -177,12 +215,12 @@ describe('VotesERC20V1', () => {
     let iERC165InterfaceId: string;
 
     beforeEach(async function () {
-      // Deploy VotesERC20 for this test section
       votesERC20 = await deployVotesERC20Proxy(
-        votesERC20Mastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
+        'Test Voting Token',
+        'TVT',
         [],
         [],
       );
@@ -239,12 +277,13 @@ describe('VotesERC20V1', () => {
   describe('Timestamp-based clock functions', () => {
     beforeEach(async () => {
       votesERC20 = await deployVotesERC20Proxy(
-        votesERC20Mastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
-        [owner.address],
-        [ethers.parseEther('100')],
+        'Test Voting Token',
+        'TVT',
+        [],
+        [],
       );
     });
 
@@ -275,6 +314,31 @@ describe('VotesERC20V1', () => {
 
       // Should match the owner's balance since we just delegated
       expect(votingPower).to.equal(await votesERC20.balanceOf(owner.address));
+    });
+  });
+
+  describe('VotesERC20V1 UUPS Upgradeability', function () {
+    beforeEach(async function () {
+      votesERC20 = await deployVotesERC20Proxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Voting Token',
+        'TVT',
+        [],
+        [],
+      );
+    });
+
+    // Run UUPS upgradeability tests
+    runUUPSUpgradeabilityTests({
+      getContract: () => votesERC20,
+      createNewImplementation: async () => {
+        const newImplementation = await new VotesERC20V1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
