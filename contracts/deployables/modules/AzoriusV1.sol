@@ -5,6 +5,7 @@ import {Version} from "../Version.sol";
 import {IBaseStrategyV1} from "../../interfaces/decent/deployables/IBaseStrategyV1.sol";
 import {IAzoriusV1, Enum} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * A Safe module which allows for composable governance.
@@ -16,7 +17,7 @@ import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModu
  * All voting details are delegated to [BaseStrategy](./BaseStrategy.md) implementations, of which an Azorius DAO can
  * have any number.
  */
-contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
+contract AzoriusV1 is IAzoriusV1, GuardableModule, Version, UUPSUpgradeable {
     uint16 private constant VERSION = 1;
 
     /**
@@ -104,9 +105,42 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
     /**
      * Initial setup of the Azorius instance.
      *
-     * @param initializeParams encoded initialization parameters: `address _owner`,
-     * `address _avatar`, `address _target`, `address[] memory _strategies`,
-     * `uint256 _timelockPeriod`, `uint256 _executionPeriod`
+     * @param _owner Address that will own the contract
+     * @param _avatar Address of the avatar (e.g., the Safe)
+     * @param _target Address that avatar calls are directed to
+     * @param _strategies Array of strategy addresses to enable
+     * @param _timelockPeriod Initial timelock period
+     * @param _executionPeriod Initial execution period
+     */
+    function initialize(
+        address _owner,
+        address _avatar,
+        address _target,
+        address[] memory _strategies,
+        uint32 _timelockPeriod,
+        uint32 _executionPeriod
+    ) public initializer {
+        // Initializer owner with the msg.sender first,
+        // needed for setting the avatar and target, which are ownable functions
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+
+        // Setup module parameters
+        setAvatar(_avatar);
+        setTarget(_target);
+        _setUpStrategies(_strategies);
+        _updateTimelockPeriod(_timelockPeriod);
+        _updateExecutionPeriod(_executionPeriod);
+
+        // Transfer ownership to the provided owner
+        transferOwnership(_owner);
+
+        emit AzoriusSetUp(msg.sender, _owner, _avatar, _target);
+    }
+
+    /**
+     * @dev Function to maintain backwards compatibility with the ModuleProxyFactory.
+     * Instead of using this function, use initialize directly.
      */
     function setUp(bytes memory initializeParams) public override initializer {
         (
@@ -120,17 +154,23 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version {
                 initializeParams,
                 (address, address, address, address[], uint32, uint32)
             );
-
-        __Ownable_init(msg.sender);
-        setAvatar(_avatar);
-        setTarget(_target);
-        _setUpStrategies(_strategies);
-        transferOwnership(_owner);
-        _updateTimelockPeriod(_timelockPeriod);
-        _updateExecutionPeriod(_executionPeriod);
-
-        emit AzoriusSetUp(msg.sender, _owner, _avatar, _target);
+        initialize(
+            _owner,
+            _avatar,
+            _target,
+            _strategies,
+            _timelockPeriod,
+            _executionPeriod
+        );
     }
+
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /** @inheritdoc IAzoriusV1*/
     function updateTimelockPeriod(uint32 _timelockPeriod) external onlyOwner {
