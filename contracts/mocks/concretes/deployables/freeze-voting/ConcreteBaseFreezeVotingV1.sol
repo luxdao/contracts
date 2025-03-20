@@ -10,18 +10,19 @@ contract ConcreteBaseFreezeVotingV1 is BaseFreezeVotingV1 {
     /**
      * Initialize function, will be triggered when a new instance is deployed.
      *
-     * @param initializeParams encoded initialization parameters: `address _owner`,
-     * `uint256 _freezeVotesThreshold`, `uint32 _freezeProposalPeriod`, `uint32 _freezePeriod`
+     * @param _owner The owner of the contract
+     * @param _freezeVotesThreshold The number of votes required to activate a freeze
+     * @param _freezeProposalPeriod The number of blocks a freeze proposal has to succeed
+     * @param _freezePeriod The number of blocks a freeze lasts
      */
-    function setUp(bytes memory initializeParams) public override initializer {
-        (
-            address _owner,
-            uint256 _freezeVotesThreshold,
-            uint32 _freezeProposalPeriod,
-            uint32 _freezePeriod
-        ) = abi.decode(initializeParams, (address, uint256, uint32, uint32));
-
+    function initialize(
+        address _owner,
+        uint256 _freezeVotesThreshold,
+        uint32 _freezeProposalPeriod,
+        uint32 _freezePeriod
+    ) public initializer {
         __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
         _updateFreezeVotesThreshold(_freezeVotesThreshold);
         _updateFreezeProposalPeriod(_freezeProposalPeriod);
         _updateFreezePeriod(_freezePeriod);

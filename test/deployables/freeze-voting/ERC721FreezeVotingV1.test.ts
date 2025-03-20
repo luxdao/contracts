@@ -3,6 +3,7 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   ERC721FreezeVotingV1,
   ERC721FreezeVotingV1__factory,
   MockERC721,
@@ -10,24 +11,23 @@ import {
   MockERC721VotingStrategy,
   MockERC721VotingStrategy__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper function for deploying ERC721FreezeVotingV1 proxy instances
+// Helper function for deploying ERC721FreezeVotingV1 proxy instances using ERC1967Proxy
 async function deployERC721FreezeVotingProxy(
-  erc721FreezeVotingMastercopy: ERC721FreezeVotingV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
   freezePeriod: number,
   strategy: MockERC721VotingStrategy,
 ): Promise<ERC721FreezeVotingV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
-
-  const erc721FreezeVotingSetupCalldata =
-    ERC721FreezeVotingV1__factory.createInterface().encodeFunctionData('setUp', [
-      ethers.AbiCoder.defaultAbiCoder().encode(
+  // Combine selector and encoded params
+  const fullInitData =
+    ERC721FreezeVotingV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
         ['address', 'uint256', 'uint32', 'uint32', 'address'],
         [
           owner.address,
@@ -36,23 +36,14 @@ async function deployERC721FreezeVotingProxy(
           freezePeriod,
           await strategy.getAddress(),
         ],
-      ),
-    ]);
+      )
+      .slice(2);
 
-  await moduleProxyFactory.deployModule(
-    await erc721FreezeVotingMastercopy.getAddress(),
-    erc721FreezeVotingSetupCalldata,
-    salt,
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  const predictedAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await erc721FreezeVotingMastercopy.getAddress(),
-    erc721FreezeVotingSetupCalldata,
-    salt,
-  );
-
-  return ERC721FreezeVotingV1__factory.connect(predictedAddress, owner);
+  // Return a contract instance connected to the proxy
+  return ERC721FreezeVotingV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 // Helper function to mint an NFT
@@ -62,15 +53,16 @@ async function mintNFT(nftContract: MockERC721, to: SignerWithAddress): Promise<
 
 describe('ERC721FreezeVotingV1', () => {
   // signers
-  let deployer: SignerWithAddress;
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let voter1: SignerWithAddress;
   let voter2: SignerWithAddress;
   let voter3: SignerWithAddress;
   let nonVoter: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
 
   // contracts
-  let erc721FreezeVotingMastercopy: ERC721FreezeVotingV1;
+  let masterCopy: string;
   let freezeVoting: ERC721FreezeVotingV1;
   let votingStrategy: MockERC721VotingStrategy;
   let nftCollection1: MockERC721;
@@ -95,14 +87,16 @@ describe('ERC721FreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [deployer, owner, voter1, voter2, voter3, nonVoter] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3, nonVoter, nonOwner] = await ethers.getSigners();
 
     // Deploy NFT collections
-    nftCollection1 = await new MockERC721__factory(deployer).deploy();
-    nftCollection2 = await new MockERC721__factory(deployer).deploy();
+    nftCollection1 = await new MockERC721__factory(proxyDeployer).deploy();
+    nftCollection2 = await new MockERC721__factory(proxyDeployer).deploy();
 
     // Deploy voting strategy
-    votingStrategy = await new MockERC721VotingStrategy__factory(deployer).deploy(owner.address);
+    votingStrategy = await new MockERC721VotingStrategy__factory(proxyDeployer).deploy(
+      owner.address,
+    );
 
     // Set token weights in the voting strategy
     await votingStrategy
@@ -133,12 +127,14 @@ describe('ERC721FreezeVotingV1', () => {
     voter3TokenAddresses = [await nftCollection1.getAddress(), await nftCollection2.getAddress()];
     voter3TokenIds = [voter3NFT1Id, voter3NFT2Id];
 
-    // Deploy mastercopy
-    erc721FreezeVotingMastercopy = await new ERC721FreezeVotingV1__factory(deployer).deploy();
+    // Deploy implementation
+    const implementation = await new ERC721FreezeVotingV1__factory(proxyDeployer).deploy();
+    masterCopy = await implementation.getAddress();
 
     // Deploy proxy
     freezeVoting = await deployERC721FreezeVotingProxy(
-      erc721FreezeVotingMastercopy,
+      proxyDeployer,
+      masterCopy,
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
@@ -157,21 +153,32 @@ describe('ERC721FreezeVotingV1', () => {
     });
 
     it('should not allow reinitialization', async () => {
-      const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint256', 'uint32', 'uint32', 'address'],
-        [
+      await expect(
+        freezeVoting.initialize(
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
           FREEZE_PERIOD,
           await votingStrategy.getAddress(),
-        ],
-      );
+        ),
+      ).to.be.revertedWithCustomError(freezeVoting, 'InvalidInitialization');
+    });
 
-      await expect(freezeVoting.setUp(setupData)).to.be.revertedWithCustomError(
-        freezeVoting,
-        'InvalidInitialization',
-      );
+    it('Should have initialization disabled in the implementation', async function () {
+      const implementationContract = ERC721FreezeVotingV1__factory.connect(
+        masterCopy,
+        proxyDeployer,
+      ) as any;
+
+      await expect(
+        implementationContract.initialize(
+          owner.address,
+          FREEZE_VOTES_THRESHOLD,
+          FREEZE_PROPOSAL_PERIOD,
+          FREEZE_PERIOD,
+          await votingStrategy.getAddress(),
+        ),
+      ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
 
@@ -575,9 +582,20 @@ describe('ERC721FreezeVotingV1', () => {
   });
 
   describe('Version', () => {
-    // Use the shared version test utility
     it('should return the correct version number', async () => {
       expect(await freezeVoting.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => freezeVoting,
+      createNewImplementation: async () => {
+        const newImplementation = await new ERC721FreezeVotingV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });

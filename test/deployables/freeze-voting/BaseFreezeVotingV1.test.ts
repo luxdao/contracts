@@ -5,57 +5,50 @@ import { ethers } from 'hardhat';
 import {
   ConcreteBaseFreezeVotingV1,
   ConcreteBaseFreezeVotingV1__factory,
+  ERC1967Proxy__factory,
   IBaseFreezeVotingV1__factory,
   IERC165__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper function for deploying ConcreteBaseFreezeVoting instances
+// Helper function for deploying ConcreteBaseFreezeVoting instances using ERC1967Proxy
 async function deployConcreteBaseFreezeVotingProxy(
-  concreteBaseFreezeVotingMastercopy: ConcreteBaseFreezeVotingV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
   freezePeriod: number,
 ): Promise<ConcreteBaseFreezeVotingV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
-
-  const concreteBaseFreezeVotingSetupCalldata =
-    ConcreteBaseFreezeVotingV1__factory.createInterface().encodeFunctionData('setUp', [
-      ethers.AbiCoder.defaultAbiCoder().encode(
+  // Combine selector and encoded params
+  const fullInitData =
+    ConcreteBaseFreezeVotingV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
         ['address', 'uint256', 'uint32', 'uint32'],
         [owner.address, freezeVotesThreshold, freezeProposalPeriod, freezePeriod],
-      ),
-    ]);
+      )
+      .slice(2);
 
-  await moduleProxyFactory.deployModule(
-    await concreteBaseFreezeVotingMastercopy.getAddress(),
-    concreteBaseFreezeVotingSetupCalldata,
-    salt,
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  const predictedAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await concreteBaseFreezeVotingMastercopy.getAddress(),
-    concreteBaseFreezeVotingSetupCalldata,
-    salt,
-  );
-
-  return ConcreteBaseFreezeVotingV1__factory.connect(predictedAddress, owner);
+  // Return a contract instance connected to the proxy
+  return ConcreteBaseFreezeVotingV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('BaseFreezeVotingV1', () => {
   // signers
-  let deployer: SignerWithAddress;
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let voter1: SignerWithAddress;
   let voter2: SignerWithAddress;
   let voter3: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
 
   // contracts
-  let concreteBaseFreezeVotingMastercopy: ConcreteBaseFreezeVotingV1;
+  let masterCopy: string;
   let freezeVoting: ConcreteBaseFreezeVotingV1;
 
   // constants
@@ -65,16 +58,16 @@ describe('BaseFreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [deployer, owner, voter1, voter2, voter3] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3, nonOwner] = await ethers.getSigners();
 
-    // Deploy mastercopy
-    concreteBaseFreezeVotingMastercopy = await new ConcreteBaseFreezeVotingV1__factory(
-      deployer,
-    ).deploy();
+    // Deploy implementation
+    const implementation = await new ConcreteBaseFreezeVotingV1__factory(proxyDeployer).deploy();
+    masterCopy = await implementation.getAddress();
 
     // Deploy proxy
     freezeVoting = await deployConcreteBaseFreezeVotingProxy(
-      concreteBaseFreezeVotingMastercopy,
+      proxyDeployer,
+      masterCopy,
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
@@ -91,15 +84,30 @@ describe('BaseFreezeVotingV1', () => {
     });
 
     it('should not allow reinitialization', async () => {
-      const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint256', 'uint32', 'uint32'],
-        [owner.address, FREEZE_VOTES_THRESHOLD, FREEZE_PROPOSAL_PERIOD, FREEZE_PERIOD],
-      );
+      await expect(
+        freezeVoting.initialize(
+          owner.address,
+          FREEZE_VOTES_THRESHOLD,
+          FREEZE_PROPOSAL_PERIOD,
+          FREEZE_PERIOD,
+        ),
+      ).to.be.revertedWithCustomError(freezeVoting, 'InvalidInitialization');
+    });
 
-      await expect(freezeVoting.setUp(setupData)).to.be.revertedWithCustomError(
-        freezeVoting,
-        'InvalidInitialization',
-      );
+    it('Should have initialization disabled in the implementation', async function () {
+      const implementationContract = ConcreteBaseFreezeVotingV1__factory.connect(
+        masterCopy,
+        proxyDeployer,
+      ) as any;
+
+      await expect(
+        implementationContract.initialize(
+          owner.address,
+          FREEZE_VOTES_THRESHOLD,
+          FREEZE_PROPOSAL_PERIOD,
+          FREEZE_PERIOD,
+        ),
+      ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
 
@@ -408,6 +416,18 @@ describe('BaseFreezeVotingV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await freezeVoting.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => freezeVoting,
+      createNewImplementation: async () => {
+        const newImplementation = await new ConcreteBaseFreezeVotingV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
