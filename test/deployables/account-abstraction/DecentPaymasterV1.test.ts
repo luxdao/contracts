@@ -4,6 +4,7 @@ import { ethers } from 'hardhat';
 import {
   DecentPaymasterV1,
   DecentPaymasterV1__factory,
+  ERC1967Proxy__factory,
   IDecentPaymasterV1__factory,
   IERC165__factory,
   IPaymaster__factory,
@@ -11,8 +12,8 @@ import {
   MockEntryPoint,
   MockEntryPoint__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 interface PackedUserOperation {
   sender: string;
@@ -26,47 +27,40 @@ interface PackedUserOperation {
   signature: string;
 }
 
-// Helper function for deploying DecentPaymasterV1 instances
+// Helper function for deploying DecentPaymasterV1 instances using ERC1967Proxy
 async function deployDecentPaymasterProxy(
-  decentPaymasterMastercopy: DecentPaymasterV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   entryPoint: string,
 ): Promise<DecentPaymasterV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
-
   // Encode initialization parameters
   const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
     ['address', 'address'],
     [owner.address, entryPoint],
   );
 
-  // Deploy proxy through factory
-  const decentPaymasterSetupCalldata =
-    DecentPaymasterV1__factory.createInterface().encodeFunctionData('setUp', [initializeParams]);
+  // Create full initialization data with function selector
+  const fullInitData =
+    DecentPaymasterV1__factory.createInterface().getFunction('initialize').selector +
+    initializeParams.slice(2);
 
-  await moduleProxyFactory
-    .connect(owner)
-    .deployModule(await decentPaymasterMastercopy.getAddress(), decentPaymasterSetupCalldata, salt);
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  const predictedDecentPaymasterAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await decentPaymasterMastercopy.getAddress(),
-    decentPaymasterSetupCalldata,
-    salt,
-  );
-
-  return DecentPaymasterV1__factory.connect(predictedDecentPaymasterAddress, owner);
+  // Return a contract instance connected to the proxy
+  return DecentPaymasterV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('DecentPaymasterV1', function () {
   // contracts
   let decentPaymaster: DecentPaymasterV1;
-  let decentPaymasterMastercopy: DecentPaymasterV1;
+  let masterCopy: string;
   let entryPoint: MockEntryPoint;
 
   // signers
   let owner: SignerWithAddress;
+  let proxyDeployer: SignerWithAddress;
   let strategy: SignerWithAddress;
   let nonOwner: SignerWithAddress;
 
@@ -79,19 +73,18 @@ describe('DecentPaymasterV1', function () {
 
   beforeEach(async function () {
     // Get signers
-    [owner, strategy, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, strategy, nonOwner] = await ethers.getSigners();
 
     // Deploy mock EntryPoint
-    const EntryPointFactory = new MockEntryPoint__factory(owner);
-    entryPoint = await EntryPointFactory.deploy();
+    entryPoint = await new MockEntryPoint__factory(owner).deploy();
 
-    // Deploy DecentPaymaster mastercopy
-    const DecentPaymasterFactory = new DecentPaymasterV1__factory(owner);
-    decentPaymasterMastercopy = await DecentPaymasterFactory.deploy();
+    // Deploy DecentPaymaster implementation
+    masterCopy = await (await new DecentPaymasterV1__factory(owner).deploy()).getAddress();
 
     // Deploy DecentPaymaster proxy
     decentPaymaster = await deployDecentPaymasterProxy(
-      decentPaymasterMastercopy,
+      proxyDeployer,
+      masterCopy,
       owner,
       await entryPoint.getAddress(),
     );
@@ -99,7 +92,7 @@ describe('DecentPaymasterV1', function () {
     // Create mock UserOperation
     const mockCallData = ethers.concat([
       MOCK_FUNCTION_SELECTOR,
-      ethers.zeroPadValue(strategy.address, 20), // pad address to 20 bytes
+      strategy.address,
       '0x', // empty data
     ]);
 
@@ -126,14 +119,9 @@ describe('DecentPaymasterV1', function () {
     });
 
     it('Should not allow reinitialization', async function () {
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address'],
-        [await entryPoint.getAddress()],
-      );
-      await expect(decentPaymaster.setUp(initializeParams)).to.be.revertedWithCustomError(
-        decentPaymaster,
-        'InvalidInitialization',
-      );
+      await expect(
+        decentPaymaster.initialize(owner.address, await entryPoint.getAddress()),
+      ).to.be.revertedWithCustomError(decentPaymaster, 'InvalidInitialization');
     });
 
     it('Should have a version', async function () {
@@ -147,13 +135,11 @@ describe('DecentPaymasterV1', function () {
       const selectors = [MOCK_FUNCTION_SELECTOR];
       const approved = [true];
 
-      await expect(
-        decentPaymaster.setStrategyFunctionApproval(strategy.address, selectors, approved),
-      )
+      await expect(decentPaymaster.whitelistFunctions(strategy.address, selectors, approved))
         .to.emit(decentPaymaster, 'FunctionApproved')
         .withArgs(strategy.address, MOCK_FUNCTION_SELECTOR, true);
 
-      const isApproved = await decentPaymaster.isFunctionApproved(
+      const isApproved = await decentPaymaster.isFunctionWhitelisted(
         strategy.address,
         MOCK_FUNCTION_SELECTOR,
       );
@@ -164,10 +150,10 @@ describe('DecentPaymasterV1', function () {
       const selectors = [MOCK_FUNCTION_SELECTOR];
       const approved = [true];
 
-      await decentPaymaster.setStrategyFunctionApproval(strategy.address, selectors, approved);
+      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
 
-      await decentPaymaster.setStrategyFunctionApproval(strategy.address, selectors, [false]);
-      const isApproved = await decentPaymaster.isFunctionApproved(
+      await decentPaymaster.whitelistFunctions(strategy.address, selectors, [false]);
+      const isApproved = await decentPaymaster.isFunctionWhitelisted(
         strategy.address,
         MOCK_FUNCTION_SELECTOR,
       );
@@ -179,9 +165,7 @@ describe('DecentPaymasterV1', function () {
       const approved = [true];
 
       await expect(
-        decentPaymaster
-          .connect(nonOwner)
-          .setStrategyFunctionApproval(strategy.address, selectors, approved),
+        decentPaymaster.connect(nonOwner).whitelistFunctions(strategy.address, selectors, approved),
       ).to.be.revertedWithCustomError(decentPaymaster, 'OwnableUnauthorizedAccount');
     });
 
@@ -190,7 +174,7 @@ describe('DecentPaymasterV1', function () {
       const approved: boolean[] = [];
 
       await expect(
-        decentPaymaster.setStrategyFunctionApproval(strategy.address, selectors, approved),
+        decentPaymaster.whitelistFunctions(strategy.address, selectors, approved),
       ).to.be.revertedWithCustomError(decentPaymaster, 'InvalidArrayLength');
     });
 
@@ -202,10 +186,10 @@ describe('DecentPaymasterV1', function () {
       ];
       const approved = [true, true, true];
 
-      await decentPaymaster.setStrategyFunctionApproval(strategy.address, selectors, approved);
+      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
 
       for (const selector of selectors) {
-        const isApproved = await decentPaymaster.isFunctionApproved(strategy.address, selector);
+        const isApproved = await decentPaymaster.isFunctionWhitelisted(strategy.address, selector);
         void expect(isApproved).to.be.true;
       }
     });
@@ -214,7 +198,7 @@ describe('DecentPaymasterV1', function () {
       const selectors: string[] = [];
       const approved: boolean[] = [];
 
-      await decentPaymaster.setStrategyFunctionApproval(strategy.address, selectors, approved);
+      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
       // Should not revert and should not modify any state
     });
 
@@ -223,7 +207,7 @@ describe('DecentPaymasterV1', function () {
       const approved = [true];
 
       await expect(
-        decentPaymaster.setStrategyFunctionApproval(ethers.ZeroAddress, selectors, approved),
+        decentPaymaster.whitelistFunctions(ethers.ZeroAddress, selectors, approved),
       ).to.be.revertedWithCustomError(decentPaymaster, 'ZeroAddressStrategy');
     });
   });
@@ -233,7 +217,7 @@ describe('DecentPaymasterV1', function () {
       // Approve the function for the strategy
       const selectors = [MOCK_FUNCTION_SELECTOR];
       const approved = [true];
-      await decentPaymaster.setStrategyFunctionApproval(strategy.address, selectors, approved);
+      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
 
       // Fund the impersonated signer
       const entryPointSigner = await ethers.getImpersonatedSigner(await entryPoint.getAddress());
@@ -324,11 +308,7 @@ describe('DecentPaymasterV1', function () {
 
       const userOp = { ...mockUserOp, callData: callData };
 
-      await decentPaymaster.setStrategyFunctionApproval(
-        randomAddress,
-        [MOCK_FUNCTION_SELECTOR],
-        [true],
-      );
+      await decentPaymaster.whitelistFunctions(randomAddress, [MOCK_FUNCTION_SELECTOR], [true]);
       const entryPointSigner = await ethers.getImpersonatedSigner(await entryPoint.getAddress());
 
       const result = await decentPaymaster
@@ -460,6 +440,29 @@ describe('DecentPaymasterV1', function () {
   describe('Version', () => {
     it('should return the correct version number', async () => {
       expect(await decentPaymaster.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    // beforeEach(async function () {
+    //   // Deploy proxy
+    //   decentPaymaster = await deployDecentPaymasterProxy(
+    //     proxyDeployer,
+    //     masterCopy,
+    //     owner,
+    //     await entryPoint.getAddress(),
+    //   );
+    // });
+
+    // Run UUPS upgradeability tests
+    runUUPSUpgradeabilityTests({
+      getContract: () => decentPaymaster,
+      createNewImplementation: async () => {
+        const newImplementation = await new DecentPaymasterV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
