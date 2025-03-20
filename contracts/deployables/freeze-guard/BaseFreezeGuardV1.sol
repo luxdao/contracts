@@ -4,11 +4,40 @@ pragma solidity ^0.8.28;
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-abstract contract BaseFreezeGuardV1 is IGuard, ERC165, FactoryFriendly {
+abstract contract BaseFreezeGuardV1 is
+    IGuard,
+    ERC165,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     constructor() {
         _disableInitializers();
+    }
+
+    /**
+     * Initialize function for the proxy deployment. This standardizes the initialization
+     * to better work with ProxyFactory.
+     *
+     * @param _owner Address that will own the proxy and be able to upgrade it
+     */
+    function initialize(address _owner) public initializer {
+        __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
+    }
+
+    /**
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
+     * Called by {upgradeTo} and {upgradeToAndCall}.
+     *
+     * Reverts if the sender is not the owner of the contract.
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {
+        // Authorization is handled by the onlyOwner modifier
     }
 
     function supportsInterface(
