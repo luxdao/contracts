@@ -4,6 +4,7 @@ import { ethers } from 'hardhat';
 import {
   ConcreteHatsProposalCreationWhitelistV1,
   ConcreteHatsProposalCreationWhitelistV1__factory,
+  ERC1967Proxy__factory,
   IERC165__factory,
   IHatsProposalCreationWhitelistV1__factory,
   MockHats,
@@ -11,6 +12,7 @@ import {
 } from '../../../typechain-types';
 import { runHatsProposerTests } from '../../helpers/hatsProposerTests';
 import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 describe('HatsProposalCreationWhitelistV1', () => {
   // Signers
@@ -29,6 +31,32 @@ describe('HatsProposalCreationWhitelistV1', () => {
   const proposerHatId2 = 2n;
   const nonProposerHatId = 3n;
 
+  async function deployHatsProposalCreationWhitelistProxy(
+    implementation: ConcreteHatsProposalCreationWhitelistV1,
+    ownerSigner: SignerWithAddress,
+    hatsContract: string,
+    initialWhitelistedHats: bigint[],
+  ): Promise<ConcreteHatsProposalCreationWhitelistV1> {
+    // Create the initialization data
+    const initializeCalldata =
+      ConcreteHatsProposalCreationWhitelistV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [hatsContract, initialWhitelistedHats],
+      );
+
+    // Deploy the proxy with owner as the deployer so msg.sender becomes the owner
+    const proxy = await new ERC1967Proxy__factory(ownerSigner).deploy(
+      await implementation.getAddress(),
+      initializeCalldata,
+    );
+
+    // Connect the proxy to the contract owner
+    return ConcreteHatsProposalCreationWhitelistV1__factory.connect(
+      await proxy.getAddress(),
+      ownerSigner,
+    );
+  }
+
   beforeEach(async () => {
     [deployer, owner, nonOwner, hatWearer, nonHatWearer] = await ethers.getSigners();
 
@@ -39,20 +67,18 @@ describe('HatsProposalCreationWhitelistV1', () => {
     await mockHats.setWearerStatus(hatWearer.address, proposerHatId1, true);
     await mockHats.setWearerStatus(nonHatWearer.address, nonProposerHatId, true);
 
-    // Deploy the ConcreteHatsProposalCreationWhitelist contract
-    concreteHatsProposalCreationWhitelist =
-      await new ConcreteHatsProposalCreationWhitelistV1__factory(deployer).deploy();
+    // Deploy the ConcreteHatsProposalCreationWhitelist implementation
+    const masterCopy = await new ConcreteHatsProposalCreationWhitelistV1__factory(
+      deployer,
+    ).deploy();
 
-    // Initialize the contract
-    const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint256[]'],
-      [await mockHats.getAddress(), [proposerHatId1, proposerHatId2]],
+    // Deploy a proxy with initialization
+    concreteHatsProposalCreationWhitelist = await deployHatsProposalCreationWhitelistProxy(
+      masterCopy,
+      owner,
+      await mockHats.getAddress(),
+      [proposerHatId1, proposerHatId2],
     );
-
-    await concreteHatsProposalCreationWhitelist.setUp(initializeParams);
-
-    // Transfer ownership to the owner account
-    await concreteHatsProposalCreationWhitelist.transferOwnership(owner.address);
   });
 
   describe('Initialization', () => {
@@ -74,36 +100,42 @@ describe('HatsProposalCreationWhitelistV1', () => {
     });
 
     it('should not allow initialization with no whitelisted hats', async () => {
-      const mockWhitelist = await new ConcreteHatsProposalCreationWhitelistV1__factory(
+      // Deploy another implementation for this test
+      const mockImplementation = await new ConcreteHatsProposalCreationWhitelistV1__factory(
         deployer,
       ).deploy();
 
+      // Create initialization data with empty hats array
       const emptyWhitelistedHats: bigint[] = [];
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint256[]'],
-        [await mockHats.getAddress(), emptyWhitelistedHats],
-      );
+      const initData =
+        ConcreteHatsProposalCreationWhitelistV1__factory.createInterface().encodeFunctionData(
+          'initialize',
+          [await mockHats.getAddress(), emptyWhitelistedHats],
+        );
 
-      await expect(mockWhitelist.setUp(initializeParams)).to.be.revertedWithCustomError(
-        mockWhitelist,
-        'NoHatsWhitelisted',
-      );
+      // Attempt to deploy the proxy - should revert
+      await expect(
+        new ERC1967Proxy__factory(owner).deploy(await mockImplementation.getAddress(), initData),
+      ).to.be.revertedWithCustomError(mockImplementation, 'NoHatsWhitelisted');
     });
 
     it('should not allow initialization with invalid hats contract', async () => {
-      const mockWhitelist = await new ConcreteHatsProposalCreationWhitelistV1__factory(
+      // Deploy another implementation for this test
+      const mockImplementation = await new ConcreteHatsProposalCreationWhitelistV1__factory(
         deployer,
       ).deploy();
 
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint256[]'],
-        [ethers.ZeroAddress, [proposerHatId1]],
-      );
+      // Create initialization data with zero address for hats contract
+      const initData =
+        ConcreteHatsProposalCreationWhitelistV1__factory.createInterface().encodeFunctionData(
+          'initialize',
+          [ethers.ZeroAddress, [proposerHatId1]],
+        );
 
-      await expect(mockWhitelist.setUp(initializeParams)).to.be.revertedWithCustomError(
-        mockWhitelist,
-        'InvalidHatsContract',
-      );
+      // Attempt to deploy the proxy - should revert
+      await expect(
+        new ERC1967Proxy__factory(owner).deploy(await mockImplementation.getAddress(), initData),
+      ).to.be.revertedWithCustomError(mockImplementation, 'InvalidHatsContract');
     });
   });
 
@@ -222,40 +254,40 @@ describe('HatsProposalCreationWhitelistV1', () => {
     });
   });
 
-  describe('ERC165', function () {
-    let iHatsProposalCreationWhitelistV1InterfaceId: string;
-    let iERC165InterfaceId: string;
+  describe('ERC165', () => {
+    it('Should support IERC165 interface', async () => {
+      const interfaceId = calculateInterfaceId(IERC165__factory.createInterface());
+      void expect(await concreteHatsProposalCreationWhitelist.supportsInterface(interfaceId)).to.be
+        .true;
+    });
 
-    beforeEach(async function () {
-      // Dynamically calculate interface IDs
-      const IHatsProposalCreationWhitelistV1Interface =
-        IHatsProposalCreationWhitelistV1__factory.createInterface();
-      iHatsProposalCreationWhitelistV1InterfaceId = calculateInterfaceId(
-        IHatsProposalCreationWhitelistV1Interface,
+    it('Should support IHatsProposalCreationWhitelistV1 interface', async () => {
+      const interfaceId = calculateInterfaceId(
+        IHatsProposalCreationWhitelistV1__factory.createInterface(),
       );
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+      void expect(await concreteHatsProposalCreationWhitelist.supportsInterface(interfaceId)).to.be
+        .true;
     });
 
-    it('Should support IERC165 interface', async function () {
-      const supported =
-        await concreteHatsProposalCreationWhitelist.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
+    it('Should not support random interface', async () => {
+      // Random interface ID
+      void expect(await concreteHatsProposalCreationWhitelist.supportsInterface('0x12345678')).to.be
+        .false;
     });
+  });
 
-    it('Should support IHatsProposalCreationWhitelistV1 interface', async function () {
-      const supported = await concreteHatsProposalCreationWhitelist.supportsInterface(
-        iHatsProposalCreationWhitelistV1InterfaceId,
-      );
-      void expect(supported).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      const supported =
-        await concreteHatsProposalCreationWhitelist.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () =>
+        concreteHatsProposalCreationWhitelist as unknown as import('../../../typechain-types').UUPSUpgradeable,
+      createNewImplementation: async () => {
+        const newImplementation = await new ConcreteHatsProposalCreationWhitelistV1__factory(
+          owner,
+        ).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });

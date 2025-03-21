@@ -4,11 +4,13 @@ pragma solidity ^0.8.28;
 import {IHatsProposalCreationWhitelistV1} from "../../interfaces/decent/deployables/IHatsProposalCreationWhitelistV1.sol";
 import {IHats} from "../../interfaces/hats/IHats.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 abstract contract HatsProposalCreationWhitelistV1 is
     IHatsProposalCreationWhitelistV1,
     OwnableUpgradeable,
+    UUPSUpgradeable,
     ERC165
 {
     IHats public hatsContract;
@@ -16,16 +18,20 @@ abstract contract HatsProposalCreationWhitelistV1 is
     /** Array to store whitelisted Hat IDs. */
     uint256[] private whitelistedHatIds;
 
-    /**
-     * Sets up the contract with its initial parameters.
-     *
-     * @param initializeParams encoded initialization parameters:
-     * `address _hatsContract`, `uint256[] _initialWhitelistedHats`
-     */
-    function setUp(bytes memory initializeParams) public virtual {
-        (address _hatsContract, uint256[] memory _initialWhitelistedHats) = abi
-            .decode(initializeParams, (address, uint256[]));
+    constructor() {
+        _disableInitializers();
+    }
 
+    /**
+     * Initializes the contract with its initial parameters.
+     *
+     * @param _hatsContract Address of the Hats contract
+     * @param _initialWhitelistedHats Array of initial whitelisted Hat IDs
+     */
+    function initialize(
+        address _hatsContract,
+        uint256[] memory _initialWhitelistedHats
+    ) public virtual initializer {
         if (_hatsContract == address(0)) revert InvalidHatsContract();
         hatsContract = IHats(_hatsContract);
 
@@ -34,6 +40,14 @@ abstract contract HatsProposalCreationWhitelistV1 is
             _whitelistHat(_initialWhitelistedHats[i]);
         }
     }
+
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /**
      * Adds a Hat to the whitelist for proposal creation.
