@@ -2,6 +2,7 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   FractalModuleV1,
   FractalModuleV1__factory,
   IERC165__factory,
@@ -11,64 +12,81 @@ import {
   MockAvatar__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
+  UUPSUpgradeable,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper functions for deploying FractalModuleV1 instances
+// Helper functions for deploying FractalModuleV1 instances using ERC1967Proxy
 async function deployFractalModuleProxy(
-  fractalModuleMastercopy: FractalModuleV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   avatar: string,
   target: string,
   controllers: string[],
 ): Promise<FractalModuleV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
-
-  const fractalModuleSetupCalldata = FractalModuleV1__factory.createInterface().encodeFunctionData(
-    'setUp',
-    [
-      ethers.AbiCoder.defaultAbiCoder().encode(
+  // Combine selector and encoded params
+  const fullInitData =
+    FractalModuleV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
         ['address', 'address', 'address', 'address[]'],
         [owner.address, avatar, target, controllers],
-      ),
-    ],
-  );
+      )
+      .slice(2);
 
-  await moduleProxyFactory.deployModule(
-    await fractalModuleMastercopy.getAddress(),
-    fractalModuleSetupCalldata,
-    salt,
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  const predictedFractalModuleAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await fractalModuleMastercopy.getAddress(),
-    fractalModuleSetupCalldata,
-    salt,
-  );
+  // Return a contract instance connected to the proxy
+  return FractalModuleV1__factory.connect(await proxy.getAddress(), owner);
+}
 
-  return FractalModuleV1__factory.connect(predictedFractalModuleAddress, owner);
+// Helper function for deploying using setUp instead of initialize
+async function deployFractalModuleProxyWithSetUp(
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
+  owner: SignerWithAddress,
+  avatar: string,
+  target: string,
+  controllers: string[],
+): Promise<FractalModuleV1> {
+  // Create the call to setUp with the encoded parameters
+  const fullInitData = FractalModuleV1__factory.createInterface().encodeFunctionData('setUp', [
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ['address', 'address', 'address', 'address[]'],
+      [owner.address, avatar, target, controllers],
+    ),
+  ]);
+
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
+
+  // Return a contract instance connected to the proxy
+  return FractalModuleV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('FractalModuleV1', () => {
   // eoas
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
   let controller: SignerWithAddress;
   let user: SignerWithAddress;
 
   // mocks and mastercopies
-  let fractalModuleMastercopy: FractalModuleV1;
+  let masterCopy: string;
   let mockToken: MockERC20Votes;
 
   beforeEach(async () => {
     // Get signers
-    [owner, controller, user] = await ethers.getSigners();
+    [proxyDeployer, owner, nonOwner, controller, user] = await ethers.getSigners();
 
-    // Deploy mastercopy contract
-    fractalModuleMastercopy = await new FractalModuleV1__factory(owner).deploy();
-    mockToken = await new MockERC20Votes__factory(owner).deploy();
+    // Deploy implementation contract
+    const implementation = await new FractalModuleV1__factory(proxyDeployer).deploy();
+    masterCopy = await implementation.getAddress();
+    mockToken = await new MockERC20Votes__factory(proxyDeployer).deploy();
   });
 
   describe('Initialization', () => {
@@ -76,13 +94,14 @@ describe('FractalModuleV1', () => {
     let avatar: MockAvatar;
 
     beforeEach(async () => {
-      avatar = await new MockAvatar__factory(owner).deploy();
+      avatar = await new MockAvatar__factory(proxyDeployer).deploy();
     });
 
     describe('Owner parameter', () => {
       it('should set correct owner', async () => {
         fractalModule = await deployFractalModuleProxy(
-          fractalModuleMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
@@ -96,7 +115,8 @@ describe('FractalModuleV1', () => {
     describe('Avatar and Target parameters', () => {
       it('should initialize with same avatar and target', async () => {
         fractalModule = await deployFractalModuleProxy(
-          fractalModuleMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
@@ -109,7 +129,8 @@ describe('FractalModuleV1', () => {
 
       it('should initialize with different target than avatar', async () => {
         fractalModule = await deployFractalModuleProxy(
-          fractalModuleMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           user.address, // Different from avatar
@@ -122,7 +143,8 @@ describe('FractalModuleV1', () => {
 
       it('should allow zero address avatar', async () => {
         fractalModule = await deployFractalModuleProxy(
-          fractalModuleMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           ethers.ZeroAddress,
           await avatar.getAddress(),
@@ -135,7 +157,8 @@ describe('FractalModuleV1', () => {
 
       it('should allow zero address target', async () => {
         fractalModule = await deployFractalModuleProxy(
-          fractalModuleMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           ethers.ZeroAddress,
@@ -148,7 +171,8 @@ describe('FractalModuleV1', () => {
 
       it('should allow both avatar and target to be zero address', async () => {
         fractalModule = await deployFractalModuleProxy(
-          fractalModuleMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           ethers.ZeroAddress,
           ethers.ZeroAddress,
@@ -164,7 +188,8 @@ describe('FractalModuleV1', () => {
       describe('No controllers', () => {
         it('should initialize with no controllers', async () => {
           fractalModule = await deployFractalModuleProxy(
-            fractalModuleMastercopy,
+            proxyDeployer,
+            masterCopy,
             owner,
             await avatar.getAddress(),
             await avatar.getAddress(),
@@ -180,7 +205,8 @@ describe('FractalModuleV1', () => {
       describe('Single controller', () => {
         it('should initialize with single controller', async () => {
           fractalModule = await deployFractalModuleProxy(
-            fractalModuleMastercopy,
+            proxyDeployer,
+            masterCopy,
             owner,
             await avatar.getAddress(),
             await avatar.getAddress(),
@@ -197,7 +223,8 @@ describe('FractalModuleV1', () => {
         it('should initialize with multiple controllers', async () => {
           const controllers = [controller.address, user.address];
           fractalModule = await deployFractalModuleProxy(
-            fractalModuleMastercopy,
+            proxyDeployer,
+            masterCopy,
             owner,
             await avatar.getAddress(),
             await avatar.getAddress(),
@@ -215,7 +242,8 @@ describe('FractalModuleV1', () => {
           // The second controller.address will overwrite the first one's mapping,
           // but both will emit events. This is expected behavior from the contract.
           fractalModule = await deployFractalModuleProxy(
-            fractalModuleMastercopy,
+            proxyDeployer,
+            masterCopy,
             owner,
             await avatar.getAddress(),
             await avatar.getAddress(),
@@ -234,25 +262,67 @@ describe('FractalModuleV1', () => {
       });
     });
 
+    describe('setUp function', () => {
+      it('should correctly initialize contract when using setUp', async () => {
+        fractalModule = await deployFractalModuleProxyWithSetUp(
+          proxyDeployer,
+          masterCopy,
+          owner,
+          await avatar.getAddress(),
+          await avatar.getAddress(),
+          [controller.address],
+        );
+
+        // Verify initialization was successful
+        expect(await fractalModule.owner()).to.equal(owner.address);
+        expect(await fractalModule.avatar()).to.equal(await avatar.getAddress());
+        expect(await fractalModule.getFunction('target')()).to.equal(await avatar.getAddress());
+        void expect(await fractalModule.controllers(controller.address)).to.be.true;
+      });
+
+      it('should not allow setUp to be called again after initialization', async () => {
+        fractalModule = await deployFractalModuleProxyWithSetUp(
+          proxyDeployer,
+          masterCopy,
+          owner,
+          await avatar.getAddress(),
+          await avatar.getAddress(),
+          [controller.address],
+        );
+
+        // Encode parameters correctly for setUp
+        const innerParams = ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address', 'address', 'address[]'],
+          [
+            owner.address,
+            await avatar.getAddress(),
+            await avatar.getAddress(),
+            [controller.address],
+          ],
+        );
+
+        // Attempt to call setUp again - should revert
+        await expect(fractalModule.setUp(innerParams)).to.be.revertedWithCustomError(
+          fractalModule,
+          'InvalidInitialization',
+        );
+      });
+    });
+
     describe('Reinitialization prevention', () => {
       it('should not allow reinitialization', async () => {
         fractalModule = await deployFractalModuleProxy(
-          fractalModuleMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
           [],
         );
 
-        const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address', 'address', 'address[]'],
-          [owner.address, ethers.ZeroAddress, ethers.ZeroAddress, []],
-        );
-
-        await expect(fractalModule.setUp(setupData)).to.be.revertedWithCustomError(
-          fractalModule,
-          'InvalidInitialization',
-        );
+        await expect(
+          fractalModule.initialize(owner.address, ethers.ZeroAddress, ethers.ZeroAddress, []),
+        ).to.be.revertedWithCustomError(fractalModule, 'InvalidInitialization');
       });
     });
   });
@@ -262,9 +332,10 @@ describe('FractalModuleV1', () => {
     let avatar: MockAvatar;
 
     beforeEach(async () => {
-      avatar = await new MockAvatar__factory(owner).deploy();
+      avatar = await new MockAvatar__factory(proxyDeployer).deploy();
       fractalModule = await deployFractalModuleProxy(
-        fractalModuleMastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
         await avatar.getAddress(),
         await avatar.getAddress(),
@@ -377,9 +448,10 @@ describe('FractalModuleV1', () => {
     let avatar: MockAvatar;
 
     beforeEach(async () => {
-      avatar = await new MockAvatar__factory(owner).deploy();
+      avatar = await new MockAvatar__factory(proxyDeployer).deploy();
       fractalModule = await deployFractalModuleProxy(
-        fractalModuleMastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
         await avatar.getAddress(),
         await avatar.getAddress(),
@@ -553,7 +625,8 @@ describe('FractalModuleV1', () => {
 
     beforeEach(async () => {
       fractalModule = await deployFractalModuleProxy(
-        fractalModuleMastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
@@ -576,7 +649,8 @@ describe('FractalModuleV1', () => {
     beforeEach(async function () {
       // Deploy a new instance for testing
       fractalModuleInstance = await deployFractalModuleProxy(
-        fractalModuleMastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
@@ -613,6 +687,33 @@ describe('FractalModuleV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await fractalModuleInstance.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    let fractalModule: FractalModuleV1;
+
+    beforeEach(async function () {
+      // Deploy fractal module proxy
+      fractalModule = await deployFractalModuleProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        ethers.ZeroAddress,
+        ethers.ZeroAddress,
+        [],
+      );
+    });
+
+    // Run UUPS upgradeability tests
+    runUUPSUpgradeabilityTests({
+      getContract: () => fractalModule as unknown as UUPSUpgradeable,
+      createNewImplementation: async () => {
+        const newImplementation = await new FractalModuleV1__factory(owner).deploy();
+        return newImplementation as unknown as UUPSUpgradeable;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
