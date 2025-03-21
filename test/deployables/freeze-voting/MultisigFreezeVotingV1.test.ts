@@ -3,29 +3,29 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   MockSafe,
   MockSafe__factory,
   MultisigFreezeVotingV1,
   MultisigFreezeVotingV1__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper function for deploying MultisigFreezeVotingV1 proxy instances
+// Helper function for deploying MultisigFreezeVotingV1 proxy instances using ERC1967Proxy
 async function deployMultisigFreezeVotingProxy(
-  multisigFreezeVotingMastercopy: MultisigFreezeVotingV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
   freezePeriod: number,
   parentGnosisSafe: MockSafe,
 ): Promise<MultisigFreezeVotingV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
-
-  const multisigFreezeVotingSetupCalldata =
-    MultisigFreezeVotingV1__factory.createInterface().encodeFunctionData('setUp', [
-      ethers.AbiCoder.defaultAbiCoder().encode(
+  // Combine selector and encoded params
+  const fullInitData =
+    MultisigFreezeVotingV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
         ['address', 'uint256', 'uint32', 'uint32', 'address'],
         [
           owner.address,
@@ -34,35 +34,26 @@ async function deployMultisigFreezeVotingProxy(
           freezePeriod,
           await parentGnosisSafe.getAddress(),
         ],
-      ),
-    ]);
+      )
+      .slice(2);
 
-  await moduleProxyFactory.deployModule(
-    await multisigFreezeVotingMastercopy.getAddress(),
-    multisigFreezeVotingSetupCalldata,
-    salt,
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  const predictedAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await multisigFreezeVotingMastercopy.getAddress(),
-    multisigFreezeVotingSetupCalldata,
-    salt,
-  );
-
-  return MultisigFreezeVotingV1__factory.connect(predictedAddress, owner);
+  // Return a contract instance connected to the proxy
+  return MultisigFreezeVotingV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('MultisigFreezeVotingV1', () => {
   // signers
-  let deployer: SignerWithAddress;
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let safeOwner1: SignerWithAddress;
   let safeOwner2: SignerWithAddress;
   let nonSafeOwner: SignerWithAddress;
-
+  let nonOwner: SignerWithAddress;
   // contracts
-  let multisigFreezeVotingMastercopy: MultisigFreezeVotingV1;
+  let masterCopy: string;
   let freezeVoting: MultisigFreezeVotingV1;
   let mockSafe: MockSafe;
 
@@ -73,20 +64,23 @@ describe('MultisigFreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [deployer, owner, safeOwner1, safeOwner2, nonSafeOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, safeOwner1, safeOwner2, nonSafeOwner, nonOwner] =
+      await ethers.getSigners();
 
     // Deploy mock Safe
-    mockSafe = await new MockSafe__factory(deployer).deploy();
+    mockSafe = await new MockSafe__factory(proxyDeployer).deploy();
 
     // Set the owner of the mock Safe
     await mockSafe.setOwner(safeOwner1.address);
 
-    // Deploy mastercopy
-    multisigFreezeVotingMastercopy = await new MultisigFreezeVotingV1__factory(deployer).deploy();
+    // Deploy implementation
+    const implementation = await new MultisigFreezeVotingV1__factory(proxyDeployer).deploy();
+    masterCopy = await implementation.getAddress();
 
     // Deploy proxy
     freezeVoting = await deployMultisigFreezeVotingProxy(
-      multisigFreezeVotingMastercopy,
+      proxyDeployer,
+      masterCopy,
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
@@ -105,21 +99,32 @@ describe('MultisigFreezeVotingV1', () => {
     });
 
     it('should not allow reinitialization', async () => {
-      const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint256', 'uint32', 'uint32', 'address'],
-        [
+      await expect(
+        freezeVoting.initialize(
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
           FREEZE_PERIOD,
           await mockSafe.getAddress(),
-        ],
+        ),
+      ).to.be.revertedWithCustomError(freezeVoting, 'InvalidInitialization');
+    });
+
+    it('Should have initialization disabled in the implementation', async function () {
+      const implementationContract = MultisigFreezeVotingV1__factory.connect(
+        masterCopy,
+        proxyDeployer,
       );
 
-      await expect(freezeVoting.setUp(setupData)).to.be.revertedWithCustomError(
-        freezeVoting,
-        'InvalidInitialization',
-      );
+      await expect(
+        implementationContract.initialize(
+          owner.address,
+          FREEZE_VOTES_THRESHOLD,
+          FREEZE_PROPOSAL_PERIOD,
+          FREEZE_PERIOD,
+          await mockSafe.getAddress(),
+        ),
+      ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
 
@@ -475,9 +480,20 @@ describe('MultisigFreezeVotingV1', () => {
   });
 
   describe('Version', () => {
-    // Use the shared version test utility
     it('should return the correct version number', async () => {
       expect(await freezeVoting.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => freezeVoting,
+      createNewImplementation: async () => {
+        const newImplementation = await new MultisigFreezeVotingV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
