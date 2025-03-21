@@ -34,20 +34,32 @@ contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
     }
 
     /**
-     * Initialize function, will be triggered when a new instance is deployed.
+     * Initialize function for the proxy deployment. This standardizes the initialization
+     * to better work with ProxyFactory.
      *
-     * @param initializeParams encoded initialization parameters: `address _owner`,
-     * `address _freezeVoting`
+     * @param _owner Address that will own the proxy and be able to upgrade it
+     * @param _freezeVoting Address of the freeze voting contract
      */
-    function setUp(bytes memory initializeParams) public override initializer {
-        (address _owner, address _freezeVoting) = abi.decode(
-            initializeParams,
-            (address, address)
-        );
-        __Ownable_init(_owner);
+    function initialize(
+        address _owner,
+        address _freezeVoting
+    ) public initializer {
+        super.initialize(_owner);
         freezeVoting = IBaseFreezeVotingV1(_freezeVoting);
 
         emit AzoriusFreezeGuardSetUp(msg.sender, _owner, _freezeVoting);
+    }
+
+    /**
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
+     * Called by {upgradeTo} and {upgradeToAndCall}.
+     *
+     * Reverts if the sender is not the owner of the contract.
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {
+        // Authorization is handled by the onlyOwner modifier
     }
 
     /**

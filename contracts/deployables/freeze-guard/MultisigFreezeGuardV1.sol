@@ -7,6 +7,8 @@ import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMulti
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * Implementation of [IMultisigFreezeGuard](./interfaces/IMultisigFreezeGuard.md).
@@ -63,24 +65,22 @@ contract MultisigFreezeGuardV1 is
     /**
      * Initialize function, will be triggered when a new instance is deployed.
      *
-     * @param initializeParams encoded initialization parameters: `uint256 _timelockPeriod`,
-     * `uint256 _executionPeriod`, `address _owner`, `address _freezeVoting`, `address _childGnosisSafe`
+     * @param _timelockPeriod The timelock period in blocks
+     * @param _executionPeriod The execution period in blocks
+     * @param _owner The owner of the contract
+     * @param _freezeVoting The address of the freeze voting contract
+     * @param _childGnosisSafe The address of the child Gnosis Safe
      */
-    function setUp(bytes memory initializeParams) public override initializer {
-        (
-            uint32 _timelockPeriod,
-            uint32 _executionPeriod,
-            address _owner,
-            address _freezeVoting,
-            address _childGnosisSafe
-        ) = abi.decode(
-                initializeParams,
-                (uint32, uint32, address, address, address)
-            );
-
+    function initialize(
+        uint32 _timelockPeriod,
+        uint32 _executionPeriod,
+        address _owner,
+        address _freezeVoting,
+        address _childGnosisSafe
+    ) public initializer {
+        super.initialize(_owner);
         _updateTimelockPeriod(_timelockPeriod);
         _updateExecutionPeriod(_executionPeriod);
-        __Ownable_init(_owner);
         freezeVoting = IBaseFreezeVotingV1(_freezeVoting);
         childGnosisSafe = ISafe(_childGnosisSafe);
 
@@ -91,6 +91,14 @@ contract MultisigFreezeGuardV1 is
             _childGnosisSafe
         );
     }
+
+    /**
+     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /** @inheritdoc IMultisigFreezeGuardV1*/
     function timelockTransaction(
