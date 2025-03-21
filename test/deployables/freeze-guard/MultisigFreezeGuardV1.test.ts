@@ -3,6 +3,7 @@ import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   IERC165__factory,
   IMultisigFreezeGuardV1__factory,
   IVersion__factory,
@@ -13,43 +14,31 @@ import {
   MultisigFreezeGuardV1,
   MultisigFreezeGuardV1__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper function for deploying MultisigFreezeGuardV1 instances
+// Helper function for deploying MultisigFreezeGuardV1 instances using ERC1967Proxy
 async function deployMultisigFreezeGuardProxy(
-  multisigFreezeGuardMastercopy: MultisigFreezeGuardV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   timelockPeriod: number,
   executionPeriod: number,
   freezeVoting: string,
   childGnosisSafe: string,
 ): Promise<MultisigFreezeGuardV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
-
-  const multisigFreezeGuardSetupCalldata =
-    MultisigFreezeGuardV1__factory.createInterface().encodeFunctionData('setUp', [
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['uint32', 'uint32', 'address', 'address', 'address'],
-        [timelockPeriod, executionPeriod, owner.address, freezeVoting, childGnosisSafe],
-      ),
-    ]);
-
-  await moduleProxyFactory.deployModule(
-    await multisigFreezeGuardMastercopy.getAddress(),
-    multisigFreezeGuardSetupCalldata,
-    salt,
+  // Create initialization data with function selector
+  const initializeInterface = MultisigFreezeGuardV1__factory.createInterface();
+  const fullInitData = initializeInterface.encodeFunctionData(
+    'initialize(uint32,uint32,address,address,address)',
+    [timelockPeriod, executionPeriod, owner.address, freezeVoting, childGnosisSafe],
   );
 
-  const predictedMultisigFreezeGuardAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await multisigFreezeGuardMastercopy.getAddress(),
-    multisigFreezeGuardSetupCalldata,
-    salt,
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  return MultisigFreezeGuardV1__factory.connect(predictedMultisigFreezeGuardAddress, owner);
+  // Return a contract instance connected to the proxy
+  return MultisigFreezeGuardV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('MultisigFreezeGuardV1', () => {
@@ -59,11 +48,13 @@ describe('MultisigFreezeGuardV1', () => {
   };
 
   // signers
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
 
   // contracts
-  let multisigFreezeGuardMastercopy: MultisigFreezeGuardV1;
+  let masterCopy: string;
   let multisigFreezeGuard: MultisigFreezeGuardV1;
   let mockFreezeVoting: MockFreezeVoting;
   let mockSafe: MockSafe;
@@ -78,10 +69,11 @@ describe('MultisigFreezeGuardV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [owner, user] = await ethers.getSigners();
+    [proxyDeployer, owner, user, nonOwner] = await ethers.getSigners();
 
-    // Deploy mastercopy
-    multisigFreezeGuardMastercopy = await new MultisigFreezeGuardV1__factory(owner).deploy();
+    // Deploy implementation
+    const implementation = await new MultisigFreezeGuardV1__factory(proxyDeployer).deploy();
+    masterCopy = await implementation.getAddress();
 
     // Deploy mock contracts
     mockFreezeVoting = await new MockFreezeVoting__factory(owner).deploy();
@@ -89,7 +81,8 @@ describe('MultisigFreezeGuardV1', () => {
 
     // Deploy MultisigFreezeGuard with mock dependencies
     multisigFreezeGuard = await deployMultisigFreezeGuardProxy(
-      multisigFreezeGuardMastercopy,
+      proxyDeployer,
+      masterCopy,
       owner,
       TIMELOCK_PERIOD,
       EXECUTION_PERIOD,
@@ -113,69 +106,59 @@ describe('MultisigFreezeGuardV1', () => {
       const freezeVotingAddress = await mockFreezeVoting.getAddress();
       const mockSafeAddress = await mockSafe.getAddress();
 
-      // Deploy proxy and check if event is emitted
-      const factoryInstance = getModuleProxyFactory();
-      const salt = ethers.hexlify(ethers.randomBytes(32));
-
-      const multisigFreezeGuardSetupCalldata =
-        MultisigFreezeGuardV1__factory.createInterface().encodeFunctionData('setUp', [
-          ethers.AbiCoder.defaultAbiCoder().encode(
-            ['uint32', 'uint32', 'address', 'address', 'address'],
-            [
-              TIMELOCK_PERIOD,
-              EXECUTION_PERIOD,
-              owner.address,
-              freezeVotingAddress,
-              mockSafeAddress,
-            ],
-          ),
-        ]);
-
-      // Calculate the proxy address to use for event filtering
-      const predictedAddress = await calculateProxyAddress(
-        factoryInstance,
-        await multisigFreezeGuardMastercopy.getAddress(),
-        multisigFreezeGuardSetupCalldata,
-        salt,
+      // Create initialization data
+      const initializeInterface = MultisigFreezeGuardV1__factory.createInterface();
+      const fullInitData = initializeInterface.encodeFunctionData(
+        'initialize(uint32,uint32,address,address,address)',
+        [TIMELOCK_PERIOD, EXECUTION_PERIOD, owner.address, freezeVotingAddress, mockSafeAddress],
       );
 
-      const tx = await factoryInstance.deployModule(
-        await multisigFreezeGuardMastercopy.getAddress(),
-        multisigFreezeGuardSetupCalldata,
-        salt,
-      );
+      // Deploy the proxy directly
+      const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(masterCopy, fullInitData);
+
+      const proxyAddress = await proxy.getAddress();
 
       // Connect to the deployed contract
-      const deployedGuard = MultisigFreezeGuardV1__factory.connect(predictedAddress, owner);
+      const deployedGuard = MultisigFreezeGuardV1__factory.connect(proxyAddress, owner);
 
       // Check event emission
-      const receipt = await tx.wait();
-
-      // Filter events from the proxy address after deployment
       const filter = deployedGuard.filters.MultisigFreezeGuardSetup;
-      const events = await deployedGuard.queryFilter(
-        filter,
-        receipt?.blockNumber,
-        receipt?.blockNumber,
-      );
+      const events = await deployedGuard.queryFilter(filter);
 
       expect(events.length).to.equal(1);
-      expect(events[0].args[0]).to.equal(await factoryInstance.getAddress()); // creator
+      expect(events[0].args[0]).to.equal(proxyDeployer.address); // creator
       expect(events[0].args[1]).to.equal(owner.address); // owner
       expect(events[0].args[2]).to.equal(freezeVotingAddress); // freezeVoting
       expect(events[0].args[3]).to.equal(mockSafeAddress); // childGnosisSafe
     });
 
     it('should not allow reinitialization', async () => {
-      const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['uint32', 'uint32', 'address', 'address', 'address'],
-        [50, 100, user.address, ethers.ZeroAddress, ethers.ZeroAddress],
+      await expect(
+        multisigFreezeGuard['initialize(uint32,uint32,address,address,address)'](
+          50,
+          100,
+          user.address,
+          ethers.ZeroAddress,
+          ethers.ZeroAddress,
+        ),
+      ).to.be.revertedWithCustomError(multisigFreezeGuard, 'InvalidInitialization');
+    });
+
+    it('Should have initialization disabled in the implementation', async function () {
+      const implementationContract = MultisigFreezeGuardV1__factory.connect(
+        masterCopy,
+        proxyDeployer,
       );
 
-      await expect(multisigFreezeGuard.setUp(setupData)).to.be.revertedWithCustomError(
-        multisigFreezeGuard,
-        'InvalidInitialization',
-      );
+      await expect(
+        implementationContract['initialize(uint32,uint32,address,address,address)'](
+          50,
+          100,
+          owner.address,
+          ethers.ZeroAddress,
+          ethers.ZeroAddress,
+        ),
+      ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
 
@@ -543,6 +526,18 @@ describe('MultisigFreezeGuardV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await multisigFreezeGuard.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => multisigFreezeGuard,
+      createNewImplementation: async () => {
+        const newImplementation = await new MultisigFreezeGuardV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
