@@ -2,6 +2,7 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   IBaseQuorumPercentV1__factory,
   IBaseStrategyV1__factory,
   IBaseVotingBasisPercentV1__factory,
@@ -15,16 +16,16 @@ import {
   MockHats,
   MockHats__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
 import { runHatsProposerTests } from '../../helpers/hatsProposerTests';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 /**
  * This test file only covers the specific functionality of LinearERC20VotingWithHatsProposalCreationV1,
  * focusing on the contract-specific code, not functionality inherited from parent contracts.
  *
  * Specifically, we test:
- * 1. The setUp function (which combines parameters from both parent contracts)
+ * 1. The initialize function (which combines parameters from both parent contracts)
  * 2. The isProposer override (which uses the Hats implementation)
  * 3. The getVersion override
  */
@@ -40,7 +41,7 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
   let nonHatWearer: SignerWithAddress;
 
   // Contracts
-  let linearERC20VotingWithHatsProposalCreationMastercopy: LinearERC20VotingWithHatsProposalCreationV1;
+  let linearERC20VotingWithHatsProposalCreationImplementation: LinearERC20VotingWithHatsProposalCreationV1;
   let linearERC20VotingWithHatsProposalCreation: LinearERC20VotingWithHatsProposalCreationV1;
   let mockToken: MockERC20Votes;
   let mockHats: MockHats;
@@ -56,15 +57,16 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
   const nonProposerHatId = 3n;
 
   async function deployLinearERC20VotingWithHatsProposalCreation(
+    implementation: LinearERC20VotingWithHatsProposalCreationV1,
     strategyOwner: SignerWithAddress,
     governanceToken: MockERC20Votes,
     azoriusAddr: string,
     hatsContract: MockHats,
     initialWhitelistedHats: bigint[],
   ): Promise<LinearERC20VotingWithHatsProposalCreationV1> {
-    const salt = ethers.hexlify(ethers.randomBytes(32));
-    const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'address', 'address', 'uint32', 'uint256', 'uint256', 'address', 'uint256[]'],
+    // Create the initialization data using the interface
+    const initializeCalldata = implementation.interface.encodeFunctionData(
+      'initialize(address,address,address,uint32,uint256,uint256,address,uint256[])',
       [
         strategyOwner.address,
         await governanceToken.getAddress(),
@@ -77,28 +79,15 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
       ],
     );
 
-    const setupCalldata =
-      linearERC20VotingWithHatsProposalCreationMastercopy.interface.encodeFunctionData('setUp', [
-        initializeParams,
-      ]);
-
-    const moduleProxyFactory = getModuleProxyFactory();
-
-    await moduleProxyFactory.deployModule(
-      await linearERC20VotingWithHatsProposalCreationMastercopy.getAddress(),
-      setupCalldata,
-      salt,
+    // Deploy the proxy with owner as the deployer
+    const proxy = await new ERC1967Proxy__factory(strategyOwner).deploy(
+      await implementation.getAddress(),
+      initializeCalldata,
     );
 
-    const predictedAddress = await calculateProxyAddress(
-      moduleProxyFactory,
-      await linearERC20VotingWithHatsProposalCreationMastercopy.getAddress(),
-      setupCalldata,
-      salt,
-    );
-
+    // Connect the proxy to the contract owner
     return LinearERC20VotingWithHatsProposalCreationV1__factory.connect(
-      predictedAddress,
+      await proxy.getAddress(),
       strategyOwner,
     );
   }
@@ -115,13 +104,14 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
     // Deploy MockHats
     mockHats = await new MockHats__factory(deployer).deploy();
 
-    // Deploy LinearERC20VotingWithHatsProposalCreation mastercopy
-    linearERC20VotingWithHatsProposalCreationMastercopy =
+    // Deploy LinearERC20VotingWithHatsProposalCreation implementation
+    linearERC20VotingWithHatsProposalCreationImplementation =
       await new LinearERC20VotingWithHatsProposalCreationV1__factory(deployer).deploy();
 
     // Deploy LinearERC20VotingWithHatsProposalCreation strategy with proposerHatId1 and proposerHatId2 whitelisted
     linearERC20VotingWithHatsProposalCreation =
       await deployLinearERC20VotingWithHatsProposalCreation(
+        linearERC20VotingWithHatsProposalCreationImplementation,
         owner,
         mockToken,
         azoriusAddress,
@@ -131,7 +121,7 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
   });
 
   describe('Contract-Specific Functionality', () => {
-    describe('setUp', () => {
+    describe('initialization', () => {
       it('should initialize with correct parameters from both parent contracts', async () => {
         // Check LinearERC20VotingV1 parameters
         const ownerAddress = await linearERC20VotingWithHatsProposalCreation.owner();
@@ -160,27 +150,29 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
       });
 
       it('should not allow reinitialization', async () => {
-        const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address', 'address', 'uint32', 'uint256', 'uint256', 'address', 'uint256[]'],
-          [
-            owner.address,
-            await mockToken.getAddress(),
-            azoriusAddress,
-            VOTING_PERIOD,
-            QUORUM_NUMERATOR,
-            BASIS_NUMERATOR,
-            await mockHats.getAddress(),
-            [proposerHatId1, proposerHatId2],
-          ],
-        );
-
-        const setupCalldata =
-          linearERC20VotingWithHatsProposalCreationMastercopy.interface.encodeFunctionData(
-            'setUp',
-            [initializeParams],
+        // Deploy a new implementation to initialize again with the same params
+        const initializeCalldata =
+          linearERC20VotingWithHatsProposalCreationImplementation.interface.encodeFunctionData(
+            'initialize(address,address,address,uint32,uint256,uint256,address,uint256[])',
+            [
+              owner.address,
+              await mockToken.getAddress(),
+              azoriusAddress,
+              VOTING_PERIOD,
+              QUORUM_NUMERATOR,
+              BASIS_NUMERATOR,
+              await mockHats.getAddress(),
+              [proposerHatId1, proposerHatId2],
+            ],
           );
 
-        await expect(linearERC20VotingWithHatsProposalCreation.setUp(setupCalldata)).to.be.reverted;
+        // Try to initialize directly through the proxy - should revert
+        await expect(
+          owner.sendTransaction({
+            to: await linearERC20VotingWithHatsProposalCreation.getAddress(),
+            data: initializeCalldata,
+          }),
+        ).to.be.reverted;
       });
     });
 
@@ -285,6 +277,26 @@ describe('LinearERC20VotingWithHatsProposalCreationV1', () => {
       const supported =
         await linearERC20VotingWithHatsProposalCreation.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('Version', () => {
+    it('should return the correct version number', async () => {
+      expect(await linearERC20VotingWithHatsProposalCreation.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => linearERC20VotingWithHatsProposalCreation,
+      createNewImplementation: async () => {
+        const newImplementation = await new LinearERC20VotingWithHatsProposalCreationV1__factory(
+          owner,
+        ).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });

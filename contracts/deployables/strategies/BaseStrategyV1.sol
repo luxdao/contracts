@@ -1,34 +1,36 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {IBaseStrategyV1} from "../../interfaces/decent/deployables/IBaseStrategyV1.sol";
-import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
- * The base abstract contract for all voting strategies in Azorius.
+ * Base voting and verification strategy for use in the [Azorius](./Azorius.md) contract.
+ * Meant to be used as an Abstract class along with another implementation.
+ *
+ * This is a base class which offers hooks into the [Azorius](./Azorius.md) contract,
+ * offering capability for custom voting rules.
  */
 abstract contract BaseStrategyV1 is
     IBaseStrategyV1,
     OwnableUpgradeable,
-    FactoryFriendly,
+    UUPSUpgradeable,
     ERC165
 {
-    event AzoriusSet(address indexed azoriusModule);
-    event StrategySetUp(address indexed azoriusModule, address indexed owner);
+    /** The Azorius contract address for this Strategy contract. */
+    address public azoriusModule;
 
-    error OnlyAzorius();
+    event AzoriusSet(address indexed azorius);
+    event StrategySetUp(address indexed azorius, address indexed owner);
 
-    IAzoriusV1 public azoriusModule;
+    error AzoriusUnauthorizedAccount(address account);
 
-    /**
-     * Ensures that only the [Azorius](./Azorius.md) contract that pertains to this
-     * [BaseStrategy](./BaseStrategy.md) can call functions on it.
-     */
+    /** Modifier that ensures transactions are being called only by Azorius. */
     modifier onlyAzorius() {
-        if (msg.sender != address(azoriusModule)) revert OnlyAzorius();
+        if (msg.sender != azoriusModule)
+            revert AzoriusUnauthorizedAccount(msg.sender);
         _;
     }
 
@@ -36,10 +38,30 @@ abstract contract BaseStrategyV1 is
         _disableInitializers();
     }
 
-    /** @inheritdoc IBaseStrategyV1*/
-    function setAzorius(address _azoriusModule) external onlyOwner {
-        azoriusModule = IAzoriusV1(_azoriusModule);
-        emit AzoriusSet(_azoriusModule);
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
+
+    /**
+     * Sets the azorius address that this strategy will provide voting information to.
+     * Must be called by the owner.
+     *
+     * @param _azoriusAddress The Azorius contract address
+     */
+    function setAzorius(address _azoriusAddress) external onlyOwner {
+        _setAzorius(_azoriusAddress);
+    }
+
+    /** Internal implementation of `setAzorius`. */
+    function _setAzorius(address _azoriusAddress) internal {
+        if (_azoriusAddress == address(0))
+            revert AzoriusUnauthorizedAccount(address(0));
+        azoriusModule = _azoriusAddress;
+        emit AzoriusSet(_azoriusAddress);
     }
 
     /** @inheritdoc IBaseStrategyV1*/
@@ -55,16 +77,6 @@ abstract contract BaseStrategyV1 is
     function votingEndTimestamp(
         uint32 _proposalId
     ) external view virtual returns (uint48);
-
-    /**
-     * Sets the address of the [Azorius](Azorius.md) module contract.
-     *
-     * @param _azoriusModule address of the Azorius module
-     */
-    function _setAzorius(address _azoriusModule) internal {
-        azoriusModule = IAzoriusV1(_azoriusModule);
-        emit AzoriusSet(_azoriusModule);
-    }
 
     function supportsInterface(
         bytes4 interfaceId

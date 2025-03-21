@@ -11,14 +11,13 @@ contract ConcreteBaseStrategyV1 is BaseStrategyV1 {
 
     /**
      * Sets up the concrete strategy contract.
-     * @param initializeParams ABI encoded parameters (address _owner, address _azoriusModule)
+     * @param _owner The owner of the contract
+     * @param _azoriusModule The Azorius module address
      */
-    function setUp(bytes memory initializeParams) public override initializer {
-        (address _owner, address _azoriusModule) = abi.decode(
-            initializeParams,
-            (address, address)
-        );
-
+    function initialize(
+        address _owner,
+        address _azoriusModule
+    ) public initializer {
         __Ownable_init(_owner);
         _setAzorius(_azoriusModule);
 
