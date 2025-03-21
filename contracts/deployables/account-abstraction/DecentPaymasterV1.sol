@@ -6,12 +6,18 @@ import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPay
 import {Version} from "../Version.sol";
 import {PackedUserOperation, IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract DecentPaymasterV1 is IDecentPaymasterV1, Version, BasePaymasterV1 {
+contract DecentPaymasterV1 is
+    IDecentPaymasterV1,
+    Version,
+    BasePaymasterV1,
+    UUPSUpgradeable
+{
     uint16 private constant VERSION = 1;
 
     // Mapping: strategy address => function selector => is approved
-    mapping(address => mapping(bytes4 => bool)) public approvedFunctions;
+    mapping(address => mapping(bytes4 => bool)) private _approvedFunctions;
 
     event FunctionApproved(address strategy, bytes4 selector, bool approved);
 
@@ -25,48 +31,62 @@ contract DecentPaymasterV1 is IDecentPaymasterV1, Version, BasePaymasterV1 {
     }
 
     /**
-     * Initial setup of the DecentPaymaster instance.
-     * @param initializeParams encoded initialization parameters: `address _owner`,
-     * `address _entryPoint`
+     * Initialize function for the proxy deployment. This standardizes the initialization
+     * to better work with ProxyFactory.
+     *
+     * @param _owner Address that will own the proxy and be able to upgrade it
+     * @param _entryPoint The EntryPoint address this paymaster will work with
      */
-    function setUp(bytes memory initializeParams) public initializer {
-        (address _owner, address _entryPoint) = abi.decode(
-            initializeParams,
-            (address, address)
-        );
+    function initialize(
+        address _owner,
+        address _entryPoint
+    ) public initializer {
         __BasePaymaster_init(_owner, IEntryPoint(_entryPoint));
+        __UUPSUpgradeable_init();
+    }
+
+    /**
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
+     * Called by {upgradeTo} and {upgradeToAndCall}.
+     *
+     * Reverts if the sender is not the owner of the contract.
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {
+        // Authorization is handled by the onlyOwner modifier
     }
 
     /**
      * Add or remove approved functions for a strategy contract
-     * @param strategy The strategy contract address
+     * @param contractAddress The contract address that will be whitelisted
      * @param selectors Array of function selectors to approve/disapprove
      * @param approved Whether to approve or remove approval for the selectors
      */
-    function setStrategyFunctionApproval(
-        address strategy,
+    function whitelistFunctions(
+        address contractAddress,
         bytes4[] calldata selectors,
         bool[] calldata approved
     ) external onlyOwner {
-        if (strategy == address(0)) revert ZeroAddressStrategy();
+        if (contractAddress == address(0)) revert ZeroAddressStrategy();
         if (selectors.length != approved.length) revert InvalidArrayLength();
         for (uint256 i = 0; i < selectors.length; i++) {
-            approvedFunctions[strategy][selectors[i]] = approved[i];
-            emit FunctionApproved(strategy, selectors[i], approved[i]);
+            _approvedFunctions[contractAddress][selectors[i]] = approved[i];
+            emit FunctionApproved(contractAddress, selectors[i], approved[i]);
         }
     }
 
     /**
      * Check if a function is approved for a strategy
-     * @param strategy The strategy contract address
+     * @param contractAddress The contract address
      * @param selector The function selector to check
      * @return bool Whether the function is approved
      */
-    function isFunctionApproved(
-        address strategy,
+    function isFunctionWhitelisted(
+        address contractAddress,
         bytes4 selector
     ) public view returns (bool) {
-        return approvedFunctions[strategy][selector];
+        return _approvedFunctions[contractAddress][selector];
     }
 
     /// @inheritdoc BasePaymasterV1
@@ -95,7 +115,7 @@ contract DecentPaymasterV1 is IDecentPaymasterV1, Version, BasePaymasterV1 {
         }
 
         // Verify the function is approved for this strategy
-        if (!isFunctionApproved(target, selector)) {
+        if (!isFunctionWhitelisted(target, selector)) {
             revert UnauthorizedStrategy();
         }
 
