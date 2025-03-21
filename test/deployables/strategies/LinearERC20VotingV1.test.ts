@@ -220,6 +220,39 @@ describe('LinearERC20VotingV1', () => {
         linearERC20Voting.connect(nonOwner).updateBasisNumerator(newBasisNumerator),
       ).to.be.revertedWithCustomError(linearERC20Voting, 'OwnableUnauthorizedAccount');
     });
+
+    it('should emit BasisNumeratorUpdated event when basisNumerator is updated', async () => {
+      const newBasisNumerator = 700000; // 70%
+      await expect(linearERC20Voting.connect(owner).updateBasisNumerator(newBasisNumerator))
+        .to.emit(linearERC20Voting, 'BasisNumeratorUpdated')
+        .withArgs(newBasisNumerator);
+    });
+
+    it('should revert when basisNumerator is greater than BASIS_DENOMINATOR', async () => {
+      const invalidBasisNumerator = 1000001; // BASIS_DENOMINATOR + 1
+      await expect(
+        linearERC20Voting.connect(owner).updateBasisNumerator(invalidBasisNumerator),
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'InvalidBasisNumerator');
+    });
+
+    it('should revert when basisNumerator is less than BASIS_DENOMINATOR / 2', async () => {
+      const invalidBasisNumerator = 499999; // BASIS_DENOMINATOR / 2 - 1
+      await expect(
+        linearERC20Voting.connect(owner).updateBasisNumerator(invalidBasisNumerator),
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'InvalidBasisNumerator');
+    });
+
+    it('should allow basisNumerator to be equal to BASIS_DENOMINATOR / 2', async () => {
+      const newBasisNumerator = 500000; // BASIS_DENOMINATOR / 2
+      await linearERC20Voting.connect(owner).updateBasisNumerator(newBasisNumerator);
+      expect(await linearERC20Voting.basisNumerator()).to.equal(newBasisNumerator);
+    });
+
+    it('should allow basisNumerator to be equal to BASIS_DENOMINATOR', async () => {
+      const newBasisNumerator = 1000000; // BASIS_DENOMINATOR
+      await linearERC20Voting.connect(owner).updateBasisNumerator(newBasisNumerator);
+      expect(await linearERC20Voting.basisNumerator()).to.equal(newBasisNumerator);
+    });
   });
 
   describe('Proposal Functions', () => {
@@ -834,6 +867,69 @@ describe('LinearERC20VotingV1', () => {
         // Any number of votes (including 0) should meet the quorum
         void expect(await linearERC20Voting.meetsQuorum(0, 0, 0)).to.be.true;
       });
+    });
+  });
+
+  describe('meetsBasis', () => {
+    // Test with default 50% basis
+    it('should return true when yes votes exceed the basis threshold', async () => {
+      const yesVotes = 60;
+      const noVotes = 40;
+      // 60 > ((60 + 40) * 500000 / 1000000) = 50, so it passes
+      void expect(await linearERC20Voting.meetsBasis(yesVotes, noVotes)).to.be.true;
+    });
+
+    it('should return false when yes votes equal the basis threshold', async () => {
+      const yesVotes = 50;
+      const noVotes = 50;
+      // 50 = ((50 + 50) * 500000 / 1000000) = 50, but we need >
+      void expect(await linearERC20Voting.meetsBasis(yesVotes, noVotes)).to.be.false;
+    });
+
+    it('should return false when yes votes are below the basis threshold', async () => {
+      const yesVotes = 49;
+      const noVotes = 51;
+      // 49 < ((49 + 51) * 500000 / 1000000) = 50
+      void expect(await linearERC20Voting.meetsBasis(yesVotes, noVotes)).to.be.false;
+    });
+
+    // Test with higher basis (e.g., 70%)
+    it('should work with higher basis threshold', async () => {
+      // Update to 70%
+      await linearERC20Voting.connect(owner).updateBasisNumerator(700000);
+
+      // Case where it passes with the new threshold
+      const yesVotes2 = 71;
+      const noVotes2 = 29;
+      // 71 > ((71 + 29) * 700000 / 1000000) = 70
+      void expect(await linearERC20Voting.meetsBasis(yesVotes2, noVotes2)).to.be.true;
+
+      // Case where it fails with the new threshold
+      const yesVotes3 = 69;
+      const noVotes3 = 31;
+      // 69 < ((69 + 31) * 700000 / 1000000) = 70
+      void expect(await linearERC20Voting.meetsBasis(yesVotes3, noVotes3)).to.be.false;
+    });
+
+    it('should handle zero votes correctly', async () => {
+      const yesVotes = 0;
+      const noVotes = 0;
+      // When both are 0, formula is 0 > (0 * 500000 / 1000000) which is 0 > 0, which is false
+      void expect(await linearERC20Voting.meetsBasis(yesVotes, noVotes)).to.be.false;
+    });
+
+    it('should handle case where only yes votes exist', async () => {
+      const yesVotes = 100;
+      const noVotes = 0;
+      // 100 > ((100 + 0) * 500000 / 1000000) = 50
+      void expect(await linearERC20Voting.meetsBasis(yesVotes, noVotes)).to.be.true;
+    });
+
+    it('should handle case where only no votes exist', async () => {
+      const yesVotes = 0;
+      const noVotes = 100;
+      // 0 < ((0 + 100) * 500000 / 1000000) = 50
+      void expect(await linearERC20Voting.meetsBasis(yesVotes, noVotes)).to.be.false;
     });
   });
 });
