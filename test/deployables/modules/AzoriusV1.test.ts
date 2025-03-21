@@ -5,6 +5,7 @@ import { ethers } from 'hardhat';
 import {
   AzoriusV1,
   AzoriusV1__factory,
+  ERC1967Proxy__factory,
   IAzoriusV1__factory,
   IERC165__factory,
   IVersion__factory,
@@ -14,13 +15,15 @@ import {
   MockERC20Votes__factory,
   MockVotingStrategy,
   MockVotingStrategy__factory,
+  UUPSUpgradeable,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper functions for deploying AzoriusV1 instances
+// Helper functions for deploying AzoriusV1 instances using ERC1967Proxy
 async function deployAzoriusProxy(
-  azoriusMastercopy: AzoriusV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   avatar: string,
   target: string,
@@ -28,50 +31,71 @@ async function deployAzoriusProxy(
   timelockPeriod: number,
   executionPeriod: number,
 ): Promise<AzoriusV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
+  // Combine selector and encoded params
+  const fullInitData =
+    AzoriusV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
+        ['address', 'address', 'address', 'address[]', 'uint32', 'uint32'],
+        [owner.address, avatar, target, strategies, timelockPeriod, executionPeriod],
+      )
+      .slice(2);
 
-  const azoriusSetupCalldata = AzoriusV1__factory.createInterface().encodeFunctionData('setUp', [
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
+
+  // Return a contract instance connected to the proxy
+  return AzoriusV1__factory.connect(await proxy.getAddress(), owner);
+}
+
+// Helper function for deploying AzoriusV1 using setUp instead of initialize
+async function deployAzoriusProxyWithSetUp(
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
+  owner: SignerWithAddress,
+  avatar: string,
+  target: string,
+  strategies: string[],
+  timelockPeriod: number,
+  executionPeriod: number,
+): Promise<AzoriusV1> {
+  // Create the call to setUp with the encoded parameters
+  const fullInitData = AzoriusV1__factory.createInterface().encodeFunctionData('setUp', [
     ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'address', 'address', 'address[]', 'uint32', 'uint32'],
       [owner.address, avatar, target, strategies, timelockPeriod, executionPeriod],
     ),
   ]);
 
-  await moduleProxyFactory.deployModule(
-    await azoriusMastercopy.getAddress(),
-    azoriusSetupCalldata,
-    salt,
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  const predictedAzoriusAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await azoriusMastercopy.getAddress(),
-    azoriusSetupCalldata,
-    salt,
-  );
-
-  return AzoriusV1__factory.connect(predictedAzoriusAddress, owner);
+  // Return a contract instance connected to the proxy
+  return AzoriusV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('AzoriusV1', () => {
   // eoas
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let proposer: SignerWithAddress;
   let user: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
 
   // mocks and mastercopies
-  let azoriusMastercopy: AzoriusV1;
+  let implementation: AzoriusV1;
+  let masterCopy: string;
 
   // constants
   const SENTINEL_STRATEGY = '0x0000000000000000000000000000000000000001';
 
   beforeEach(async () => {
     // Get signers
-    [owner, proposer, user] = await ethers.getSigners();
+    [proxyDeployer, owner, proposer, user, nonOwner] = await ethers.getSigners();
 
-    // Deploy mastercopy contract
-    azoriusMastercopy = await new AzoriusV1__factory(owner).deploy();
+    // Deploy implementation contract
+    implementation = await new AzoriusV1__factory(proxyDeployer).deploy();
+    masterCopy = await implementation.getAddress();
   });
 
   describe('Initialization', () => {
@@ -79,13 +103,14 @@ describe('AzoriusV1', () => {
     let avatar: MockAvatar;
 
     beforeEach(async () => {
-      avatar = await new MockAvatar__factory(owner).deploy();
+      avatar = await new MockAvatar__factory(proxyDeployer).deploy();
     });
 
     describe('Owner parameter', () => {
       it('Sets correct owner', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
@@ -101,7 +126,8 @@ describe('AzoriusV1', () => {
     describe('Avatar and Target parameters', () => {
       it('should initialize with same avatar and target', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(), // Same as avatar
@@ -116,7 +142,8 @@ describe('AzoriusV1', () => {
 
       it('should initialize with different target than avatar', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           user.address,
@@ -131,7 +158,8 @@ describe('AzoriusV1', () => {
 
       it('should allow zero address avatar', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           ethers.ZeroAddress,
           await avatar.getAddress(),
@@ -145,7 +173,8 @@ describe('AzoriusV1', () => {
 
       it('should allow zero address target', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           ethers.ZeroAddress,
@@ -159,7 +188,8 @@ describe('AzoriusV1', () => {
 
       it('should allow both avatar and target to be zero address', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           ethers.ZeroAddress,
           ethers.ZeroAddress,
@@ -177,7 +207,8 @@ describe('AzoriusV1', () => {
       describe('No strategies', () => {
         it('should initialize with no strategies', async () => {
           azorius = await deployAzoriusProxy(
-            azoriusMastercopy,
+            proxyDeployer,
+            masterCopy,
             owner,
             await avatar.getAddress(),
             await avatar.getAddress(),
@@ -194,7 +225,8 @@ describe('AzoriusV1', () => {
         it('should not allow zero address strategy', async () => {
           await expect(
             deployAzoriusProxy(
-              azoriusMastercopy,
+              proxyDeployer,
+              masterCopy,
               owner,
               await avatar.getAddress(),
               await avatar.getAddress(),
@@ -202,13 +234,14 @@ describe('AzoriusV1', () => {
               100,
               200,
             ),
-          ).to.be.revertedWithCustomError(getModuleProxyFactory(), 'FailedInitialization');
+          ).to.be.reverted;
         });
 
         it('should not allow sentinel address as strategy', async () => {
           await expect(
             deployAzoriusProxy(
-              azoriusMastercopy,
+              proxyDeployer,
+              masterCopy,
               owner,
               await avatar.getAddress(),
               await avatar.getAddress(),
@@ -216,7 +249,7 @@ describe('AzoriusV1', () => {
               100,
               200,
             ),
-          ).to.be.revertedWithCustomError(getModuleProxyFactory(), 'FailedInitialization');
+          ).to.be.reverted;
         });
       });
 
@@ -225,12 +258,15 @@ describe('AzoriusV1', () => {
 
         beforeEach(async () => {
           // Deploy a strategy for testing
-          mockStrategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+          mockStrategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+            proposer.address,
+          );
         });
 
         it('should initialize with single strategy', async () => {
           azorius = await deployAzoriusProxy(
-            azoriusMastercopy,
+            proxyDeployer,
+            masterCopy,
             owner,
             await avatar.getAddress(),
             await avatar.getAddress(),
@@ -250,9 +286,15 @@ describe('AzoriusV1', () => {
       describe('Multiple strategies', () => {
         it('should initialize with multiple strategies in correct order', async () => {
           // Deploy multiple strategies
-          const strategy1 = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
-          const strategy2 = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
-          const strategy3 = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+          const strategy1 = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+            proposer.address,
+          );
+          const strategy2 = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+            proposer.address,
+          );
+          const strategy3 = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+            proposer.address,
+          );
 
           const initialStrategies = [
             await strategy1.getAddress(),
@@ -261,7 +303,8 @@ describe('AzoriusV1', () => {
           ];
 
           azorius = await deployAzoriusProxy(
-            azoriusMastercopy,
+            proxyDeployer,
+            masterCopy,
             owner,
             await avatar.getAddress(),
             await avatar.getAddress(),
@@ -285,13 +328,14 @@ describe('AzoriusV1', () => {
         });
 
         it('should not allow duplicate strategies', async () => {
-          const mockStrategy = await new MockVotingStrategy__factory(owner).deploy(
+          const mockStrategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(
             proposer.address,
           );
 
           await expect(
             deployAzoriusProxy(
-              azoriusMastercopy,
+              proxyDeployer,
+              masterCopy,
               owner,
               await avatar.getAddress(),
               await avatar.getAddress(),
@@ -299,7 +343,7 @@ describe('AzoriusV1', () => {
               100,
               200,
             ),
-          ).to.be.revertedWithCustomError(getModuleProxyFactory(), 'FailedInitialization');
+          ).to.be.reverted;
         });
       });
     });
@@ -310,7 +354,8 @@ describe('AzoriusV1', () => {
         const executionPeriod = 200;
 
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
@@ -325,7 +370,8 @@ describe('AzoriusV1', () => {
 
       it('should initialize with zero periods', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
@@ -342,7 +388,8 @@ describe('AzoriusV1', () => {
         const maxUint32 = 2 ** 32 - 1;
 
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
@@ -359,7 +406,8 @@ describe('AzoriusV1', () => {
     describe('Reinitialization prevention', () => {
       it('should not allow reinitialization', async () => {
         azorius = await deployAzoriusProxy(
-          azoriusMastercopy,
+          proxyDeployer,
+          masterCopy,
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
@@ -368,12 +416,68 @@ describe('AzoriusV1', () => {
           200,
         );
 
-        const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address', 'address', 'address[]', 'uint32', 'uint32'],
-          [owner.address, ethers.ZeroAddress, ethers.ZeroAddress, [], 0, 0],
+        await expect(
+          azorius.initialize(owner.address, ethers.ZeroAddress, ethers.ZeroAddress, [], 0, 0),
+        ).to.be.revertedWithCustomError(azorius, 'InvalidInitialization');
+      });
+
+      it('Should have initialization disabled in the implementation', async function () {
+        const implementationContract = AzoriusV1__factory.connect(masterCopy, proxyDeployer);
+
+        await expect(
+          implementationContract.initialize(
+            owner.address,
+            ethers.ZeroAddress,
+            ethers.ZeroAddress,
+            [],
+            0,
+            0,
+          ),
+        ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
+      });
+    });
+
+    describe('setUp function', () => {
+      it('should correctly initialize contract when using setUp', async () => {
+        azorius = await deployAzoriusProxyWithSetUp(
+          proxyDeployer,
+          masterCopy,
+          owner,
+          await avatar.getAddress(),
+          await avatar.getAddress(),
+          [],
+          100,
+          200,
         );
 
-        await expect(azorius.setUp(setupData)).to.be.revertedWithCustomError(
+        // Verify initialization was successful
+        expect(await azorius.owner()).to.equal(owner.address);
+        expect(await azorius.avatar()).to.equal(await avatar.getAddress());
+        expect(await azorius.getFunction('target')()).to.equal(await avatar.getAddress());
+        expect(await azorius.timelockPeriod()).to.equal(100);
+        expect(await azorius.executionPeriod()).to.equal(200);
+      });
+
+      it('should not allow setUp to be called again after initialization', async () => {
+        azorius = await deployAzoriusProxyWithSetUp(
+          proxyDeployer,
+          masterCopy,
+          owner,
+          await avatar.getAddress(),
+          await avatar.getAddress(),
+          [],
+          100,
+          200,
+        );
+
+        // Encode parameters correctly for setUp
+        const innerParams = ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address', 'address', 'address[]', 'uint32', 'uint32'],
+          [owner.address, await avatar.getAddress(), await avatar.getAddress(), [], 100, 200],
+        );
+
+        // Attempt to call setUp again - should revert
+        await expect(azorius.setUp(innerParams)).to.be.revertedWithCustomError(
           azorius,
           'InvalidInitialization',
         );
@@ -388,14 +492,15 @@ describe('AzoriusV1', () => {
 
     beforeEach(async () => {
       // Deploy initial strategy
-      mockStrategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+      mockStrategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(proposer.address);
 
       // Deploy avatar
-      const avatar = await new MockAvatar__factory(owner).deploy();
+      const avatar = await new MockAvatar__factory(proxyDeployer).deploy();
 
       // Deploy Azorius with initial strategy
       azorius = await deployAzoriusProxy(
-        azoriusMastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
         await avatar.getAddress(),
         await avatar.getAddress(),
@@ -410,7 +515,7 @@ describe('AzoriusV1', () => {
 
       beforeEach(async () => {
         // Deploy new strategy for testing
-        newStrategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+        newStrategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(proposer.address);
       });
 
       describe('Enabling and disabling strategies via owner', () => {
@@ -465,7 +570,9 @@ describe('AzoriusV1', () => {
         // Deploy 6 mock strategies
         strategyList = [];
         for (let i = 0; i < 6; i++) {
-          const strategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+          const strategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+            proposer.address,
+          );
           strategyList.push(await strategy.getAddress());
           await azorius.connect(owner).enableStrategy(await strategy.getAddress());
         }
@@ -578,7 +685,9 @@ describe('AzoriusV1', () => {
         // Deploy 50 more strategies (for a total of 56)
         const moreStrategies = [];
         for (let i = 6; i < 56; i++) {
-          const strategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+          const strategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+            proposer.address,
+          );
           moreStrategies.push(await strategy.getAddress());
           await azorius.connect(owner).enableStrategy(await strategy.getAddress());
         }
@@ -611,7 +720,9 @@ describe('AzoriusV1', () => {
         // Add multiple strategies
         const newStrategies: string[] = [];
         for (let i = 10; i < 15; i++) {
-          const strategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+          const strategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+            proposer.address,
+          );
           newStrategies.push(await strategy.getAddress());
           await azorius.connect(owner).enableStrategy(await strategy.getAddress());
         }
@@ -693,17 +804,18 @@ describe('AzoriusV1', () => {
 
     beforeEach(async () => {
       // Deploy mock contracts
-      mockToken = await new MockERC20Votes__factory(owner).deploy();
+      mockToken = await new MockERC20Votes__factory(proxyDeployer).deploy();
 
       // Deploy initial strategy
-      mockStrategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+      mockStrategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(proposer.address);
 
       // Deploy avatar
-      avatar = await new MockAvatar__factory(owner).deploy();
+      avatar = await new MockAvatar__factory(proxyDeployer).deploy();
 
       // Deploy Azorius with initial strategy
       azorius = await deployAzoriusProxy(
-        azoriusMastercopy,
+        proxyDeployer,
+        masterCopy,
         owner,
         await avatar.getAddress(),
         await avatar.getAddress(),
@@ -767,7 +879,9 @@ describe('AzoriusV1', () => {
       });
 
       it('should not allow proposal submission with disabled strategy', async () => {
-        const newStrategy = await new MockVotingStrategy__factory(owner).deploy(proposer.address);
+        const newStrategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+          proposer.address,
+        );
 
         await expect(
           azorius
@@ -1192,8 +1306,9 @@ describe('AzoriusV1', () => {
 
     beforeEach(async () => {
       azorius = await deployAzoriusProxy(
-        azoriusMastercopy,
-        owner,
+        proxyDeployer,
+        masterCopy,
+        proxyDeployer,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
         [],
@@ -1217,8 +1332,9 @@ describe('AzoriusV1', () => {
     beforeEach(async function () {
       // Deploy a new instance for testing
       azoriusInstance = await deployAzoriusProxy(
-        azoriusMastercopy,
-        owner,
+        proxyDeployer,
+        masterCopy,
+        proxyDeployer,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
         [],
@@ -1256,6 +1372,35 @@ describe('AzoriusV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await azoriusInstance.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    let azorius: AzoriusV1;
+
+    beforeEach(async function () {
+      // Deploy azorius proxy
+      azorius = await deployAzoriusProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        ethers.ZeroAddress,
+        ethers.ZeroAddress,
+        [],
+        0,
+        0,
+      );
+    });
+
+    // Run UUPS upgradeability tests
+    runUUPSUpgradeabilityTests({
+      getContract: () => azorius as unknown as UUPSUpgradeable,
+      createNewImplementation: async () => {
+        const newImplementation = await new AzoriusV1__factory(owner).deploy();
+        return newImplementation as unknown as UUPSUpgradeable;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
