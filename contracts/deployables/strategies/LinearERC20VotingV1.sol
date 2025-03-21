@@ -3,10 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Version} from "../Version.sol";
 import {BaseStrategyV1} from "./BaseStrategyV1.sol";
-import {BaseVotingBasisPercentV1} from "./BaseVotingBasisPercentV1.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IBaseQuorumPercentV1} from "../../interfaces/decent/deployables/IBaseQuorumPercentV1.sol";
+import {IBaseVotingBasisPercentV1} from "../../interfaces/decent/deployables/IBaseVotingBasisPercentV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -17,10 +17,10 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract LinearERC20VotingV1 is
     ERC165,
     BaseStrategyV1,
-    BaseVotingBasisPercentV1,
     ERC4337VoterSupportV1,
     Version,
-    IBaseQuorumPercentV1
+    IBaseQuorumPercentV1,
+    IBaseVotingBasisPercentV1
 {
     uint16 private constant VERSION = 1;
 
@@ -58,6 +58,12 @@ contract LinearERC20VotingV1 is
 
     /** The denominator to use when calculating quorum (1,000,000). */
     uint256 public constant QUORUM_DENOMINATOR = 1_000_000;
+
+    /** The denominator to use when calculating basis (1,000,000). */
+    uint256 public constant BASIS_DENOMINATOR = 1_000_000;
+
+    /** The numerator to use when calculating basis (adjustable). */
+    uint256 public basisNumerator;
 
     /** `proposalId` to `ProposalVotes`, the voting state of a Proposal. */
     mapping(uint256 => ProposalVotes) internal proposalVotes;
@@ -146,6 +152,17 @@ contract LinearERC20VotingV1 is
         uint256 _quorumNumerator
     ) public virtual onlyOwner {
         _updateQuorumNumerator(_quorumNumerator);
+    }
+
+    /**
+     * Updates the `basisNumerator` for future Proposals.
+     *
+     * @param _basisNumerator numerator to use
+     */
+    function updateBasisNumerator(
+        uint256 _basisNumerator
+    ) public virtual onlyOwner {
+        _updateBasisNumerator(_basisNumerator);
     }
 
     /**
@@ -318,6 +335,18 @@ contract LinearERC20VotingV1 is
         emit QuorumNumeratorUpdated(_quorumNumerator);
     }
 
+    /** Internal implementation of `updateBasisNumerator`. */
+    function _updateBasisNumerator(uint256 _basisNumerator) internal virtual {
+        if (
+            _basisNumerator > BASIS_DENOMINATOR ||
+            _basisNumerator < BASIS_DENOMINATOR / 2
+        ) revert InvalidBasisNumerator();
+
+        basisNumerator = _basisNumerator;
+
+        emit BasisNumeratorUpdated(_basisNumerator);
+    }
+
     /**
      * Internal function for casting a vote on a Proposal.
      *
@@ -388,6 +417,22 @@ contract LinearERC20VotingV1 is
     }
 
     /**
+     * Calculates whether a vote meets its basis.
+     *
+     * @param _yesVotes number of votes in favor
+     * @param _noVotes number of votes against
+     * @return bool whether the yes votes meets the set basis
+     */
+    function meetsBasis(
+        uint256 _yesVotes,
+        uint256 _noVotes
+    ) public view returns (bool) {
+        return
+            _yesVotes >
+            ((_yesVotes + _noVotes) * basisNumerator) / BASIS_DENOMINATOR;
+    }
+
+    /**
      * Implementation of version
      */
     function getVersion() public view virtual override returns (uint16) {
@@ -400,11 +445,12 @@ contract LinearERC20VotingV1 is
         public
         view
         virtual
-        override(BaseStrategyV1, BaseVotingBasisPercentV1, Version, ERC165)
+        override(BaseStrategyV1, Version, ERC165)
         returns (bool)
     {
         return
             interfaceId == type(IBaseQuorumPercentV1).interfaceId ||
+            interfaceId == type(IBaseVotingBasisPercentV1).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
