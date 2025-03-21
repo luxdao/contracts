@@ -21,26 +21,28 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
     error NotOwner();
     error AlreadyVoted();
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * Initialize function, will be triggered when a new instance is deployed.
      *
-     * @param initializeParams encoded initialization parameters: `address _owner`,
-     * `uint256 _freezeVotesThreshold`, `uint256 _freezeProposalPeriod`, `uint256 _freezePeriod`,
-     * `address _parentSafeSafe`
+     * @param _owner The owner of the contract
+     * @param _freezeVotesThreshold The number of votes required to activate a freeze
+     * @param _freezeProposalPeriod The number of blocks a freeze proposal has to succeed
+     * @param _freezePeriod The number of blocks a freeze lasts
+     * @param _parentSafe The address of the parent Safe contract
      */
-    function setUp(bytes memory initializeParams) public override initializer {
-        (
-            address _owner,
-            uint256 _freezeVotesThreshold,
-            uint32 _freezeProposalPeriod,
-            uint32 _freezePeriod,
-            address _parentSafe
-        ) = abi.decode(
-                initializeParams,
-                (address, uint256, uint32, uint32, address)
-            );
-
+    function initialize(
+        address _owner,
+        uint256 _freezeVotesThreshold,
+        uint32 _freezeProposalPeriod,
+        uint32 _freezePeriod,
+        address _parentSafe
+    ) public initializer {
         __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
         _updateFreezeVotesThreshold(_freezeVotesThreshold);
         _updateFreezeProposalPeriod(_freezeProposalPeriod);
         _updateFreezePeriod(_freezePeriod);
@@ -48,6 +50,14 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
 
         emit MultisigFreezeVotingSetup(_owner, _parentSafe);
     }
+
+    /**
+     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /** @inheritdoc BaseFreezeVotingV1*/
     function castFreezeVote() external override {

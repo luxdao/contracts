@@ -2,7 +2,8 @@
 pragma solidity ^0.8.28;
 
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
-import {FactoryFriendly} from "@gnosis-guild/zodiac/contracts/factory/FactoryFriendly.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -23,7 +24,8 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * a Safe Transaction Guard, until the `freezePeriod` has elapsed.
  */
 abstract contract BaseFreezeVotingV1 is
-    FactoryFriendly,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
     IBaseFreezeVotingV1,
     ERC165
 {
@@ -57,6 +59,14 @@ abstract contract BaseFreezeVotingV1 is
     constructor() {
         _disableInitializers();
     }
+
+    /**
+     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /**
      * Casts a positive vote to freeze the subDAO. This function is intended to be called

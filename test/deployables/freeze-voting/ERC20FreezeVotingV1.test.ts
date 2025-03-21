@@ -3,29 +3,29 @@ import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   ERC20FreezeVotingV1,
   ERC20FreezeVotingV1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateProxyAddress } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper function for deploying ERC20FreezeVotingV1 instances
+// Helper function for deploying ERC20FreezeVotingV1 instances using ERC1967Proxy
 async function deployERC20FreezeVotingProxy(
-  erc20FreezeVotingMastercopy: ERC20FreezeVotingV1,
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
   freezePeriod: number,
   votesERC20: MockERC20Votes,
 ): Promise<ERC20FreezeVotingV1> {
-  const moduleProxyFactory = getModuleProxyFactory();
-  const salt = ethers.hexlify(ethers.randomBytes(32));
-
-  const erc20FreezeVotingSetupCalldata =
-    ERC20FreezeVotingV1__factory.createInterface().encodeFunctionData('setUp', [
-      ethers.AbiCoder.defaultAbiCoder().encode(
+  // Combine selector and encoded params
+  const fullInitData =
+    ERC20FreezeVotingV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
         ['address', 'uint256', 'uint32', 'uint32', 'address'],
         [
           owner.address,
@@ -34,36 +34,28 @@ async function deployERC20FreezeVotingProxy(
           freezePeriod,
           await votesERC20.getAddress(),
         ],
-      ),
-    ]);
+      )
+      .slice(2);
 
-  await moduleProxyFactory.deployModule(
-    await erc20FreezeVotingMastercopy.getAddress(),
-    erc20FreezeVotingSetupCalldata,
-    salt,
-  );
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
-  const predictedAddress = await calculateProxyAddress(
-    moduleProxyFactory,
-    await erc20FreezeVotingMastercopy.getAddress(),
-    erc20FreezeVotingSetupCalldata,
-    salt,
-  );
-
-  return ERC20FreezeVotingV1__factory.connect(predictedAddress, owner);
+  // Return a contract instance connected to the proxy
+  return ERC20FreezeVotingV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('ERC20FreezeVotingV1', () => {
   // signers
-  let deployer: SignerWithAddress;
+  let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let voter1: SignerWithAddress;
   let voter2: SignerWithAddress;
   let voter3: SignerWithAddress;
   let nonVoter: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
 
   // contracts
-  let erc20FreezeVotingMastercopy: ERC20FreezeVotingV1;
+  let masterCopy: string;
   let freezeVoting: ERC20FreezeVotingV1;
   let votesToken: MockERC20Votes;
 
@@ -79,10 +71,10 @@ describe('ERC20FreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [deployer, owner, voter1, voter2, voter3, nonVoter] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3, nonVoter, nonOwner] = await ethers.getSigners();
 
     // Deploy the voting token
-    votesToken = await new MockERC20Votes__factory(deployer).deploy();
+    votesToken = await new MockERC20Votes__factory(proxyDeployer).deploy();
 
     // Mint tokens to voters
     await votesToken.mint(voter1.address, VOTER1_TOKENS);
@@ -94,12 +86,14 @@ describe('ERC20FreezeVotingV1', () => {
     await votesToken.connect(voter2).delegate(voter2.address);
     await votesToken.connect(voter3).delegate(voter3.address);
 
-    // Deploy mastercopy
-    erc20FreezeVotingMastercopy = await new ERC20FreezeVotingV1__factory(deployer).deploy();
+    // Deploy implementation
+    const implementation = await new ERC20FreezeVotingV1__factory(proxyDeployer).deploy();
+    masterCopy = await implementation.getAddress();
 
     // Deploy proxy
     freezeVoting = await deployERC20FreezeVotingProxy(
-      erc20FreezeVotingMastercopy,
+      proxyDeployer,
+      masterCopy,
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
@@ -118,21 +112,32 @@ describe('ERC20FreezeVotingV1', () => {
     });
 
     it('should not allow reinitialization', async () => {
-      const setupData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint256', 'uint32', 'uint32', 'address'],
-        [
+      await expect(
+        freezeVoting.initialize(
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
           FREEZE_PERIOD,
           await votesToken.getAddress(),
-        ],
-      );
+        ),
+      ).to.be.revertedWithCustomError(freezeVoting, 'InvalidInitialization');
+    });
 
-      await expect(freezeVoting.setUp(setupData)).to.be.revertedWithCustomError(
-        freezeVoting,
-        'InvalidInitialization',
-      );
+    it('Should have initialization disabled in the implementation', async function () {
+      const implementationContract = ERC20FreezeVotingV1__factory.connect(
+        masterCopy,
+        proxyDeployer,
+      ) as any;
+
+      await expect(
+        implementationContract.initialize(
+          owner.address,
+          FREEZE_VOTES_THRESHOLD,
+          FREEZE_PROPOSAL_PERIOD,
+          FREEZE_PERIOD,
+          await votesToken.getAddress(),
+        ),
+      ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
 
@@ -475,6 +480,18 @@ describe('ERC20FreezeVotingV1', () => {
     // Use the shared version test utility
     it('should return the correct version number', async () => {
       expect(await freezeVoting.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => freezeVoting,
+      createNewImplementation: async () => {
+        const newImplementation = await new ERC20FreezeVotingV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });
