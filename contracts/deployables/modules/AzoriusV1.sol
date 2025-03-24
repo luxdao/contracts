@@ -88,6 +88,8 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version, UUPSUpgradeable {
     event ExecutionPeriodUpdated(uint32 executionPeriod);
 
     error InvalidStrategy();
+    error InvalidStartAddress();
+    error InvalidCount();
     error StrategyEnabled();
     error StrategyDisabled();
     error InvalidProposal();
@@ -269,22 +271,37 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version, UUPSUpgradeable {
         address _startAddress,
         uint256 _count
     ) external view returns (address[] memory _strategies, address _next) {
+        if (
+            _startAddress != SENTINEL_STRATEGY &&
+            !isStrategyEnabled(_startAddress)
+        ) {
+            revert InvalidStartAddress();
+        }
+
+        if (_count == 0) {
+            revert InvalidCount();
+        }
+
         // init array with max page size
         _strategies = new address[](_count);
 
         // populate return array
         uint256 strategyCount = 0;
-        address currentStrategy = strategies[_startAddress];
+        _next = strategies[_startAddress];
+
         while (
-            currentStrategy != address(0x0) &&
-            currentStrategy != SENTINEL_STRATEGY &&
+            _next != address(0) &&
+            _next != SENTINEL_STRATEGY &&
             strategyCount < _count
         ) {
-            _strategies[strategyCount] = currentStrategy;
-            currentStrategy = strategies[currentStrategy];
+            _strategies[strategyCount] = _next;
+            _next = strategies[_next];
             strategyCount++;
         }
-        _next = currentStrategy;
+
+        if (_next != SENTINEL_STRATEGY) {
+            _next = _strategies[strategyCount - 1];
+        }
         // set correct size of returned array
         assembly {
             mstore(_strategies, strategyCount)
