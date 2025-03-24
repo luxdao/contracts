@@ -2,12 +2,12 @@
 pragma solidity ^0.8.28;
 
 import {DecentHatsModuleUtils} from "./DecentHatsModuleUtils.sol";
+import {IProxyFactory} from "../interfaces/decent/singletons/IProxyFactory.sol";
 import {IERC6551Registry} from "../interfaces/erc6551/IERC6551Registry.sol";
 import {IHats} from "../interfaces/hats/IHats.sol";
 import {IHatsModuleFactory} from "../interfaces/hats/IHatsModuleFactory.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IAvatar} from "@gnosis-guild/zodiac/contracts/interfaces/IAvatar.sol";
-import {IModuleProxyFactory} from "../interfaces/zodiac/IModuleProxyFactory.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract DecentHatsCreationModule is DecentHatsModuleUtils {
@@ -26,7 +26,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         IHats hatsProtocol;
         IERC6551Registry erc6551Registry;
         IHatsModuleFactory hatsModuleFactory;
-        IModuleProxyFactory moduleProxyFactory;
+        IProxyFactory proxyFactory;
         address keyValuePairs;
         address decentAutonomousAdminImplementation;
         address hatsAccountImplementation;
@@ -78,7 +78,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
             treeParams.hatsAccountImplementation,
             topHatId,
             topHatAccount,
-            treeParams.moduleProxyFactory,
+            treeParams.proxyFactory,
             treeParams.decentAutonomousAdminImplementation,
             treeParams.adminHat
         );
@@ -164,7 +164,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         address hatsAccountImplementation,
         uint256 topHatId,
         address topHatAccount,
-        IModuleProxyFactory moduleProxyFactory,
+        IProxyFactory proxyFactory,
         address decentAutonomousAdminImplementation,
         AdminHatParams calldata adminHat
     ) internal returns (uint256 adminHatId) {
@@ -196,17 +196,15 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         );
 
         // Deploy Decent Autonomous Admin Module, which will wear the Admin Hat
-        address autonomousAdmin = moduleProxyFactory.deployModule(
+        address autonomousAdmin = proxyFactory.deployProxy(
             decentAutonomousAdminImplementation,
-            abi.encodeWithSignature("setUp(bytes)", bytes("")),
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        // for the salt, we'll concatenate our static salt
-                        // with the Admin Hat ID
-                        SALT,
-                        adminHatId
-                    )
+            abi.encodeWithSignature("initialize(address)", msg.sender),
+            keccak256(
+                abi.encodePacked(
+                    // for the salt, we'll concatenate our static salt
+                    // with the Admin Hat ID
+                    SALT,
+                    adminHatId
                 )
             )
         );
