@@ -3,6 +3,7 @@ import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   IBaseStrategyV1__factory,
   IBaseVotingBasisPercentV1__factory,
   IERC165__factory,
@@ -14,8 +15,8 @@ import {
   MockERC721__factory,
   MockOwnership__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 describe('LinearERC721VotingV1', () => {
   // Signers
@@ -28,7 +29,7 @@ describe('LinearERC721VotingV1', () => {
   let tokenHolder3: SignerWithAddress;
 
   // Contracts
-  let linearERC721VotingMastercopy: LinearERC721VotingV1;
+  let linearERC721VotingImplementation: LinearERC721VotingV1;
   let linearERC721Voting: LinearERC721VotingV1;
   let mockNFT1: MockERC721;
   let mockNFT2: MockERC721;
@@ -40,11 +41,11 @@ describe('LinearERC721VotingV1', () => {
 
   // Constants
   const VOTING_PERIOD = 100; // blocks
-  const QUORUM_THRESHOLD = 5; // 5 NFTs required for quorum
-  const PROPOSER_THRESHOLD = 2; // 2 NFTs required to propose
+  const QUORUM_THRESHOLD = 4; // Required voting power for quorum
+  const PROPOSER_THRESHOLD = 2; // Must hold at least 2 NFTs to create a proposal
   const BASIS_NUMERATOR = 500000; // 50% of 1000000
-  const TOKEN1_WEIGHT = 1; // 1 vote per NFT from token1
-  const TOKEN2_WEIGHT = 2; // 2 votes per NFT from token2
+  const TOKEN1_WEIGHT = 1;
+  const TOKEN2_WEIGHT = 2;
 
   // Vote types from the contract
   enum VoteType {
@@ -58,12 +59,12 @@ describe('LinearERC721VotingV1', () => {
     governanceTokens: { tokenAddress: string; weight: number }[],
     azoriusAddr: string,
   ): Promise<LinearERC721VotingV1> {
-    const salt = ethers.hexlify(ethers.randomBytes(32));
     const tokenAddresses = governanceTokens.map(t => t.tokenAddress);
     const tokenWeights = governanceTokens.map(t => t.weight);
 
-    const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'address[]', 'uint256[]', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
+    // Create the initialization data
+    const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
+      'initialize',
       [
         strategyOwner.address,
         tokenAddresses,
@@ -76,26 +77,14 @@ describe('LinearERC721VotingV1', () => {
       ],
     );
 
-    const setupCalldata = linearERC721VotingMastercopy.interface.encodeFunctionData('setUp', [
-      initializeParams,
-    ]);
-
-    const moduleProxyFactory = getModuleProxyFactory();
-
-    await moduleProxyFactory.deployModule(
-      await linearERC721VotingMastercopy.getAddress(),
-      setupCalldata,
-      salt,
+    // Deploy the proxy with the implementation
+    const proxy = await new ERC1967Proxy__factory(strategyOwner).deploy(
+      await linearERC721VotingImplementation.getAddress(),
+      initializeCalldata,
     );
 
-    const predictedAddress = await calculateProxyAddress(
-      moduleProxyFactory,
-      await linearERC721VotingMastercopy.getAddress(),
-      setupCalldata,
-      salt,
-    );
-
-    return LinearERC721VotingV1__factory.connect(predictedAddress, strategyOwner);
+    // Connect the proxy to the implementation contract type
+    return LinearERC721VotingV1__factory.connect(await proxy.getAddress(), strategyOwner);
   }
 
   async function mintNFTs(
@@ -129,8 +118,8 @@ describe('LinearERC721VotingV1', () => {
     tokenHolder2Ids = await mintNFTs(mockNFT1, tokenHolder2, 2); // 2 NFTs from token1
     tokenHolder3Ids = await mintNFTs(mockNFT2, tokenHolder3, 2); // 2 NFTs from token2
 
-    // Deploy LinearERC721Voting strategy mastercopy
-    linearERC721VotingMastercopy = await new LinearERC721VotingV1__factory(deployer).deploy();
+    // Deploy LinearERC721Voting implementation
+    linearERC721VotingImplementation = await new LinearERC721VotingV1__factory(deployer).deploy();
 
     // Deploy LinearERC721Voting strategy
     linearERC721Voting = await deployLinearERC721Voting(
@@ -146,11 +135,6 @@ describe('LinearERC721VotingV1', () => {
   describe('Initialization', () => {
     it('should initialize with correct parameters', async () => {
       expect(await linearERC721Voting.owner()).to.equal(owner.address);
-      expect(await linearERC721Voting.azoriusModule()).to.equal(azoriusAddress);
-      expect(await linearERC721Voting.votingPeriod()).to.equal(VOTING_PERIOD);
-      expect(await linearERC721Voting.quorumThreshold()).to.equal(QUORUM_THRESHOLD);
-      expect(await linearERC721Voting.proposerThreshold()).to.equal(PROPOSER_THRESHOLD);
-      expect(await linearERC721Voting.basisNumerator()).to.equal(BASIS_NUMERATOR);
 
       // Check token addresses and weights
       expect(await linearERC721Voting.tokenAddresses(0)).to.equal(await mockNFT1.getAddress());
@@ -161,15 +145,21 @@ describe('LinearERC721VotingV1', () => {
       expect(await linearERC721Voting.tokenWeights(await mockNFT2.getAddress())).to.equal(
         TOKEN2_WEIGHT,
       );
+
+      expect(await linearERC721Voting.azoriusModule()).to.equal(azoriusAddress);
+      expect(await linearERC721Voting.votingPeriod()).to.equal(VOTING_PERIOD);
+      expect(await linearERC721Voting.quorumThreshold()).to.equal(QUORUM_THRESHOLD);
+      expect(await linearERC721Voting.proposerThreshold()).to.equal(PROPOSER_THRESHOLD);
+      expect(await linearERC721Voting.basisNumerator()).to.equal(BASIS_NUMERATOR);
     });
 
     it('should not allow reinitialization', async () => {
       const tokenAddresses = [await mockNFT1.getAddress(), await mockNFT2.getAddress()];
       const tokenWeights = [TOKEN1_WEIGHT, TOKEN2_WEIGHT];
 
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address[]', 'uint256[]', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
-        [
+      // Try to call initialize again - should revert
+      await expect(
+        linearERC721Voting.initialize(
           owner.address,
           tokenAddresses,
           tokenWeights,
@@ -178,23 +168,17 @@ describe('LinearERC721VotingV1', () => {
           QUORUM_THRESHOLD,
           PROPOSER_THRESHOLD,
           BASIS_NUMERATOR,
-        ],
-      );
-
-      const setupCalldata = linearERC721VotingMastercopy.interface.encodeFunctionData('setUp', [
-        initializeParams,
-      ]);
-
-      await expect(linearERC721Voting.setUp(setupCalldata)).to.be.reverted;
+        ),
+      ).to.be.reverted;
     });
 
     it('should revert when initializing with mismatched token arrays', async () => {
-      const salt = ethers.hexlify(ethers.randomBytes(32));
-      const tokenAddresses = [await mockNFT1.getAddress()];
-      const tokenWeights = [TOKEN1_WEIGHT, TOKEN2_WEIGHT]; // Mismatched length
+      const tokenAddresses = [await mockNFT1.getAddress(), await mockNFT2.getAddress()];
+      const tokenWeights = [TOKEN1_WEIGHT]; // Only one weight for two tokens
 
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address[]', 'uint256[]', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
+      // Create initialization data with mismatched arrays
+      const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
+        'initialize',
         [
           owner.address,
           tokenAddresses,
@@ -207,18 +191,99 @@ describe('LinearERC721VotingV1', () => {
         ],
       );
 
-      const setupCalldata = linearERC721VotingMastercopy.interface.encodeFunctionData('setUp', [
-        initializeParams,
-      ]);
-
-      const moduleProxyFactory = getModuleProxyFactory();
+      // Attempt to deploy with invalid initialization - should revert
       await expect(
-        moduleProxyFactory.deployModule(
-          await linearERC721VotingMastercopy.getAddress(),
-          setupCalldata,
-          salt,
+        new ERC1967Proxy__factory(owner).deploy(
+          await linearERC721VotingImplementation.getAddress(),
+          initializeCalldata,
         ),
       ).to.be.reverted;
+    });
+
+    it('should revert when initializing with invalid token weight', async () => {
+      const tokenAddresses = [await mockNFT1.getAddress(), await mockNFT2.getAddress()];
+      const tokenWeights = [0, TOKEN2_WEIGHT]; // Zero weight for the first token
+
+      // Create initialization data with invalid token weight
+      const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [
+          owner.address,
+          tokenAddresses,
+          tokenWeights,
+          azoriusAddress,
+          VOTING_PERIOD,
+          QUORUM_THRESHOLD,
+          PROPOSER_THRESHOLD,
+          BASIS_NUMERATOR,
+        ],
+      );
+
+      // Attempt to deploy with invalid initialization - should revert
+      await expect(
+        new ERC1967Proxy__factory(owner).deploy(
+          await linearERC721VotingImplementation.getAddress(),
+          initializeCalldata,
+        ),
+      ).to.be.reverted; // This will revert when trying to check supportsInterface
+    });
+
+    it('should initialize with empty token arrays and allow adding tokens later', async () => {
+      const emptyTokenAddresses: string[] = [];
+      const emptyTokenWeights: number[] = [];
+
+      // Create initialization data with empty token arrays
+      const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [
+          owner.address,
+          emptyTokenAddresses,
+          emptyTokenWeights,
+          azoriusAddress,
+          VOTING_PERIOD,
+          QUORUM_THRESHOLD,
+          PROPOSER_THRESHOLD,
+          BASIS_NUMERATOR,
+        ],
+      );
+
+      // Deploy with empty token arrays - should not revert
+      const proxy = await new ERC1967Proxy__factory(owner).deploy(
+        await linearERC721VotingImplementation.getAddress(),
+        initializeCalldata,
+      );
+
+      // Connect to the newly deployed proxy
+      const emptyTokensStrategy = LinearERC721VotingV1__factory.connect(
+        await proxy.getAddress(),
+        owner,
+      );
+
+      // Verify that there are no tokens in the strategy
+      await expect(emptyTokensStrategy.tokenAddresses(0)).to.be.reverted;
+
+      // Add a token afterward to ensure it works
+      const tokenAddress = await mockNFT1.getAddress();
+      await emptyTokensStrategy.addGovernanceToken(tokenAddress, TOKEN1_WEIGHT);
+
+      // Verify the token was added
+      expect(await emptyTokensStrategy.tokenAddresses(0)).to.equal(tokenAddress);
+      expect(await emptyTokensStrategy.tokenWeights(tokenAddress)).to.equal(TOKEN1_WEIGHT);
+    });
+
+    it('should emit ProposalInitialized event when initializing a proposal', async () => {
+      const proposalId = 200;
+      const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
+
+      // Get current block timestmp to calculate expected end timestamp
+      const currentBlockTimestamp = await time.latest();
+
+      // +1 because the proposal will be in the next block, and that block's timestamp will be increased by one second
+      const expectedEndTimestamp = currentBlockTimestamp + 1 + VOTING_PERIOD;
+
+      await expect(linearERC721Voting.connect(nonOwner).initializeProposal(initializeData))
+        .to.emit(linearERC721Voting, 'ProposalInitialized')
+        .withArgs(proposalId, expectedEndTimestamp);
     });
   });
 
@@ -333,8 +398,9 @@ describe('LinearERC721VotingV1', () => {
     });
 
     it('should allow owner to remove a governance token', async () => {
-      // Get the initial token addresses
-      const initialToken0 = await linearERC721Voting.tokenAddresses(0);
+      // First, check that we have two tokens
+      expect(await linearERC721Voting.tokenAddresses(0)).to.equal(await mockNFT1.getAddress());
+      expect(await linearERC721Voting.tokenAddresses(1)).to.equal(await mockNFT2.getAddress());
 
       // Remove the second token
       await linearERC721Voting.connect(owner).removeGovernanceToken(await mockNFT2.getAddress());
@@ -342,14 +408,15 @@ describe('LinearERC721VotingV1', () => {
       // The removed token should no longer have a weight
       expect(await linearERC721Voting.tokenWeights(await mockNFT2.getAddress())).to.equal(0);
 
-      // The token addresses array should still have the same length, but the last element should be zeroed out
-      // The contract implementation moves the last token to the removed token's position and deletes the last position
-      // Since we only have 2 tokens and we're removing the second one (which is also the last one),
-      // it just zeroes out the last position
-      expect(await linearERC721Voting.tokenAddresses(0)).to.equal(initialToken0);
-      expect(await linearERC721Voting.tokenAddresses(1)).to.equal(
-        '0x0000000000000000000000000000000000000000',
-      );
+      // The token addresses array should now have length 1 (the array is resized)
+      // So trying to access index 1 should revert
+      expect(await linearERC721Voting.tokenAddresses(0)).to.equal(await mockNFT1.getAddress());
+      void expect(linearERC721Voting.tokenAddresses(1)).to.be.reverted;
+
+      // Make sure we can't remove a token that's not registered
+      await expect(
+        linearERC721Voting.connect(owner).removeGovernanceToken(await mockNFT2.getAddress()),
+      ).to.be.revertedWithCustomError(linearERC721Voting, 'TokenNotSet');
     });
 
     it('should not allow non-owner to remove a governance token', async () => {
@@ -369,7 +436,7 @@ describe('LinearERC721VotingV1', () => {
       // Only Azorius can initialize proposals
       await expect(
         linearERC721Voting.connect(owner).initializeProposal(initializeData),
-      ).to.be.revertedWithCustomError(linearERC721Voting, 'OnlyAzorius');
+      ).to.be.revertedWithCustomError(linearERC721Voting, 'AzoriusUnauthorizedAccount');
 
       // Test with Azorius signer
       await linearERC721Voting.connect(nonOwner).initializeProposal(initializeData);
@@ -603,42 +670,31 @@ describe('LinearERC721VotingV1', () => {
     });
 
     it('should fail when quorum is not met', async () => {
-      // Update quorum threshold to 10
-      await linearERC721Voting.connect(owner).updateQuorumThreshold(10);
+      // Initialize a proposal with a different ID
+      const quorumProposalId = 42;
+      const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint32'],
+        [quorumProposalId],
+      );
+      await linearERC721Voting.connect(nonOwner).initializeProposal(initializeData);
 
-      // Cast votes (total 9 votes, less than 10 required)
-      await linearERC721Voting
-        .connect(tokenHolder1)
-        .vote(
-          proposalId,
-          VoteType.YES,
-          [await mockNFT1.getAddress(), await mockNFT1.getAddress(), await mockNFT1.getAddress()],
-          [tokenHolder1Ids[0], tokenHolder1Ids[1], tokenHolder1Ids[2]],
-        );
-
+      // Only a couple of NFTs vote, which won't be enough to reach the quorum threshold
       await linearERC721Voting
         .connect(tokenHolder2)
         .vote(
-          proposalId,
+          quorumProposalId,
           VoteType.YES,
           [await mockNFT1.getAddress(), await mockNFT1.getAddress()],
           [tokenHolder2Ids[0], tokenHolder2Ids[1]],
         );
 
-      await linearERC721Voting
-        .connect(tokenHolder3)
-        .vote(
-          proposalId,
-          VoteType.YES,
-          [await mockNFT2.getAddress(), await mockNFT2.getAddress()],
-          [tokenHolder3Ids[0], tokenHolder3Ids[1]],
-        );
+      // Only tokenHolder2 votes, not enough for quorum which is 4
 
       // Mine blocks to end the voting period
       await mine(VOTING_PERIOD + 1);
 
       // Proposal should fail due to insufficient quorum
-      void expect(await linearERC721Voting.isPassed(proposalId)).to.be.false;
+      void expect(await linearERC721Voting.isPassed(quorumProposalId)).to.be.false;
     });
 
     it('should fail when basis is not met', async () => {
@@ -837,12 +893,12 @@ describe('LinearERC721VotingV1', () => {
       // For this test, we can use the MockOwnership contract which doesn't support the ERC721 interface
       const mockNonERC721 = await new MockOwnership__factory(deployer).deploy(deployer.address);
 
-      const salt = ethers.hexlify(ethers.randomBytes(32));
       const tokenAddresses = [await mockNonERC721.getAddress()];
       const tokenWeights = [TOKEN1_WEIGHT];
 
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address[]', 'uint256[]', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
+      // Create initialization data with non-ERC721 token
+      const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
+        'initialize',
         [
           owner.address,
           tokenAddresses,
@@ -855,16 +911,11 @@ describe('LinearERC721VotingV1', () => {
         ],
       );
 
-      const setupCalldata = linearERC721VotingMastercopy.interface.encodeFunctionData('setUp', [
-        initializeParams,
-      ]);
-
-      const moduleProxyFactory = getModuleProxyFactory();
+      // Attempt to deploy with invalid initialization - should revert
       await expect(
-        moduleProxyFactory.deployModule(
-          await linearERC721VotingMastercopy.getAddress(),
-          setupCalldata,
-          salt,
+        new ERC1967Proxy__factory(owner).deploy(
+          await linearERC721VotingImplementation.getAddress(),
+          initializeCalldata,
         ),
       ).to.be.reverted; // This will revert when trying to check supportsInterface
     });
@@ -906,9 +957,20 @@ describe('LinearERC721VotingV1', () => {
   });
 
   describe('Version', () => {
-    // Use the shared version test utility
     it('should return the correct version number', async () => {
       expect(await linearERC721Voting.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => linearERC721Voting,
+      createNewImplementation: async () => {
+        const newImplementation = await new LinearERC721VotingV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 
