@@ -217,7 +217,7 @@ describe('AzoriusV1', () => {
             200,
           );
 
-          const [strategies, next] = await azorius.getStrategies(SENTINEL_STRATEGY, 0);
+          const [strategies, next] = await azorius.getStrategies(SENTINEL_STRATEGY, 1);
           expect(strategies.length).to.equal(0);
           expect(next).to.equal(SENTINEL_STRATEGY);
         });
@@ -673,12 +673,13 @@ describe('AzoriusV1', () => {
         }
       });
 
-      it('should return empty array when starting from non-existent strategy', async () => {
+      it('should revert with InvalidStartAddress when using a non-existent strategy', async () => {
         const nonExistentStrategy = '0x0000000000000000000000000000000000000002';
-        const [returnedStrategies, next] = await azorius.getStrategies(nonExistentStrategy, 10);
 
-        expect(returnedStrategies.length).to.equal(0);
-        expect(next).to.equal('0x0000000000000000000000000000000000000000');
+        await expect(azorius.getStrategies(nonExistentStrategy, 10)).to.be.revertedWithCustomError(
+          azorius,
+          'InvalidStartAddress',
+        );
       });
 
       it('should handle pagination with large numbers of strategies', async () => {
@@ -789,6 +790,87 @@ describe('AzoriusV1', () => {
             }
           }
         }
+      });
+
+      it('should revert with InvalidCount when count is zero', async () => {
+        await expect(azorius.getStrategies(SENTINEL_STRATEGY, 0)).to.be.revertedWithCustomError(
+          azorius,
+          'InvalidCount',
+        );
+      });
+
+      it('should return last strategy as _next when not all strategies fit in the array', async () => {
+        // First, clear any existing strategies (from previous tests)
+        // and create a fresh Azorius instance
+        const mockAvatar = await new MockAvatar__factory(proxyDeployer).deploy();
+        azorius = await deployAzoriusProxy(
+          proxyDeployer,
+          masterCopy,
+          owner,
+          await mockAvatar.getAddress(),
+          await mockAvatar.getAddress(),
+          [], // empty strategies array
+          100,
+          200,
+        );
+
+        // Enable three strategies
+        const strategy1 = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+          proposer.address,
+        );
+        const strategy2 = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+          proposer.address,
+        );
+        const strategy3 = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+          proposer.address,
+        );
+
+        await azorius.enableStrategy(await strategy1.getAddress());
+        await azorius.enableStrategy(await strategy2.getAddress());
+        await azorius.enableStrategy(await strategy3.getAddress());
+
+        // Request only 2 strategies when there are 3 total
+        const [returnedStrategies, next] = await azorius.getStrategies(SENTINEL_STRATEGY, 2);
+
+        // Verify the behavior
+        expect(returnedStrategies.length).to.equal(2);
+
+        // The _next pointer should equal the last returned strategy when there are more strategies
+        // This matches the updated contract logic
+        expect(next).to.equal(returnedStrategies[1]);
+      });
+
+      it('should handle the case where all strategies are returned correctly', async () => {
+        // First, clear any existing strategies (from previous tests)
+        // and create a fresh Azorius instance
+        const mockAvatar = await new MockAvatar__factory(proxyDeployer).deploy();
+        azorius = await deployAzoriusProxy(
+          proxyDeployer,
+          masterCopy,
+          owner,
+          await mockAvatar.getAddress(),
+          await mockAvatar.getAddress(),
+          [], // empty strategies array
+          100,
+          200,
+        );
+
+        // Enable just one strategy
+        const strategy = await new MockVotingStrategy__factory(proxyDeployer).deploy(
+          proposer.address,
+        );
+        await azorius.enableStrategy(await strategy.getAddress());
+
+        // Request strategies with count>1 to ensure we get all strategies
+        const [returnedStrategies, next] = await azorius.getStrategies(SENTINEL_STRATEGY, 2);
+
+        // Verify returned data
+        expect(returnedStrategies.length).to.equal(1);
+        expect(returnedStrategies[0]).to.equal(await strategy.getAddress());
+
+        // Since _next becomes SENTINEL_STRATEGY in the loop (we've reached the end of the list),
+        // it should remain SENTINEL_STRATEGY as per the contract logic
+        expect(next).to.equal(SENTINEL_STRATEGY);
       });
     });
   });
