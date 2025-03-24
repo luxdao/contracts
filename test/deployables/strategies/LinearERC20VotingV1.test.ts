@@ -3,6 +3,7 @@ import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  ERC1967Proxy__factory,
   IBaseQuorumPercentV1__factory,
   IBaseStrategyV1__factory,
   IBaseVotingBasisPercentV1__factory,
@@ -15,8 +16,8 @@ import {
   MockOwnership,
   MockOwnership__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 describe('LinearERC20VotingV1', () => {
   // Signers
@@ -29,7 +30,7 @@ describe('LinearERC20VotingV1', () => {
   let tokenHolder3: SignerWithAddress;
 
   // Contracts
-  let linearERC20VotingMastercopy: LinearERC20VotingV1;
+  let linearERC20VotingImplementation: LinearERC20VotingV1;
   let linearERC20Voting: LinearERC20VotingV1;
   let mockToken: MockERC20Votes;
   let mockOwnership: MockOwnership;
@@ -52,9 +53,9 @@ describe('LinearERC20VotingV1', () => {
     governanceToken: string,
     azoriusAddr: string,
   ): Promise<LinearERC20VotingV1> {
-    const salt = ethers.hexlify(ethers.randomBytes(32));
-    const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'address', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
+    // Create the initialization data
+    const initializeCalldata = LinearERC20VotingV1__factory.createInterface().encodeFunctionData(
+      'initialize',
       [
         strategyOwner.address,
         governanceToken,
@@ -66,26 +67,14 @@ describe('LinearERC20VotingV1', () => {
       ],
     );
 
-    const setupCalldata = linearERC20VotingMastercopy.interface.encodeFunctionData('setUp', [
-      initializeParams,
-    ]);
-
-    const moduleProxyFactory = getModuleProxyFactory();
-
-    await moduleProxyFactory.deployModule(
-      await linearERC20VotingMastercopy.getAddress(),
-      setupCalldata,
-      salt,
+    // Deploy the proxy with the implementation
+    const proxy = await new ERC1967Proxy__factory(strategyOwner).deploy(
+      await linearERC20VotingImplementation.getAddress(),
+      initializeCalldata,
     );
 
-    const predictedAddress = await calculateProxyAddress(
-      moduleProxyFactory,
-      await linearERC20VotingMastercopy.getAddress(),
-      setupCalldata,
-      salt,
-    );
-
-    return LinearERC20VotingV1__factory.connect(predictedAddress, strategyOwner);
+    // Connect the proxy to the implementation contract type
+    return LinearERC20VotingV1__factory.connect(await proxy.getAddress(), strategyOwner);
   }
 
   beforeEach(async () => {
@@ -106,8 +95,8 @@ describe('LinearERC20VotingV1', () => {
     await mockToken.mint(tokenHolder2.address, 1000);
     await mockToken.mint(tokenHolder3.address, 1000);
 
-    // Deploy LinearERC20Voting strategy mastercopy
-    linearERC20VotingMastercopy = await new LinearERC20VotingV1__factory(deployer).deploy();
+    // Deploy LinearERC20Voting implementation
+    linearERC20VotingImplementation = await new LinearERC20VotingV1__factory(deployer).deploy();
 
     // Deploy LinearERC20Voting strategy
     linearERC20Voting = await deployLinearERC20Voting(
@@ -129,9 +118,9 @@ describe('LinearERC20VotingV1', () => {
     });
 
     it('should not allow reinitialization', async () => {
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
-        [
+      // Attempt to reinitialize - should revert
+      await expect(
+        linearERC20Voting.initialize(
           owner.address,
           await mockToken.getAddress(),
           azoriusAddress,
@@ -139,20 +128,14 @@ describe('LinearERC20VotingV1', () => {
           REQUIRED_PROPOSER_WEIGHT,
           QUORUM_NUMERATOR,
           BASIS_NUMERATOR,
-        ],
-      );
-
-      const setupCalldata = linearERC20VotingMastercopy.interface.encodeFunctionData('setUp', [
-        initializeParams,
-      ]);
-
-      await expect(linearERC20Voting.setUp(setupCalldata)).to.be.reverted;
+        ),
+      ).to.be.reverted;
     });
 
     it('should revert when initializing with zero token address', async () => {
-      const salt = ethers.hexlify(ethers.randomBytes(32));
-      const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address', 'address', 'uint32', 'uint256', 'uint256', 'uint256'],
+      // Create initialization data with zero address for token
+      const initializeCalldata = LinearERC20VotingV1__factory.createInterface().encodeFunctionData(
+        'initialize',
         [
           owner.address,
           ethers.ZeroAddress,
@@ -164,16 +147,11 @@ describe('LinearERC20VotingV1', () => {
         ],
       );
 
-      const setupCalldata = linearERC20VotingMastercopy.interface.encodeFunctionData('setUp', [
-        initializeParams,
-      ]);
-
-      const moduleProxyFactory = getModuleProxyFactory();
+      // Attempt to deploy a new proxy with invalid initialization - should revert
       await expect(
-        moduleProxyFactory.deployModule(
-          await linearERC20VotingMastercopy.getAddress(),
-          setupCalldata,
-          salt,
+        new ERC1967Proxy__factory(owner).deploy(
+          await linearERC20VotingImplementation.getAddress(),
+          initializeCalldata,
         ),
       ).to.be.reverted;
     });
@@ -265,7 +243,7 @@ describe('LinearERC20VotingV1', () => {
       // Only Azorius can initialize proposals
       await expect(
         linearERC20Voting.connect(owner).initializeProposal(initializeData),
-      ).to.be.revertedWithCustomError(linearERC20Voting, 'OnlyAzorius');
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'AzoriusUnauthorizedAccount');
 
       // Test with Azorius signer
       await linearERC20Voting.connect(nonOwner).initializeProposal(initializeData);
@@ -426,9 +404,20 @@ describe('LinearERC20VotingV1', () => {
   });
 
   describe('Version', () => {
-    // Use the shared version test utility
     it('should return the correct version number', async () => {
       expect(await linearERC20Voting.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => linearERC20Voting,
+      createNewImplementation: async () => {
+        const newImplementation = await new LinearERC20VotingV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 

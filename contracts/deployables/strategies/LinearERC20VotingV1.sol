@@ -25,6 +25,13 @@ contract LinearERC20VotingV1 is
     uint16 private constant VERSION = 1;
 
     /**
+     * @dev Constructor that disables initializers
+     */
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
      * The voting options for a Proposal.
      */
     enum VoteType {
@@ -87,31 +94,29 @@ contract LinearERC20VotingV1 is
     /**
      * Sets up the contract with its initial parameters.
      *
-     * @param initializeParams encoded initialization parameters: `address _owner`,
-     * `IVotes _governanceToken`, `address _azoriusModule`, `uint32 _votingPeriod`,
-     * `uint256 _requiredProposerWeight`, `uint256 _quorumNumerator`,
-     * `uint256 _basisNumerator`
+     * @param _owner Address that will own the contract
+     * @param _governanceToken The token used for voting
+     * @param _azoriusModule Address of the Azorius module contract
+     * @param _votingPeriod Time period for voting
+     * @param _requiredProposerWeight Minimum weight to create proposals
+     * @param _quorumNumerator Numerator for quorum calculation
+     * @param _basisNumerator Numerator for basis calculation
      */
-    function setUp(
-        bytes memory initializeParams
-    ) public virtual override initializer {
-        (
-            address _owner,
-            IVotes _governanceToken,
-            address _azoriusModule,
-            uint32 _votingPeriod,
-            uint256 _requiredProposerWeight,
-            uint256 _quorumNumerator,
-            uint256 _basisNumerator
-        ) = abi.decode(
-                initializeParams,
-                (address, IVotes, address, uint32, uint256, uint256, uint256)
-            );
+    function initialize(
+        address _owner,
+        address _governanceToken,
+        address _azoriusModule,
+        uint32 _votingPeriod,
+        uint256 _requiredProposerWeight,
+        uint256 _quorumNumerator,
+        uint256 _basisNumerator
+    ) public initializer {
         if (address(_governanceToken) == address(0))
             revert InvalidTokenAddress();
 
-        governanceToken = _governanceToken;
+        governanceToken = IVotes(_governanceToken);
         __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
         _setAzorius(_azoriusModule);
         _updateQuorumNumerator(_quorumNumerator);
         _updateBasisNumerator(_basisNumerator);
@@ -120,6 +125,14 @@ contract LinearERC20VotingV1 is
 
         emit StrategySetUp(_azoriusModule, _owner);
     }
+
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /**
      * Updates the voting time period for new Proposals.

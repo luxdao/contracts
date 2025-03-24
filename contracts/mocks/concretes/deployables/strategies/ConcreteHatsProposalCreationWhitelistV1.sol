@@ -10,11 +10,15 @@ contract ConcreteHatsProposalCreationWhitelistV1 is
     HatsProposalCreationWhitelistV1
 {
     /**
-     * Sets up the concrete Hats whitelist contract.
-     * @param initializeParams ABI encoded parameters (address _hatsContract, uint256[] _initialWhitelistedHats)
+     * Initializes the concrete Hats whitelist contract.
+     * @param _hatsContract Address of the Hats contract
+     * @param _initialWhitelistedHats Array of initial whitelisted Hat IDs
      */
-    function setUp(bytes memory initializeParams) public override initializer {
+    function initialize(
+        address _hatsContract,
+        uint256[] memory _initialWhitelistedHats
+    ) public override initializer {
         __Ownable_init(msg.sender);
-        super.setUp(initializeParams);
+        super.initialize(_hatsContract, _initialWhitelistedHats);
     }
 }

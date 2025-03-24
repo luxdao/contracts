@@ -2,13 +2,15 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
+  BaseStrategyV1__factory,
   ConcreteBaseStrategyV1,
   ConcreteBaseStrategyV1__factory,
   IBaseStrategyV1__factory,
   IERC165__factory,
+  ProxyFactory__factory,
 } from '../../../typechain-types';
-import { getModuleProxyFactory } from '../../helpers/globals.test';
-import { calculateInterfaceId, calculateProxyAddress } from '../../helpers/utils';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 describe('BaseStrategyV1', () => {
   // Signers
@@ -19,33 +21,39 @@ describe('BaseStrategyV1', () => {
   let azoriusSigner: SignerWithAddress;
 
   // Contracts
-  let concreteStrategyMastercopy: ConcreteBaseStrategyV1;
+  let concreteStrategyImplementation: ConcreteBaseStrategyV1;
   let concreteStrategy: ConcreteBaseStrategyV1;
 
   async function deployConcreteStrategy(
-    mastercopy: ConcreteBaseStrategyV1,
+    implementation: ConcreteBaseStrategyV1,
     strategyOwner: SignerWithAddress,
     azoriusAddr: string,
   ): Promise<ConcreteBaseStrategyV1> {
-    const salt = ethers.hexlify(ethers.randomBytes(32));
-    const setupCalldata = mastercopy.interface.encodeFunctionData('setUp', [
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address'],
-        [strategyOwner.address, azoriusAddr],
-      ),
-    ]);
+    // Create a unique salt
+    const salt = ethers.keccak256(ethers.randomBytes(32));
 
-    const moduleProxyFactory = getModuleProxyFactory();
+    // Combine selector and encoded params
+    const fullInitData =
+      ConcreteBaseStrategyV1__factory.createInterface().getFunction('initialize').selector +
+      ethers.AbiCoder.defaultAbiCoder()
+        .encode(['address', 'address'], [strategyOwner.address, azoriusAddr])
+        .slice(2);
 
-    await moduleProxyFactory.deployModule(await mastercopy.getAddress(), setupCalldata, salt);
+    // Deploy the factory
+    const factory = await new ProxyFactory__factory(deployer).deploy();
 
-    const predictedAddress = await calculateProxyAddress(
-      moduleProxyFactory,
-      await mastercopy.getAddress(),
-      setupCalldata,
+    // Deploy the proxy
+    await factory.deployProxy(await implementation.getAddress(), fullInitData, salt);
+
+    // Predict the address
+    const predictedAddress = await factory.predictProxyAddress(
+      await implementation.getAddress(),
+      fullInitData,
       salt,
+      deployer.address,
     );
 
+    // Create a contract instance at the predicted address
     return ConcreteBaseStrategyV1__factory.connect(predictedAddress, strategyOwner);
   }
 
@@ -55,12 +63,12 @@ describe('BaseStrategyV1', () => {
     // For the purpose of the test, we'll use the dedicated signer address as the Azorius address
     azoriusAddress = await azoriusSigner.getAddress();
 
-    // Deploy the concrete strategy mastercopy
-    concreteStrategyMastercopy = await new ConcreteBaseStrategyV1__factory(deployer).deploy();
+    // Deploy the concrete strategy implementation
+    concreteStrategyImplementation = await new ConcreteBaseStrategyV1__factory(deployer).deploy();
 
     // Deploy a proxy instance of the concrete strategy for testing
     concreteStrategy = await deployConcreteStrategy(
-      concreteStrategyMastercopy,
+      concreteStrategyImplementation,
       owner,
       azoriusAddress,
     );
@@ -76,63 +84,51 @@ describe('BaseStrategyV1', () => {
     });
 
     it('should not allow reinitialization', async () => {
-      const setupCalldata = concreteStrategyMastercopy.interface.encodeFunctionData('setUp', [
-        ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address'],
-          [owner.address, azoriusAddress],
-        ),
-      ]);
-
-      await expect(concreteStrategy.setUp(setupCalldata)).to.be.reverted;
+      await expect(concreteStrategy.initialize(owner.address, azoriusAddress)).to.be.reverted;
     });
 
     it('should emit StrategySetUp event on initialization', async () => {
-      // Need to deploy a new instance to catch the event during initialization
-      const newSalt = ethers.keccak256(ethers.toUtf8Bytes('new-concrete-strategy-salt'));
-      const setupCalldata = concreteStrategyMastercopy.interface.encodeFunctionData('setUp', [
-        ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address'],
-          [owner.address, azoriusAddress],
-        ),
-      ]);
+      // Create a unique salt
+      const salt = ethers.keccak256(ethers.randomBytes(32));
 
-      const moduleProxyFactory = getModuleProxyFactory();
+      // Combine selector and encoded params
+      const fullInitData =
+        ConcreteBaseStrategyV1__factory.createInterface().getFunction('initialize').selector +
+        ethers.AbiCoder.defaultAbiCoder()
+          .encode(['address', 'address'], [owner.address, azoriusAddress])
+          .slice(2);
 
-      const deployTx = await moduleProxyFactory.deployModule(
-        await concreteStrategyMastercopy.getAddress(),
-        setupCalldata,
-        newSalt,
+      // Deploy the factory
+      const factory = await new ProxyFactory__factory(deployer).deploy();
+
+      // Deploy the proxy and get the transaction
+      const tx = await factory.deployProxy(
+        await concreteStrategyImplementation.getAddress(),
+        fullInitData,
+        salt,
+      );
+      const receipt = await tx.wait();
+
+      // Check for the event in the transaction logs
+      // The event might be in any of the logs, so we need to look through all of them
+      const eventSignature = BaseStrategyV1__factory.createInterface().getEvent('StrategySetUp');
+      const strategySetUpLogs = receipt?.logs.filter(
+        log => log.topics[0] === eventSignature.topicHash,
       );
 
-      const receipt = await ethers.provider.getTransactionReceipt(deployTx.hash);
-      const predictedAddress = await calculateProxyAddress(
-        moduleProxyFactory,
-        await concreteStrategyMastercopy.getAddress(),
-        setupCalldata,
-        newSalt,
-      );
+      expect(strategySetUpLogs?.length).to.be.greaterThan(0);
 
-      const newConcreteStrategy = ConcreteBaseStrategyV1__factory.connect(predictedAddress, owner);
+      if (strategySetUpLogs && strategySetUpLogs.length > 0) {
+        // Parse the log data
+        const eventInterface = BaseStrategyV1__factory.createInterface();
+        const parsedLog = eventInterface.parseLog({
+          topics: strategySetUpLogs[0].topics,
+          data: strategySetUpLogs[0].data,
+        });
 
-      // Check event logs (need to filter for events from the new contract)
-      const events = receipt?.logs
-        .filter(log => log.address.toLowerCase() === predictedAddress.toLowerCase())
-        .map(log => {
-          try {
-            return newConcreteStrategy.interface.parseLog({
-              topics: [...log.topics],
-              data: log.data,
-            });
-          } catch (e) {
-            return null;
-          }
-        })
-        .filter(event => event !== null && event.name === 'StrategySetUp');
-
-      expect(events?.length).to.be.greaterThan(0);
-      if (events && events.length > 0 && events[0]) {
-        expect(events[0].args.azoriusModule).to.equal(azoriusAddress);
-        expect(events[0].args.owner).to.equal(owner.address);
+        // Check event parameters
+        expect(parsedLog?.args[0].toLowerCase()).to.equal(azoriusAddress.toLowerCase());
+        expect(parsedLog?.args[1].toLowerCase()).to.equal(owner.address.toLowerCase());
       }
     });
   });
@@ -170,7 +166,7 @@ describe('BaseStrategyV1', () => {
       // Call from a regular account should revert
       await expect(
         concreteStrategy.connect(owner).concreteOnlyAzoriusFunction(),
-      ).to.be.revertedWithCustomError(concreteStrategy, 'OnlyAzorius');
+      ).to.be.revertedWithCustomError(concreteStrategy, 'AzoriusUnauthorizedAccount');
     });
   });
 
@@ -201,6 +197,18 @@ describe('BaseStrategyV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await concreteStrategy.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('UUPS Upgradeability', function () {
+    runUUPSUpgradeabilityTests({
+      getContract: () => concreteStrategy,
+      createNewImplementation: async () => {
+        const newImplementation = await new ConcreteBaseStrategyV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
     });
   });
 });

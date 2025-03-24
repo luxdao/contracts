@@ -7,6 +7,7 @@ import {BaseStrategyV1} from "./BaseStrategyV1.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IBaseVotingBasisPercentV1} from "../../interfaces/decent/deployables/IBaseVotingBasisPercentV1.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * An Azorius strategy that allows multiple ERC721 tokens to be registered as governance tokens,
@@ -20,6 +21,7 @@ import {IBaseVotingBasisPercentV1} from "../../interfaces/decent/deployables/IBa
  * "total signers" required, rather than a percentage of the tokens.
  */
 contract LinearERC721VotingV1 is
+    ERC165,
     BaseStrategyV1,
     IERC721VotingStrategyV1,
     ERC4337VoterSupportV1,
@@ -27,6 +29,13 @@ contract LinearERC721VotingV1 is
     IBaseVotingBasisPercentV1
 {
     uint16 private constant VERSION = 1;
+
+    /**
+     * @dev Constructor that disables initializers
+     */
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
      * The voting options for a Proposal.
@@ -109,39 +118,27 @@ contract LinearERC721VotingV1 is
     error IdNotOwned(uint256 tokenId);
 
     /**
-     * Sets up the contract with its initial parameters.
+     * Initializes the contract with its initial parameters.
      *
-     * @param initializeParams encoded initialization parameters: `address _owner`,
-     * `address[] memory _tokens`, `uint256[] memory _weights`, `address _azoriusModule`,
-     * `uint32 _votingPeriod`, `uint256 _quorumThreshold`, `uint256 _proposerThreshold`,
-     * `uint256 _basisNumerator`
+     * @param _owner The owner of the contract
+     * @param _tokens Array of ERC-721 token addresses that can vote
+     * @param _weights Array of voting weights for each token
+     * @param _azoriusModule The Azorius module address
+     * @param _votingPeriod The voting time period (in blocks)
+     * @param _quorumThreshold Total voting weight required to achieve quorum
+     * @param _proposerThreshold Required voting weight to submit proposals
+     * @param _basisNumerator The numerator for basis calculation
      */
-    function setUp(
-        bytes memory initializeParams
-    ) public virtual override initializer {
-        (
-            address _owner,
-            address[] memory _tokens,
-            uint256[] memory _weights,
-            address _azoriusModule,
-            uint32 _votingPeriod,
-            uint256 _quorumThreshold,
-            uint256 _proposerThreshold,
-            uint256 _basisNumerator
-        ) = abi.decode(
-                initializeParams,
-                (
-                    address,
-                    address[],
-                    uint256[],
-                    address,
-                    uint32,
-                    uint256,
-                    uint256,
-                    uint256
-                )
-            );
-
+    function initialize(
+        address _owner,
+        address[] memory _tokens,
+        uint256[] memory _weights,
+        address _azoriusModule,
+        uint32 _votingPeriod,
+        uint256 _quorumThreshold,
+        uint256 _proposerThreshold,
+        uint256 _basisNumerator
+    ) public initializer {
         if (_tokens.length != _weights.length) {
             revert InvalidParams();
         }
@@ -154,6 +151,7 @@ contract LinearERC721VotingV1 is
         }
 
         __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
         _setAzorius(_azoriusModule);
         _updateQuorumThreshold(_quorumThreshold);
         _updateProposerThreshold(_proposerThreshold);
@@ -162,6 +160,14 @@ contract LinearERC721VotingV1 is
 
         emit StrategySetUp(_azoriusModule, _owner);
     }
+
+    /**
+     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /**
      * Adds a new ERC-721 token as a governance token, along with its associated weight.
@@ -326,7 +332,7 @@ contract LinearERC721VotingV1 is
             if (_tokenAddress == tokenAddresses[i]) {
                 uint256 last = length - 1;
                 tokenAddresses[i] = tokenAddresses[last]; // move the last token into the position to remove
-                delete tokenAddresses[last]; // delete the last token
+                tokenAddresses.pop(); // delete the last token
                 break;
             }
             unchecked {
@@ -530,7 +536,13 @@ contract LinearERC721VotingV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseStrategyV1, Version) returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(BaseStrategyV1, Version, ERC165)
+        returns (bool)
+    {
         return
             interfaceId == type(IERC721VotingStrategyV1).interfaceId ||
             interfaceId == type(IBaseVotingBasisPercentV1).interfaceId ||
