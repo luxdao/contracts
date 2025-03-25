@@ -93,8 +93,6 @@ To install the npm package in your project, run:
 npm i @fractal-framework/fractal-contracts
 ```
 
-To include uncompiled contracts within typechain-types follow [these steps](https://www.npmjs.com/package/hardhat-dependency-compiler).
-
 ## Publishing new versions to NPM
 
 1. Increment the version in `package.json`, then `npm install` to get those version updates into `package-lock.json`.

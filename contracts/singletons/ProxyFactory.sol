@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
+import {IProxyFactory} from "../interfaces/decent/singletons/IProxyFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
@@ -9,17 +10,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
  * This factory allows anyone to deploy proxies for any implementation contract
  * using CREATE2 for deterministic addresses
  */
-contract ProxyFactory {
-    // Events
-    event ProxyDeployed(address indexed proxy, address indexed implementation);
-
-    /**
-     * @dev Deploys a proxy for any implementation with arbitrary initialization data
-     * @param implementation The implementation contract address
-     * @param initData The initialization data to be passed to the proxy
-     * @param salt A unique value to ensure deterministic address generation
-     * @return proxy The address of the deployed proxy
-     */
+contract ProxyFactory is IProxyFactory {
     function deployProxy(
         address implementation,
         bytes memory initData,
@@ -48,14 +39,6 @@ contract ProxyFactory {
         return proxy;
     }
 
-    /**
-     * @dev Predicts the address where a proxy will be deployed
-     * @param implementation The implementation contract address
-     * @param initData The initialization data to be passed to the proxy
-     * @param salt A unique value to ensure deterministic address generation
-     * @param deployer The address that will deploy the proxy
-     * @return The predicted address
-     */
     function predictProxyAddress(
         address implementation,
         bytes memory initData,

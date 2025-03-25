@@ -1,8 +1,7 @@
-import * as dotenv from 'dotenv';
-import { HardhatUserConfig } from 'hardhat/config';
 import '@nomicfoundation/hardhat-toolbox';
-import 'hardhat-dependency-compiler';
+import * as dotenv from 'dotenv';
 import 'hardhat-deploy';
+import { HardhatUserConfig } from 'hardhat/config';
 import 'solidity-docgen';
 
 dotenv.config();
@@ -23,9 +22,6 @@ const config: HardhatUserConfig = {
         },
       },
     ],
-  },
-  dependencyCompiler: {
-    paths: ['@gnosis-guild/zodiac/contracts/factory/ModuleProxyFactory.sol'],
   },
   namedAccounts: {
     deployer: {
