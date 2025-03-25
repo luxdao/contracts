@@ -24,7 +24,7 @@ describe('LinearERC20VotingV1', () => {
   let deployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let nonOwner: SignerWithAddress;
-  let azoriusAddress: string;
+  let proposalInitializer: string;
   let tokenHolder1: SignerWithAddress;
   let tokenHolder2: SignerWithAddress;
   let tokenHolder3: SignerWithAddress;
@@ -55,7 +55,7 @@ describe('LinearERC20VotingV1', () => {
   ): Promise<LinearERC20VotingV1> {
     // Create the initialization data
     const initializeCalldata = LinearERC20VotingV1__factory.createInterface().encodeFunctionData(
-      'initialize',
+      'initialize(address,address,address,uint32,uint256,uint256,uint256)',
       [
         strategyOwner.address,
         governanceToken,
@@ -82,7 +82,7 @@ describe('LinearERC20VotingV1', () => {
       await ethers.getSigners();
 
     // Use nonOwner address as a mock azorius address for testing
-    azoriusAddress = await nonOwner.getAddress();
+    proposalInitializer = await nonOwner.getAddress();
 
     // Deploy MockERC20Votes token
     mockToken = await new MockERC20Votes__factory(deployer).deploy();
@@ -102,7 +102,7 @@ describe('LinearERC20VotingV1', () => {
     linearERC20Voting = await deployLinearERC20Voting(
       owner,
       await mockToken.getAddress(),
-      azoriusAddress,
+      proposalInitializer,
     );
   });
 
@@ -110,7 +110,7 @@ describe('LinearERC20VotingV1', () => {
     it('should initialize with correct parameters', async () => {
       expect(await linearERC20Voting.owner()).to.equal(owner.address);
       expect(await linearERC20Voting.governanceToken()).to.equal(await mockToken.getAddress());
-      expect(await linearERC20Voting.azoriusModule()).to.equal(azoriusAddress);
+      expect(await linearERC20Voting.proposalInitializer()).to.equal(proposalInitializer);
       expect(await linearERC20Voting.votingPeriod()).to.equal(VOTING_PERIOD);
       expect(await linearERC20Voting.requiredProposerWeight()).to.equal(REQUIRED_PROPOSER_WEIGHT);
       expect(await linearERC20Voting.quorumNumerator()).to.equal(QUORUM_NUMERATOR);
@@ -120,10 +120,10 @@ describe('LinearERC20VotingV1', () => {
     it('should not allow reinitialization', async () => {
       // Attempt to reinitialize - should revert
       await expect(
-        linearERC20Voting.initialize(
+        linearERC20Voting['initialize(address,address,address,uint32,uint256,uint256,uint256)'](
           owner.address,
           await mockToken.getAddress(),
-          azoriusAddress,
+          proposalInitializer,
           VOTING_PERIOD,
           REQUIRED_PROPOSER_WEIGHT,
           QUORUM_NUMERATOR,
@@ -135,11 +135,11 @@ describe('LinearERC20VotingV1', () => {
     it('should revert when initializing with zero token address', async () => {
       // Create initialization data with zero address for token
       const initializeCalldata = LinearERC20VotingV1__factory.createInterface().encodeFunctionData(
-        'initialize',
+        'initialize(address,address,address,uint32,uint256,uint256,uint256)',
         [
           owner.address,
           ethers.ZeroAddress,
-          azoriusAddress,
+          proposalInitializer,
           VOTING_PERIOD,
           REQUIRED_PROPOSER_WEIGHT,
           QUORUM_NUMERATOR,
@@ -243,7 +243,7 @@ describe('LinearERC20VotingV1', () => {
       // Only Azorius can initialize proposals
       await expect(
         linearERC20Voting.connect(owner).initializeProposal(initializeData),
-      ).to.be.revertedWithCustomError(linearERC20Voting, 'AzoriusUnauthorizedAccount');
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'ProposalInitializerUnauthorizedAccount');
 
       // Test with Azorius signer
       await linearERC20Voting.connect(nonOwner).initializeProposal(initializeData);

@@ -13,14 +13,6 @@ pragma solidity ^0.8.28;
  */
 interface IBaseStrategyV1 {
     /**
-     * Sets the address of the [Azorius](../Azorius.md) contract this
-     * [BaseStrategy](../BaseStrategy.md) is being used on.
-     *
-     * @param _azoriusModule address of the Azorius Safe module
-     */
-    function setAzorius(address _azoriusModule) external;
-
-    /**
      * Called by the [Azorius](../Azorius.md) module. This notifies this
      * [BaseStrategy](../BaseStrategy.md) that a new Proposal has been created.
      *
