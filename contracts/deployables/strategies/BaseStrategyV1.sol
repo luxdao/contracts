@@ -20,22 +20,33 @@ abstract contract BaseStrategyV1 is
     ERC165
 {
     /** The Azorius contract address for this Strategy contract. */
-    address public azoriusModule;
+    address public proposalInitializer;
 
-    event AzoriusSet(address indexed azorius);
     event StrategySetUp(address indexed azorius, address indexed owner);
 
-    error AzoriusUnauthorizedAccount(address account);
+    error ProposalInitializerUnauthorizedAccount(address account);
+    error InvalidProposalInitializer(address initializer);
 
     /** Modifier that ensures transactions are being called only by Azorius. */
-    modifier onlyAzorius() {
-        if (msg.sender != azoriusModule)
-            revert AzoriusUnauthorizedAccount(msg.sender);
+    modifier onlyProposalInitializer() {
+        if (msg.sender != proposalInitializer)
+            revert ProposalInitializerUnauthorizedAccount(msg.sender);
         _;
     }
 
     constructor() {
         _disableInitializers();
+    }
+
+    function initialize(
+        address _owner,
+        address _proposalInitializer
+    ) public virtual initializer {
+        if (address(_proposalInitializer) == address(0))
+            revert InvalidProposalInitializer(_proposalInitializer);
+        __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
+        proposalInitializer = _proposalInitializer;
     }
 
     /**
@@ -45,24 +56,6 @@ abstract contract BaseStrategyV1 is
     function _authorizeUpgrade(
         address newImplementation
     ) internal virtual override onlyOwner {}
-
-    /**
-     * Sets the azorius address that this strategy will provide voting information to.
-     * Must be called by the owner.
-     *
-     * @param _azoriusAddress The Azorius contract address
-     */
-    function setAzorius(address _azoriusAddress) external onlyOwner {
-        _setAzorius(_azoriusAddress);
-    }
-
-    /** Internal implementation of `setAzorius`. */
-    function _setAzorius(address _azoriusAddress) internal {
-        if (_azoriusAddress == address(0))
-            revert AzoriusUnauthorizedAccount(address(0));
-        azoriusModule = _azoriusAddress;
-        emit AzoriusSet(_azoriusAddress);
-    }
 
     /** @inheritdoc IBaseStrategyV1*/
     function initializeProposal(bytes memory _data) external virtual;

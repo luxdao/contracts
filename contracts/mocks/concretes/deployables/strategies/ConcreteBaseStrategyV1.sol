@@ -12,29 +12,33 @@ contract ConcreteBaseStrategyV1 is BaseStrategyV1 {
     /**
      * Sets up the concrete strategy contract.
      * @param _owner The owner of the contract
-     * @param _azoriusModule The Azorius module address
+     * @param _proposalInitializer Address that is allowed to initialize Proposals
      */
     function initialize(
         address _owner,
-        address _azoriusModule
-    ) public initializer {
-        __Ownable_init(_owner);
-        _setAzorius(_azoriusModule);
+        address _proposalInitializer
+    ) public override initializer {
+        BaseStrategyV1.initialize(_owner, _proposalInitializer);
 
-        emit StrategySetUp(_azoriusModule, _owner);
+        emit StrategySetUp(_proposalInitializer, _owner);
     }
 
     /**
      * A concrete function that uses the onlyAzorius modifier for testing.
      */
-    function concreteOnlyAzoriusFunction() external onlyAzorius {
+    function concreteOnlyProposalInitializerFunction()
+        external
+        onlyProposalInitializer
+    {
         emit ConcreteFunctionCalled();
     }
 
     /**
      * Concrete implementation of the abstract initializeProposal function.
      */
-    function initializeProposal(bytes memory) external override onlyAzorius {
+    function initializeProposal(
+        bytes memory
+    ) external override onlyProposalInitializer {
         emit ConcreteFunctionCalled();
     }
 

@@ -14,8 +14,6 @@ contract MockVotingStrategy is IBaseStrategyV1 {
 
     // required by IBaseStrategyV1
 
-    function setAzorius(address _azoriusModule) external override {}
-
     function initializeProposal(bytes memory _data) external override {}
 
     function isPassed(uint32 proposalId) external view override returns (bool) {

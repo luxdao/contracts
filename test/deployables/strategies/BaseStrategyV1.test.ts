@@ -17,7 +17,7 @@ describe('BaseStrategyV1', () => {
   let deployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let nonOwner: SignerWithAddress;
-  let azoriusAddress: string;
+  let proposalInitializer: string;
   let azoriusSigner: SignerWithAddress;
 
   // Contracts
@@ -61,7 +61,7 @@ describe('BaseStrategyV1', () => {
     [deployer, owner, nonOwner, azoriusSigner] = await ethers.getSigners();
 
     // For the purpose of the test, we'll use the dedicated signer address as the Azorius address
-    azoriusAddress = await azoriusSigner.getAddress();
+    proposalInitializer = await azoriusSigner.getAddress();
 
     // Deploy the concrete strategy implementation
     concreteStrategyImplementation = await new ConcreteBaseStrategyV1__factory(deployer).deploy();
@@ -70,7 +70,7 @@ describe('BaseStrategyV1', () => {
     concreteStrategy = await deployConcreteStrategy(
       concreteStrategyImplementation,
       owner,
-      azoriusAddress,
+      proposalInitializer,
     );
   });
 
@@ -79,12 +79,12 @@ describe('BaseStrategyV1', () => {
       expect(await concreteStrategy.owner()).to.equal(owner.address);
     });
 
-    it('should initialize with correct Azorius module', async () => {
-      expect(await concreteStrategy.azoriusModule()).to.equal(azoriusAddress);
+    it('should initialize with correct proposal initializer', async () => {
+      expect(await concreteStrategy.proposalInitializer()).to.equal(proposalInitializer);
     });
 
     it('should not allow reinitialization', async () => {
-      await expect(concreteStrategy.initialize(owner.address, azoriusAddress)).to.be.reverted;
+      await expect(concreteStrategy.initialize(owner.address, proposalInitializer)).to.be.reverted;
     });
 
     it('should emit StrategySetUp event on initialization', async () => {
@@ -95,7 +95,7 @@ describe('BaseStrategyV1', () => {
       const fullInitData =
         ConcreteBaseStrategyV1__factory.createInterface().getFunction('initialize').selector +
         ethers.AbiCoder.defaultAbiCoder()
-          .encode(['address', 'address'], [owner.address, azoriusAddress])
+          .encode(['address', 'address'], [owner.address, proposalInitializer])
           .slice(2);
 
       // Deploy the factory
@@ -127,46 +127,25 @@ describe('BaseStrategyV1', () => {
         });
 
         // Check event parameters
-        expect(parsedLog?.args[0].toLowerCase()).to.equal(azoriusAddress.toLowerCase());
+        expect(parsedLog?.args[0].toLowerCase()).to.equal(proposalInitializer.toLowerCase());
         expect(parsedLog?.args[1].toLowerCase()).to.equal(owner.address.toLowerCase());
       }
-    });
-  });
-
-  describe('setAzorius', () => {
-    it('should allow owner to update Azorius address', async () => {
-      const newAzoriusAddress = await nonOwner.getAddress();
-      await concreteStrategy.connect(owner).setAzorius(newAzoriusAddress);
-      expect(await concreteStrategy.azoriusModule()).to.equal(newAzoriusAddress);
-    });
-
-    it('should emit AzoriusSet event when Azorius address is updated', async () => {
-      const newAzoriusAddress = await nonOwner.getAddress();
-      await expect(concreteStrategy.connect(owner).setAzorius(newAzoriusAddress))
-        .to.emit(concreteStrategy, 'AzoriusSet')
-        .withArgs(newAzoriusAddress);
-    });
-
-    it('should not allow non-owner to update Azorius address', async () => {
-      const newAzoriusAddress = await nonOwner.getAddress();
-      await expect(
-        concreteStrategy.connect(nonOwner).setAzorius(newAzoriusAddress),
-      ).to.be.revertedWithCustomError(concreteStrategy, 'OwnableUnauthorizedAccount');
     });
   });
 
   describe('onlyAzorius modifier', () => {
     it('should allow calls from Azorius address', async () => {
       // Call from the Azorius address should succeed
-      await expect(concreteStrategy.connect(azoriusSigner).concreteOnlyAzoriusFunction()).not.to.be
-        .reverted;
+      await expect(
+        concreteStrategy.connect(azoriusSigner).concreteOnlyProposalInitializerFunction(),
+      ).not.to.be.reverted;
     });
 
     it('should revert calls from non-Azorius address', async () => {
       // Call from a regular account should revert
       await expect(
-        concreteStrategy.connect(owner).concreteOnlyAzoriusFunction(),
-      ).to.be.revertedWithCustomError(concreteStrategy, 'AzoriusUnauthorizedAccount');
+        concreteStrategy.connect(owner).concreteOnlyProposalInitializerFunction(),
+      ).to.be.revertedWithCustomError(concreteStrategy, 'ProposalInitializerUnauthorizedAccount');
     });
   });
 

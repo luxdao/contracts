@@ -96,7 +96,7 @@ contract LinearERC20VotingV1 is
      *
      * @param _owner Address that will own the contract
      * @param _governanceToken The token used for voting
-     * @param _azoriusModule Address of the Azorius module contract
+     * @param _proposalInitializer Address that is allowed to initialize Proposals
      * @param _votingPeriod Time period for voting
      * @param _requiredProposerWeight Minimum weight to create proposals
      * @param _quorumNumerator Numerator for quorum calculation
@@ -105,7 +105,7 @@ contract LinearERC20VotingV1 is
     function initialize(
         address _owner,
         address _governanceToken,
-        address _azoriusModule,
+        address _proposalInitializer,
         uint32 _votingPeriod,
         uint256 _requiredProposerWeight,
         uint256 _quorumNumerator,
@@ -113,17 +113,16 @@ contract LinearERC20VotingV1 is
     ) public initializer {
         if (address(_governanceToken) == address(0))
             revert InvalidTokenAddress();
-
         governanceToken = IVotes(_governanceToken);
-        __Ownable_init(_owner);
-        __UUPSUpgradeable_init();
-        _setAzorius(_azoriusModule);
+
+        BaseStrategyV1.initialize(_owner, _proposalInitializer);
+
         _updateQuorumNumerator(_quorumNumerator);
         _updateBasisNumerator(_basisNumerator);
         _updateVotingPeriod(_votingPeriod);
         _updateRequiredProposerWeight(_requiredProposerWeight);
 
-        emit StrategySetUp(_azoriusModule, _owner);
+        emit StrategySetUp(_proposalInitializer, _owner);
     }
 
     /**
@@ -230,7 +229,7 @@ contract LinearERC20VotingV1 is
     /** @inheritdoc BaseStrategyV1*/
     function initializeProposal(
         bytes memory _data
-    ) public virtual override onlyAzorius {
+    ) public virtual override onlyProposalInitializer {
         uint32 proposalId = abi.decode(_data, (uint32));
         uint48 _votingEndTimestamp = uint48(block.timestamp) + votingPeriod;
 
