@@ -23,7 +23,7 @@ describe('LinearERC721VotingV1', () => {
   let deployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let nonOwner: SignerWithAddress;
-  let azoriusAddress: string;
+  let proposalInitializer: string;
   let tokenHolder1: SignerWithAddress;
   let tokenHolder2: SignerWithAddress;
   let tokenHolder3: SignerWithAddress;
@@ -64,7 +64,7 @@ describe('LinearERC721VotingV1', () => {
 
     // Create the initialization data
     const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
-      'initialize',
+      'initialize(address,address[],uint256[],address,uint32,uint256,uint256,uint256)',
       [
         strategyOwner.address,
         tokenAddresses,
@@ -107,7 +107,7 @@ describe('LinearERC721VotingV1', () => {
       await ethers.getSigners();
 
     // Use nonOwner address as a mock azorius address for testing
-    azoriusAddress = await nonOwner.getAddress();
+    proposalInitializer = await nonOwner.getAddress();
 
     // Deploy MockERC721 tokens
     mockNFT1 = await new MockERC721__factory(deployer).deploy();
@@ -128,7 +128,7 @@ describe('LinearERC721VotingV1', () => {
         { tokenAddress: await mockNFT1.getAddress(), weight: TOKEN1_WEIGHT },
         { tokenAddress: await mockNFT2.getAddress(), weight: TOKEN2_WEIGHT },
       ],
-      azoriusAddress,
+      proposalInitializer,
     );
   });
 
@@ -146,7 +146,7 @@ describe('LinearERC721VotingV1', () => {
         TOKEN2_WEIGHT,
       );
 
-      expect(await linearERC721Voting.azoriusModule()).to.equal(azoriusAddress);
+      expect(await linearERC721Voting.proposalInitializer()).to.equal(proposalInitializer);
       expect(await linearERC721Voting.votingPeriod()).to.equal(VOTING_PERIOD);
       expect(await linearERC721Voting.quorumThreshold()).to.equal(QUORUM_THRESHOLD);
       expect(await linearERC721Voting.proposerThreshold()).to.equal(PROPOSER_THRESHOLD);
@@ -159,11 +159,13 @@ describe('LinearERC721VotingV1', () => {
 
       // Try to call initialize again - should revert
       await expect(
-        linearERC721Voting.initialize(
+        linearERC721Voting[
+          'initialize(address,address[],uint256[],address,uint32,uint256,uint256,uint256)'
+        ](
           owner.address,
           tokenAddresses,
           tokenWeights,
-          azoriusAddress,
+          proposalInitializer,
           VOTING_PERIOD,
           QUORUM_THRESHOLD,
           PROPOSER_THRESHOLD,
@@ -178,12 +180,12 @@ describe('LinearERC721VotingV1', () => {
 
       // Create initialization data with mismatched arrays
       const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
-        'initialize',
+        'initialize(address,address[],uint256[],address,uint32,uint256,uint256,uint256)',
         [
           owner.address,
           tokenAddresses,
           tokenWeights,
-          azoriusAddress,
+          proposalInitializer,
           VOTING_PERIOD,
           QUORUM_THRESHOLD,
           PROPOSER_THRESHOLD,
@@ -206,12 +208,12 @@ describe('LinearERC721VotingV1', () => {
 
       // Create initialization data with invalid token weight
       const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
-        'initialize',
+        'initialize(address,address[],uint256[],address,uint32,uint256,uint256,uint256)',
         [
           owner.address,
           tokenAddresses,
           tokenWeights,
-          azoriusAddress,
+          proposalInitializer,
           VOTING_PERIOD,
           QUORUM_THRESHOLD,
           PROPOSER_THRESHOLD,
@@ -234,12 +236,12 @@ describe('LinearERC721VotingV1', () => {
 
       // Create initialization data with empty token arrays
       const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
-        'initialize',
+        'initialize(address,address[],uint256[],address,uint32,uint256,uint256,uint256)',
         [
           owner.address,
           emptyTokenAddresses,
           emptyTokenWeights,
-          azoriusAddress,
+          proposalInitializer,
           VOTING_PERIOD,
           QUORUM_THRESHOLD,
           PROPOSER_THRESHOLD,
@@ -436,7 +438,7 @@ describe('LinearERC721VotingV1', () => {
       // Only Azorius can initialize proposals
       await expect(
         linearERC721Voting.connect(owner).initializeProposal(initializeData),
-      ).to.be.revertedWithCustomError(linearERC721Voting, 'AzoriusUnauthorizedAccount');
+      ).to.be.revertedWithCustomError(linearERC721Voting, 'ProposalInitializerUnauthorizedAccount');
 
       // Test with Azorius signer
       await linearERC721Voting.connect(nonOwner).initializeProposal(initializeData);
@@ -898,12 +900,12 @@ describe('LinearERC721VotingV1', () => {
 
       // Create initialization data with non-ERC721 token
       const initializeCalldata = LinearERC721VotingV1__factory.createInterface().encodeFunctionData(
-        'initialize',
+        'initialize(address,address[],uint256[],address,uint32,uint256,uint256,uint256)',
         [
           owner.address,
           tokenAddresses,
           tokenWeights,
-          azoriusAddress,
+          proposalInitializer,
           VOTING_PERIOD,
           QUORUM_THRESHOLD,
           PROPOSER_THRESHOLD,
