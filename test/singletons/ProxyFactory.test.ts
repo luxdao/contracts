@@ -75,9 +75,6 @@ describe('ProxyFactory', () => {
       await new UpgradeContractV1__factory(upgradeableContractOwner).deploy()
     ).getAddress();
 
-    // Deploy the proxy factory
-    proxyFactory = await new ProxyFactory__factory(proxyDeployer).deploy();
-
     // Deploy all the implementation contracts
     minimalImplementation = await (
       await new MinimalUpgradeableContract__factory(upgradeableContractOwner).deploy()
