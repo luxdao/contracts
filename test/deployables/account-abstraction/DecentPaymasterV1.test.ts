@@ -11,6 +11,14 @@ import {
   IVersion__factory,
   MockEntryPoint,
   MockEntryPoint__factory,
+  MockGaslessTarget,
+  MockGaslessTarget__factory,
+  MockLightAccount,
+  MockLightAccount__factory,
+  MockLightAccountFactory,
+  MockLightAccountFactory__factory,
+  MockValidator,
+  MockValidator__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
@@ -33,11 +41,12 @@ async function deployDecentPaymasterProxy(
   implementation: string,
   owner: SignerWithAddress,
   entryPoint: string,
+  lightAccountFactory: string,
 ): Promise<DecentPaymasterV1> {
   // Encode initialization parameters
   const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-    ['address', 'address'],
-    [owner.address, entryPoint],
+    ['address', 'address', 'address'],
+    [owner.address, entryPoint, lightAccountFactory],
   );
 
   // Create full initialization data with function selector
@@ -55,52 +64,81 @@ async function deployDecentPaymasterProxy(
 describe('DecentPaymasterV1', function () {
   // contracts
   let decentPaymaster: DecentPaymasterV1;
-  let masterCopy: string;
+  let masterCopy: DecentPaymasterV1;
   let entryPoint: MockEntryPoint;
+  let mockLightAccount: MockLightAccount;
+  let mockTarget: MockGaslessTarget;
+  let mockLightAccountFactory: MockLightAccountFactory;
+  let mockValidator: MockValidator;
+  let mockLightAccountFactoryAddress: string;
 
   // signers
   let owner: SignerWithAddress;
-  let proxyDeployer: SignerWithAddress;
-  let strategy: SignerWithAddress;
   let nonOwner: SignerWithAddress;
 
   // test data
   let mockUserOp: PackedUserOperation;
-  const MOCK_FUNCTION_SELECTOR = '0x12345678';
-  const MOCK_FUNCTION_SELECTOR_2 = '0x87654321';
-  const MOCK_FUNCTION_SELECTOR_3 = '0x11223344';
-  const MOCK_INVALID_SELECTOR = '0x99999999';
+  let FOO_SELECTOR: string;
 
   beforeEach(async function () {
     // Get signers
-    [proxyDeployer, owner, strategy, nonOwner] = await ethers.getSigners();
+    [owner, nonOwner] = await ethers.getSigners();
 
     // Deploy mock EntryPoint
     entryPoint = await new MockEntryPoint__factory(owner).deploy();
 
+    // Deploy MockLightAccount
+    mockLightAccount = await new MockLightAccount__factory(owner).deploy(owner.address);
+
+    // Deploy MockGaslessTarget
+    mockTarget = await new MockGaslessTarget__factory(owner).deploy();
+
+    // Deploy MockValidator
+    mockValidator = await new MockValidator__factory(owner).deploy();
+
+    // Deploy MockLightAccountFactory
+    mockLightAccountFactory = await new MockLightAccountFactory__factory(owner).deploy();
+    mockLightAccountFactoryAddress = mockLightAccountFactory.target.toString();
+
+    // Set up the mock light account factory to return our mock account
+    await mockLightAccountFactory.setAccountAddress(
+      await mockLightAccount.owner(),
+      0n,
+      await mockLightAccount.getAddress(),
+    );
+
+    // Get the foo function selector
+    FOO_SELECTOR = mockTarget.interface.getFunction('foo').selector;
+
     // Deploy DecentPaymaster implementation
-    masterCopy = await (await new DecentPaymasterV1__factory(owner).deploy()).getAddress();
+    masterCopy = await new DecentPaymasterV1__factory(owner).deploy();
 
     // Deploy DecentPaymaster proxy
     decentPaymaster = await deployDecentPaymasterProxy(
-      proxyDeployer,
-      masterCopy,
+      owner,
+      await masterCopy.getAddress(),
       owner,
       await entryPoint.getAddress(),
+      mockLightAccountFactoryAddress,
     );
 
-    // Create mock UserOperation
-    const mockCallData = ethers.concat([
-      MOCK_FUNCTION_SELECTOR,
-      strategy.address,
-      '0x', // empty data
+    // Create mock UserOperation with properly encoded calldata
+    const innerCalldata = mockTarget.interface.encodeFunctionData('foo', [
+      123, // uint32 someNumber
+      1, // uint8 someFlag
+    ]);
+
+    const executeCalldata = mockLightAccount.interface.encodeFunctionData('execute', [
+      await mockTarget.getAddress(),
+      0n, // value
+      innerCalldata,
     ]);
 
     mockUserOp = {
-      sender: ethers.ZeroAddress,
+      sender: await mockLightAccount.getAddress(),
       nonce: 0n,
       initCode: '0x',
-      callData: mockCallData,
+      callData: executeCalldata,
       accountGasLimits: ethers.ZeroHash,
       preVerificationGas: 0n,
       gasFees: ethers.ZeroHash,
@@ -118,116 +156,100 @@ describe('DecentPaymasterV1', function () {
       expect(await decentPaymaster.owner()).to.equal(owner.address);
     });
 
+    it('Should set the light account factory', async function () {
+      expect(await decentPaymaster.lightAccountFactory()).to.equal(mockLightAccountFactoryAddress);
+    });
+
     it('Should not allow reinitialization', async function () {
       await expect(
-        decentPaymaster.initialize(owner.address, await entryPoint.getAddress()),
+        decentPaymaster.initialize(
+          owner.address,
+          await entryPoint.getAddress(),
+          mockLightAccountFactoryAddress,
+        ),
       ).to.be.revertedWithCustomError(decentPaymaster, 'InvalidInitialization');
     });
 
     it('Should have a version', async function () {
       const version = await decentPaymaster.getVersion();
-      void expect(version).to.equal(1);
+      expect(version).to.equal(1);
     });
   });
 
-  describe('Function Approval', function () {
-    it('Should allow owner to approve functions', async function () {
-      const selectors = [MOCK_FUNCTION_SELECTOR];
-      const approved = [true];
+  describe('Validator Management', function () {
+    it('Should allow owner to set validator for target', async function () {
+      await expect(
+        decentPaymaster.setFunctionValidator(
+          await mockTarget.getAddress(),
+          FOO_SELECTOR,
+          await mockValidator.getAddress(),
+        ),
+      )
+        .to.emit(decentPaymaster, 'FunctionValidatorSet')
+        .withArgs(await mockTarget.getAddress(), FOO_SELECTOR, await mockValidator.getAddress());
 
-      await expect(decentPaymaster.whitelistFunctions(strategy.address, selectors, approved))
-        .to.emit(decentPaymaster, 'FunctionApproved')
-        .withArgs(strategy.address, MOCK_FUNCTION_SELECTOR, true);
-
-      const isApproved = await decentPaymaster.isFunctionWhitelisted(
-        strategy.address,
-        MOCK_FUNCTION_SELECTOR,
-      );
-      void expect(isApproved).to.be.true;
+      void expect(
+        await decentPaymaster.getFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR),
+      ).to.be.equal(await mockValidator.getAddress());
     });
 
-    it('Should allow owner to revoke function approval', async function () {
-      const selectors = [MOCK_FUNCTION_SELECTOR];
-      const approved = [true];
-
-      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
-
-      await decentPaymaster.whitelistFunctions(strategy.address, selectors, [false]);
-      const isApproved = await decentPaymaster.isFunctionWhitelisted(
-        strategy.address,
-        MOCK_FUNCTION_SELECTOR,
+    it('Should allow owner to remove validator for target', async function () {
+      await decentPaymaster.setFunctionValidator(
+        await mockTarget.getAddress(),
+        FOO_SELECTOR,
+        await mockValidator.getAddress(),
       );
-      void expect(isApproved).to.be.false;
-    });
-
-    it('Should revert when non-owner tries to set approval', async function () {
-      const selectors = [MOCK_FUNCTION_SELECTOR];
-      const approved = [true];
+      void expect(
+        await decentPaymaster.getFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR),
+      ).to.be.equal(await mockValidator.getAddress());
 
       await expect(
-        decentPaymaster.connect(nonOwner).whitelistFunctions(strategy.address, selectors, approved),
+        decentPaymaster.removeFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR),
+      )
+        .to.emit(decentPaymaster, 'FunctionValidatorRemoved')
+        .withArgs(await mockTarget.getAddress(), FOO_SELECTOR);
+
+      void expect(
+        await decentPaymaster.getFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR),
+      ).to.be.equal(ethers.ZeroAddress);
+    });
+
+    it('Should revert when non-owner tries to set validator', async function () {
+      await expect(
+        decentPaymaster
+          .connect(nonOwner)
+          .setFunctionValidator(
+            await mockTarget.getAddress(),
+            FOO_SELECTOR,
+            await mockValidator.getAddress(),
+          ),
       ).to.be.revertedWithCustomError(decentPaymaster, 'OwnableUnauthorizedAccount');
     });
 
-    it('Should revert when arrays have different lengths', async function () {
-      const selectors = [MOCK_FUNCTION_SELECTOR];
-      const approved: boolean[] = [];
-
+    it('Should revert when setting invalid validator address', async function () {
       await expect(
-        decentPaymaster.whitelistFunctions(strategy.address, selectors, approved),
-      ).to.be.revertedWithCustomError(decentPaymaster, 'InvalidArrayLength');
-    });
-
-    it('Should approve multiple functions in a single call', async function () {
-      const selectors = [
-        MOCK_FUNCTION_SELECTOR,
-        MOCK_FUNCTION_SELECTOR_2,
-        MOCK_FUNCTION_SELECTOR_3,
-      ];
-      const approved = [true, true, true];
-
-      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
-
-      for (const selector of selectors) {
-        const isApproved = await decentPaymaster.isFunctionWhitelisted(strategy.address, selector);
-        void expect(isApproved).to.be.true;
-      }
-    });
-
-    it('Should handle empty arrays', async function () {
-      const selectors: string[] = [];
-      const approved: boolean[] = [];
-
-      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
-      // Should not revert and should not modify any state
-    });
-
-    it('Should revert when using zero address as strategy', async function () {
-      const selectors = [MOCK_FUNCTION_SELECTOR];
-      const approved = [true];
-
-      await expect(
-        decentPaymaster.whitelistFunctions(ethers.ZeroAddress, selectors, approved),
-      ).to.be.revertedWithCustomError(decentPaymaster, 'ZeroAddressStrategy');
+        decentPaymaster.setFunctionValidator(
+          await mockTarget.getAddress(),
+          FOO_SELECTOR,
+          ethers.ZeroAddress,
+        ),
+      ).to.be.revertedWithCustomError(decentPaymaster, 'InvalidValidator');
     });
   });
 
   describe('Validation', function () {
     beforeEach(async function () {
-      // Approve the function for the strategy
-      const selectors = [MOCK_FUNCTION_SELECTOR];
-      const approved = [true];
-      await decentPaymaster.whitelistFunctions(strategy.address, selectors, approved);
-
-      // Fund the impersonated signer
-      const entryPointSigner = await ethers.getImpersonatedSigner(await entryPoint.getAddress());
-      await owner.sendTransaction({
-        to: await entryPointSigner.getAddress(),
-        value: ethers.parseEther('1'),
-      });
+      // Set up validator for mock target and FOO_SELECTOR
+      await decentPaymaster.setFunctionValidator(
+        await mockTarget.getAddress(),
+        FOO_SELECTOR,
+        await mockValidator.getAddress(),
+      );
+      // Configure validator to return true
+      await mockValidator.setShouldValidate(true);
     });
 
-    it('Should validate approved function calls', async function () {
+    it('Should validate when validator approves', async function () {
       const entryPointSigner = await ethers.getImpersonatedSigner(await entryPoint.getAddress());
       const result = await decentPaymaster
         .connect(entryPointSigner)
@@ -237,97 +259,54 @@ describe('DecentPaymasterV1', function () {
       expect(result[0]).to.equal('0x'); // context
     });
 
-    it('Should revert on unauthorized function calls', async function () {
-      const unauthorizedCallData = ethers.concat([
-        MOCK_INVALID_SELECTOR,
-        ethers.zeroPadValue(strategy.address, 20),
-        '0x',
-      ]);
-
-      const unauthorizedUserOp = { ...mockUserOp, callData: unauthorizedCallData };
+    it('Should revert when validator disapproves', async function () {
+      // Configure validator to return false
+      await mockValidator.setShouldValidate(false);
 
       await expect(
         decentPaymaster
           .connect(await ethers.getImpersonatedSigner(await entryPoint.getAddress()))
-          .validatePaymasterUserOp.staticCall(unauthorizedUserOp, ethers.ZeroHash, 0),
-      ).to.be.revertedWithCustomError(decentPaymaster, 'UnauthorizedStrategy');
+          .validatePaymasterUserOp.staticCall(mockUserOp, ethers.ZeroHash, 0),
+      ).to.be.revertedWithCustomError(decentPaymaster, 'ValidationFailed');
     });
 
-    it('Should revert on invalid calldata length', async function () {
-      const invalidCallData = '0x1234'; // Too short
-      const invalidUserOp = { ...mockUserOp, callData: invalidCallData };
+    it('Should revert when no validator is set', async function () {
+      // Remove validator
+      await decentPaymaster.removeFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR);
 
       await expect(
         decentPaymaster
           .connect(await ethers.getImpersonatedSigner(await entryPoint.getAddress()))
-          .validatePaymasterUserOp.staticCall(invalidUserOp, ethers.ZeroHash, 0),
-      ).to.be.revertedWithCustomError(decentPaymaster, 'InvalidCallDataLength');
+          .validatePaymasterUserOp.staticCall(mockUserOp, ethers.ZeroHash, 0),
+      ).to.be.revertedWithCustomError(decentPaymaster, 'NoValidatorSet');
     });
 
-    it('Should validate with exactly 24 bytes of calldata', async function () {
-      const exactCallData = ethers.concat([
-        MOCK_FUNCTION_SELECTOR,
-        ethers.zeroPadValue(strategy.address, 20),
+    it('Should revert for non-whitelisted function selectors', async function () {
+      // Create a new function selector that isn't whitelisted
+      const nonWhitelistedSelector = mockTarget.interface.getFunction('bar').selector;
+
+      // Create inner calldata with non-whitelisted selector
+      const innerCalldata = mockTarget.interface.encodeFunctionData('bar', [
+        owner.address, // address someAddress
+        ethers.parseEther('1'), // uint256 someAmount
       ]);
 
-      const userOp = { ...mockUserOp, callData: exactCallData };
-      const entryPointSigner = await ethers.getImpersonatedSigner(await entryPoint.getAddress());
-
-      const result = await decentPaymaster
-        .connect(entryPointSigner)
-        .validatePaymasterUserOp.staticCall(userOp, ethers.ZeroHash, 0);
-
-      expect(result[1]).to.equal(0n);
-      expect(result[0]).to.equal('0x');
-    });
-
-    it('Should validate with more than 24 bytes of calldata', async function () {
-      const longCallData = ethers.concat([
-        MOCK_FUNCTION_SELECTOR,
-        ethers.zeroPadValue(strategy.address, 20),
-        '0x1234567890', // additional data
+      // Create the execute calldata
+      const executeCalldata = mockLightAccount.interface.encodeFunctionData('execute', [
+        await mockTarget.getAddress(),
+        0n, // value
+        innerCalldata,
       ]);
 
-      const userOp = { ...mockUserOp, callData: longCallData };
-      const entryPointSigner = await ethers.getImpersonatedSigner(await entryPoint.getAddress());
-
-      const result = await decentPaymaster
-        .connect(entryPointSigner)
-        .validatePaymasterUserOp.staticCall(userOp, ethers.ZeroHash, 0);
-
-      expect(result[1]).to.equal(0n);
-      expect(result[0]).to.equal('0x');
-    });
-
-    it('Should validate with non-contract address as target', async function () {
-      const randomAddress = ethers.Wallet.createRandom().address;
-      const callData = ethers.concat([
-        MOCK_FUNCTION_SELECTOR,
-        ethers.zeroPadValue(randomAddress, 20),
-      ]);
-
-      const userOp = { ...mockUserOp, callData: callData };
-
-      await decentPaymaster.whitelistFunctions(randomAddress, [MOCK_FUNCTION_SELECTOR], [true]);
-      const entryPointSigner = await ethers.getImpersonatedSigner(await entryPoint.getAddress());
-
-      const result = await decentPaymaster
-        .connect(entryPointSigner)
-        .validatePaymasterUserOp.staticCall(userOp, ethers.ZeroHash, 0);
-
-      expect(result[1]).to.equal(0n);
-      expect(result[0]).to.equal('0x');
-    });
-
-    it('Should revert with malformed calldata', async function () {
-      const malformedCallData = '0x1234'; // Less than 4 bytes for selector
-      const userOp = { ...mockUserOp, callData: malformedCallData };
+      const userOp = { ...mockUserOp, callData: executeCalldata };
 
       await expect(
         decentPaymaster
           .connect(await ethers.getImpersonatedSigner(await entryPoint.getAddress()))
           .validatePaymasterUserOp.staticCall(userOp, ethers.ZeroHash, 0),
-      ).to.be.revertedWithCustomError(decentPaymaster, 'InvalidCallDataLength');
+      )
+        .to.be.revertedWithCustomError(decentPaymaster, 'NoValidatorSet')
+        .withArgs(await mockTarget.getAddress(), nonWhitelistedSelector);
     });
   });
 
@@ -444,17 +423,6 @@ describe('DecentPaymasterV1', function () {
   });
 
   describe('UUPS Upgradeability', function () {
-    // beforeEach(async function () {
-    //   // Deploy proxy
-    //   decentPaymaster = await deployDecentPaymasterProxy(
-    //     proxyDeployer,
-    //     masterCopy,
-    //     owner,
-    //     await entryPoint.getAddress(),
-    //   );
-    // });
-
-    // Run UUPS upgradeability tests
     runUUPSUpgradeabilityTests({
       getContract: () => decentPaymaster,
       createNewImplementation: async () => {
