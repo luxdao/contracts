@@ -15,10 +15,11 @@ contract ConcreteHatsProposalCreationWhitelistV1 is
      * @param _initialWhitelistedHats Array of initial whitelisted Hat IDs
      */
     function initialize(
+        address _owner,
         address _hatsContract,
         uint256[] memory _initialWhitelistedHats
     ) public override initializer {
-        __Ownable_init(msg.sender);
-        super.initialize(_hatsContract, _initialWhitelistedHats);
+        __Ownable_init(_owner);
+        super.initialize(_owner, _hatsContract, _initialWhitelistedHats);
     }
 }

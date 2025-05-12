@@ -17,12 +17,12 @@ interface IHatsProposalCreationWhitelistV1 {
     /**
      * @dev Emitted when a Hat is removed from the whitelist.
      */
-    event HatRemovedFromWhitelist(uint256 hatId);
+    event HatUnwhitelisted(uint256 hatId);
 
     /**
-     * @dev Error thrown when the Hats contract address is invalid.
+     * @dev Error thrown when the Hats contract address is missing.
      */
-    error InvalidHatsContract();
+    error MissingHatsContract();
 
     /**
      * @dev Error thrown when no Hats are whitelisted.
@@ -55,14 +55,16 @@ interface IHatsProposalCreationWhitelistV1 {
      * @dev Removes a Hat from the whitelist for proposal creation.
      * @param _hatId The ID of the Hat to remove from the whitelist
      */
-    function removeHatFromWhitelist(uint256 _hatId) external;
+    function unwhitelistHat(uint256 _hatId) external;
 
     /**
-     * @dev Checks if an address is authorized to create proposals.
-     * @param _address The address to check for proposal creation authorization.
+     * @dev Checks if an address is wearing any of the whitelisted Hats.
+     * @param _address The address to check for wearing whitelisted Hats.
      * @return Returns true if the address is wearing any of the whitelisted Hats, false otherwise.
      */
-    function isProposer(address _address) external view returns (bool);
+    function isWearingWhitelistedHat(
+        address _address
+    ) external view returns (bool);
 
     /**
      * @dev Returns the IDs of all whitelisted Hats.
