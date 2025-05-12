@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.28;
 
-import {Version} from "../Version.sol";
 import {LinearERC721VotingV1} from "./LinearERC721VotingV1.sol";
 import {HatsProposalCreationWhitelistV1} from "./HatsProposalCreationWhitelistV1.sol";
-import {BaseStrategyV1} from "./BaseStrategyV1.sol";
 
 /**
  * An [Azorius](./Azorius.md) [BaseStrategy](./BaseStrategy.md) implementation that
@@ -62,6 +60,7 @@ contract LinearERC721VotingWithHatsProposalCreationV1 is
 
         // Initialize HatsProposalCreationWhitelistV1
         HatsProposalCreationWhitelistV1.initialize(
+            _owner,
             _hatsContract,
             _initialWhitelistedHats
         );
@@ -80,17 +79,10 @@ contract LinearERC721VotingWithHatsProposalCreationV1 is
         onlyOwner
     {}
 
-    /** @inheritdoc HatsProposalCreationWhitelistV1*/
     function isProposer(
         address _address
-    )
-        public
-        view
-        virtual
-        override(HatsProposalCreationWhitelistV1, LinearERC721VotingV1)
-        returns (bool)
-    {
-        return HatsProposalCreationWhitelistV1.isProposer(_address);
+    ) public view virtual override returns (bool) {
+        return isWearingWhitelistedHat(_address);
     }
 
     /**
