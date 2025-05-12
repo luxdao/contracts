@@ -82,8 +82,8 @@ describe('SmartAccountValidationV1', function () {
   });
 
   describe('validateSmartAccount', function () {
-    describe('valid smart accounts', function () {
-      it('should validate valid smart accounts', async function () {
+    describe('When the smart account is valid', function () {
+      it('should return true and the owner address', async function () {
         // set up the mock factory contract to return the correct address to `validateSmartAccount`
         await mockLightAccountFactory.setAccountAddress(
           await mockLightAccount.owner(),
@@ -100,9 +100,9 @@ describe('SmartAccountValidationV1', function () {
       });
     });
 
-    describe('invalid light accounts', function () {
-      describe('non-contracts', function () {
-        it('should return false for non-contract addresses', async function () {
+    describe('When the smart account is invalid', function () {
+      describe('When the address is not a contract', function () {
+        it('should return false and the zero address', async function () {
           const randomAddress = ethers.Wallet.createRandom().address;
 
           // Should return false since the address won't have the owner() function
@@ -113,8 +113,8 @@ describe('SmartAccountValidationV1', function () {
         });
       });
 
-      describe('contracts', function () {
-        it('should return false for invalid light accounts that do implement the ILightAccount interface (owner())', async function () {
+      describe('When the address is a contract', function () {
+        it('should return false when factory check fails', async function () {
           // not calling "setAccountAddress", so the LightAccountFactory will always
           // return the zero address when calling `getAddress` for a given owner and salt
           // (which is implemented in the SmartAccountValidation validateSmartAccount function).
@@ -126,7 +126,7 @@ describe('SmartAccountValidationV1', function () {
           expect(lightAccountOwner).to.equal(await mockLightAccount.owner());
         });
 
-        it('should return false for invalid light accounts that do not implement the ILightAccount interface (owner())', async function () {
+        it('should return false when owner() call reverts', async function () {
           // Hits the "catch" block in the `validateSmartAccount` function
           const [isValid, lightAccountOwner] =
             await concreteSmartAccountValidation.validateSmartAccountPublic(
@@ -176,7 +176,7 @@ describe('SmartAccountValidationV1', function () {
       };
     });
 
-    it('should validate valid calldata from valid light accounts', async function () {
+    it('should return owner, target, and selector for valid UserOps', async function () {
       // Set up the mock factory contract to return the correct address
       await mockLightAccountFactory.setAccountAddress(
         await mockLightAccount.owner(),
@@ -191,7 +191,7 @@ describe('SmartAccountValidationV1', function () {
       expect(selector).to.equal(FOO_SELECTOR);
     });
 
-    it('should revert with InvalidSmartAccount when sender is not a valid light account', async function () {
+    it('should revert when the sender is not a valid smart account', async function () {
       // Not setting up the mock factory to return the correct address
       // This will make validateSmartAccount return false, triggering InvalidSmartAccount
 
@@ -200,7 +200,7 @@ describe('SmartAccountValidationV1', function () {
       ).to.be.revertedWithCustomError(concreteSmartAccountValidation, 'InvalidSmartAccount');
     });
 
-    it('should revert on invalid calldata length', async function () {
+    it('should revert when calldata length is invalid', async function () {
       // Set up the mock factory contract to return the correct address
       await mockLightAccountFactory.setAccountAddress(
         await mockLightAccount.owner(),
@@ -219,7 +219,7 @@ describe('SmartAccountValidationV1', function () {
       );
     });
 
-    it('should revert on unauthorized function calls', async function () {
+    it('should revert when the calldata function selector is not authorized', async function () {
       // Set up the mock factory contract to return the correct address
       await mockLightAccountFactory.setAccountAddress(
         await mockLightAccount.owner(),
@@ -240,7 +240,7 @@ describe('SmartAccountValidationV1', function () {
       ).to.be.revertedWithCustomError(concreteSmartAccountValidation, 'InvalidCallData');
     });
 
-    it('should revert with InvalidInnerCallDataLength when inner calldata is too short', async function () {
+    it('should revert when inner calldata length is invalid', async function () {
       // Set up the mock factory contract to return the correct address
       await mockLightAccountFactory.setAccountAddress(
         await mockLightAccount.owner(),
