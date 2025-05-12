@@ -41,7 +41,7 @@ describe('HatsProposalCreationWhitelistV1', () => {
     const initializeCalldata =
       ConcreteHatsProposalCreationWhitelistV1__factory.createInterface().encodeFunctionData(
         'initialize',
-        [hatsContract, initialWhitelistedHats],
+        [ownerSigner.address, hatsContract, initialWhitelistedHats],
       );
 
     // Deploy the proxy with owner as the deployer so msg.sender becomes the owner
@@ -110,7 +110,7 @@ describe('HatsProposalCreationWhitelistV1', () => {
       const initData =
         ConcreteHatsProposalCreationWhitelistV1__factory.createInterface().encodeFunctionData(
           'initialize',
-          [await mockHats.getAddress(), emptyWhitelistedHats],
+          [owner.address, await mockHats.getAddress(), emptyWhitelistedHats],
         );
 
       // Attempt to deploy the proxy - should revert
@@ -129,13 +129,13 @@ describe('HatsProposalCreationWhitelistV1', () => {
       const initData =
         ConcreteHatsProposalCreationWhitelistV1__factory.createInterface().encodeFunctionData(
           'initialize',
-          [ethers.ZeroAddress, [proposerHatId1]],
+          [owner.address, ethers.ZeroAddress, [proposerHatId1]],
         );
 
       // Attempt to deploy the proxy - should revert
       await expect(
         new ERC1967Proxy__factory(owner).deploy(await mockImplementation.getAddress(), initData),
-      ).to.be.revertedWithCustomError(mockImplementation, 'InvalidHatsContract');
+      ).to.be.revertedWithCustomError(mockImplementation, 'MissingHatsContract');
     });
   });
 
@@ -175,30 +175,26 @@ describe('HatsProposalCreationWhitelistV1', () => {
     });
   });
 
-  describe('removeHatFromWhitelist', () => {
+  describe('unwhitelistHat', () => {
     it('should allow owner to remove a hat from the whitelist', async () => {
-      await concreteHatsProposalCreationWhitelist
-        .connect(owner)
-        .removeHatFromWhitelist(proposerHatId1);
+      await concreteHatsProposalCreationWhitelist.connect(owner).unwhitelistHat(proposerHatId1);
 
       const whitelistedHats = await concreteHatsProposalCreationWhitelist.getWhitelistedHatIds();
       expect(whitelistedHats.length).to.equal(1);
       expect(whitelistedHats[0]).to.equal(proposerHatId2);
     });
 
-    it('should emit HatRemovedFromWhitelist event when a hat is removed', async () => {
+    it('should emit HatUnwhitelisted event when a hat is removed', async () => {
       await expect(
-        concreteHatsProposalCreationWhitelist.connect(owner).removeHatFromWhitelist(proposerHatId1),
+        concreteHatsProposalCreationWhitelist.connect(owner).unwhitelistHat(proposerHatId1),
       )
-        .to.emit(concreteHatsProposalCreationWhitelist, 'HatRemovedFromWhitelist')
+        .to.emit(concreteHatsProposalCreationWhitelist, 'HatUnwhitelisted')
         .withArgs(proposerHatId1);
     });
 
     it('should not allow non-owner to remove a hat from the whitelist', async () => {
       await expect(
-        concreteHatsProposalCreationWhitelist
-          .connect(nonOwner)
-          .removeHatFromWhitelist(proposerHatId1),
+        concreteHatsProposalCreationWhitelist.connect(nonOwner).unwhitelistHat(proposerHatId1),
       ).to.be.revertedWithCustomError(
         concreteHatsProposalCreationWhitelist,
         'OwnableUnauthorizedAccount',
@@ -207,14 +203,12 @@ describe('HatsProposalCreationWhitelistV1', () => {
 
     it('should not allow removing a hat that is not whitelisted', async () => {
       await expect(
-        concreteHatsProposalCreationWhitelist
-          .connect(owner)
-          .removeHatFromWhitelist(nonProposerHatId),
+        concreteHatsProposalCreationWhitelist.connect(owner).unwhitelistHat(nonProposerHatId),
       ).to.be.revertedWithCustomError(concreteHatsProposalCreationWhitelist, 'HatNotWhitelisted');
     });
   });
 
-  describe('isProposer override', () => {
+  describe('isWearingWhitelistedHat override', () => {
     runHatsProposerTests({
       getMockHats: () => mockHats,
       getContract: () => concreteHatsProposalCreationWhitelist,
@@ -244,9 +238,7 @@ describe('HatsProposalCreationWhitelistV1', () => {
     });
 
     it('should return updated list after removing a hat', async () => {
-      await concreteHatsProposalCreationWhitelist
-        .connect(owner)
-        .removeHatFromWhitelist(proposerHatId1);
+      await concreteHatsProposalCreationWhitelist.connect(owner).unwhitelistHat(proposerHatId1);
 
       const whitelistedHats = await concreteHatsProposalCreationWhitelist.getWhitelistedHatIds();
       expect(whitelistedHats.length).to.equal(1);
@@ -278,8 +270,7 @@ describe('HatsProposalCreationWhitelistV1', () => {
 
   describe('UUPS Upgradeability', function () {
     runUUPSUpgradeabilityTests({
-      getContract: () =>
-        concreteHatsProposalCreationWhitelist as unknown as import('../../../typechain-types').UUPSUpgradeable,
+      getContract: () => concreteHatsProposalCreationWhitelist,
       createNewImplementation: async () => {
         const newImplementation = await new ConcreteHatsProposalCreationWhitelistV1__factory(
           owner,
