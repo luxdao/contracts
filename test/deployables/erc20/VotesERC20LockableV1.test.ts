@@ -61,7 +61,7 @@ describe('VotesERC20LockableV1', () => {
 
   describe('Initialization', () => {
     describe('Locked Behavior', () => {
-      it('should be be locked on deployment', async () => {
+      it('should be be locked on deployment when locked is true', async () => {
         const proxy = await deployVotesERC20Lockable(
           deployer,
           implementation,
@@ -75,7 +75,7 @@ describe('VotesERC20LockableV1', () => {
         expect(await proxy.locked()).to.equal(true);
       });
 
-      it('should be unlocked on deployment', async () => {
+      it('should be unlocked on deployment when locked is false', async () => {
         const proxy = await deployVotesERC20Lockable(
           deployer,
           implementation,
