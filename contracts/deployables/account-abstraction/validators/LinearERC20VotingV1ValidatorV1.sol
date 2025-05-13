@@ -16,16 +16,16 @@ interface ILinearERC20VotingV1 {
 
     function getProposalPeriod(
         uint32 proposalId
-    ) external view returns (uint32, uint32);
+    ) external view returns (uint48, uint48);
 
     function votingPeriodEnded(uint32 proposalId) external view returns (bool);
 
     function governanceToken() external view returns (address);
 }
 
-struct Checkpoint {
-    uint32 fromBlock;
-    uint224 votes;
+struct Checkpoint208 {
+    uint48 key;
+    uint208 value;
 }
 
 interface IERC20Votes {
@@ -34,7 +34,7 @@ interface IERC20Votes {
     function checkpoints(
         address account,
         uint32 pos
-    ) external view returns (Checkpoint memory);
+    ) external view returns (Checkpoint208 memory);
 }
 
 /**
@@ -74,13 +74,13 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
             return false;
         }
 
-        // get the proposal start and end blocks to determine if the proposal exists
-        (uint32 startBlock, uint32 endBlock) = ILinearERC20VotingV1(
+        // get the proposal start and end timestamps to determine if the proposal exists
+        (uint48 startTimestamp, uint48 endTimestamp) = ILinearERC20VotingV1(
             votingContract
         ).getProposalPeriod(proposalId);
 
-        // Check if proposal exists (will have non-zero endBlock if it exists)
-        if (endBlock == 0) {
+        // Check if proposal exists (will have non-zero endTimestamp if it exists)
+        if (endTimestamp == 0) {
             return false;
         }
 
@@ -116,36 +116,36 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
             return false;
         }
 
-        // Iterate backwards through checkpoints to find the relevant one for startBlock.
-        // This is potentially more efficient than binary search if startBlock is recent.
+        // Iterate backwards through checkpoints to find the relevant one for startTimestamp.
+        // This is potentially more efficient than binary search if startTimestamp is recent.
         uint256 votingWeight = 0;
         for (uint256 i = numCheckpoints; i > 0; i--) {
             // Checkpoint indices are 0-based, loop index 'i' is 1-based count.
-            Checkpoint memory checkpoint = governanceToken.checkpoints(
+            Checkpoint208 memory checkpoint = governanceToken.checkpoints(
                 lightAccountOwner,
                 uint32(i - 1)
             );
 
-            // If this checkpoint's block is after the proposal's endBlock,
-            // it implies the current block is also after endBlock.
+            // If this checkpoint's timestamp is after the proposal's endTimestamp,
+            // it implies the current timestamp is also after endTimestamp.
             // Thus, the voting period has definitively ended, and any vote is invalid.
-            if (checkpoint.fromBlock > endBlock) {
+            if (checkpoint.key > endTimestamp) {
                 return false; // Vote is invalid as the proposal has ended.
             }
 
-            // If the checkpoint block is less than or equal to the proposal start block,
+            // If the checkpoint timestamp is less than or equal to the proposal start timestamp,
             // we've found the relevant voting weight.
-            if (checkpoint.fromBlock <= startBlock) {
-                votingWeight = checkpoint.votes;
+            if (checkpoint.key <= startTimestamp) {
+                votingWeight = checkpoint.value;
                 break; // Exit loop once the correct checkpoint is found
             }
         }
-        // If the loop completes without finding a checkpoint where fromBlock <= startBlock,
+        // If the loop completes without finding a checkpoint where fromTimestamp <= startTimestamp,
         // (and the optimization above didn't trigger and return false),
-        // it means all checkpoints are after startBlock, so the weight at startBlock was 0.
+        // it means all checkpoints are after startTimestamp, so the weight at startTimestamp was 0.
         // votingWeight remains 0 in this case.
 
-        // Check if the user had any voting weight at the proposal start block
+        // Check if the user had any voting weight at the proposal start timestamp
         if (votingWeight == 0) {
             return false;
         }
