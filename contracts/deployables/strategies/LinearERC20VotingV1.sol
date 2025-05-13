@@ -101,6 +101,7 @@ contract LinearERC20VotingV1 is
      * @param _requiredProposerWeight Minimum weight to create proposals
      * @param _quorumNumerator Numerator for quorum calculation
      * @param _basisNumerator Numerator for basis calculation
+     * @param _lightAccountFactory Address of the LightAccountFactory
      */
     function initialize(
         address _owner,
@@ -109,13 +110,15 @@ contract LinearERC20VotingV1 is
         uint32 _votingPeriod,
         uint256 _requiredProposerWeight,
         uint256 _quorumNumerator,
-        uint256 _basisNumerator
+        uint256 _basisNumerator,
+        address _lightAccountFactory
     ) public initializer {
         if (address(_governanceToken) == address(0))
             revert InvalidTokenAddress();
         governanceToken = IVotes(_governanceToken);
 
         BaseStrategyV1.initialize(_owner, _proposalInitializer);
+        __ERC4337VoterSupportV1_init(_lightAccountFactory);
 
         _updateQuorumNumerator(_quorumNumerator);
         _updateBasisNumerator(_basisNumerator);
@@ -376,8 +379,18 @@ contract LinearERC20VotingV1 is
     ) internal virtual {
         if (proposalVotes[_proposalId].votingEndTimestamp == 0)
             revert InvalidProposal();
-        if (block.timestamp > proposalVotes[_proposalId].votingEndTimestamp)
+        if (block.timestamp > proposalVotes[_proposalId].votingEndTimestamp) {
+            if (!_votingPeriodEnded[_proposalId]) {
+                _votingPeriodEnded[_proposalId] = true;
+                emit VotingPeriodEnded(
+                    _proposalId,
+                    proposalVotes[_proposalId].votingEndTimestamp,
+                    block.timestamp
+                );
+                return;
+            }
             revert VotingEnded();
+        }
         if (proposalVotes[_proposalId].hasVoted[_voter]) revert AlreadyVoted();
 
         proposalVotes[_proposalId].hasVoted[_voter] = true;
