@@ -2,7 +2,6 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  ERC1967Proxy__factory,
   IERC165__factory,
   IFunctionValidator__factory,
   IVersion__factory,
@@ -14,24 +13,6 @@ import {
   MockLinearERC721VotingV1__factory,
 } from '../../../../typechain-types';
 import { calculateInterfaceId } from '../../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../../helpers/uupsUpgradeabilityTests';
-
-async function deployValidator(
-  deployer: SignerWithAddress,
-  masterCopy: string,
-  owner: SignerWithAddress,
-) {
-  // Create full initialization data with function selector
-  const fullInitData =
-    LinearERC721VotingV1ValidatorV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder().encode(['address'], [owner.address]).slice(2);
-
-  // Deploy the proxy with the implementation
-  const proxy = await new ERC1967Proxy__factory(deployer).deploy(masterCopy, fullInitData);
-
-  // Return a contract instance connected to the proxy
-  return LinearERC721VotingV1ValidatorV1__factory.connect(await proxy.getAddress(), owner);
-}
 
 describe('LinearERC721VotingV1ValidatorV1', function () {
   // contracts
@@ -64,11 +45,8 @@ describe('LinearERC721VotingV1ValidatorV1', function () {
     mockNFT1 = await new MockERC721__factory(owner).deploy();
     mockNFT2 = await new MockERC721__factory(owner).deploy();
 
-    // Deploy master copy
-    const masterCopy = await new LinearERC721VotingV1ValidatorV1__factory(deployer).deploy();
-
     // Deploy validator
-    validator = await deployValidator(deployer, await masterCopy.getAddress(), owner);
+    validator = await new LinearERC721VotingV1ValidatorV1__factory(deployer).deploy();
 
     // Mint NFTs to voter
     await mockNFT1.mintToken(voter.address, tokenId1);
@@ -427,20 +405,6 @@ describe('LinearERC721VotingV1ValidatorV1', function () {
   describe('Version', function () {
     it('Should return correct version', async function () {
       void expect(await validator.getVersion()).to.equal(1);
-    });
-  });
-
-  describe('UUPS Upgradeability', function () {
-    runUUPSUpgradeabilityTests({
-      getContract: () => validator,
-      createNewImplementation: async () => {
-        const newImplementation = await new LinearERC721VotingV1ValidatorV1__factory(
-          owner,
-        ).deploy();
-        return newImplementation;
-      },
-      owner: () => owner,
-      nonOwner: () => nonOwner,
     });
   });
 });
