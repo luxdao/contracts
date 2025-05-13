@@ -285,7 +285,7 @@ contract LinearERC721VotingV1 is
         if (_tokenAddresses.length != _tokenIds.length) revert InvalidParams();
         _vote(
             _proposalId,
-            _voter(msg.sender),
+            voter(msg.sender),
             _voteType,
             _tokenAddresses,
             _tokenIds
