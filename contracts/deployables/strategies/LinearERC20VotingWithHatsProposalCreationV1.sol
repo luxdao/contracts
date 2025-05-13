@@ -42,7 +42,8 @@ contract LinearERC20VotingWithHatsProposalCreationV1 is
         uint256 _quorumNumerator,
         uint256 _basisNumerator,
         address _hatsContract,
-        uint256[] memory _initialWhitelistedHats
+        uint256[] memory _initialWhitelistedHats,
+        address _lightAccountFactory
     ) public initializer {
         // Initialize LinearERC20VotingV1
         LinearERC20VotingV1.initialize(
@@ -52,7 +53,8 @@ contract LinearERC20VotingWithHatsProposalCreationV1 is
             _votingPeriod,
             0, // requiredProposerWeight is zero because we only care about the hat check
             _quorumNumerator,
-            _basisNumerator
+            _basisNumerator,
+            _lightAccountFactory
         );
 
         // Initialize HatsProposalCreationWhitelistV1

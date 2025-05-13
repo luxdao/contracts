@@ -1,6 +1,7 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
+import type { ContractTransactionResponse } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
@@ -28,6 +29,7 @@ describe('LinearERC20VotingV1', () => {
   let tokenHolder1: SignerWithAddress;
   let tokenHolder2: SignerWithAddress;
   let tokenHolder3: SignerWithAddress;
+  let lightAccountFactoryMock: SignerWithAddress;
 
   // Contracts
   let linearERC20VotingImplementation: LinearERC20VotingV1;
@@ -36,7 +38,7 @@ describe('LinearERC20VotingV1', () => {
   let mockOwnership: MockOwnership;
 
   // Constants
-  const VOTING_PERIOD = 100; // blocks
+  const VOTING_PERIOD = 100; // seconds
   const REQUIRED_PROPOSER_WEIGHT = 100; // 100 tokens to propose
   const QUORUM_NUMERATOR = 300000; // 30% of 1000000
   const BASIS_NUMERATOR = 500000; // 50% of 1000000
@@ -52,10 +54,11 @@ describe('LinearERC20VotingV1', () => {
     strategyOwner: SignerWithAddress,
     governanceToken: string,
     azoriusAddr: string,
+    lightAccountFactory: string,
   ): Promise<LinearERC20VotingV1> {
     // Create the initialization data
     const initializeCalldata = LinearERC20VotingV1__factory.createInterface().encodeFunctionData(
-      'initialize(address,address,address,uint32,uint256,uint256,uint256)',
+      'initialize(address,address,address,uint32,uint256,uint256,uint256,address)',
       [
         strategyOwner.address,
         governanceToken,
@@ -64,6 +67,7 @@ describe('LinearERC20VotingV1', () => {
         REQUIRED_PROPOSER_WEIGHT,
         QUORUM_NUMERATOR,
         BASIS_NUMERATOR,
+        lightAccountFactory,
       ],
     );
 
@@ -78,7 +82,7 @@ describe('LinearERC20VotingV1', () => {
   }
 
   beforeEach(async () => {
-    [deployer, owner, nonOwner, tokenHolder1, tokenHolder2, tokenHolder3] =
+    [deployer, owner, nonOwner, tokenHolder1, tokenHolder2, tokenHolder3, lightAccountFactoryMock] =
       await ethers.getSigners();
 
     // Use nonOwner address as a mock azorius address for testing
@@ -103,6 +107,7 @@ describe('LinearERC20VotingV1', () => {
       owner,
       await mockToken.getAddress(),
       proposalInitializer,
+      lightAccountFactoryMock.address,
     );
   });
 
@@ -115,12 +120,17 @@ describe('LinearERC20VotingV1', () => {
       expect(await linearERC20Voting.requiredProposerWeight()).to.equal(REQUIRED_PROPOSER_WEIGHT);
       expect(await linearERC20Voting.quorumNumerator()).to.equal(QUORUM_NUMERATOR);
       expect(await linearERC20Voting.basisNumerator()).to.equal(BASIS_NUMERATOR);
+      expect(await linearERC20Voting.lightAccountFactory()).to.equal(
+        lightAccountFactoryMock.address,
+      );
     });
 
     it('should not allow reinitialization', async () => {
       // Attempt to reinitialize - should revert
       await expect(
-        linearERC20Voting['initialize(address,address,address,uint32,uint256,uint256,uint256)'](
+        linearERC20Voting[
+          'initialize(address,address,address,uint32,uint256,uint256,uint256,address)'
+        ](
           owner.address,
           await mockToken.getAddress(),
           proposalInitializer,
@@ -128,14 +138,15 @@ describe('LinearERC20VotingV1', () => {
           REQUIRED_PROPOSER_WEIGHT,
           QUORUM_NUMERATOR,
           BASIS_NUMERATOR,
+          lightAccountFactoryMock.address,
         ),
-      ).to.be.reverted;
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'InvalidInitialization');
     });
 
     it('should revert when initializing with zero token address', async () => {
       // Create initialization data with zero address for token
       const initializeCalldata = LinearERC20VotingV1__factory.createInterface().encodeFunctionData(
-        'initialize(address,address,address,uint32,uint256,uint256,uint256)',
+        'initialize(address,address,address,uint32,uint256,uint256,uint256,address)',
         [
           owner.address,
           ethers.ZeroAddress,
@@ -144,6 +155,7 @@ describe('LinearERC20VotingV1', () => {
           REQUIRED_PROPOSER_WEIGHT,
           QUORUM_NUMERATOR,
           BASIS_NUMERATOR,
+          lightAccountFactoryMock.address,
         ],
       );
 
@@ -154,6 +166,21 @@ describe('LinearERC20VotingV1', () => {
           initializeCalldata,
         ),
       ).to.be.reverted;
+    });
+
+    it('should emit ProposalInitialized event when initializing a proposal', async () => {
+      const proposalId = 200;
+      const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
+
+      // Get current block timestmp to calculate expected end timestamp
+      const currentBlockTimestamp = await time.latest();
+
+      // +1 because the proposal will be in the next block, and that block's timestamp will be increased by one second
+      const expectedEndTimestamp = currentBlockTimestamp + 1 + VOTING_PERIOD;
+
+      await expect(linearERC20Voting.connect(nonOwner).initializeProposal(initializeData))
+        .to.emit(linearERC20Voting, 'ProposalInitialized')
+        .withArgs(proposalId, expectedEndTimestamp);
     });
   });
 
@@ -234,18 +261,18 @@ describe('LinearERC20VotingV1', () => {
   });
 
   describe('Proposal Functions', () => {
-    it('should allow only azorius to initialize proposal', async () => {
+    it('should allow only authorized account to initialize proposal', async () => {
       // Mock proposal ID
       const proposalId = 1;
       // Mock data for initializing a proposal
       const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
 
-      // Only Azorius can initialize proposals
+      // Only authorized account can initialize proposals
       await expect(
         linearERC20Voting.connect(owner).initializeProposal(initializeData),
       ).to.be.revertedWithCustomError(linearERC20Voting, 'ProposalInitializerUnauthorizedAccount');
 
-      // Test with Azorius signer
+      // Test with authorized account
       await linearERC20Voting.connect(nonOwner).initializeProposal(initializeData);
 
       // Check that proposal was initialized correctly
@@ -319,13 +346,57 @@ describe('LinearERC20VotingV1', () => {
       ).to.be.revertedWithCustomError(linearERC20Voting, 'AlreadyVoted');
     });
 
-    it('should not allow voting after voting period ends', async () => {
-      // Mine blocks to advance past the voting period
-      await mine(VOTING_PERIOD + 1);
+    describe('voting period ended', () => {
+      let noVotesBefore: bigint;
+      let yesVotesBefore: bigint;
+      let abstainVotesBefore: bigint;
+      let initialVoteTx: ContractTransactionResponse;
+      let endTimestamp: bigint;
 
-      await expect(
-        linearERC20Voting.connect(tokenHolder1).vote(proposalId, VoteType.YES),
-      ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+      beforeEach(async () => {
+        // Get initial vote counts
+        [noVotesBefore, yesVotesBefore, abstainVotesBefore, , endTimestamp] =
+          await linearERC20Voting.getProposalVotes(proposalId);
+
+        // Mine blocks to advance past the voting period
+        await time.increaseTo(Number(endTimestamp) + 1);
+
+        // First vote to mark the period as ended
+        initialVoteTx = await linearERC20Voting
+          .connect(tokenHolder1)
+          .vote(proposalId, VoteType.YES);
+      });
+
+      it('should handle first vote after voting period ends correctly', async () => {
+        // Verify event emission
+        await expect(initialVoteTx).to.emit(linearERC20Voting, 'VotingPeriodEnded');
+
+        // Verify no votes were actually counted
+        const [noVotesAfter, yesVotesAfter, abstainVotesAfter, , ,] =
+          await linearERC20Voting.getProposalVotes(proposalId);
+        expect(noVotesAfter).to.equal(noVotesBefore, 'NO votes should not change');
+        expect(yesVotesAfter).to.equal(yesVotesBefore, 'YES votes should not change');
+        expect(abstainVotesAfter).to.equal(abstainVotesBefore, 'ABSTAIN votes should not change');
+
+        // Verify the voting period is marked as ended
+        void expect(await linearERC20Voting.votingPeriodEnded(proposalId)).to.be.true;
+      });
+
+      it('should revert on votes after voting period is marked as ended', async () => {
+        // Verify subsequent votes revert
+        await expect(
+          linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES),
+        ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+
+        await expect(
+          linearERC20Voting.connect(tokenHolder3).vote(proposalId, VoteType.NO),
+        ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+
+        // Verify even the same account that marked it as ended can't vote again
+        await expect(
+          linearERC20Voting.connect(tokenHolder1).vote(proposalId, VoteType.ABSTAIN),
+        ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+      });
     });
 
     it('should revert on invalid vote type', async () => {
@@ -340,6 +411,7 @@ describe('LinearERC20VotingV1', () => {
 
   describe('isPassed Logic', () => {
     const proposalId = 1;
+    let proposalBeginTimestamp: number;
 
     beforeEach(async () => {
       // Delegate tokens to voters
@@ -350,6 +422,7 @@ describe('LinearERC20VotingV1', () => {
       // Initialize a proposal using the azorius mock account
       const initializeData = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
       await linearERC20Voting.connect(nonOwner).initializeProposal(initializeData);
+      proposalBeginTimestamp = await time.latest();
     });
 
     it('should pass when yes > no and meets quorum', async () => {
@@ -359,7 +432,7 @@ describe('LinearERC20VotingV1', () => {
       await linearERC20Voting.connect(tokenHolder3).vote(proposalId, VoteType.NO);
 
       // Mine blocks to end the voting period
-      await mine(VOTING_PERIOD + 1);
+      await time.increaseTo(proposalBeginTimestamp + VOTING_PERIOD + 1);
 
       // Proposal should pass
       void expect(await linearERC20Voting.isPassed(proposalId)).to.be.true;
@@ -382,8 +455,8 @@ describe('LinearERC20VotingV1', () => {
       // Update quorum to 40% to make this test fail
       await linearERC20Voting.connect(owner).updateQuorumNumerator(400000);
 
-      // Mine blocks to end the voting period
-      await mine(VOTING_PERIOD + 1);
+      // Mine timestamp to end the voting period
+      await time.increaseTo(proposalBeginTimestamp + VOTING_PERIOD + 1);
 
       // Proposal should fail due to insufficient quorum
       void expect(await linearERC20Voting.isPassed(proposalId)).to.be.false;
@@ -395,8 +468,8 @@ describe('LinearERC20VotingV1', () => {
       await linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.NO);
       await linearERC20Voting.connect(tokenHolder3).vote(proposalId, VoteType.YES);
 
-      // Mine blocks to end the voting period
-      await mine(VOTING_PERIOD + 1);
+      // Mine timestamp to end the voting period
+      await time.increaseTo(proposalBeginTimestamp + VOTING_PERIOD + 1);
 
       // Proposal should fail due to insufficient basis (YES < NO)
       void expect(await linearERC20Voting.isPassed(proposalId)).to.be.false;
@@ -689,9 +762,18 @@ describe('LinearERC20VotingV1', () => {
       // Advance time to just after voting end
       await time.increaseTo(Number(endTimestamp) + 1);
 
+      // First vote attempt after period ends should mark it as ended and return
+      const tx = await linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES);
+      await expect(tx).to.emit(linearERC20Voting, 'VotingPeriodEnded');
+
       // Try to vote after voting ended - should revert
       await expect(
         linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES),
+      ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+
+      // Subsequent vote attempts should revert
+      await expect(
+        linearERC20Voting.connect(tokenHolder3).vote(proposalId, VoteType.YES),
       ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
     });
 
@@ -753,14 +835,69 @@ describe('LinearERC20VotingV1', () => {
       // Should still be able to vote before end timestamp
       await linearERC20Voting.connect(tokenHolder1).vote(proposalId, VoteType.YES);
 
-      // Advance to end timestamp with a single mine operation
-      // This avoids the "same timestamp" error by using mine with a timestamp parameter
-      await ethers.provider.send('evm_mine', [Number(endTimestamp)]);
+      // Advance to end timestamp
+      await time.increaseTo(Number(endTimestamp) + 1);
 
-      // Should no longer be able to vote at exactly the end timestamp
+      // First vote attempt after period ends should mark it as ended and return
+      const tx = await linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES);
+      await expect(tx).to.emit(linearERC20Voting, 'VotingPeriodEnded');
+
+      // Subsequent vote attempts should revert
       await expect(
-        linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES),
+        linearERC20Voting.connect(tokenHolder3).vote(proposalId, VoteType.YES),
       ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+    });
+
+    describe('voting period ended events', () => {
+      it('should emit VotingPeriodEnded event with correct parameters', async () => {
+        // Get the voting end timestamp
+        const [, , , , endTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+        // Mine timestamp to advance past the voting period
+        await time.increaseTo(Number(endTimestamp) + 1);
+
+        // First vote attempt after period ends should emit event with correct parameters
+        const currentTimestamp = await time.latest();
+        const tx = await linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES);
+
+        await expect(tx)
+          .to.emit(linearERC20Voting, 'VotingPeriodEnded')
+          .withArgs(proposalId, endTimestamp, currentTimestamp + 1);
+      });
+
+      it('should only emit VotingPeriodEnded event once', async () => {
+        // Get the voting end timestamp
+        const [, , , , endTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+        // Mine timestamp to advance past the voting period
+        await time.increaseTo(Number(endTimestamp) + 1);
+
+        // First vote attempt should emit event
+        const tx1 = await linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES);
+        await expect(tx1).to.emit(linearERC20Voting, 'VotingPeriodEnded');
+
+        // Subsequent vote attempts should revert
+        await expect(
+          linearERC20Voting.connect(tokenHolder3).vote(proposalId, VoteType.YES),
+        ).to.be.revertedWithCustomError(linearERC20Voting, 'VotingEnded');
+      });
+
+      it('should update votingPeriodEnded state after emitting event', async () => {
+        // Get the voting end timestamp
+        const [, , , , endTimestamp] = await linearERC20Voting.getProposalVotes(proposalId);
+
+        // Mine timestamp to advance past the voting period
+        await time.increaseTo(Number(endTimestamp) + 1);
+
+        // votingPeriodEnded should initially be false
+        void expect(await linearERC20Voting.votingPeriodEnded(proposalId)).to.be.false;
+
+        // First vote attempt after period ends should update state
+        await linearERC20Voting.connect(tokenHolder2).vote(proposalId, VoteType.YES);
+
+        // Should now be true
+        void expect(await linearERC20Voting.votingPeriodEnded(proposalId)).to.be.true;
+      });
     });
   });
 
