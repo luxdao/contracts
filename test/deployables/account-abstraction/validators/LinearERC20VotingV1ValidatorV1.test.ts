@@ -2,7 +2,6 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  ERC1967Proxy__factory,
   IERC165__factory,
   IFunctionValidator__factory,
   IVersion__factory,
@@ -12,24 +11,6 @@ import {
   MockLinearERC20VotingV1__factory,
 } from '../../../../typechain-types';
 import { calculateInterfaceId } from '../../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../../helpers/uupsUpgradeabilityTests';
-
-async function deployValidator(
-  deployer: SignerWithAddress,
-  masterCopy: string,
-  owner: SignerWithAddress,
-) {
-  // Create full initialization data with function selector
-  const fullInitData =
-    LinearERC20VotingV1ValidatorV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder().encode(['address'], [owner.address]).slice(2);
-
-  // Deploy the proxy with the implementation
-  const proxy = await new ERC1967Proxy__factory(deployer).deploy(masterCopy, fullInitData);
-
-  // Return a contract instance connected to the proxy
-  return LinearERC20VotingV1ValidatorV1__factory.connect(await proxy.getAddress(), owner);
-}
 
 describe('LinearERC20VotingV1ValidatorV1', function () {
   // contracts
@@ -38,9 +19,7 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
 
   // signers
   let deployer: SignerWithAddress;
-  let owner: SignerWithAddress;
   let voter: SignerWithAddress;
-  let nonOwner: SignerWithAddress;
 
   // test data
   const proposalId = 1;
@@ -51,16 +30,13 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
   };
 
   beforeEach(async function () {
-    [deployer, owner, voter, nonOwner] = await ethers.getSigners();
+    [deployer, voter] = await ethers.getSigners();
 
     // Deploy mock voting contract
     mockERC20Strategy = await new MockLinearERC20VotingV1__factory(deployer).deploy();
 
-    // Deploy master copy
-    const masterCopy = await new LinearERC20VotingV1ValidatorV1__factory(deployer).deploy();
-
     // Deploy validator
-    validator = await deployValidator(deployer, await masterCopy.getAddress(), owner);
+    validator = await new LinearERC20VotingV1ValidatorV1__factory(deployer).deploy();
 
     // Set the mock contract as its own governance token (it implements the required interface)
     await mockERC20Strategy.setGovernanceToken(await mockERC20Strategy.getAddress());
@@ -674,18 +650,6 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
   describe('Version', function () {
     it('Should return correct version', async function () {
       expect(await validator.getVersion()).to.equal(1);
-    });
-  });
-
-  describe('UUPS Upgradeability', function () {
-    runUUPSUpgradeabilityTests({
-      getContract: () => validator,
-      createNewImplementation: async () => {
-        const newImplementation = await new LinearERC20VotingV1ValidatorV1__factory(owner).deploy();
-        return newImplementation;
-      },
-      owner: () => owner,
-      nonOwner: () => nonOwner,
     });
   });
 });
