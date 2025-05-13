@@ -184,7 +184,7 @@ contract LinearERC20VotingV1 is
      * @param _voteType Proposal support as defined in VoteType (NO, YES, ABSTAIN)
      */
     function vote(uint32 _proposalId, uint8 _voteType) external virtual {
-        address voter = _voter(msg.sender);
+        address voter = voter(msg.sender);
         _vote(
             _proposalId,
             voter,
