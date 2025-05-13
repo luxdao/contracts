@@ -5,8 +5,6 @@ import {IFunctionValidator} from "../../../interfaces/decent/deployables/IFuncti
 import {Version} from "../../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 interface ILinearERC20VotingV1 {
     function vote(uint32 proposalId, uint8 voteType) external;
@@ -43,22 +41,8 @@ interface IERC20Votes {
  * @title LinearERC20VotingV1ValidatorV1
  * @dev Validates vote operations for LinearERC20VotingV1 to ensure they will succeed
  */
-contract LinearERC20VotingV1ValidatorV1 is
-    IFunctionValidator,
-    ERC165,
-    Version,
-    UUPSUpgradeable,
-    OwnableUpgradeable
-{
+contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
     uint16 public constant VERSION = 1;
-
-    function initialize(address owner) public initializer {
-        __Ownable_init(owner);
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
 
     /**
      * @dev Validates if a vote operation will succeed
