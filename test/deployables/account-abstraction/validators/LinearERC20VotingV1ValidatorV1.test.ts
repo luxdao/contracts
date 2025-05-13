@@ -546,6 +546,64 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
           void expect(isValid).to.be.true;
         });
       });
+
+      describe('Optimization: Checkpoint after proposal endBlock', function () {
+        it('Should return false if the most recent checkpoint is after proposal endBlock, even if an older valid checkpoint exists', async function () {
+          const { calldata, proposalPeriod } = await setupVoteOperation(
+            proposalId,
+            voteTypes.YES,
+            voter.address,
+          );
+
+          // Set up checkpoints:
+          // - An older one that would be valid (before startBlock)
+          // - A newer one that is after endBlock (should trigger the optimization)
+          await mockERC20Strategy.setCheckpoints(voter.address, [
+            {
+              fromBlock: proposalPeriod.startBlock - 10, // Older, valid checkpoint
+              votes: 100n,
+            },
+            {
+              fromBlock: proposalPeriod.endBlock + 1, // Newer, after proposal end
+              votes: 50n, // Votes here don't matter as it should short-circuit
+            },
+          ]);
+
+          const isValid = await validator.validateOperation(
+            ethers.ZeroAddress,
+            voter.address,
+            await mockERC20Strategy.getAddress(),
+            calldata,
+          );
+
+          void expect(isValid).to.be.false;
+        });
+
+        it('Should return false if the only checkpoint is after proposal endBlock', async function () {
+          const { calldata, proposalPeriod } = await setupVoteOperation(
+            proposalId,
+            voteTypes.YES,
+            voter.address,
+          );
+
+          // Set up a single checkpoint that is after endBlock
+          await mockERC20Strategy.setCheckpoints(voter.address, [
+            {
+              fromBlock: proposalPeriod.endBlock + 5, // After proposal end
+              votes: 100n,
+            },
+          ]);
+
+          const isValid = await validator.validateOperation(
+            ethers.ZeroAddress,
+            voter.address,
+            await mockERC20Strategy.getAddress(),
+            calldata,
+          );
+
+          void expect(isValid).to.be.false;
+        });
+      });
     });
 
     it('Should return true for valid vote operation', async function () {

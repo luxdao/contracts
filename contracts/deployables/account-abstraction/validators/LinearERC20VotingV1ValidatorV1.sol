@@ -126,6 +126,13 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
                 uint32(i - 1)
             );
 
+            // If this checkpoint's block is after the proposal's endBlock,
+            // it implies the current block is also after endBlock.
+            // Thus, the voting period has definitively ended, and any vote is invalid.
+            if (checkpoint.fromBlock > endBlock) {
+                return false; // Vote is invalid as the proposal has ended.
+            }
+
             // If the checkpoint block is less than or equal to the proposal start block,
             // we've found the relevant voting weight.
             if (checkpoint.fromBlock <= startBlock) {
@@ -134,6 +141,7 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
             }
         }
         // If the loop completes without finding a checkpoint where fromBlock <= startBlock,
+        // (and the optimization above didn't trigger and return false),
         // it means all checkpoints are after startBlock, so the weight at startBlock was 0.
         // votingWeight remains 0 in this case.
 
