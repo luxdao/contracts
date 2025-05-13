@@ -6,8 +6,6 @@ import {Version} from "../../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 interface ILinearERC721VotingV1 {
     function vote(
@@ -39,19 +37,9 @@ interface ILinearERC721VotingV1 {
 contract LinearERC721VotingV1ValidatorV1 is
     IFunctionValidator,
     ERC165,
-    Version,
-    UUPSUpgradeable,
-    OwnableUpgradeable
+    Version
 {
     uint16 public constant VERSION = 1;
-
-    function initialize(address owner) public initializer {
-        __Ownable_init(owner);
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
 
     /**
      * @dev Validates if a vote operation will succeed
