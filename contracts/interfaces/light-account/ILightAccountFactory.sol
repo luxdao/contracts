@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 interface ILightAccountFactory {
     /// @notice Calculate the counterfactual address of this account as it would be returned by `createAccount`.

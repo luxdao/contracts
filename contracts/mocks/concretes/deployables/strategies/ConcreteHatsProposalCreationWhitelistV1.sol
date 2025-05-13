@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import {HatsProposalCreationWhitelistV1} from "../../../../deployables/strategies/HatsProposalCreationWhitelistV1.sol";
 
