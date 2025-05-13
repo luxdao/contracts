@@ -1,4 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -60,8 +61,8 @@ describe('LinearERC721VotingV1ValidatorV1', function () {
       _tokenAddresses: string[],
       _tokenIds: number[],
     ) {
-      const currentBlock = await ethers.provider.getBlockNumber();
-      await mockERC721Strategy.setVotingEndBlock(_proposalId, currentBlock + 100);
+      const currentTimestamp = await time.latest();
+      await mockERC721Strategy.setVotingEndTimestamp(_proposalId, currentTimestamp + 100);
 
       // Set up token weight
       for (let i = 0; i < _tokenAddresses.length; i++) {
@@ -196,7 +197,7 @@ describe('LinearERC721VotingV1ValidatorV1', function () {
       void expect(validResult).to.be.true;
 
       // Now set the proposal to non-existent
-      await mockERC721Strategy.setVotingEndBlock(proposalId, 0);
+      await mockERC721Strategy.setVotingEndTimestamp(proposalId, 0);
 
       const invalidResult = await validator.validateOperation(
         ethers.ZeroAddress,
