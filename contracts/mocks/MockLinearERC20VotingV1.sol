@@ -3,14 +3,14 @@ pragma solidity ^0.8.28;
 
 // Mirror the struct for getProposalVotes return values
 struct ProposalPeriod {
-    uint32 startBlock;
-    uint32 endBlock;
+    uint48 startTimestamp;
+    uint48 endTimestamp;
 }
 
 // Mirror the struct from IERC20Votes
-struct Checkpoint {
-    uint32 fromBlock;
-    uint224 votes;
+struct Checkpoint208 {
+    uint48 key;
+    uint208 value;
 }
 
 contract MockLinearERC20VotingV1 {
@@ -25,8 +25,8 @@ contract MockLinearERC20VotingV1 {
 
     // Mapping: address => numCheckpoints
     mapping(address => uint32) public numCheckpoints;
-    // Mapping: address => checkpointIndex => Checkpoint
-    mapping(address => Checkpoint[]) private _checkpoints;
+    // Mapping: address => checkpointIndex => Checkpoint208
+    mapping(address => Checkpoint208[]) private _checkpoints;
 
     function vote(uint32 proposalId, uint8 voteType) external {
         // Mock implementation - just for interface matching
@@ -58,13 +58,13 @@ contract MockLinearERC20VotingV1 {
     function checkpoints(
         address account,
         uint32 pos
-    ) public view virtual returns (Checkpoint memory) {
+    ) public view virtual returns (Checkpoint208 memory) {
         return _checkpoints[account][pos];
     }
 
     function setCheckpoints(
         address account,
-        Checkpoint[] calldata checkpointsData
+        Checkpoint208[] calldata checkpointsData
     ) external {
         // Clear existing checkpoints
         while (_checkpoints[account].length > 0) {

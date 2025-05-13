@@ -139,7 +139,7 @@ contract LinearERC20VotingV1 is
     /**
      * Updates the voting time period for new Proposals.
      *
-     * @param _votingPeriod voting time period (in blocks)
+     * @param _votingPeriod voting time period (in seconds)
      */
     function updateVotingPeriod(
         uint32 _votingPeriod
@@ -315,7 +315,7 @@ contract LinearERC20VotingV1 is
         address _address
     ) public view virtual override returns (bool) {
         return
-            governanceToken.getPastVotes(_address, block.number - 1) >=
+            governanceToken.getPastVotes(_address, block.timestamp - 1) >=
             requiredProposerWeight;
     }
 
@@ -324,6 +324,15 @@ contract LinearERC20VotingV1 is
         uint32 _proposalId
     ) public view virtual override returns (uint48) {
         return proposalVotes[_proposalId].votingEndTimestamp;
+    }
+
+    function getProposalPeriod(
+        uint32 _proposalId
+    ) public view virtual returns (uint48, uint48) {
+        return (
+            proposalVotes[_proposalId].votingStartTimestamp,
+            proposalVotes[_proposalId].votingEndTimestamp
+        );
     }
 
     /** Internal implementation of `updateVotingPeriod`. */
