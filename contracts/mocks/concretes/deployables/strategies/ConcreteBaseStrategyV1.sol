@@ -57,7 +57,7 @@ contract ConcreteBaseStrategyV1 is BaseStrategyV1 {
     }
 
     /**
-     * Concrete implementation of the abstract votingEndBlock function.
+     * Concrete implementation of the abstract votingEndTimestamp function.
      */
     function votingEndTimestamp(
         uint32
