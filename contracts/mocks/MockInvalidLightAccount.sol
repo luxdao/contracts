@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 // This contract does not implement the ILightAccount interface
 // Specifically, it does not have the owner() function

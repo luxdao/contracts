@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import {ILightAccount} from "../../interfaces/light-account/ILightAccount.sol";
 import {ILightAccountFactory} from "../../interfaces/light-account/ILightAccountFactory.sol";
