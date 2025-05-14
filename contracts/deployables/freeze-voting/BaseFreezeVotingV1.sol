@@ -29,13 +29,13 @@ abstract contract BaseFreezeVotingV1 is
     IBaseFreezeVotingV1,
     ERC165
 {
-    /** Block number the freeze proposal was created at. */
-    uint32 public freezeProposalCreatedBlock;
+    /** Timestamp the freeze proposal was created at. */
+    uint48 public freezeProposalCreated;
 
-    /** Number of blocks a freeze proposal has to succeed. */
+    /** Number of seconds a freeze proposal has to succeed. */
     uint32 public freezeProposalPeriod;
 
-    /** Number of blocks a freeze lasts, from time of freeze proposal creation. */
+    /** Number of seconds a freeze lasts, from time of freeze proposal creation. */
     uint32 public freezePeriod;
 
     /** Number of freeze votes required to activate a freeze. */
@@ -45,10 +45,10 @@ abstract contract BaseFreezeVotingV1 is
     uint256 public freezeProposalVoteCount;
 
     /**
-     * Mapping of address to the block the freeze vote was started to
+     * Mapping of address to the timestamp the freeze vote was started to
      * whether the address has voted yet on the freeze proposal.
      */
-    mapping(address => mapping(uint256 => bool)) public userHasFreezeVoted;
+    mapping(address => mapping(uint48 => bool)) public userHasFreezeVoted;
 
     event FreezeVoteCast(address indexed voter, uint256 votesCast);
     event FreezeProposalCreated(address indexed creator);
@@ -86,14 +86,14 @@ abstract contract BaseFreezeVotingV1 is
     function isFrozen() external view returns (bool) {
         return
             freezeProposalVoteCount >= freezeVotesThreshold &&
-            block.number < freezeProposalCreatedBlock + freezePeriod;
+            block.timestamp < freezeProposalCreated + freezePeriod;
     }
 
     /**
      * Unfreezes the DAO, only callable by the owner (parentDAO).
      */
     function unfreeze() external onlyOwner {
-        freezeProposalCreatedBlock = 0;
+        freezeProposalCreated = 0;
         freezeProposalVoteCount = 0;
     }
 

@@ -30,8 +30,8 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
      *
      * @param _owner The owner of the contract
      * @param _freezeVotesThreshold The number of votes required to activate a freeze
-     * @param _freezeProposalPeriod The number of blocks a freeze proposal has to succeed
-     * @param _freezePeriod The number of blocks a freeze lasts
+     * @param _freezeProposalPeriod The number of seconds a freeze proposal has to succeed
+     * @param _freezePeriod The number of seconds a freeze lasts
      * @param _parentSafe The address of the parent Safe contract
      */
     function initialize(
@@ -63,10 +63,10 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
     function castFreezeVote() external override {
         if (!parentSafe.isOwner(msg.sender)) revert NotOwner();
 
-        if (block.number > freezeProposalCreatedBlock + freezeProposalPeriod) {
+        if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
             // create a new freeze proposal and count the caller's vote
 
-            freezeProposalCreatedBlock = uint32(block.number);
+            freezeProposalCreated = uint48(block.timestamp);
 
             freezeProposalVoteCount = 1;
 
@@ -74,13 +74,13 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
         } else {
             // there is an existing freeze proposal, count the caller's vote
 
-            if (userHasFreezeVoted[msg.sender][freezeProposalCreatedBlock])
+            if (userHasFreezeVoted[msg.sender][freezeProposalCreated])
                 revert AlreadyVoted();
 
             freezeProposalVoteCount++;
         }
 
-        userHasFreezeVoted[msg.sender][freezeProposalCreatedBlock] = true;
+        userHasFreezeVoted[msg.sender][freezeProposalCreated] = true;
 
         emit FreezeVoteCast(msg.sender, 1);
     }
