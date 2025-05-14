@@ -32,8 +32,8 @@ contract ERC20FreezeVotingV1 is BaseFreezeVotingV1, Version {
      *
      * @param _owner The owner of the contract
      * @param _freezeVotesThreshold The number of votes required to activate a freeze
-     * @param _freezeProposalPeriod The number of blocks a freeze proposal has to succeed
-     * @param _freezePeriod The number of blocks a freeze lasts
+     * @param _freezeProposalPeriod The number of seconds a freeze proposal has to succeed
+     * @param _freezePeriod The number of seconds a freeze lasts
      * @param _votesERC20 The ERC20 voting token contract address
      */
     function initialize(
@@ -65,14 +65,14 @@ contract ERC20FreezeVotingV1 is BaseFreezeVotingV1, Version {
     function castFreezeVote() external override {
         uint256 userVotes;
 
-        if (block.number > freezeProposalCreatedBlock + freezeProposalPeriod) {
+        if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
             // create a new freeze proposal and set total votes to msg.sender's vote count
 
-            freezeProposalCreatedBlock = uint32(block.number);
+            freezeProposalCreated = uint48(block.timestamp);
 
             userVotes = votesERC20.getPastVotes(
                 msg.sender,
-                freezeProposalCreatedBlock - 1
+                freezeProposalCreated - 1
             );
 
             if (userVotes == 0) revert NoVotes();
@@ -83,12 +83,12 @@ contract ERC20FreezeVotingV1 is BaseFreezeVotingV1, Version {
         } else {
             // there is an existing freeze proposal, count user's votes toward it
 
-            if (userHasFreezeVoted[msg.sender][freezeProposalCreatedBlock])
+            if (userHasFreezeVoted[msg.sender][freezeProposalCreated])
                 revert AlreadyVoted();
 
             userVotes = votesERC20.getPastVotes(
                 msg.sender,
-                freezeProposalCreatedBlock - 1
+                freezeProposalCreated - 1
             );
 
             if (userVotes == 0) revert NoVotes();
@@ -96,7 +96,7 @@ contract ERC20FreezeVotingV1 is BaseFreezeVotingV1, Version {
             freezeProposalVoteCount += userVotes;
         }
 
-        userHasFreezeVoted[msg.sender][freezeProposalCreatedBlock] = true;
+        userHasFreezeVoted[msg.sender][freezeProposalCreated] = true;
 
         emit FreezeVoteCast(msg.sender, userVotes);
     }

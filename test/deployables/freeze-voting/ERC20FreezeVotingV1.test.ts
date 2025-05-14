@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -150,9 +150,9 @@ describe('ERC20FreezeVotingV1', () => {
     });
 
     it('should create a freeze proposal when first user votes', async () => {
-      // Set up mock past votes for the block
-      const voteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, voteBlock, VOTER1_TOKENS);
+      // Set up mock past votes for the timestamp
+      const voteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
 
       // Cast the first vote
       await expect(freezeVoting.connect(voter1).castFreezeVote())
@@ -162,16 +162,16 @@ describe('ERC20FreezeVotingV1', () => {
         .withArgs(voter1.address, VOTER1_TOKENS);
 
       // Check state after vote
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.be.gt(0); // Just check that a block was recorded
+      expect(await freezeVoting.freezeProposalCreated()).to.be.gt(0); // Just check that a timestamp was recorded
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(VOTER1_TOKENS);
     });
 
     it('should accumulate votes correctly based on token balances', async () => {
       // Set up mock past votes for voters
-      const voteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, voteBlock, VOTER1_TOKENS);
-      await votesToken.setPastVotes(voter2.address, voteBlock, VOTER2_TOKENS);
-      await votesToken.setPastVotes(voter3.address, voteBlock, VOTER3_TOKENS);
+      const voteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
+      await votesToken.setPastVotes(voter2.address, voteTimestamp, VOTER2_TOKENS);
+      await votesToken.setPastVotes(voter3.address, voteTimestamp, VOTER3_TOKENS);
 
       // First vote
       await freezeVoting.connect(voter1).castFreezeVote();
@@ -189,9 +189,9 @@ describe('ERC20FreezeVotingV1', () => {
     });
 
     it('should prevent duplicate votes from the same user', async () => {
-      // Set up mock past votes for the vote block
-      const voteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, voteBlock, VOTER1_TOKENS);
+      // Set up mock past votes for the vote timestamp
+      const voteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
 
       // First vote
       await freezeVoting.connect(voter1).castFreezeVote();
@@ -205,19 +205,19 @@ describe('ERC20FreezeVotingV1', () => {
 
     it('should reject votes after proposal period expiry', async () => {
       // Set up mock past votes for voters
-      const voteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, voteBlock, VOTER1_TOKENS);
-      await votesToken.setPastVotes(voter2.address, voteBlock, VOTER2_TOKENS);
+      const voteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
+      await votesToken.setPastVotes(voter2.address, voteTimestamp, VOTER2_TOKENS);
 
       // First vote to create proposal
       await freezeVoting.connect(voter1).castFreezeVote();
 
-      // Mine blocks to pass the freeze proposal period
-      await mine(FREEZE_PROPOSAL_PERIOD + 1);
+      // Increase time to pass the freeze proposal period
+      await time.increase(FREEZE_PROPOSAL_PERIOD + 1);
 
       // Second vote should create a new proposal, not add to the expired one
-      const voteBlock2 = await time.latestBlock();
-      await votesToken.setPastVotes(voter2.address, voteBlock2, VOTER2_TOKENS);
+      const voteTimestamp2 = await time.latest();
+      await votesToken.setPastVotes(voter2.address, voteTimestamp2, VOTER2_TOKENS);
 
       await expect(freezeVoting.connect(voter2).castFreezeVote())
         .to.emit(freezeVoting, 'FreezeProposalCreated')
@@ -231,10 +231,10 @@ describe('ERC20FreezeVotingV1', () => {
   describe('Freeze State', () => {
     beforeEach(async () => {
       // Set up mock past votes for all voters
-      const voteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, voteBlock, VOTER1_TOKENS);
-      await votesToken.setPastVotes(voter2.address, voteBlock, VOTER2_TOKENS);
-      await votesToken.setPastVotes(voter3.address, voteBlock, VOTER3_TOKENS);
+      const voteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
+      await votesToken.setPastVotes(voter2.address, voteTimestamp, VOTER2_TOKENS);
+      await votesToken.setPastVotes(voter3.address, voteTimestamp, VOTER3_TOKENS);
     });
 
     it('should not be frozen initially', async () => {
@@ -269,8 +269,8 @@ describe('ERC20FreezeVotingV1', () => {
       // Should be frozen initially
       void expect(await freezeVoting.isFrozen()).to.be.true;
 
-      // Mine blocks to pass the freeze period
-      await mine(FREEZE_PERIOD + 1);
+      // Increase time to pass the freeze period
+      await time.increase(FREEZE_PERIOD + 1);
 
       // Should no longer be frozen
       void expect(await freezeVoting.isFrozen()).to.be.false;
@@ -292,7 +292,7 @@ describe('ERC20FreezeVotingV1', () => {
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Check that state was reset
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(0);
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(0);
     });
 
@@ -328,9 +328,9 @@ describe('ERC20FreezeVotingV1', () => {
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Set up mock past votes for new proposal
-      const newVoteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, newVoteBlock, VOTER1_TOKENS);
-      await votesToken.setPastVotes(voter2.address, newVoteBlock, VOTER2_TOKENS);
+      const newVoteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, newVoteTimestamp, VOTER1_TOKENS);
+      await votesToken.setPastVotes(voter2.address, newVoteTimestamp, VOTER2_TOKENS);
 
       // Start a new proposal with not enough votes
       await freezeVoting.connect(voter1).castFreezeVote();
@@ -340,8 +340,8 @@ describe('ERC20FreezeVotingV1', () => {
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Set up mock past votes for voter3
-      const finalVoteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter3.address, finalVoteBlock, VOTER3_TOKENS);
+      const finalVoteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter3.address, finalVoteTimestamp, VOTER3_TOKENS);
 
       // Add the third vote to reach threshold
       await freezeVoting.connect(voter3).castFreezeVote();
@@ -402,10 +402,10 @@ describe('ERC20FreezeVotingV1', () => {
 
     it('should affect freeze status when threshold is updated', async () => {
       // Set up mock past votes for all voters
-      const voteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, voteBlock, VOTER1_TOKENS);
-      await votesToken.setPastVotes(voter2.address, voteBlock, VOTER2_TOKENS);
-      await votesToken.setPastVotes(voter3.address, voteBlock, VOTER3_TOKENS);
+      const voteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
+      await votesToken.setPastVotes(voter2.address, voteTimestamp, VOTER2_TOKENS);
+      await votesToken.setPastVotes(voter3.address, voteTimestamp, VOTER3_TOKENS);
 
       // Cast votes to meet the threshold of 300
       await freezeVoting.connect(voter1).castFreezeVote();
@@ -426,21 +426,22 @@ describe('ERC20FreezeVotingV1', () => {
   describe('User Has Voted Tracking', () => {
     beforeEach(async () => {
       // Set up mock past votes for voter1
-      const voteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, voteBlock, VOTER1_TOKENS);
+      const voteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
     });
 
     it('should correctly track if a user has voted on a proposal', async () => {
       // Initial state - user has not voted
-      const createdBlock = await freezeVoting.freezeProposalCreatedBlock();
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdBlock)).to.be.false;
+      const createdTimestamp = await freezeVoting.freezeProposalCreated();
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdTimestamp)).to.be
+        .false;
 
       // User votes
       await freezeVoting.connect(voter1).castFreezeVote();
 
       // Updated state - user has voted
-      const newCreatedBlock = await freezeVoting.freezeProposalCreatedBlock();
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedBlock)).to.be
+      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
         .true;
     });
 
@@ -448,30 +449,31 @@ describe('ERC20FreezeVotingV1', () => {
       // User votes
       await freezeVoting.connect(voter1).castFreezeVote();
 
-      // Get the created block number
-      const createdBlock = await freezeVoting.freezeProposalCreatedBlock();
+      // Get the created timestamp
+      const createdTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Check that user has voted
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdBlock)).to.be.true;
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdTimestamp)).to.be
+        .true;
 
       // Owner unfreezes
       await freezeVoting.connect(owner).unfreeze();
 
-      // The createdBlock is now 0, so the voting status should be reset
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(0);
+      // The created timestamp is now 0, so the voting status should be reset
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
 
-      // Set up mock past votes for the new block
-      const newVoteBlock = await time.latestBlock();
-      await votesToken.setPastVotes(voter1.address, newVoteBlock, VOTER1_TOKENS);
+      // Set up mock past votes for the new timestamp
+      const newVoteTimestamp = await time.latest();
+      await votesToken.setPastVotes(voter1.address, newVoteTimestamp, VOTER1_TOKENS);
 
       // User should be able to vote again on a new proposal
       await freezeVoting.connect(voter1).castFreezeVote();
 
-      // Get the new created block number
-      const newCreatedBlock = await freezeVoting.freezeProposalCreatedBlock();
+      // Get the new created timestamp
+      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Check that user has voted on the new proposal
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedBlock)).to.be
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
         .true;
     });
   });

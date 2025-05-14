@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -114,7 +114,7 @@ describe('BaseFreezeVotingV1', () => {
   describe('Freeze Voting Process', () => {
     it('should create a freeze proposal on first vote', async () => {
       // Initial state
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(0);
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(0);
 
       // First vote creates the proposal
@@ -125,8 +125,8 @@ describe('BaseFreezeVotingV1', () => {
         .withArgs(voter1.address, 1);
 
       // Check state after first vote
-      const currentBlock = await ethers.provider.getBlockNumber();
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(currentBlock);
+      const currentTimestamp = await time.latest();
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(currentTimestamp);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
     });
 
@@ -162,8 +162,8 @@ describe('BaseFreezeVotingV1', () => {
       // First vote to create proposal
       await freezeVoting.connect(voter1).castFreezeVote();
 
-      // Mine blocks to pass the freeze proposal period
-      await mine(FREEZE_PROPOSAL_PERIOD + 1);
+      // Increase time to pass the freeze proposal period
+      await time.increase(FREEZE_PROPOSAL_PERIOD + 1);
 
       // New vote should be rejected
       await expect(freezeVoting.connect(voter2).castFreezeVote()).to.be.revertedWith(
@@ -205,8 +205,8 @@ describe('BaseFreezeVotingV1', () => {
       // Should be frozen initially
       void expect(await freezeVoting.isFrozen()).to.be.true;
 
-      // Mine blocks to pass the freeze period
-      await mine(FREEZE_PERIOD + 1);
+      // Increase time to pass the freeze period
+      await time.increase(FREEZE_PERIOD + 1);
 
       // Should no longer be frozen
       void expect(await freezeVoting.isFrozen()).to.be.false;
@@ -228,7 +228,7 @@ describe('BaseFreezeVotingV1', () => {
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Check that state was reset
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(0);
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(0);
     });
 
@@ -347,15 +347,16 @@ describe('BaseFreezeVotingV1', () => {
   describe('User Has Voted Tracking', () => {
     it('should correctly track if a user has voted on a proposal', async () => {
       // Initial state - user has not voted
-      const createdBlock = await freezeVoting.freezeProposalCreatedBlock();
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdBlock)).to.be.false;
+      const createdTimestamp = await freezeVoting.freezeProposalCreated();
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdTimestamp)).to.be
+        .false;
 
       // User votes
       await freezeVoting.connect(voter1).castFreezeVote();
 
       // Updated state - user has voted
-      const newCreatedBlock = await freezeVoting.freezeProposalCreatedBlock();
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedBlock)).to.be
+      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
         .true;
     });
 
@@ -363,26 +364,27 @@ describe('BaseFreezeVotingV1', () => {
       // User votes
       await freezeVoting.connect(voter1).castFreezeVote();
 
-      // Get the created block number
-      const createdBlock = await freezeVoting.freezeProposalCreatedBlock();
+      // Get the created timestamp
+      const createdTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Check that user has voted
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdBlock)).to.be.true;
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdTimestamp)).to.be
+        .true;
 
       // Owner unfreezes
       await freezeVoting.connect(owner).unfreeze();
 
-      // The createdBlock is now 0, so the voting status should be reset
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(0);
+      // The created timestamp is now 0, so the voting status should be reset
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
 
       // User should be able to vote again on a new proposal
       await freezeVoting.connect(voter1).castFreezeVote();
 
-      // Get the new created block number
-      const newCreatedBlock = await freezeVoting.freezeProposalCreatedBlock();
+      // Get the new created timestamp
+      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Check that user has voted on the new proposal
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedBlock)).to.be
+      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
         .true;
     });
   });

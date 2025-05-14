@@ -39,20 +39,20 @@ interface IBaseFreezeVotingV1 {
 
     /**
      * Updates the freeze proposal period for future freeze votes. This is the length of time
-     * (in blocks) that a freeze vote is conducted for.
+     * (in seconds) that a freeze vote is conducted for.
      *
-     * @param _freezeProposalPeriod number of blocks a freeze proposal has to succeed
+     * @param _freezeProposalPeriod number of seconds a freeze proposal has to succeed
      */
     function updateFreezeProposalPeriod(uint32 _freezeProposalPeriod) external;
 
     /**
-     * Updates the freeze period. This is the length of time (in blocks) the subDAO is actually
+     * Updates the freeze period. This is the length of time (in seconds) the subDAO is actually
      * frozen for if a freeze vote passes.
      *
      * This period can be overridden by a call to `unfreeze()`, which would require a passed Proposal
      * from the parentDAO.
      *
-     * @param _freezePeriod number of blocks a freeze lasts, from time of freeze proposal creation
+     * @param _freezePeriod number of seconds a freeze lasts, from time of freeze proposal creation
      */
     function updateFreezePeriod(uint32 _freezePeriod) external;
 
