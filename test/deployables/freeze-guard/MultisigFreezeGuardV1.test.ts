@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -233,9 +233,9 @@ describe('MultisigFreezeGuardV1', () => {
         .withArgs(owner.address, ethers.isHexString, mockSignatures);
 
       // Check that the transaction is now timelocked
-      const timelockedBlock =
-        await multisigFreezeGuard.getTransactionTimelockedBlock(mockSignaturesHash);
-      expect(timelockedBlock).to.not.equal(0);
+      const timelockedTimestamp =
+        await multisigFreezeGuard.getTransactionTimelocked(mockSignaturesHash);
+      expect(timelockedTimestamp).to.not.equal(0);
     });
 
     it('should not allow timelocking the same signatures twice', async () => {
@@ -366,8 +366,7 @@ describe('MultisigFreezeGuardV1', () => {
     });
 
     it('should revert if timelock has expired', async () => {
-      // Mine blocks to make timelock expire
-      await mine(TIMELOCK_PERIOD + EXECUTION_PERIOD + 1);
+      await time.increase(TIMELOCK_PERIOD + EXECUTION_PERIOD + 1);
 
       await expect(
         multisigFreezeGuard.checkTransaction(
@@ -387,8 +386,7 @@ describe('MultisigFreezeGuardV1', () => {
     });
 
     it('should revert if DAO is frozen', async () => {
-      // Mine blocks to pass the timelock period
-      await mine(TIMELOCK_PERIOD + 1);
+      await time.increase(TIMELOCK_PERIOD + 1);
 
       // Set DAO to frozen
       await mockFreezeVoting.setIsFrozen(true);
@@ -411,8 +409,7 @@ describe('MultisigFreezeGuardV1', () => {
     });
 
     it('should allow transaction if properly timelocked and DAO not frozen', async () => {
-      // Mine blocks to pass the timelock period but not expire
-      await mine(TIMELOCK_PERIOD + 1);
+      await time.increase(TIMELOCK_PERIOD + 1);
 
       // Set DAO to not frozen
       await mockFreezeVoting.setIsFrozen(false);
@@ -444,15 +441,13 @@ describe('MultisigFreezeGuardV1', () => {
     });
   });
 
-  describe('getTransactionTimelockedBlock', () => {
+  describe('getTransactionTimelocked', () => {
     it('should return 0 for unknown signatures', async () => {
       const unknownSignatures = ethers.keccak256('0x9999');
-      expect(await multisigFreezeGuard.getTransactionTimelockedBlock(unknownSignatures)).to.equal(
-        0,
-      );
+      expect(await multisigFreezeGuard.getTransactionTimelocked(unknownSignatures)).to.equal(0);
     });
 
-    it('should return correct block number for timelocked signatures', async () => {
+    it('should return correct timestamp for timelocked signatures', async () => {
       // Configure mock Safe for valid signature validation
       await mockSafe.setValidSignature(mockSignaturesHash, true);
 
@@ -471,12 +466,12 @@ describe('MultisigFreezeGuardV1', () => {
         0,
       );
 
-      // Get the current block number
-      const blockNumber = await ethers.provider.getBlockNumber();
+      // Get the current timestamp
+      const timestamp = await time.latest();
 
-      // Check that the returned block number matches
-      expect(await multisigFreezeGuard.getTransactionTimelockedBlock(mockSignaturesHash)).to.equal(
-        blockNumber,
+      // Check that the returned timestamp matches
+      expect(await multisigFreezeGuard.getTransactionTimelocked(mockSignaturesHash)).to.equal(
+        timestamp,
       );
     });
   });
