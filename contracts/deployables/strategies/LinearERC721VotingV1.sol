@@ -509,7 +509,7 @@ contract LinearERC721VotingV1 is
                 emit VotingPeriodEnded(
                     _proposalId,
                     proposal.votingEndTimestamp,
-                    block.timestamp
+                    uint48(block.timestamp)
                 );
                 return;
             }

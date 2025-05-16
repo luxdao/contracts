@@ -394,7 +394,7 @@ contract LinearERC20VotingV1 is
                 emit VotingPeriodEnded(
                     _proposalId,
                     proposalVotes[_proposalId].votingEndTimestamp,
-                    block.timestamp
+                    uint48(block.timestamp)
                 );
                 return;
             }

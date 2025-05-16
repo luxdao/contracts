@@ -19,8 +19,8 @@ abstract contract ERC4337VoterSupportV1 is SmartAccountValidationV1 {
 
     event VotingPeriodEnded(
         uint32 indexed proposalId,
-        uint256 votingEndTimestamp,
-        uint256 currentTimestamp
+        uint48 votingEndTimestamp,
+        uint48 currentTimestamp
     );
 
     constructor() {
