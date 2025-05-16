@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -216,7 +216,7 @@ describe('ERC721FreezeVotingV1', () => {
         .withArgs(voter1.address, TOKEN1_WEIGHT);
 
       // Check state after vote
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.be.gt(0); // Just check that a block was recorded
+      expect(await freezeVoting.freezeProposalCreated()).to.be.gt(0); // Just check that a timestamp was recorded
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(TOKEN1_WEIGHT);
     });
 
@@ -307,10 +307,10 @@ describe('ERC721FreezeVotingV1', () => {
       await freezeVoting
         .connect(voter1)
         ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
-      const firstProposalBlock = await freezeVoting.freezeProposalCreatedBlock();
+      const firstProposalTimestamp = await freezeVoting.freezeProposalCreated();
 
-      // Mine blocks to pass the freeze proposal period
-      await mine(FREEZE_PROPOSAL_PERIOD + 1);
+      // Increase time to pass the freeze proposal period
+      await time.increase(FREEZE_PROPOSAL_PERIOD + 1);
 
       // Second vote should create a new proposal
       await expect(
@@ -321,9 +321,9 @@ describe('ERC721FreezeVotingV1', () => {
         .to.emit(freezeVoting, 'FreezeProposalCreated')
         .withArgs(voter2.address);
 
-      // New proposal should have a different block number
-      const secondProposalBlock = await freezeVoting.freezeProposalCreatedBlock();
-      expect(secondProposalBlock).to.not.equal(firstProposalBlock);
+      // New proposal should have a different timestamp
+      const secondProposalTimestamp = await freezeVoting.freezeProposalCreated();
+      expect(secondProposalTimestamp).to.not.equal(firstProposalTimestamp);
 
       // Vote count should be just voter2's vote
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(TOKEN2_WEIGHT);
@@ -367,8 +367,8 @@ describe('ERC721FreezeVotingV1', () => {
       // Should be frozen initially
       void expect(await freezeVoting.isFrozen()).to.be.true;
 
-      // Mine blocks to pass the freeze period
-      await mine(FREEZE_PERIOD + 1);
+      // Increase time to pass the freeze period
+      await time.increase(FREEZE_PERIOD + 1);
 
       // Should no longer be frozen
       void expect(await freezeVoting.isFrozen()).to.be.false;
@@ -390,7 +390,7 @@ describe('ERC721FreezeVotingV1', () => {
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Check that state was reset
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(0);
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(0);
     });
 
@@ -511,12 +511,12 @@ describe('ERC721FreezeVotingV1', () => {
 
   describe('Token Has Voted Tracking', () => {
     it('should correctly track if a token has been used to vote', async () => {
-      const createdBlock = 0; // Initial state
+      const createdTimestamp = 0; // Initial state
 
       // Initial state - token has not been used to vote
       void expect(
         await freezeVoting.idHasFreezeVoted(
-          createdBlock,
+          createdTimestamp,
           voter1TokenAddresses[0],
           voter1TokenIds[0],
         ),
@@ -527,13 +527,13 @@ describe('ERC721FreezeVotingV1', () => {
         .connect(voter1)
         ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
 
-      // Get the proposal created block
-      const newCreatedBlock = await freezeVoting.freezeProposalCreatedBlock();
+      // Get the proposal created timestamp
+      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Updated state - token has been used to vote
       void expect(
         await freezeVoting.idHasFreezeVoted(
-          newCreatedBlock,
+          newCreatedTimestamp,
           voter1TokenAddresses[0],
           voter1TokenIds[0],
         ),
@@ -546,13 +546,13 @@ describe('ERC721FreezeVotingV1', () => {
         .connect(voter1)
         ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
 
-      // Get the created block number
-      const createdBlock = await freezeVoting.freezeProposalCreatedBlock();
+      // Get the created timestamp
+      const createdTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Check that token has been used to vote
       void expect(
         await freezeVoting.idHasFreezeVoted(
-          createdBlock,
+          createdTimestamp,
           voter1TokenAddresses[0],
           voter1TokenIds[0],
         ),
@@ -561,19 +561,19 @@ describe('ERC721FreezeVotingV1', () => {
       // Owner unfreezes
       await freezeVoting.connect(owner).unfreeze();
 
-      // The createdBlock is now 0, so the voting status is implicitly reset
-      expect(await freezeVoting.freezeProposalCreatedBlock()).to.equal(0);
+      // The created timestamp is now 0, so the voting status is implicitly reset
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
 
       // User should be able to vote again with the same token
       await freezeVoting
         .connect(voter1)
         ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
-      const newCreatedBlock = await freezeVoting.freezeProposalCreatedBlock();
+      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // The token should be marked as voted for the new proposal
       void expect(
         await freezeVoting.idHasFreezeVoted(
-          newCreatedBlock,
+          newCreatedTimestamp,
           voter1TokenAddresses[0],
           voter1TokenIds[0],
         ),
