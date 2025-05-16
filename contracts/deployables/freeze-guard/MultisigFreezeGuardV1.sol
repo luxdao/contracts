@@ -20,10 +20,10 @@ contract MultisigFreezeGuardV1 is
 {
     uint16 private constant VERSION = 1;
 
-    /** Timelock period (in blocks). */
+    /** Timelock period (in seconds). */
     uint32 public timelockPeriod;
 
-    /** Execution period (in blocks). */
+    /** Execution period (in seconds). */
     uint32 public executionPeriod;
 
     /**
@@ -35,8 +35,8 @@ contract MultisigFreezeGuardV1 is
     /** Reference to the Safe that can be frozen. */
     ISafe public childGnosisSafe;
 
-    /** Mapping of signatures hash to the block during which it was timelocked. */
-    mapping(bytes32 => uint32) internal transactionTimelockedBlock;
+    /** Mapping of signatures hash to the timestamp during which it was timelocked. */
+    mapping(bytes32 => uint48) internal transactionTimelocked;
 
     event MultisigFreezeGuardSetup(
         address creator,
@@ -116,7 +116,7 @@ contract MultisigFreezeGuardV1 is
     ) external {
         bytes32 signaturesHash = keccak256(signatures);
 
-        if (transactionTimelockedBlock[signaturesHash] != 0)
+        if (transactionTimelocked[signaturesHash] != 0)
             revert AlreadyTimelocked();
 
         bytes memory transactionHashData = childGnosisSafe
@@ -142,7 +142,7 @@ contract MultisigFreezeGuardV1 is
             signatures
         );
 
-        transactionTimelockedBlock[signaturesHash] = uint32(block.number);
+        transactionTimelocked[signaturesHash] = uint48(block.timestamp);
 
         emit TransactionTimelocked(msg.sender, transactionHash, signatures);
     }
@@ -176,17 +176,16 @@ contract MultisigFreezeGuardV1 is
     ) external view override(BaseFreezeGuardV1) {
         bytes32 signaturesHash = keccak256(signatures);
 
-        if (transactionTimelockedBlock[signaturesHash] == 0)
-            revert NotTimelocked();
+        if (transactionTimelocked[signaturesHash] == 0) revert NotTimelocked();
 
         if (
-            block.number <
-            transactionTimelockedBlock[signaturesHash] + timelockPeriod
+            block.timestamp <
+            transactionTimelocked[signaturesHash] + timelockPeriod
         ) revert Timelocked();
 
         if (
-            block.number >
-            transactionTimelockedBlock[signaturesHash] +
+            block.timestamp >
+            transactionTimelocked[signaturesHash] +
                 timelockPeriod +
                 executionPeriod
         ) revert Expired();
@@ -206,10 +205,10 @@ contract MultisigFreezeGuardV1 is
     }
 
     /** @inheritdoc IMultisigFreezeGuardV1*/
-    function getTransactionTimelockedBlock(
+    function getTransactionTimelocked(
         bytes32 _signaturesHash
-    ) public view returns (uint32) {
-        return transactionTimelockedBlock[_signaturesHash];
+    ) public view returns (uint48) {
+        return transactionTimelocked[_signaturesHash];
     }
 
     /** Internal implementation of `updateTimelockPeriod` */
