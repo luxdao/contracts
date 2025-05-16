@@ -41,8 +41,8 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
      *
      * @param _owner The owner of the contract
      * @param _freezeVotesThreshold The number of votes required to activate a freeze
-     * @param _freezeProposalPeriod The number of blocks a freeze proposal has to succeed
-     * @param _freezePeriod The number of blocks a freeze lasts
+     * @param _freezeProposalPeriod The number of seconds a freeze proposal has to succeed
+     * @param _freezePeriod The number of seconds a freeze lasts
      * @param _strategy The address of the voting strategy
      */
     function initialize(
@@ -81,9 +81,9 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
     ) external {
         if (_tokenAddresses.length != _tokenIds.length) revert UnequalArrays();
 
-        if (block.number > freezeProposalCreatedBlock + freezeProposalPeriod) {
+        if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
             // create a new freeze proposal
-            freezeProposalCreatedBlock = uint32(block.number);
+            freezeProposalCreated = uint48(block.timestamp);
             freezeProposalVoteCount = 0;
             emit FreezeProposalCreated(msg.sender);
         }
@@ -113,15 +113,12 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
 
             if (_voter != IERC721(tokenAddress).ownerOf(tokenId)) continue;
 
-            if (
-                idHasFreezeVoted[freezeProposalCreatedBlock][tokenAddress][
-                    tokenId
-                ]
-            ) continue;
+            if (idHasFreezeVoted[freezeProposalCreated][tokenAddress][tokenId])
+                continue;
 
             votes += strategy.getTokenWeight(tokenAddress);
 
-            idHasFreezeVoted[freezeProposalCreatedBlock][tokenAddress][
+            idHasFreezeVoted[freezeProposalCreated][tokenAddress][
                 tokenId
             ] = true;
         }
