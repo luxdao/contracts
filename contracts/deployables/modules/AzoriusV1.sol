@@ -388,7 +388,7 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version, UUPSUpgradeable {
 
         IBaseStrategyV1 _strategy = IBaseStrategyV1(_proposal.strategy);
 
-        uint256 votingEndTimestamp = _strategy.votingEndTimestamp(_proposalId);
+        uint48 votingEndTimestamp = _strategy.votingEndTimestamp(_proposalId);
 
         if (block.timestamp <= votingEndTimestamp) {
             return ProposalState.ACTIVE;

@@ -23,7 +23,7 @@ interface ILinearERC721VotingV1 {
 
     function votingEndTimestamp(
         uint32 proposalId
-    ) external view returns (uint32);
+    ) external view returns (uint48);
 
     function getTokenWeight(
         address tokenAddress
