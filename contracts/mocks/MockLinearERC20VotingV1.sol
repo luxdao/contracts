@@ -15,7 +15,7 @@ struct Checkpoint208 {
 
 contract MockLinearERC20VotingV1 {
     // Mapping: proposalId => ProposalPeriod
-    mapping(uint32 => ProposalPeriod) public getProposalPeriod;
+    mapping(uint32 => ProposalPeriod) public getVotingTimestamps;
     // Mapping: proposalId => votingPeriodEnded
     mapping(uint32 => bool) public votingPeriodEnded;
     // Mapping: proposalId => voter => hasVoted
@@ -32,11 +32,11 @@ contract MockLinearERC20VotingV1 {
         // Mock implementation - just for interface matching
     }
 
-    function setProposalPeriod(
+    function setVotingTimestamps(
         uint32 proposalId,
         ProposalPeriod calldata data
     ) external {
-        getProposalPeriod[proposalId] = data;
+        getVotingTimestamps[proposalId] = data;
     }
 
     function setVotingPeriodEnded(uint32 proposalId, bool ended) external {

@@ -7,8 +7,6 @@ import {BaseStrategyV1} from "../../../../deployables/strategies/BaseStrategyV1.
  * A concrete implementation of BaseStrategyV1 for testing purposes.
  */
 contract ConcreteBaseStrategyV1 is BaseStrategyV1 {
-    event ConcreteFunctionCalled();
-
     /**
      * Sets up the concrete strategy contract.
      * @param _owner The owner of the contract
@@ -19,49 +17,29 @@ contract ConcreteBaseStrategyV1 is BaseStrategyV1 {
         address _proposalInitializer
     ) public override initializer {
         BaseStrategyV1.initialize(_owner, _proposalInitializer);
-
         emit StrategySetUp(_proposalInitializer, _owner);
     }
 
-    /**
-     * A concrete function that uses the onlyAzorius modifier for testing.
-     */
     function concreteOnlyProposalInitializerFunction()
         external
         onlyProposalInitializer
-    {
-        emit ConcreteFunctionCalled();
-    }
+    {}
 
-    /**
-     * Concrete implementation of the abstract initializeProposal function.
-     */
     function initializeProposal(
         bytes memory
-    ) external override onlyProposalInitializer {
-        emit ConcreteFunctionCalled();
-    }
+    ) external override onlyProposalInitializer {}
 
-    /**
-     * Concrete implementation of the abstract isPassed function.
-     */
     function isPassed(uint32) external pure override returns (bool) {
         return true;
     }
 
-    /**
-     * Concrete implementation of the abstract isProposer function.
-     */
     function isProposer(address) external pure override returns (bool) {
         return true;
     }
 
-    /**
-     * Concrete implementation of the abstract votingEndTimestamp function.
-     */
-    function votingEndTimestamp(
+    function getVotingTimestamps(
         uint32
-    ) external view override returns (uint48) {
-        return uint48(block.timestamp) + 100;
+    ) public view override returns (uint48, uint48) {
+        return (uint48(block.timestamp), uint48(block.timestamp) + 100);
     }
 }

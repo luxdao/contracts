@@ -456,7 +456,7 @@ describe('LinearERC721VotingV1', () => {
       await linearERC721Voting.connect(nonOwner).initializeProposal(initializeData);
 
       // Check that proposal was initialized correctly
-      const votingEndTimestamp = await linearERC721Voting.votingEndTimestamp(proposalId);
+      const [, votingEndTimestamp] = await linearERC721Voting.getVotingTimestamps(proposalId);
       expect(votingEndTimestamp).to.not.equal(0);
     });
 
