@@ -67,10 +67,11 @@ abstract contract BaseStrategyV1 is
     function isProposer(address _address) external view virtual returns (bool);
 
     /** @inheritdoc IBaseStrategyV1*/
-    function votingEndTimestamp(
+    function getVotingTimestamps(
         uint32 _proposalId
-    ) external view virtual returns (uint48);
+    ) external view virtual returns (uint48 startTime, uint48 endTime);
 
+    /** @inheritdoc ERC165*/
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override returns (bool) {

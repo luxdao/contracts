@@ -57,7 +57,7 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
       };
 
       // Set up proposal votes data with safe timestamps
-      await mockERC20Strategy.setProposalPeriod(_proposalId, proposalPeriod);
+      await mockERC20Strategy.setVotingTimestamps(_proposalId, proposalPeriod);
 
       // Set up voting state
       await mockERC20Strategy.setVotingPeriodEnded(_proposalId, false);
@@ -148,7 +148,7 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
       void expect(validResult).to.be.true;
 
       // Now set the proposal to non-existent (endTimestamp = 0)
-      await mockERC20Strategy.setProposalPeriod(proposalId, {
+      await mockERC20Strategy.setVotingTimestamps(proposalId, {
         startTimestamp: 0,
         endTimestamp: 0, // Zero end timestamp indicates non-existent proposal
       });
@@ -491,7 +491,7 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
           const { calldata } = await setupVoteOperation(proposalId, voteTypes.YES, voter.address);
 
           // Override proposal to start at timestamp 0
-          await mockERC20Strategy.setProposalPeriod(proposalId, {
+          await mockERC20Strategy.setVotingTimestamps(proposalId, {
             startTimestamp: 0,
             endTimestamp: 100,
           });
@@ -625,18 +625,18 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
       const expectedStart = currentTimestamp;
       const expectedEnd = currentTimestamp + 100;
 
-      await mockERC20Strategy.setProposalPeriod(proposalId, {
+      await mockERC20Strategy.setVotingTimestamps(proposalId, {
         startTimestamp: expectedStart,
         endTimestamp: expectedEnd,
       });
 
-      const [actualStart, actualEnd] = await mockERC20Strategy.getProposalPeriod(proposalId);
+      const [actualStart, actualEnd] = await mockERC20Strategy.getVotingTimestamps(proposalId);
       expect(actualStart).to.equal(expectedStart);
       expect(actualEnd).to.equal(expectedEnd);
     });
 
     it('Should return zeros for non-existent proposal', async function () {
-      const [startTimestamp, endTimestamp] = await mockERC20Strategy.getProposalPeriod(999); // Using an unused proposal ID
+      const [startTimestamp, endTimestamp] = await mockERC20Strategy.getVotingTimestamps(999); // Using an unused proposal ID
       expect(startTimestamp).to.equal(0);
       expect(endTimestamp).to.equal(0);
     });
@@ -644,21 +644,22 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
     it('Should return updated values after modifying proposal period', async function () {
       // Set initial values
       const currentTimestamp = await time.latest();
-      await mockERC20Strategy.setProposalPeriod(proposalId, {
+      await mockERC20Strategy.setVotingTimestamps(proposalId, {
         startTimestamp: currentTimestamp,
-        endTimestamp: currentTimestamp + 100,
+        endTimestamp: currentTimestamp + 10,
       });
 
       // Update to new values
       const newStart = currentTimestamp + 50;
       const newEnd = currentTimestamp + 150;
-      await mockERC20Strategy.setProposalPeriod(proposalId, {
+      await mockERC20Strategy.setVotingTimestamps(proposalId, {
         startTimestamp: newStart,
         endTimestamp: newEnd,
       });
 
       // Verify the update
-      const [startTimestamp, endTimestamp] = await mockERC20Strategy.getProposalPeriod(proposalId);
+      const [startTimestamp, endTimestamp] =
+        await mockERC20Strategy.getVotingTimestamps(proposalId);
       expect(startTimestamp).to.equal(newStart);
       expect(endTimestamp).to.equal(newEnd);
     });

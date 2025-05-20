@@ -14,9 +14,9 @@ interface ILinearERC20VotingV1 {
         address account
     ) external view returns (bool);
 
-    function getProposalPeriod(
+    function getVotingTimestamps(
         uint32 proposalId
-    ) external view returns (uint48, uint48);
+    ) external view returns (uint48 startTime, uint48 endTime);
 
     function votingPeriodEnded(uint32 proposalId) external view returns (bool);
 
@@ -77,7 +77,7 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
         // get the proposal start and end timestamps to determine if the proposal exists
         (uint48 startTimestamp, uint48 endTimestamp) = ILinearERC20VotingV1(
             votingContract
-        ).getProposalPeriod(proposalId);
+        ).getVotingTimestamps(proposalId);
 
         // Check if proposal exists (will have non-zero endTimestamp if it exists)
         if (endTimestamp == 0) {

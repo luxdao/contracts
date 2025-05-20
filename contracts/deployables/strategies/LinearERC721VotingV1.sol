@@ -2,11 +2,11 @@
 pragma solidity ^0.8.30;
 
 import {Version} from "../Version.sol";
-import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
 import {BaseStrategyV1} from "./BaseStrategyV1.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
 import {IBaseVotingBasisPercentV1} from "../../interfaces/decent/deployables/IBaseVotingBasisPercentV1.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -50,7 +50,7 @@ contract LinearERC721VotingV1 is
      * Defines the current state of votes on a particular Proposal.
      */
     struct ProposalVotes {
-        uint48 votingStartTimestamp; // timestamp that voting starts at
+        uint48 votingStartTimestamp; // timestamp that voting starts
         uint48 votingEndTimestamp; // timestamp that voting ends
         uint256 noVotes; // current number of NO votes for the Proposal
         uint256 yesVotes; // current number of YES votes for the Proposal
@@ -71,7 +71,7 @@ contract LinearERC721VotingV1 is
     /** ERC-721 address to its voting weight per NFT id.  */
     mapping(address => uint256) public tokenWeights;
 
-    /** Number of blocks a new Proposal can be voted on. */
+    /** Time that a new Proposal can be voted on. */
     uint32 public votingPeriod;
 
     /**
@@ -125,7 +125,7 @@ contract LinearERC721VotingV1 is
      * @param _tokens Array of ERC-721 token addresses that can vote
      * @param _weights Array of voting weights for each token
      * @param _proposalInitializer Address that is allowed to initialize Proposals
-     * @param _votingPeriod The voting time period (in blocks)
+     * @param _votingPeriod The voting time period (in seconds)
      * @param _quorumThreshold Total voting weight required to achieve quorum
      * @param _proposerThreshold Required voting weight to submit proposals
      * @param _basisNumerator The numerator for basis calculation
@@ -188,7 +188,7 @@ contract LinearERC721VotingV1 is
     /**
      * Updates the voting time period for new Proposals.
      *
-     * @param _votingPeriod voting time period (in blocks)
+     * @param _votingPeriod voting time period (in seconds)
      */
     function updateVotingPeriod(
         uint32 _votingPeriod
@@ -265,11 +265,12 @@ contract LinearERC721VotingV1 is
             uint48 endTimestamp
         )
     {
-        noVotes = proposalVotes[_proposalId].noVotes;
-        yesVotes = proposalVotes[_proposalId].yesVotes;
-        abstainVotes = proposalVotes[_proposalId].abstainVotes;
-        startTimestamp = proposalVotes[_proposalId].votingStartTimestamp;
-        endTimestamp = proposalVotes[_proposalId].votingEndTimestamp;
+        ProposalVotes storage currentProposalVotes = proposalVotes[_proposalId];
+        noVotes = currentProposalVotes.noVotes;
+        yesVotes = currentProposalVotes.yesVotes;
+        abstainVotes = currentProposalVotes.abstainVotes;
+        startTimestamp = currentProposalVotes.votingStartTimestamp;
+        endTimestamp = currentProposalVotes.votingEndTimestamp;
     }
 
     /**
@@ -351,29 +352,25 @@ contract LinearERC721VotingV1 is
         bytes memory _data
     ) public virtual override onlyProposalInitializer {
         uint32 proposalId = abi.decode(_data, (uint32));
-        uint48 _votingEndTimestamp = uint48(block.timestamp) + votingPeriod;
+        uint48 votingEndTimestamp = uint48(block.timestamp) + votingPeriod;
 
-        proposalVotes[proposalId].votingEndTimestamp = _votingEndTimestamp;
         proposalVotes[proposalId].votingStartTimestamp = uint48(
             block.timestamp
         );
+        proposalVotes[proposalId].votingEndTimestamp = votingEndTimestamp;
 
-        emit ProposalInitialized(proposalId, _votingEndTimestamp);
+        emit ProposalInitialized(proposalId, votingEndTimestamp);
     }
 
     /** @inheritdoc BaseStrategyV1*/
     function isPassed(
         uint32 _proposalId
     ) public view virtual override returns (bool) {
-        return (block.timestamp >
-            proposalVotes[_proposalId].votingEndTimestamp && // voting period has ended
+        ProposalVotes storage currentProposal = proposalVotes[_proposalId];
+        return (block.timestamp > currentProposal.votingEndTimestamp && // voting period has ended
             quorumThreshold <=
-            proposalVotes[_proposalId].yesVotes +
-                proposalVotes[_proposalId].abstainVotes && // yes + abstain votes meets the quorum
-            meetsBasis(
-                proposalVotes[_proposalId].yesVotes,
-                proposalVotes[_proposalId].noVotes
-            )); // yes votes meets the basis
+            currentProposal.yesVotes + currentProposal.abstainVotes && // yes + abstain votes meets the quorum
+            meetsBasis(currentProposal.yesVotes, currentProposal.noVotes)); // yes votes meets the basis
     }
 
     /** @inheritdoc BaseStrategyV1*/
@@ -393,11 +390,14 @@ contract LinearERC721VotingV1 is
         return totalWeight >= proposerThreshold;
     }
 
-    /** @inheritdoc BaseStrategyV1*/
-    function votingEndTimestamp(
+    function getVotingTimestamps(
         uint32 _proposalId
-    ) public view virtual override returns (uint48) {
-        return proposalVotes[_proposalId].votingEndTimestamp;
+    ) public view virtual override returns (uint48, uint48) {
+        ProposalVotes storage currentProposalVotes = proposalVotes[_proposalId];
+        return (
+            currentProposalVotes.votingStartTimestamp,
+            currentProposalVotes.votingEndTimestamp
+        );
     }
 
     /** Internal implementation of `addGovernanceToken` */
