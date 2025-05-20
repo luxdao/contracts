@@ -21,9 +21,9 @@ interface ILinearERC721VotingV1 {
         uint256 tokenId
     ) external view returns (bool);
 
-    function votingEndTimestamp(
+    function getVotingTimestamps(
         uint32 proposalId
-    ) external view returns (uint48);
+    ) external view returns (uint48 startTime, uint48 endTime);
 
     function getTokenWeight(
         address tokenAddress
@@ -83,8 +83,8 @@ contract LinearERC721VotingV1ValidatorV1 is
         }
 
         // Get voting end timestamp to determine if the proposal exists
-        uint256 endTimestamp = ILinearERC721VotingV1(votingContract)
-            .votingEndTimestamp(proposalId);
+        (, uint48 endTimestamp) = ILinearERC721VotingV1(votingContract)
+            .getVotingTimestamps(proposalId);
 
         // Check if proposal exists (will have non-zero endTimestamp if it exists)
         if (endTimestamp == 0) {

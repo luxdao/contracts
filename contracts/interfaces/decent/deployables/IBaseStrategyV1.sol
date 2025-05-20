@@ -42,12 +42,12 @@ interface IBaseStrategyV1 {
     function isProposer(address _address) external view returns (bool);
 
     /**
-     * Returns the absolute timestamp that voting ends on a given Proposal.
-     *
-     * @param _proposalId proposalId to check
-     * @return uint48 timestamp when voting ends on the Proposal
+     * @notice Returns the start and end timestamps of a proposal's voting period.
+     * @param _proposalId The ID of the proposal.
+     * @return startTime The start timestamp of the voting period.
+     * @return endTime The end timestamp of the voting period.
      */
-    function votingEndTimestamp(
+    function getVotingTimestamps(
         uint32 _proposalId
-    ) external view returns (uint48);
+    ) external view returns (uint48 startTime, uint48 endTime);
 }

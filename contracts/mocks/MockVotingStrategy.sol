@@ -4,17 +4,20 @@ pragma solidity ^0.8.30;
 import {IBaseStrategyV1} from "../interfaces/decent/deployables/IBaseStrategyV1.sol";
 
 contract MockVotingStrategy is IBaseStrategyV1 {
+    struct TimestampPoints {
+        uint48 startTimestamp;
+        uint48 endTimestamp;
+    }
+
     address public proposer;
     mapping(uint32 => bool) private _isPassed;
-    mapping(uint32 => uint48) private _votingEndTimestamp;
+    mapping(uint32 => TimestampPoints) private _proposalTimestamps;
 
     constructor(address _proposer) {
         proposer = _proposer;
     }
 
-    // required by IBaseStrategyV1
-
-    function initializeProposal(bytes memory _data) external override {}
+    function initializeProposal(bytes memory) external override {}
 
     function isPassed(uint32 proposalId) external view override returns (bool) {
         return _isPassed[proposalId];
@@ -26,19 +29,22 @@ contract MockVotingStrategy is IBaseStrategyV1 {
         return _proposer == proposer;
     }
 
-    function votingEndTimestamp(
+    function getVotingTimestamps(
         uint32 proposalId
-    ) external view override returns (uint48) {
-        return _votingEndTimestamp[proposalId];
+    ) external view override returns (uint48, uint48) {
+        TimestampPoints memory timestamps = _proposalTimestamps[proposalId];
+        return (timestamps.startTimestamp, timestamps.endTimestamp);
     }
 
-    // setters, for testing
-
-    function setVotingEndTimestamp(
+    function setVotingTimestamps(
         uint32 proposalId,
+        uint48 startTimestamp,
         uint48 endTimestamp
     ) external {
-        _votingEndTimestamp[proposalId] = endTimestamp;
+        _proposalTimestamps[proposalId] = TimestampPoints(
+            startTimestamp,
+            endTimestamp
+        );
     }
 
     function setIsPassed(uint32 proposalId, bool passed) external {
