@@ -22,6 +22,7 @@ contract VotesStakedERC20V1 is
     OwnableUpgradeable
 {
     uint16 private constant VERSION = 1;
+    uint256 public minimumStakingPeriod;
 
     constructor() {
         _disableInitializers();
@@ -33,16 +34,19 @@ contract VotesStakedERC20V1 is
      * @param name Token name
      * @param symbol Token symbol
      * @param owner Address that will own the proxy and be able to upgrade it
+     * @param _minimumStakingPeriod Minimum staking period in seconds
      */
     function initialize(
         string memory name,
         string memory symbol,
-        address owner
+        address owner,
+        uint256 _minimumStakingPeriod
     ) public initializer {
         __ERC20_init(name, symbol);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
+        minimumStakingPeriod = _minimumStakingPeriod;
     }
 
     function clock() public view override returns (uint48) {
