@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Version} from "../Version.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
@@ -20,13 +21,32 @@ contract VotesStakedERC20V1 is
     UUPSUpgradeable,
     OwnableUpgradeable
 {
+    using SafeERC20 for IERC20;
+
     uint16 private constant VERSION = 1;
     IERC20 public stakedToken;
     uint256 public minimumStakingPeriod;
+    uint256 public totalStaked;
+
+    mapping(address staker => uint256 amount) public stakedAmount;
+    mapping(address staker => uint256 timestamp) public lastStakeTimestamp;
+
+    struct RewardToken {
+        address token;
+        uint256 totalRewardsRate;
+        uint256 totalRewardsDistributed;
+        uint256 totalRewardsClaimed;
+        mapping(address staker => uint256 rewardRate) stakerRewardsRates;
+        mapping(address staker => uint256 accumulatedRewards) stakerAccumulatedRewards;
+    }
+
+    RewardToken[] public rewardTokens;
 
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
-
+    event Staked(address indexed staker, uint256 amount);
+    event RewardsTokenAdded(address indexed token);
     error NonTransferable();
+    error ZeroStake();
 
     constructor() {
         _disableInitializers();
@@ -46,7 +66,8 @@ contract VotesStakedERC20V1 is
         string memory symbol,
         address owner,
         address _stakedToken,
-        uint256 _minimumStakingPeriod
+        uint256 _minimumStakingPeriod,
+        address[] memory _rewardTokens
     ) public initializer {
         __ERC20_init(name, symbol);
         __ERC20Votes_init();
@@ -54,6 +75,15 @@ contract VotesStakedERC20V1 is
         __Ownable_init(owner);
         stakedToken = IERC20(_stakedToken);
         _setMinimumStakingPeriod(_minimumStakingPeriod);
+        _addRewardsTokens(_rewardTokens);
+    }
+
+    /**
+     * @notice Adds new rewards tokens to the contract.
+     * @param _rewardTokens The addresses of the new rewards tokens.
+     */
+    function addRewardsTokens(address[] memory _rewardsTokens) external onlyOwner {
+        _addRewardsTokens(_rewardsTokens);
     }
 
     /**
@@ -62,8 +92,66 @@ contract VotesStakedERC20V1 is
      */
     function setMinimumStakingPeriod(
         uint256 newMinimumStakingPeriod
-    ) public onlyOwner {
+    ) external onlyOwner {
         _setMinimumStakingPeriod(newMinimumStakingPeriod);
+    }
+
+    /**
+     * @notice Stakes a given amount of tokens.
+     * @param amount The amount of tokens to stake.
+     */
+    function stake(uint256 amount) external {
+        if (amount == 0) revert ZeroStake();
+
+        _accumulateRewards(msg.sender);
+
+        stakedAmount[msg.sender] += amount;
+        lastStakeTimestamp[msg.sender] = block.timestamp;
+        totalStaked += amount;
+
+        _mint(msg.sender, amount);
+
+        stakedToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Staked(msg.sender, amount);
+    }
+
+    /**
+     * @notice Adds new rewards tokens to the contract.
+     * @param _rewardsTokens The addresses of the new rewards tokens.
+     */
+    function _addRewardsTokens(address[] memory _rewardsTokens) internal {
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            rewardTokens.push(RewardToken({token: _rewardsTokens[i]}));
+
+            emit RewardsTokenAdded(_rewardsTokens[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    /**
+     * @notice Accumulates rewards for a given staker and updates their rewards rates.
+     * @param _staker The address of the staker.
+     */
+    function _accumulateRewards(address _staker) internal {
+        for (uint256 i = 0; i < rewardsTokens.length; ) {
+            RewardToken token = rewardsTokens[i];
+
+            token.stakerAccumulatedRewards[_staker] +=
+                (stakedAmount[_staker] *
+                    (token.totalRewardsRate -
+                        token.stakerRewardsRates[_staker])) /
+                (10 ** 18);
+
+            token.stakerRewardsRates[_staker] = token.totalRewardsRate;
+
+            unchecked {
+                i++;
+            }
+        }
     }
 
     /**
@@ -76,9 +164,13 @@ contract VotesStakedERC20V1 is
     /**
      * @notice This ERC20 function is overridden to prevent transferFroms
      */
-    function transferFrom(address, address, uint256) public virtual override returns (bool) {
+    function transferFrom(
+        address,
+        address,
+        uint256
+    ) public virtual override returns (bool) {
         revert NonTransferable();
-    }   
+    }
 
     function clock() public view override returns (uint48) {
         return uint48(block.timestamp);
@@ -93,12 +185,11 @@ contract VotesStakedERC20V1 is
      * Called by {upgradeTo} and {upgradeToAndCall}.
      *
      * Reverts if the sender is not the owner of the contract.
+     * Authorization is handled by the onlyOwner modifier
      */
     function _authorizeUpgrade(
         address newImplementation
-    ) internal virtual override onlyOwner {
-        // Authorization is handled by the onlyOwner modifier
-    }
+    ) internal virtual override onlyOwner { }
 
     /**
      * @notice Sets the minimum staking period.
