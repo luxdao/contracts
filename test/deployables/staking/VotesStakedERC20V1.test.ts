@@ -96,7 +96,13 @@ describe('VotesStakedERC20V1', () => {
       );
 
       await expect(
-        votesStakedERC20.initialize('New Name', 'NEW', owner.address, await stakedToken.getAddress(), 604800n),
+        votesStakedERC20.initialize(
+          'New Name',
+          'NEW',
+          owner.address,
+          await stakedToken.getAddress(),
+          604800n,
+        ),
       ).to.be.revertedWithCustomError(votesStakedERC20, 'InvalidInitialization');
     });
 
@@ -104,7 +110,13 @@ describe('VotesStakedERC20V1', () => {
       const implementationContract = VotesStakedERC20V1__factory.connect(masterCopy, proxyDeployer);
 
       await expect(
-        implementationContract.initialize('New Name', 'NEW', owner.address, await stakedToken.getAddress(), 604800n),
+        implementationContract.initialize(
+          'New Name',
+          'NEW',
+          owner.address,
+          await stakedToken.getAddress(),
+          604800n,
+        ),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
 
@@ -147,10 +159,9 @@ describe('VotesStakedERC20V1', () => {
     });
 
     it('should not allow non-owners to call owner-only functions', async () => {
-      await expect(votesStakedERC20.connect(alice).renounceOwnership()).to.be.revertedWithCustomError(
-        votesStakedERC20,
-        'OwnableUnauthorizedAccount',
-      );
+      await expect(
+        votesStakedERC20.connect(alice).renounceOwnership(),
+      ).to.be.revertedWithCustomError(votesStakedERC20, 'OwnableUnauthorizedAccount');
     });
 
     it('should allow the owner to set a new minimum staking period', async () => {
@@ -159,10 +170,9 @@ describe('VotesStakedERC20V1', () => {
     });
 
     it('should not allow non-owners to set a new minimum staking period', async () => {
-      await expect(votesStakedERC20.connect(alice).setMinimumStakingPeriod(10n)).to.be.revertedWithCustomError(
-        votesStakedERC20,
-        'OwnableUnauthorizedAccount',
-      );
+      await expect(
+        votesStakedERC20.connect(alice).setMinimumStakingPeriod(10n),
+      ).to.be.revertedWithCustomError(votesStakedERC20, 'OwnableUnauthorizedAccount');
     });
   });
 
