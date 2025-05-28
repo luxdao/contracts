@@ -12,7 +12,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
- * A staking contract that immediately distributes rewards in full
+ * Staking contract that immediately distributes rewards in full
  * to all stakers upon each distribution.
  */
 contract VotesStakedERC20V1 is
