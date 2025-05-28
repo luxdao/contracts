@@ -28,29 +28,30 @@ contract VotesStakedERC20V1 is
     uint256 public minimumStakingPeriod;
     uint256 public totalStaked;
 
-    mapping(address staker => uint256 amount) public stakedAmount;
-    mapping(address staker => uint256 timestamp) public lastStakeTimestamp;
+    mapping(address staker => uint256 amount) public stakedAmounts;
+    mapping(address staker => uint256 timestamp) public lastStakeTimestamps;
 
     address[] private rewardsTokens;
 
     struct RewardsTokenData {
         bool enabled;
-        uint256 totalRewardsRate;
-        uint256 totalRewardsDistributed;
-        uint256 totalRewardsClaimed;
+        uint256 rewardsRate;
+        uint256 rewardsDistributed;
+        uint256 rewardsClaimed;
         mapping(address staker => uint256 rewardRate) stakerRewardsRates;
         mapping(address staker => uint256 accumulatedRewards) stakerAccumulatedRewards;
     }
 
     mapping(address token => RewardsTokenData data) public rewardsTokenDatas;
-    
+
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
     event Staked(address indexed staker, uint256 amount);
     event RewardsTokenAdded(address indexed token);
 
     error NonTransferable();
     error ZeroStake();
-
+    error InvalidRewardsToken();
+    
     constructor() {
         _disableInitializers();
     }
@@ -86,7 +87,9 @@ contract VotesStakedERC20V1 is
      * @notice Adds new rewards tokens to the contract.
      * @param _rewardsTokens The addresses of the new rewards tokens.
      */
-    function addRewardsTokens(address[] memory _rewardsTokens) external onlyOwner {
+    function addRewardsTokens(
+        address[] memory _rewardsTokens
+    ) external onlyOwner {
         _addRewardsTokens(_rewardsTokens);
     }
 
@@ -109,8 +112,8 @@ contract VotesStakedERC20V1 is
 
         _accumulateRewards(msg.sender);
 
-        stakedAmount[msg.sender] += amount;
-        lastStakeTimestamp[msg.sender] = block.timestamp;
+        stakedAmounts[msg.sender] += amount;
+        lastStakeTimestamps[msg.sender] = block.timestamp;
         totalStaked += amount;
 
         _mint(msg.sender, amount);
@@ -128,7 +131,9 @@ contract VotesStakedERC20V1 is
         for (uint256 i = 0; i < _rewardsTokens.length; ) {
             rewardsTokens.push(_rewardsTokens[i]);
 
-            RewardsTokenData storage tokenData = rewardsTokenDatas[_rewardsTokens[i]];
+            RewardsTokenData storage tokenData = rewardsTokenDatas[
+                _rewardsTokens[i]
+            ];
             tokenData.enabled = true;
 
             emit RewardsTokenAdded(_rewardsTokens[i]);
@@ -145,15 +150,16 @@ contract VotesStakedERC20V1 is
      */
     function _accumulateRewards(address _staker) internal {
         for (uint256 i = 0; i < rewardsTokens.length; ) {
-            RewardsTokenData storage token = rewardsTokenDatas[rewardsTokens[i]];
+            RewardsTokenData storage token = rewardsTokenDatas[
+                rewardsTokens[i]
+            ];
 
             token.stakerAccumulatedRewards[_staker] +=
-                (stakedAmount[_staker] *
-                    (token.totalRewardsRate -
-                        token.stakerRewardsRates[_staker])) /
+                (stakedAmounts[_staker] *
+                    (token.rewardsRate - token.stakerRewardsRates[_staker])) /
                 (10 ** 18);
 
-            token.stakerRewardsRates[_staker] = token.totalRewardsRate;
+            token.stakerRewardsRates[_staker] = token.rewardsRate;
 
             unchecked {
                 i++;
@@ -196,7 +202,7 @@ contract VotesStakedERC20V1 is
      */
     function _authorizeUpgrade(
         address newImplementation
-    ) internal virtual override onlyOwner { }
+    ) internal virtual override onlyOwner {}
 
     /**
      * @notice Sets the minimum staking period.
@@ -209,8 +215,70 @@ contract VotesStakedERC20V1 is
         emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
     }
 
+    /**
+     * @notice Returns the list of rewards tokens.
+     * @return rewardsTokens The list of rewards tokens.
+     */
     function getRewardsTokens() public view returns (address[] memory) {
         return rewardsTokens;
+    }
+
+    /**
+     * @notice Returns the rewards rate, rewards distributed, and rewards claimed for a given token.
+     * @param token The address of the rewards token.
+     * @return rewardsRate The reward rate for the token.
+     * @return rewardsDistributed The total rewards distributed for the token.
+     * @return rewardsClaimed The total rewards claimed for the token.
+     */
+    function getTokenRewardsData(
+        address token
+    )
+        public
+        view
+        returns (
+            uint256 rewardsRate,
+            uint256 rewardsDistributed,
+            uint256 rewardsClaimed
+        )
+    {
+        if (!rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+
+        return (
+            rewardsTokenDatas[token].rewardsRate,
+            rewardsTokenDatas[token].rewardsDistributed,
+            rewardsTokenDatas[token].rewardsClaimed
+        );
+    }
+
+    /**
+     * @notice Returns the staked amount and last stake timestamp for a given staker.
+     * @param staker The address of the staker.
+     * @return stakedAmount The amount of tokens staked by the staker.
+     * @return lastStakeTimestamp The timestamp of the last stake.
+     */
+    function getStakerData(
+        address staker
+    ) public view returns (uint256 stakedAmount, uint256 lastStakeTimestamp) {
+        return (stakedAmounts[staker], lastStakeTimestamps[staker]);
+    }
+
+    /**
+     * @notice Returns the reward rate and accumulated rewards for a given staker and token.
+     * @param token The address of the rewards token.
+     * @param staker The address of the staker.
+     * @return rewardRate The reward rate for the staker.
+     * @return accumulatedRewards The accumulated rewards for the staker.
+     */
+    function getStakerRewardsData(
+        address token,
+        address staker
+    ) public view returns (uint256 rewardRate, uint256 accumulatedRewards) {
+        if (!rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+
+        return (
+            rewardsTokenDatas[token].stakerRewardsRates[staker],
+            rewardsTokenDatas[token].stakerAccumulatedRewards[staker]
+        );
     }
 
     /// @inheritdoc Version
