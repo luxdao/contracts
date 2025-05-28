@@ -125,7 +125,9 @@ contract VotesStakedERC20V1 is
     function _addRewardsTokens(address[] memory _rewardsTokens) internal {
         for (uint256 i = 0; i < _rewardsTokens.length; ) {
             rewardsTokens.push(_rewardsTokens[i]);
-            rewardsTokenDatas[_rewardsTokens[i]] = RewardsTokenData({ enabled: true });
+            
+            RewardsTokenData storage tokenData = rewardsTokenDatas[_rewardsTokens[i]];
+            tokenData.enabled = true;
 
             emit RewardsTokenAdded(_rewardsTokens[i]);
 
