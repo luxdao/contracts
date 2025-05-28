@@ -48,8 +48,8 @@ describe('VotesStakedERC20V1', () => {
   let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let alice: SignerWithAddress;
-  let bob: SignerWithAddress;
-  let carol: SignerWithAddress;
+  // let bob: SignerWithAddress;
+  // let carol: SignerWithAddress;
   let nonOwner: SignerWithAddress;
 
   // contracts
@@ -59,7 +59,7 @@ describe('VotesStakedERC20V1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, alice, bob, carol, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, alice, nonOwner] = await ethers.getSigners();
 
     masterCopy = await (await new VotesStakedERC20V1__factory(owner).deploy()).getAddress();
     stakedToken = await new MockERC20Votes__factory(owner).deploy();
