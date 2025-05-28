@@ -24,6 +24,8 @@ contract VotesStakedERC20V1 is
     uint16 private constant VERSION = 1;
     uint256 public minimumStakingPeriod;
 
+    event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
+
     constructor() {
         _disableInitializers();
     }
@@ -46,7 +48,17 @@ contract VotesStakedERC20V1 is
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
-        minimumStakingPeriod = _minimumStakingPeriod;
+        _setMinimumStakingPeriod(_minimumStakingPeriod);
+    }
+
+    /**
+     * @notice Sets the minimum staking period, only callable by the owner.
+     * @param newMinimumStakingPeriod The new minimum staking period in seconds.
+     */
+    function setMinimumStakingPeriod(
+        uint256 newMinimumStakingPeriod
+    ) public onlyOwner {
+        _setMinimumStakingPeriod(newMinimumStakingPeriod);
     }
 
     function clock() public view override returns (uint48) {
@@ -67,6 +79,17 @@ contract VotesStakedERC20V1 is
         address newImplementation
     ) internal virtual override onlyOwner {
         // Authorization is handled by the onlyOwner modifier
+    }
+
+    /**
+     * @notice Sets the minimum staking period.
+     * @param newMinimumStakingPeriod The new minimum staking period in seconds.
+     */
+    function _setMinimumStakingPeriod(
+        uint256 newMinimumStakingPeriod
+    ) internal {
+        minimumStakingPeriod = newMinimumStakingPeriod;
+        emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
     }
 
     /// @inheritdoc Version
