@@ -25,6 +25,7 @@ async function deployVotesStakedERC20Proxy(
   symbol: string,
   stakedToken: string,
   minimumStakingPeriod: bigint,
+  rewardsTokens: string[],
 ): Promise<VotesStakedERC20V1> {
   // Create initialization data with function selector
   const fullInitData =
@@ -32,7 +33,7 @@ async function deployVotesStakedERC20Proxy(
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
         ['string', 'string', 'address', 'address', 'uint256', 'address[]'],
-        [name, symbol, owner.address, stakedToken, minimumStakingPeriod, []],
+        [name, symbol, owner.address, stakedToken, minimumStakingPeriod, rewardsTokens],
       )
       .slice(2);
 
@@ -81,6 +82,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
 
       expect(await votesStakedERC20.name()).to.equal('Test Staking Contract');
@@ -88,6 +90,11 @@ describe('VotesStakedERC20V1', () => {
       expect(await votesStakedERC20.owner()).to.equal(owner.address);
       expect(await votesStakedERC20.stakedToken()).to.equal(await stakedToken.getAddress());
       expect(await votesStakedERC20.minimumStakingPeriod()).to.equal(604800n);
+      expect(await votesStakedERC20.getRewardsTokens()).to.deep.equal([
+        await rewardsTokenA.getAddress(),
+        await rewardsTokenB.getAddress(),
+        await rewardsTokenC.getAddress(),
+      ]);
     });
 
     it('should not allow reinitialization', async () => {
@@ -99,6 +106,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
 
       await expect(
@@ -137,6 +145,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
 
       expect(await votesStakedERC20.owner()).to.equal(owner.address);
@@ -153,6 +162,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
     });
 
@@ -194,6 +204,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
     });
 
@@ -218,6 +229,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
 
       // Calculate interface IDs
@@ -271,6 +283,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
     });
 
@@ -314,6 +327,7 @@ describe('VotesStakedERC20V1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
       );
     });
 
