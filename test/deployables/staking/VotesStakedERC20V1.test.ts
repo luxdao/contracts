@@ -6,10 +6,8 @@ import {
   ERC1967Proxy__factory,
   IERC165__factory,
   IERC20__factory,
-  IERC20Permit__factory,
   IVersion__factory,
   IVotes__factory,
-  VotesERC20V1__factory,
   VotesStakedERC20V1,
   VotesStakedERC20V1__factory,
   MockERC20Votes,
@@ -190,7 +188,6 @@ describe('VotesStakedERC20V1', () => {
     // Interface IDs
     let iVersionInterfaceId: string;
     let iERC20InterfaceId: string;
-    let iERC20PermitInterfaceId: string;
     let iVotesInterfaceId: string;
     let iERC165InterfaceId: string;
 
@@ -306,7 +303,7 @@ describe('VotesStakedERC20V1', () => {
     runUUPSUpgradeabilityTests({
       getContract: () => votesStakedERC20,
       createNewImplementation: async () => {
-        const newImplementation = await new VotesERC20V1__factory(owner).deploy();
+        const newImplementation = await new VotesStakedERC20V1__factory(owner).deploy();
         return newImplementation;
       },
       owner: () => owner,
