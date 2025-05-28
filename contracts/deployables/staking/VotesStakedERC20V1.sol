@@ -62,6 +62,7 @@ contract VotesStakedERC20V1 is
      * @param owner Address that will own the proxy and be able to upgrade it
      * @param _stakedToken Address of the token to be staked
      * @param _minimumStakingPeriod Minimum staking period in seconds
+     * @param _rewardsTokens Addresses of the rewards tokens
      */
     function initialize(
         string memory name,
@@ -69,7 +70,7 @@ contract VotesStakedERC20V1 is
         address owner,
         address _stakedToken,
         uint256 _minimumStakingPeriod,
-        address[] memory _rewardTokens
+        address[] memory _rewardsTokens
     ) public initializer {
         __ERC20_init(name, symbol);
         __ERC20Votes_init();
@@ -77,7 +78,7 @@ contract VotesStakedERC20V1 is
         __Ownable_init(owner);
         stakedToken = IERC20(_stakedToken);
         _setMinimumStakingPeriod(_minimumStakingPeriod);
-        _addRewardsTokens(_rewardTokens);
+        _addRewardsTokens(_rewardsTokens);
     }
 
     /**
@@ -125,7 +126,7 @@ contract VotesStakedERC20V1 is
     function _addRewardsTokens(address[] memory _rewardsTokens) internal {
         for (uint256 i = 0; i < _rewardsTokens.length; ) {
             rewardsTokens.push(_rewardsTokens[i]);
-            
+
             RewardsTokenData storage tokenData = rewardsTokenDatas[_rewardsTokens[i]];
             tokenData.enabled = true;
 
