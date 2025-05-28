@@ -26,6 +26,8 @@ contract VotesStakedERC20V1 is
 
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
 
+    error NonTransferable();
+
     constructor() {
         _disableInitializers();
     }
@@ -63,6 +65,20 @@ contract VotesStakedERC20V1 is
     ) public onlyOwner {
         _setMinimumStakingPeriod(newMinimumStakingPeriod);
     }
+
+    /**
+     * @notice This ERC20 function is overridden to prevent transfers
+     */
+    function transfer(address, uint256) public virtual override returns (bool) {
+        revert NonTransferable();
+    }
+
+    /**
+     * @notice This ERC20 function is overridden to prevent transferFroms
+     */
+    function transferFrom(address, address, uint256) public virtual override returns (bool) {
+        revert NonTransferable();
+    }   
 
     function clock() public view override returns (uint48) {
         return uint48(block.timestamp);
