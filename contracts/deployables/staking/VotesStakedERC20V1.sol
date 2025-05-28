@@ -31,7 +31,7 @@ contract VotesStakedERC20V1 is
     mapping(address staker => uint256 amount) public stakedAmount;
     mapping(address staker => uint256 timestamp) public lastStakeTimestamp;
 
-    address[] public rewardsTokens;
+    address[] private rewardsTokens;
 
     struct RewardsTokenData {
         bool enabled;
@@ -47,7 +47,7 @@ contract VotesStakedERC20V1 is
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
     event Staked(address indexed staker, uint256 amount);
     event RewardsTokenAdded(address indexed token);
-    
+
     error NonTransferable();
     error ZeroStake();
 
@@ -207,6 +207,10 @@ contract VotesStakedERC20V1 is
     ) internal {
         minimumStakingPeriod = newMinimumStakingPeriod;
         emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
+    }
+
+    function getRewardsTokens() public view returns (address[] memory) {
+        return rewardsTokens;
     }
 
     /// @inheritdoc Version
