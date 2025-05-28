@@ -37,16 +37,9 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         uint256 _maxTotalSupply,
         string memory _name,
         string memory _symbol,
-        address[] memory _allocationAddresses,
-        uint256[] memory _allocationAmounts
+        Allocation[] memory _allocations
     ) public virtual initializer {
-        super.initialize(
-            _name,
-            _symbol,
-            _allocationAddresses,
-            _allocationAmounts,
-            _owner
-        );
+        super.initialize(_name, _symbol, _allocations, _owner);
         _transferOwnership(_owner);
         locked = _locked;
         maxTotalSupply = _maxTotalSupply;

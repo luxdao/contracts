@@ -26,22 +26,19 @@ async function deployVotesERC20Lockable(
   allocationAddresses: string[],
   allocationAmounts: bigint[],
 ): Promise<VotesERC20LockableV1> {
+  const allocations = allocationAddresses.map((address, index) => ({
+    to: address,
+    amount: allocationAmounts[index],
+  }));
+
   const fullInitData =
     VotesERC20LockableV1__factory.createInterface().getFunction(
-      'initialize(address,bool,uint256,string,string,address[],uint256[])',
+      'initialize(address,bool,uint256,string,string,(address,uint256)[])',
     ).selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['address', 'bool', 'uint256', 'string', 'string', 'address[]', 'uint256[]'],
-        [
-          owner.address,
-          locked,
-          maxTotalSupply,
-          name,
-          symbol,
-          allocationAddresses,
-          allocationAmounts,
-        ],
+        ['address', 'bool', 'uint256', 'string', 'string', 'tuple(address to, uint256 amount)[]'],
+        [owner.address, locked, maxTotalSupply, name, symbol, allocations],
       )
       .slice(2);
 
@@ -120,13 +117,12 @@ describe('VotesERC20LockableV1', () => {
 
       it('should revert if initializer is called after deployment', async () => {
         await expect(
-          proxy['initialize(address,bool,uint256,string,string,address[],uint256[])'](
+          proxy['initialize(address,bool,uint256,string,string,(address,uint256)[])'](
             owner.address,
             false,
             ethers.parseEther('2100'),
             'Test',
             'TEST',
-            [],
             [],
           ),
         ).to.be.revertedWithCustomError(proxy, 'InvalidInitialization');

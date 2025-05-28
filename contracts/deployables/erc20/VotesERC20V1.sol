@@ -26,6 +26,11 @@ contract VotesERC20V1 is
 {
     uint16 private constant VERSION = 1;
 
+    struct Allocation {
+        address to;
+        uint256 amount;
+    }
+
     constructor() {
         _disableInitializers();
     }
@@ -35,15 +40,13 @@ contract VotesERC20V1 is
      *
      * @param name Token name
      * @param symbol Token symbol
-     * @param allocationAddresses Addresses of initial allocations
-     * @param allocationAmounts Amounts of initial allocations
+     * @param allocations Initial allocations
      * @param owner Address that will own the proxy and be able to upgrade it
      */
     function initialize(
         string memory name,
         string memory symbol,
-        address[] memory allocationAddresses,
-        uint256[] memory allocationAmounts,
+        Allocation[] memory allocations,
         address owner
     ) public initializer {
         __ERC20_init(name, symbol);
@@ -52,9 +55,9 @@ contract VotesERC20V1 is
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
 
-        uint256 holderCount = allocationAddresses.length;
+        uint256 holderCount = allocations.length;
         for (uint256 i; i < holderCount; ) {
-            _mint(allocationAddresses[i], allocationAmounts[i]);
+            _mint(allocations[i].to, allocations[i].amount);
             unchecked {
                 ++i;
             }
