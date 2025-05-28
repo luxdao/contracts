@@ -31,8 +31,8 @@ async function deployVotesStakedERC20Proxy(
     VotesStakedERC20V1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['string', 'string', 'address', 'address', 'uint256'],
-        [name, symbol, owner.address, stakedToken, minimumStakingPeriod],
+        ['string', 'string', 'address', 'address', 'uint256', 'address[]'],
+        [name, symbol, owner.address, stakedToken, minimumStakingPeriod, []],
       )
       .slice(2);
 
@@ -56,6 +56,9 @@ describe('VotesStakedERC20V1', () => {
   let votesStakedERC20: VotesStakedERC20V1;
   let masterCopy: string;
   let stakedToken: MockERC20Votes;
+  let rewardsTokenA: MockERC20Votes;
+  let rewardsTokenB: MockERC20Votes;
+  let rewardsTokenC: MockERC20Votes;
 
   beforeEach(async () => {
     // Get signers
@@ -63,6 +66,9 @@ describe('VotesStakedERC20V1', () => {
 
     masterCopy = await (await new VotesStakedERC20V1__factory(owner).deploy()).getAddress();
     stakedToken = await new MockERC20Votes__factory(owner).deploy();
+    rewardsTokenA = await new MockERC20Votes__factory(owner).deploy();
+    rewardsTokenB = await new MockERC20Votes__factory(owner).deploy();
+    rewardsTokenC = await new MockERC20Votes__factory(owner).deploy();
   });
 
   describe('Initialization', () => {
@@ -102,6 +108,7 @@ describe('VotesStakedERC20V1', () => {
           owner.address,
           await stakedToken.getAddress(),
           604800n,
+          [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
         ),
       ).to.be.revertedWithCustomError(votesStakedERC20, 'InvalidInitialization');
     });
@@ -116,6 +123,7 @@ describe('VotesStakedERC20V1', () => {
           owner.address,
           await stakedToken.getAddress(),
           604800n,
+          [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), await rewardsTokenC.getAddress()],
         ),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });

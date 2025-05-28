@@ -47,6 +47,7 @@ contract VotesStakedERC20V1 is
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
     event Staked(address indexed staker, uint256 amount);
     event RewardsTokenAdded(address indexed token);
+    
     error NonTransferable();
     error ZeroStake();
 
