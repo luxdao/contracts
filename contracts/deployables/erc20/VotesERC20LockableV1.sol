@@ -12,6 +12,7 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
 
     bool public locked;
     mapping(address => bool) public whitelisted;
+    uint256 public maxTotalSupply;
 
     constructor() {
         _disableInitializers();
@@ -33,6 +34,7 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
     function initialize(
         address _owner,
         bool _locked,
+        uint256 _maxTotalSupply,
         string memory _name,
         string memory _symbol,
         address[] memory _allocationAddresses,
@@ -47,6 +49,7 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         );
         _transferOwnership(_owner);
         locked = _locked;
+        maxTotalSupply = _maxTotalSupply;
     }
 
     /**
@@ -77,7 +80,19 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         }
     }
 
+    function setMaxTotalSupply(uint256 newMaxTotalSupply) external onlyOwner {
+        uint256 currentlyMaxTotalSupply = maxTotalSupply;
+        maxTotalSupply = newMaxTotalSupply;
+        if (currentlyMaxTotalSupply != newMaxTotalSupply) {
+            emit MaxTotalSupplyUpdated(newMaxTotalSupply);
+        }
+    }
+
     function mint(address to, uint256 amount) external onlyOwner {
+        uint256 newTotalSupply = totalSupply() + amount;
+        if (newTotalSupply > maxTotalSupply) {
+            revert ExceedMaxTotalSupply();
+        }
         _mint(to, amount);
     }
 
