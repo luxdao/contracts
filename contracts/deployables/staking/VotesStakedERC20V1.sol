@@ -31,8 +31,10 @@ contract VotesStakedERC20V1 is
     mapping(address staker => uint256 amount) public stakedAmount;
     mapping(address staker => uint256 timestamp) public lastStakeTimestamp;
 
-    struct RewardToken {
-        address token;
+    address[] public rewardsTokens;
+
+    struct RewardsTokenData {
+        bool enabled;
         uint256 totalRewardsRate;
         uint256 totalRewardsDistributed;
         uint256 totalRewardsClaimed;
@@ -40,8 +42,8 @@ contract VotesStakedERC20V1 is
         mapping(address staker => uint256 accumulatedRewards) stakerAccumulatedRewards;
     }
 
-    RewardToken[] public rewardTokens;
-
+    mapping(address token => RewardsTokenData data) public rewardsTokenDatas;
+    
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
     event Staked(address indexed staker, uint256 amount);
     event RewardsTokenAdded(address indexed token);
@@ -80,7 +82,7 @@ contract VotesStakedERC20V1 is
 
     /**
      * @notice Adds new rewards tokens to the contract.
-     * @param _rewardTokens The addresses of the new rewards tokens.
+     * @param _rewardsTokens The addresses of the new rewards tokens.
      */
     function addRewardsTokens(address[] memory _rewardsTokens) external onlyOwner {
         _addRewardsTokens(_rewardsTokens);
@@ -122,7 +124,8 @@ contract VotesStakedERC20V1 is
      */
     function _addRewardsTokens(address[] memory _rewardsTokens) internal {
         for (uint256 i = 0; i < _rewardsTokens.length; ) {
-            rewardTokens.push(RewardToken({token: _rewardsTokens[i]}));
+            rewardsTokens.push(_rewardsTokens[i]);
+            rewardsTokenDatas[_rewardsTokens[i]] = RewardsTokenData({ enabled: true });
 
             emit RewardsTokenAdded(_rewardsTokens[i]);
 
@@ -138,7 +141,7 @@ contract VotesStakedERC20V1 is
      */
     function _accumulateRewards(address _staker) internal {
         for (uint256 i = 0; i < rewardsTokens.length; ) {
-            RewardToken token = rewardsTokens[i];
+            RewardsTokenData storage token = rewardsTokenDatas[rewardsTokens[i]];
 
             token.stakerAccumulatedRewards[_staker] +=
                 (stakedAmount[_staker] *
