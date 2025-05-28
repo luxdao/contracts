@@ -20,6 +20,7 @@ async function deployVotesERC20Lockable(
   implementation: VotesERC20LockableV1,
   owner: SignerWithAddress,
   locked: boolean,
+  maxTotalSupply: bigint,
   name: string,
   symbol: string,
   allocationAddresses: string[],
@@ -27,12 +28,20 @@ async function deployVotesERC20Lockable(
 ): Promise<VotesERC20LockableV1> {
   const fullInitData =
     VotesERC20LockableV1__factory.createInterface().getFunction(
-      'initialize(address,bool,string,string,address[],uint256[])',
+      'initialize(address,bool,uint256,string,string,address[],uint256[])',
     ).selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['address', 'bool', 'string', 'string', 'address[]', 'uint256[]'],
-        [owner.address, locked, name, symbol, allocationAddresses, allocationAmounts],
+        ['address', 'bool', 'uint256', 'string', 'string', 'address[]', 'uint256[]'],
+        [
+          owner.address,
+          locked,
+          maxTotalSupply,
+          name,
+          symbol,
+          allocationAddresses,
+          allocationAmounts,
+        ],
       )
       .slice(2);
 
@@ -67,6 +76,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           true,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -81,6 +91,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           false,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -99,6 +110,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           false,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -108,9 +120,10 @@ describe('VotesERC20LockableV1', () => {
 
       it('should revert if initializer is called after deployment', async () => {
         await expect(
-          proxy['initialize(address,bool,string,string,address[],uint256[])'](
+          proxy['initialize(address,bool,uint256,string,string,address[],uint256[])'](
             owner.address,
             false,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             [],
@@ -132,6 +145,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -184,6 +198,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -236,6 +251,7 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test',
         'TEST',
         [],
@@ -320,6 +336,56 @@ describe('VotesERC20LockableV1', () => {
     });
   });
 
+  describe('SetMaxTotalSupply function', () => {
+    const locked = false;
+    const maxTotalSupply = ethers.parseEther('2');
+    const newMaxTotalSupply = ethers.parseEther('20');
+    let proxy: VotesERC20LockableV1;
+
+    beforeEach(async () => {
+      proxy = await deployVotesERC20Lockable(
+        deployer,
+        implementation,
+        owner,
+        locked,
+        maxTotalSupply,
+        'Test',
+        'TEST',
+        [],
+        [],
+      );
+    });
+
+    describe('Updating by the owner should succeed', () => {
+      let updateTx: ContractTransactionResponse;
+
+      beforeEach(async () => {
+        updateTx = await proxy.connect(owner).setMaxTotalSupply(newMaxTotalSupply);
+      });
+
+      it('should be updated', async () => {
+        expect(await proxy.maxTotalSupply()).to.equal(newMaxTotalSupply);
+      });
+
+      it('should emit an event', async () => {
+        expect(updateTx).to.emit(proxy, 'MaxTotalSupplyUpdated').withArgs(newMaxTotalSupply);
+      });
+
+      it('should not emit an event if newMaxTotalSupply is same', async () => {
+        const anotherUpdateTx = await proxy.connect(owner).setMaxTotalSupply(newMaxTotalSupply);
+        expect(anotherUpdateTx).not.to.emit(proxy, 'MaxTotalSupplyUpdated');
+      });
+    });
+
+    describe('Updating by a non-owner should fail', () => {
+      it('should revert', async () => {
+        await expect(
+          proxy.connect(nonOwner).setMaxTotalSupply(newMaxTotalSupply),
+        ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+      });
+    });
+  });
+
   describe('Transferring Tokens', () => {
     let tokenHolderAddresses: string[];
     let tokenHolderAmounts: bigint[];
@@ -341,6 +407,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -391,6 +458,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -450,6 +518,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -522,6 +591,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -608,6 +678,7 @@ describe('VotesERC20LockableV1', () => {
   });
 
   describe('Minting Tokens', () => {
+    const maxTotalSupply = ethers.parseEther('1');
     let proxy: VotesERC20LockableV1;
 
     describe('when token is locked', () => {
@@ -619,6 +690,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          maxTotalSupply,
           'Test',
           'TEST',
           [],
@@ -628,11 +700,18 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is owner', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).mint(owner.address, ethers.parseEther('1'));
+          await proxy.connect(owner).mint(owner.address, maxTotalSupply);
         });
 
         it('should mint tokens', async () => {
-          expect(await proxy.balanceOf(owner.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(owner.address)).to.equal(maxTotalSupply);
+        });
+
+        it('should revert when mint more than maxTotalSupply', async () => {
+          await expect(proxy.connect(owner).mint(owner.address, 1n)).to.be.revertedWithCustomError(
+            proxy,
+            'ExceedMaxTotalSupply',
+          );
         });
       });
 
@@ -646,7 +725,7 @@ describe('VotesERC20LockableV1', () => {
           expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
 
           await expect(
-            proxy.connect(tokenHolder).mint(tokenHolder.address, ethers.parseEther('1')),
+            proxy.connect(tokenHolder).mint(tokenHolder.address, maxTotalSupply),
           ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
         });
       });
@@ -669,6 +748,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -718,6 +798,7 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test',
         'TEST',
         [],
@@ -741,6 +822,7 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test',
         'TEST',
         [],
@@ -805,6 +887,7 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test Voting Token',
         'TVT',
         [],
