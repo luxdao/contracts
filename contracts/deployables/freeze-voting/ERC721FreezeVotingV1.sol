@@ -6,20 +6,11 @@ import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-/**
- * A [BaseFreezeVoting](./BaseFreezeVoting.md) implementation which handles
- * freezes on ERC721 based token voting DAOs.
- */
 contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
     uint16 private constant VERSION = 1;
 
-    /** A reference to the voting strategy of the parent DAO. */
     IERC721VotingStrategyV1 public strategy;
 
-    /**
-     * Mapping of block the freeze vote was started on, to the token address, to token id,
-     * to whether that token has been used to vote already.
-     */
     mapping(uint256 => mapping(address => mapping(uint256 => bool)))
         public idHasFreezeVoted;
 
@@ -36,15 +27,6 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         _disableInitializers();
     }
 
-    /**
-     * Initialize function, will be triggered when a new instance is deployed.
-     *
-     * @param _owner The owner of the contract
-     * @param _freezeVotesThreshold The number of votes required to activate a freeze
-     * @param _freezeProposalPeriod The number of seconds a freeze proposal has to succeed
-     * @param _freezePeriod The number of seconds a freeze lasts
-     * @param _strategy The address of the voting strategy
-     */
     function initialize(
         address _owner,
         uint256 _freezeVotesThreshold,
@@ -52,25 +34,17 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         uint32 _freezePeriod,
         address _strategy
     ) public initializer {
-        __Ownable_init(_owner);
-        __UUPSUpgradeable_init();
-        _updateFreezeVotesThreshold(_freezeVotesThreshold);
-        _updateFreezeProposalPeriod(_freezeProposalPeriod);
-        _updateFreezePeriod(_freezePeriod);
+        __BaseFreezeVotingV1_init(
+            _owner,
+            _freezeProposalPeriod,
+            _freezePeriod,
+            _freezeVotesThreshold
+        );
         strategy = IERC721VotingStrategyV1(_strategy);
 
         emit ERC721FreezeVotingSetUp(_owner, _strategy);
     }
 
-    /**
-     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
-     * @param newImplementation The address of the new implementation
-     */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {}
-
-    /** @inheritdoc BaseFreezeVotingV1*/
     function castFreezeVote() external pure override {
         revert NotSupported();
     }
@@ -82,7 +56,6 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         if (_tokenAddresses.length != _tokenIds.length) revert UnequalArrays();
 
         if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
-            // create a new freeze proposal
             freezeProposalCreated = uint48(block.timestamp);
             freezeProposalVoteCount = 0;
             emit FreezeProposalCreated(msg.sender);
@@ -111,10 +84,15 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
             address tokenAddress = _tokenAddresses[i];
             uint256 tokenId = _tokenIds[i];
 
-            if (_voter != IERC721(tokenAddress).ownerOf(tokenId)) continue;
-
-            if (idHasFreezeVoted[freezeProposalCreated][tokenAddress][tokenId])
+            if (_voter != IERC721(tokenAddress).ownerOf(tokenId)) {
                 continue;
+            }
+
+            if (
+                idHasFreezeVoted[freezeProposalCreated][tokenAddress][tokenId]
+            ) {
+                continue;
+            }
 
             votes += strategy.getTokenWeight(tokenAddress);
 
@@ -126,7 +104,6 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         return votes;
     }
 
-    /// Implementation for the version
     function getVersion() public view virtual override returns (uint16) {
         return VERSION;
     }

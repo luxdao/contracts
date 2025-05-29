@@ -5,10 +5,13 @@ import {Version} from "../Version.sol";
 import {IFractalModuleV1} from "../../interfaces/decent/deployables/IFractalModuleV1.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 contract FractalModuleV1 is
     IFractalModuleV1,
     GuardableModule,
+    Ownable2StepUpgradeable,
     Version,
     UUPSUpgradeable
 {
@@ -25,16 +28,13 @@ contract FractalModuleV1 is
         address _avatar,
         address _target
     ) public initializer {
-        // Initializer owner with the msg.sender first,
-        // needed for setting the avatar and target, which are ownable functions
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
 
         setAvatar(_avatar);
         setTarget(_target);
 
-        // Transfer ownership to the provided owner
-        transferOwnership(_owner);
+        OwnableUpgradeable.transferOwnership(_owner);
     }
 
     function setUp(bytes memory initializeParams) public override initializer {
@@ -69,5 +69,17 @@ contract FractalModuleV1 is
         return
             interfaceId == type(IFractalModuleV1).interfaceId ||
             super.supportsInterface(interfaceId);
+    }
+
+    function _transferOwnership(
+        address newOwner
+    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
+        Ownable2StepUpgradeable._transferOwnership(newOwner);
+    }
+
+    function transferOwnership(
+        address newOwner
+    ) public override(Ownable2StepUpgradeable, OwnableUpgradeable) onlyOwner {
+        Ownable2StepUpgradeable.transferOwnership(newOwner);
     }
 }

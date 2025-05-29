@@ -6,8 +6,16 @@ import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBase
 import {IAzoriusV1, Enum} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract AzoriusV1 is IAzoriusV1, GuardableModule, Version, UUPSUpgradeable {
+contract AzoriusV1 is
+    IAzoriusV1,
+    GuardableModule,
+    Ownable2StepUpgradeable,
+    Version,
+    UUPSUpgradeable
+{
     uint16 private constant VERSION = 1;
     /**
      * ```
@@ -94,7 +102,7 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version, UUPSUpgradeable {
         _updateTimelockPeriod(_timelockPeriod);
         _updateExecutionPeriod(_executionPeriod);
 
-        transferOwnership(_owner);
+        OwnableUpgradeable.transferOwnership(_owner);
 
         emit AzoriusSetUp(msg.sender, _owner, _avatar, _target);
     }
@@ -373,5 +381,17 @@ contract AzoriusV1 is IAzoriusV1, GuardableModule, Version, UUPSUpgradeable {
         return
             interfaceId == type(IAzoriusV1).interfaceId ||
             super.supportsInterface(interfaceId);
+    }
+
+    function _transferOwnership(
+        address newOwner
+    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
+        Ownable2StepUpgradeable._transferOwnership(newOwner);
+    }
+
+    function transferOwnership(
+        address newOwner
+    ) public override(Ownable2StepUpgradeable, OwnableUpgradeable) onlyOwner {
+        Ownable2StepUpgradeable.transferOwnership(newOwner);
     }
 }
