@@ -10,11 +10,11 @@ interface IStrategyV1 is IStrategyBaseV1 {
 
     function updateBasisNumerator(uint256 _newBasisNumerator) external;
 
-    function addTokenAdapter(address _adapter) external;
+    function addVotingAdapter(address _adapter) external;
 
-    function removeTokenAdapter(address _adapter) external;
+    function removeVotingAdapter(address _adapter) external;
 
-    function getTokenAdapterCount() external view returns (uint256);
+    function getVotingAdapterCount() external view returns (uint256);
 
     function addProposerAdapter(address _adapter) external;
 
@@ -29,7 +29,7 @@ interface IStrategyV1 is IStrategyBaseV1 {
     function vote(
         uint32 _proposalId,
         uint8 _voteType,
-        address[] calldata _tokenAdaptersToUse,
-        bytes[] calldata _tokenAdapterVoteData
+        address[] calldata _votingAdaptersToUse,
+        bytes[] calldata _votingAdapterVoteData
     ) external;
 }
