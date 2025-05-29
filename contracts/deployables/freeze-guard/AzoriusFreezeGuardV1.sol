@@ -1,74 +1,48 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {BaseFreezeGuardV1} from "./BaseFreezeGuardV1.sol";
 import {Version} from "../Version.sol";
+import {IAzoriusFreezeGuardV1} from "../../interfaces/decent/deployables/IAzoriusFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-/**
- * A Safe Transaction Guard contract that prevents an [Azorius](./azorius/Azorius.md)
- * subDAO from executing transactions if it has been frozen by its parentDAO.
- *
- * See https://docs.safe.global/learn/safe-core/safe-core-protocol/guards.
- */
-contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
+contract AzoriusFreezeGuardV1 is
+    IAzoriusFreezeGuardV1,
+    ERC165,
+    Version,
+    Ownable2StepUpgradeable,
+    UUPSUpgradeable
+{
     uint16 private constant VERSION = 1;
 
-    /**
-     * A reference to the freeze voting contract, which manages the freeze
-     * voting process and maintains the frozen / unfrozen state of the DAO.
-     */
-    IBaseFreezeVotingV1 public freezeVoting;
-
-    event AzoriusFreezeGuardSetUp(
-        address indexed creator,
-        address indexed owner,
-        address indexed freezeVoting
-    );
-
-    error DAOFrozen();
+    IBaseFreezeVotingV1 internal _freezeVoting;
 
     constructor() {
         _disableInitializers();
     }
 
-    /**
-     * Initialize function for the proxy deployment. This standardizes the initialization
-     * to better work with ProxyFactory.
-     *
-     * @param _owner Address that will own the proxy and be able to upgrade it
-     * @param _freezeVoting Address of the freeze voting contract
-     */
     function initialize(
-        address _owner,
-        address _freezeVoting
-    ) public initializer {
-        super.initialize(_owner);
-        freezeVoting = IBaseFreezeVotingV1(_freezeVoting);
-
-        emit AzoriusFreezeGuardSetUp(msg.sender, _owner, _freezeVoting);
+        address owner_,
+        address freezeVoting_
+    ) public virtual override initializer {
+        __Ownable_init(owner_);
+        __UUPSUpgradeable_init();
+        _freezeVoting = IBaseFreezeVotingV1(freezeVoting_);
     }
 
-    /**
-     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
-     * Called by {upgradeTo} and {upgradeToAndCall}.
-     *
-     * Reverts if the sender is not the owner of the contract.
-     */
     function _authorizeUpgrade(
         address newImplementation
-    ) internal virtual override onlyOwner {
-        // Authorization is handled by the onlyOwner modifier
+    ) internal virtual override onlyOwner {}
+
+    function freezeVoting() external view virtual override returns (address) {
+        return address(_freezeVoting);
     }
 
-    /**
-     * This function is called by the Safe to check if the transaction
-     * is able to be executed and reverts if the guard conditions are
-     * not met.
-     *
-     * In our implementation, this reverts if the DAO is frozen.
-     */
     function checkTransaction(
         address,
         uint256,
@@ -81,31 +55,26 @@ contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
         address payable,
         bytes memory,
         address
-    ) external view override(BaseFreezeGuardV1) {
-        // if the DAO is currently frozen, revert
-        // see BaseFreezeVoting for freeze voting details
-        if (freezeVoting.isFrozen()) revert DAOFrozen();
+    ) external view virtual override {
+        if (_freezeVoting.isFrozen()) revert DAOFrozen();
     }
 
-    /**
-     * A callback performed after a transaction is executed on the Safe. This is a required
-     * function of the `BaseGuard` and `IGuard` interfaces that we do not make use of.
-     */
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseFreezeGuardV1) {
-        // not implementated
-    }
+    ) external view virtual override {}
 
-    /// @inheritdoc Version
     function getVersion() public view virtual override returns (uint16) {
         return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseFreezeGuardV1, Version) returns (bool) {
-        return super.supportsInterface(interfaceId);
+    ) public view virtual override(ERC165, Version) returns (bool) {
+        return
+            interfaceId == type(IAzoriusFreezeGuardV1).interfaceId ||
+            interfaceId == type(IFreezeGuardBaseV1).interfaceId ||
+            interfaceId == type(IGuard).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

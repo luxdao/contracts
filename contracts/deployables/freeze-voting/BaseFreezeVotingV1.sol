@@ -3,153 +3,140 @@ pragma solidity ^0.8.30;
 
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-/**
- * The base abstract contract which holds the state of a vote to freeze a childDAO.
- *
- * The freeze feature gives a way for parentDAOs to have a limited measure of control
- * over their created subDAOs.
- *
- * Normally a subDAO operates independently, and can vote on or sign transactions,
- * however should the parent disagree with a decision made by the subDAO, any parent
- * token holder can initiate a vote to "freeze" it, making executing transactions impossible
- * for the time denoted by `freezePeriod`.
- *
- * This requires a number of votes equal to `freezeVotesThreshold`, within the `freezeProposalPeriod`
- * to be successful.
- *
- * Following a successful freeze vote, the childDAO will be unable to execute transactions, due to
- * a Safe Transaction Guard, until the `freezePeriod` has elapsed.
- */
 abstract contract BaseFreezeVotingV1 is
-    UUPSUpgradeable,
-    OwnableUpgradeable,
     IBaseFreezeVotingV1,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
     ERC165
 {
-    /** Timestamp the freeze proposal was created at. */
-    uint48 public freezeProposalCreated;
-
-    /** Number of seconds a freeze proposal has to succeed. */
-    uint32 public freezeProposalPeriod;
-
-    /** Number of seconds a freeze lasts, from time of freeze proposal creation. */
-    uint32 public freezePeriod;
-
-    /** Number of freeze votes required to activate a freeze. */
-    uint256 public freezeVotesThreshold;
-
-    /** Number of accrued freeze votes. */
-    uint256 public freezeProposalVoteCount;
-
-    /**
-     * Mapping of address to the timestamp the freeze vote was started to
-     * whether the address has voted yet on the freeze proposal.
-     */
-    mapping(address => mapping(uint48 => bool)) public userHasFreezeVoted;
-
-    event FreezeVoteCast(address indexed voter, uint256 votesCast);
-    event FreezeProposalCreated(address indexed creator);
-    event FreezeVotesThresholdUpdated(uint256 freezeVotesThreshold);
-    event FreezePeriodUpdated(uint32 freezePeriod);
-    event FreezeProposalPeriodUpdated(uint32 freezeProposalPeriod);
+    uint48 internal _freezeProposalCreated;
+    uint32 internal _freezeProposalPeriod;
+    uint32 internal _freezePeriod;
+    uint256 internal _freezeVotesThreshold;
+    uint256 internal _freezeProposalVoteCount;
+    mapping(address => mapping(uint48 => bool)) internal _userHasFreezeVoted;
 
     constructor() {
         _disableInitializers();
     }
 
-    /**
-     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
-     * @param newImplementation The address of the new implementation
-     */
+    function __BaseFreezeVotingV1_init(
+        address owner_,
+        uint32 freezeProposalPeriod_,
+        uint32 freezePeriod_,
+        uint256 freezeVotesThreshold_
+    ) internal initializer {
+        __Ownable_init(owner_);
+        __UUPSUpgradeable_init();
+        _updateFreezeProposalPeriod(freezeProposalPeriod_);
+        _updateFreezePeriod(freezePeriod_);
+        _updateFreezeVotesThreshold(freezeVotesThreshold_);
+    }
+
     function _authorizeUpgrade(
         address newImplementation
     ) internal virtual override onlyOwner {}
 
-    /**
-     * Casts a positive vote to freeze the subDAO. This function is intended to be called
-     * by the individual token holders themselves directly, and will allot their token
-     * holdings a "yes" votes towards freezing.
-     *
-     * Additionally, if a vote to freeze is not already running, calling this will initiate
-     * a new vote to freeze it.
-     */
-    function castFreezeVote() external virtual;
+    function freezeProposalCreated()
+        external
+        view
+        virtual
+        override
+        returns (uint48)
+    {
+        return _freezeProposalCreated;
+    }
 
-    /**
-     * Returns true if the DAO is currently frozen, false otherwise.
-     *
-     * @return bool whether the DAO is currently frozen
-     */
-    function isFrozen() external view returns (bool) {
+    function freezePeriod() external view virtual override returns (uint32) {
+        return _freezePeriod;
+    }
+
+    function freezeVotesThreshold()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        return _freezeVotesThreshold;
+    }
+
+    function freezeProposalPeriod()
+        external
+        view
+        virtual
+        override
+        returns (uint32)
+    {
+        return _freezeProposalPeriod;
+    }
+
+    function freezeProposalVoteCount()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        return _freezeProposalVoteCount;
+    }
+
+    function userHasFreezeVoted(
+        address user,
+        uint48 proposalId
+    ) external view virtual override returns (bool) {
+        return _userHasFreezeVoted[user][proposalId];
+    }
+
+    function isFrozen() external view virtual override returns (bool) {
         return
-            freezeProposalVoteCount >= freezeVotesThreshold &&
-            block.timestamp < freezeProposalCreated + freezePeriod;
+            _freezeProposalVoteCount >= _freezeVotesThreshold &&
+            block.timestamp < _freezeProposalCreated + _freezePeriod;
     }
 
-    /**
-     * Unfreezes the DAO, only callable by the owner (parentDAO).
-     */
-    function unfreeze() external onlyOwner {
-        freezeProposalCreated = 0;
-        freezeProposalVoteCount = 0;
+    function unfreeze() external virtual override onlyOwner {
+        _freezeProposalCreated = 0;
+        _freezeProposalVoteCount = 0;
     }
 
-    /**
-     * Updates the freeze votes threshold, the number of votes required to enact a freeze.
-     *
-     * @param _freezeVotesThreshold number of freeze votes required to activate a freeze
-     */
     function updateFreezeVotesThreshold(
-        uint256 _freezeVotesThreshold
-    ) external onlyOwner {
-        _updateFreezeVotesThreshold(_freezeVotesThreshold);
+        uint256 freezeVotesThreshold_
+    ) external virtual override onlyOwner {
+        _updateFreezeVotesThreshold(freezeVotesThreshold_);
     }
 
-    /**
-     * Updates the freeze proposal period, the time that parent token holders have to cast votes
-     * after a freeze vote has been initiated.
-     *
-     * @param _freezeProposalPeriod number of blocks a freeze vote has to succeed to enact a freeze
-     */
     function updateFreezeProposalPeriod(
-        uint32 _freezeProposalPeriod
-    ) external onlyOwner {
-        _updateFreezeProposalPeriod(_freezeProposalPeriod);
+        uint32 freezeProposalPeriod_
+    ) external virtual override onlyOwner {
+        _updateFreezeProposalPeriod(freezeProposalPeriod_);
     }
 
-    /**
-     * Updates the freeze period, the time the DAO will be unable to execute transactions for,
-     * should a freeze vote pass.
-     *
-     * @param _freezePeriod number of blocks a freeze lasts, from time of freeze proposal creation
-     */
-    function updateFreezePeriod(uint32 _freezePeriod) external onlyOwner {
-        _updateFreezePeriod(_freezePeriod);
+    function updateFreezePeriod(
+        uint32 freezePeriod_
+    ) external virtual override onlyOwner {
+        _updateFreezePeriod(freezePeriod_);
     }
 
-    /** Internal implementation of `updateFreezeVotesThreshold`. */
     function _updateFreezeVotesThreshold(
-        uint256 _freezeVotesThreshold
-    ) internal {
-        freezeVotesThreshold = _freezeVotesThreshold;
-        emit FreezeVotesThresholdUpdated(_freezeVotesThreshold);
+        uint256 freezeVotesThreshold_
+    ) internal virtual {
+        _freezeVotesThreshold = freezeVotesThreshold_;
+        emit FreezeVotesThresholdUpdated(freezeVotesThreshold_);
     }
 
-    /** Internal implementation of `updateFreezeProposalPeriod`. */
     function _updateFreezeProposalPeriod(
-        uint32 _freezeProposalPeriod
-    ) internal {
-        freezeProposalPeriod = _freezeProposalPeriod;
-        emit FreezeProposalPeriodUpdated(_freezeProposalPeriod);
+        uint32 freezeProposalPeriod_
+    ) internal virtual {
+        _freezeProposalPeriod = freezeProposalPeriod_;
+        emit FreezeProposalPeriodUpdated(freezeProposalPeriod_);
     }
 
-    /** Internal implementation of `updateFreezePeriod`. */
-    function _updateFreezePeriod(uint32 _freezePeriod) internal {
-        freezePeriod = _freezePeriod;
-        emit FreezePeriodUpdated(_freezePeriod);
+    function _updateFreezePeriod(uint32 freezePeriod_) internal virtual {
+        _freezePeriod = freezePeriod_;
+        emit FreezePeriodUpdated(freezePeriod_);
     }
 
     function supportsInterface(
