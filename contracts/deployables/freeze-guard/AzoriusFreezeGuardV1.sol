@@ -1,36 +1,46 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {BaseFreezeGuardV1} from "./BaseFreezeGuardV1.sol";
 import {Version} from "../Version.sol";
+import {IAzoriusFreezeGuardV1} from "../../interfaces/decent/deployables/IAzoriusFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
+contract AzoriusFreezeGuardV1 is
+    IAzoriusFreezeGuardV1,
+    ERC165,
+    Version,
+    Ownable2StepUpgradeable,
+    UUPSUpgradeable
+{
     uint16 private constant VERSION = 1;
 
-    IBaseFreezeVotingV1 public freezeVoting;
-
-    event AzoriusFreezeGuardSetUp(
-        address indexed creator,
-        address indexed owner,
-        address indexed freezeVoting
-    );
-
-    error DAOFrozen();
+    IBaseFreezeVotingV1 internal _freezeVoting;
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address _owner,
-        address _freezeVoting
-    ) public virtual initializer {
-        __BaseFreezeGuardV1_init(_owner);
-        freezeVoting = IBaseFreezeVotingV1(_freezeVoting);
+        address owner_,
+        address freezeVoting_
+    ) public virtual override initializer {
+        __Ownable_init(owner_);
+        __UUPSUpgradeable_init();
+        _freezeVoting = IBaseFreezeVotingV1(freezeVoting_);
+    }
 
-        emit AzoriusFreezeGuardSetUp(msg.sender, _owner, _freezeVoting);
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
+
+    function freezeVoting() external view virtual override returns (address) {
+        return address(_freezeVoting);
     }
 
     function checkTransaction(
@@ -45,14 +55,14 @@ contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
         address payable,
         bytes memory,
         address
-    ) external view virtual override(BaseFreezeGuardV1) {
-        if (freezeVoting.isFrozen()) revert DAOFrozen();
+    ) external view virtual override {
+        if (_freezeVoting.isFrozen()) revert DAOFrozen();
     }
 
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view virtual override(BaseFreezeGuardV1) {}
+    ) external view virtual override {}
 
     function getVersion() public view virtual override returns (uint16) {
         return VERSION;
@@ -60,7 +70,11 @@ contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseFreezeGuardV1, Version) returns (bool) {
-        return super.supportsInterface(interfaceId);
+    ) public view virtual override(ERC165, Version) returns (bool) {
+        return
+            interfaceId == type(IAzoriusFreezeGuardV1).interfaceId ||
+            interfaceId == type(IFreezeGuardBaseV1).interfaceId ||
+            interfaceId == type(IGuard).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }
