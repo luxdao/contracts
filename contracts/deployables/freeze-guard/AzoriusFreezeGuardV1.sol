@@ -26,7 +26,7 @@ contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
     function initialize(
         address _owner,
         address _freezeVoting
-    ) public initializer {
+    ) public virtual initializer {
         __BaseFreezeGuardV1_init(_owner);
         freezeVoting = IBaseFreezeVotingV1(_freezeVoting);
 
@@ -45,14 +45,14 @@ contract AzoriusFreezeGuardV1 is Version, BaseFreezeGuardV1 {
         address payable,
         bytes memory,
         address
-    ) external view override(BaseFreezeGuardV1) {
+    ) external view virtual override(BaseFreezeGuardV1) {
         if (freezeVoting.isFrozen()) revert DAOFrozen();
     }
 
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseFreezeGuardV1) {}
+    ) external view virtual override(BaseFreezeGuardV1) {}
 
     function getVersion() public view virtual override returns (uint16) {
         return VERSION;

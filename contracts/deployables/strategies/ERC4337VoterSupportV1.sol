@@ -29,7 +29,7 @@ abstract contract ERC4337VoterSupportV1 is SmartAccountValidationV1 {
 
     function __ERC4337VoterSupportV1_init(
         address _lightAccountFactory
-    ) internal {
+    ) internal initializer {
         __SmartAccountValidationV1_init(_lightAccountFactory);
     }
 
