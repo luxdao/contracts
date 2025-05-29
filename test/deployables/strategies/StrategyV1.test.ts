@@ -7,6 +7,7 @@ import {
   IERC165__factory,
   IStrategyBaseV1__factory,
   IStrategyV1__factory,
+  IVersion__factory,
   MockLightAccount__factory,
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
@@ -911,33 +912,34 @@ describe('StrategyV1', () => {
   });
 
   describe('ERC165 Supports Interface', () => {
-    let iStrategyBaseV1InterfaceId: string;
-    let iStrategyV1InterfaceId: string;
-    let iERC165InterfaceId: string;
-
-    beforeEach(async () => {
-      const IStrategyBaseV1Interface = IStrategyBaseV1__factory.createInterface();
-      iStrategyBaseV1InterfaceId = calculateInterfaceId(IStrategyBaseV1Interface);
-
-      const IStrategyV1Interface = IStrategyV1__factory.createInterface();
-      iStrategyV1InterfaceId = calculateInterfaceId(IStrategyV1Interface, [
-        IStrategyBaseV1Interface,
-      ]);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-    });
-
     it('Should support IStrategyBaseV1 interface', async () => {
-      void expect(await strategy.supportsInterface(iStrategyBaseV1InterfaceId)).to.be.true;
+      void expect(
+        await strategy.supportsInterface(
+          calculateInterfaceId(IStrategyBaseV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IStrategyV1 interface', async () => {
-      void expect(await strategy.supportsInterface(iStrategyV1InterfaceId)).to.be.true;
+      void expect(
+        await strategy.supportsInterface(
+          calculateInterfaceId(IStrategyV1__factory.createInterface(), [
+            IStrategyBaseV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IERC165 interface', async () => {
-      void expect(await strategy.supportsInterface(iERC165InterfaceId)).to.be.true;
+      void expect(
+        await strategy.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
+      ).to.be.true;
+    });
+
+    it('Should support IVersion interface', async () => {
+      void expect(
+        await strategy.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
+      ).to.be.true;
     });
 
     it('Should not support a random interface', async () => {
