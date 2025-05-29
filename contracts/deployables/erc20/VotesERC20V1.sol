@@ -103,6 +103,7 @@ contract VotesERC20V1 is
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
         return
+            interfaceId == type(IVotesERC20V1).interfaceId ||
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(IERC20Permit).interfaceId ||
             interfaceId == type(IVotes).interfaceId ||
