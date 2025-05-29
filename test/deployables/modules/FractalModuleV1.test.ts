@@ -245,72 +245,62 @@ describe('FractalModuleV1', () => {
     });
 
     describe('Authorization', () => {
-      let txData: string;
+      let target: string;
+      let value: bigint;
+      let data: string;
+      let operation: number;
 
       beforeEach(async () => {
         await mockToken.mint(await avatar.getAddress(), 1000); // Mint tokens for these tests
-        txData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'bytes', 'uint8'],
-          [
-            await mockToken.getAddress(),
-            0,
-            mockToken.interface.encodeFunctionData('transfer', [user.address, 100]),
-            0, // Call operation
-          ],
-        );
+
+        target = await mockToken.getAddress();
+        value = 0n;
+        data = mockToken.interface.encodeFunctionData('transfer', [user.address, 100]);
+        operation = 0;
       });
 
       it('should allow owner to execute transactions', async () => {
         await mockToken.mint(await avatar.getAddress(), 1000);
-        await fractalModule.execTx(txData);
+        await fractalModule.execTx(target, value, data, operation);
         expect(await mockToken.balanceOf(user.address)).to.equal(100);
       });
 
       it('should revert with OwnableUnauthorizedAccount for non-owner', async () => {
-        await expect(fractalModule.connect(user).execTx(txData)).to.be.revertedWithCustomError(
-          fractalModule,
-          'OwnableUnauthorizedAccount',
-        );
+        await expect(
+          fractalModule.connect(user).execTx(target, value, data, operation),
+        ).to.be.revertedWithCustomError(fractalModule, 'OwnableUnauthorizedAccount');
       });
     });
 
     describe('Transaction Success/Failure', () => {
-      let txData: string;
+      let target: string;
+      let value: bigint;
+      let data: string;
+      let operation: number;
 
       beforeEach(async () => {
-        txData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'bytes', 'uint8'],
-          [
-            await mockToken.getAddress(),
-            0,
-            mockToken.interface.encodeFunctionData('transfer', [user.address, 100]),
-            0, // Call operation
-          ],
-        );
+        target = await mockToken.getAddress();
+        value = 0n;
+        data = mockToken.interface.encodeFunctionData('transfer', [user.address, 100]);
+        operation = 0;
       });
 
       it('should execute successful transactions', async () => {
         await mockToken.mint(await avatar.getAddress(), 1000);
-        await fractalModule.execTx(txData);
+        await fractalModule.execTx(target, value, data, operation);
         expect(await mockToken.balanceOf(user.address)).to.equal(100);
       });
 
       it('should revert with TxFailed on failed transactions', async () => {
         // No tokens minted to avatar, so transfer should fail
-        const failingTxData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'bytes', 'uint8'],
-          [
-            await mockToken.getAddress(),
-            0,
-            mockToken.interface.encodeFunctionData('transfer', [user.address, 100]),
-            0,
-          ],
-        );
+        target = await mockToken.getAddress();
+        value = 0n;
+        data = mockToken.interface.encodeFunctionData('transfer', [user.address, 100]);
+        operation = 0;
 
-        await expect(fractalModule.execTx(failingTxData)).to.be.revertedWithCustomError(
-          fractalModule,
-          'TxFailed',
-        );
+        await expect(
+          fractalModule.execTx(target, value, data, operation),
+        ).to.be.revertedWithCustomError(fractalModule, 'TxFailed');
       });
     });
 
@@ -322,35 +312,25 @@ describe('FractalModuleV1', () => {
           value: ethers.parseEther('1.0'),
         });
 
-        const txData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'bytes', 'uint8'],
-          [
-            user.address,
-            ethers.parseEther('0.5'),
-            '0x', // empty data
-            0, // Call operation
-          ],
-        );
+        const target = user.address;
+        const value = ethers.parseEther('0.5');
+        const data = '0x';
+        const operation = 0;
 
         const initialBalance = await ethers.provider.getBalance(user.address);
-        await fractalModule.execTx(txData);
+        await fractalModule.execTx(target, value, data, operation);
         const finalBalance = await ethers.provider.getBalance(user.address);
 
         expect(finalBalance - initialBalance).to.equal(ethers.parseEther('0.5'));
       });
 
       it('should handle transactions with empty data', async () => {
-        const txData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'bytes', 'uint8'],
-          [
-            user.address,
-            0,
-            '0x', // empty data
-            0, // Call operation
-          ],
-        );
+        const target = user.address;
+        const value = 0n;
+        const data = '0x';
+        const operation = 0;
 
-        await fractalModule.execTx(txData);
+        await fractalModule.execTx(target, value, data, operation);
       });
 
       it('should handle transactions with both value and data', async () => {
@@ -362,32 +342,22 @@ describe('FractalModuleV1', () => {
         await mockToken.mint(await avatar.getAddress(), 1000);
 
         // First send ETH to user
-        const ethTxData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'bytes', 'uint8'],
-          [
-            user.address,
-            ethers.parseEther('0.5'),
-            '0x',
-            0, // Call operation
-          ],
-        );
+        const ethTxTarget = user.address;
+        const ethTxValue = ethers.parseEther('0.5');
+        const ethTxData = '0x';
+        const ethTxOperation = 0;
 
         // Then do token transfer
-        const tokenTxData = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'bytes', 'uint8'],
-          [
-            await mockToken.getAddress(),
-            0,
-            mockToken.interface.encodeFunctionData('transfer', [user.address, 100]),
-            0, // Call operation
-          ],
-        );
+        const tokenTxTarget = await mockToken.getAddress();
+        const tokenTxValue = 0n;
+        const tokenTxData = mockToken.interface.encodeFunctionData('transfer', [user.address, 100]);
+        const tokenTxOperation = 0;
 
         const initialEthBalance = await ethers.provider.getBalance(user.address);
 
         // Execute both transactions
-        await fractalModule.execTx(ethTxData);
-        await fractalModule.execTx(tokenTxData);
+        await fractalModule.execTx(ethTxTarget, ethTxValue, ethTxData, ethTxOperation);
+        await fractalModule.execTx(tokenTxTarget, tokenTxValue, tokenTxData, tokenTxOperation);
 
         const finalEthBalance = await ethers.provider.getBalance(user.address);
 
