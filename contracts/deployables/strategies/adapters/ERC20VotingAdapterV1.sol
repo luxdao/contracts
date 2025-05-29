@@ -9,15 +9,11 @@ import {Version} from "../../Version.sol";
 import {ClockModeLib} from "../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 contract ERC20VotingAdapterV1 is
     IVotingAdapterV1,
     Initializable,
-    OwnableUpgradeable,
-    UUPSUpgradeable,
     ERC165,
     Version
 {
@@ -31,8 +27,6 @@ contract ERC20VotingAdapterV1 is
 
     uint16 public constant VERSION = 1;
 
-    event VotingAdapterParametersUpdated(uint256 newWeightPerToken);
-
     error InvalidTokenAddress();
     error InvalidStrategyAddress();
     error ProposalNotReadyForSnapshot();
@@ -44,42 +38,19 @@ contract ERC20VotingAdapterV1 is
     }
 
     function initialize(
-        address _initialOwner,
         address _token,
         address _strategy,
         uint256 _weightPerToken
     ) external virtual initializer {
-        __Ownable_init(_initialOwner);
-        __UUPSUpgradeable_init();
-
         if (_token == address(0)) revert InvalidTokenAddress();
         if (_strategy == address(0)) revert InvalidStrategyAddress();
 
-        _updateWeightPerToken(_weightPerToken);
+        if (_weightPerToken == 0) revert InvalidWeightPerToken();
+        weightPerToken = _weightPerToken;
 
         token = IVotes(_token);
         strategy = IStrategyBaseV1(_strategy);
         tokenClockMode = ClockModeLib.getClockMode(_token);
-
-        emit VotingAdapterParametersUpdated(weightPerToken);
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {}
-
-    function updateWeightPerToken(
-        uint256 _newWeightPerToken
-    ) external virtual onlyOwner {
-        _updateWeightPerToken(_newWeightPerToken);
-        emit VotingAdapterParametersUpdated(weightPerToken);
-    }
-
-    function _updateWeightPerToken(
-        uint256 _newWeightPerToken
-    ) internal virtual {
-        if (_newWeightPerToken == 0) revert InvalidWeightPerToken();
-        weightPerToken = _newWeightPerToken;
     }
 
     function _getVoteWeightDetails(

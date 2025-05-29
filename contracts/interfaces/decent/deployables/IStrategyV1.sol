@@ -4,21 +4,7 @@ pragma solidity ^0.8.30;
 import {IStrategyBaseV1} from "./IStrategyBaseV1.sol";
 
 interface IStrategyV1 is IStrategyBaseV1 {
-    function updateVotingPeriod(uint32 _newVotingPeriod) external;
-
-    function updateQuorumThreshold(uint256 _newQuorumThreshold) external;
-
-    function updateBasisNumerator(uint256 _newBasisNumerator) external;
-
-    function addVotingAdapter(address _adapter) external;
-
-    function removeVotingAdapter(address _adapter) external;
-
     function getVotingAdapterCount() external view returns (uint256);
-
-    function addProposerAdapter(address _adapter) external;
-
-    function removeProposerAdapter(address _adapter) external;
 
     function getProposerAdapterCount() external view returns (uint256);
 

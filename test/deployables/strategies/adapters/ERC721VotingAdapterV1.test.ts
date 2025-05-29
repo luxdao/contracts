@@ -1,7 +1,6 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
-import type { ContractTransactionResponse } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
@@ -17,19 +16,17 @@ import {
   MockVotingStrategy__factory,
 } from '../../../../typechain-types';
 import { calculateInterfaceId } from '../../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../../helpers/uupsUpgradeabilityTests';
 
 async function deployERC721AdapterProxy(
   proxyDeployer: SignerWithAddress,
   implementationAddress: string,
-  initialOwnerAddress: string,
   tokenAddress: string,
   strategyAddress: string,
   weightPerNft: bigint,
-): Promise<{ adapter: ERC721VotingAdapterV1; deployTx: ContractTransactionResponse }> {
+): Promise<{ adapter: ERC721VotingAdapterV1 }> {
   const initData = ERC721VotingAdapterV1__factory.createInterface().encodeFunctionData(
     'initialize',
-    [initialOwnerAddress, tokenAddress, strategyAddress, weightPerNft],
+    [tokenAddress, strategyAddress, weightPerNft],
   );
   const proxyContractFactory = new ERC1967Proxy__factory(proxyDeployer);
   const proxy = await proxyContractFactory.deploy(implementationAddress, initData);
@@ -39,11 +36,8 @@ async function deployERC721AdapterProxy(
     await proxy.getAddress(),
     proxyDeployer,
   );
-  const deployTxObj = proxy.deploymentTransaction();
-  if (!deployTxObj) {
-    throw new Error('Proxy deployment transaction not found for ERC721AdapterV1');
-  }
-  return { adapter: adapterInstance, deployTx: deployTxObj };
+
+  return { adapter: adapterInstance };
 }
 
 describe('ERC721VotingAdapterV1', () => {
@@ -65,7 +59,7 @@ describe('ERC721VotingAdapterV1', () => {
   }
 
   async function deployMocksAndSignersERC721Fixture() {
-    const [deployer, owner, user1, user2, nonOwnerAccount] = await ethers.getSigners();
+    const [deployer, user1, user2] = await ethers.getSigners();
 
     const mockNftFactory = new MockERC721__factory(deployer);
     const mockNft = await mockNftFactory.deploy();
@@ -106,10 +100,8 @@ describe('ERC721VotingAdapterV1', () => {
 
     return {
       deployer,
-      ownerSigner: owner,
       user1Signer: user1,
       user2Signer: user2,
-      nonOwnerSigner: nonOwnerAccount,
       mockNft,
       mockStrategy,
       user1TokenIds,
@@ -122,28 +114,21 @@ describe('ERC721VotingAdapterV1', () => {
   });
 
   describe('Initialization', () => {
-    it('should initialize correctly, set owner, and emit VotingAdapterParametersUpdated event', async () => {
+    it('should initialize correctly', async () => {
       const {
-        ownerSigner,
         mockNft,
         mockStrategy,
         deployer: fixtureDeployer,
       } = await loadFixture(deployMocksAndSignersERC721Fixture);
 
-      const { adapter: erc721Adapter, deployTx } = await deployERC721AdapterProxy(
+      const { adapter: erc721Adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
-        ownerSigner.address,
         await mockNft.getAddress(),
         await mockStrategy.getAddress(),
         DEFAULT_WEIGHT_PER_NFT,
       );
 
-      await expect(deployTx)
-        .to.emit(erc721Adapter, 'VotingAdapterParametersUpdated')
-        .withArgs(DEFAULT_WEIGHT_PER_NFT);
-
-      expect(await erc721Adapter.owner()).to.equal(ownerSigner.address);
       expect(await erc721Adapter.token()).to.equal(await mockNft.getAddress());
       expect(await erc721Adapter.strategy()).to.equal(await mockStrategy.getAddress());
       expect(await erc721Adapter.weightPerNft()).to.equal(DEFAULT_WEIGHT_PER_NFT);
@@ -161,7 +146,6 @@ describe('ERC721VotingAdapterV1', () => {
         deployERC721AdapterProxy(
           fixtureDeployer,
           erc721AdapterImplementationAddressG,
-          fixtureDeployer.address,
           ethers.ZeroAddress,
           await mockNft.getAddress(),
           DEFAULT_WEIGHT_PER_NFT,
@@ -181,7 +165,6 @@ describe('ERC721VotingAdapterV1', () => {
         deployERC721AdapterProxy(
           fixtureDeployer,
           erc721AdapterImplementationAddressG,
-          fixtureDeployer.address,
           await mockNft.getAddress(),
           ethers.ZeroAddress,
           DEFAULT_WEIGHT_PER_NFT,
@@ -203,7 +186,6 @@ describe('ERC721VotingAdapterV1', () => {
         deployERC721AdapterProxy(
           fixtureDeployer,
           erc721AdapterImplementationAddressG,
-          fixtureDeployer.address,
           await mockNft.getAddress(),
           await mockStrategy.getAddress(),
           0n, // Invalid weight
@@ -220,14 +202,12 @@ describe('ERC721VotingAdapterV1', () => {
       const { adapter: erc721Adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
-        fixtureDeployer.address,
         await mockNft.getAddress(),
         await mockStrategy.getAddress(),
         DEFAULT_WEIGHT_PER_NFT,
       );
       await expect(
         erc721Adapter.initialize(
-          fixtureDeployer.address,
           await mockNft.getAddress(),
           await mockStrategy.getAddress(),
           DEFAULT_WEIGHT_PER_NFT,
@@ -247,7 +227,6 @@ describe('ERC721VotingAdapterV1', () => {
       );
       await expect(
         implementationContract.initialize(
-          fixtureDeployer.address,
           await mockNft.getAddress(),
           await mockStrategy.getAddress(),
           DEFAULT_WEIGHT_PER_NFT,
@@ -277,7 +256,6 @@ describe('ERC721VotingAdapterV1', () => {
       const { adapter: deployedAdapter } = await deployERC721AdapterProxy(
         deployer,
         erc721AdapterImplementationAddressG,
-        deployer.address,
         await mockNft.getAddress(),
         await fixture.mockStrategy.getAddress(),
         DEFAULT_WEIGHT_PER_NFT,
@@ -359,7 +337,6 @@ describe('ERC721VotingAdapterV1', () => {
       const { adapter: customAdapter } = await deployERC721AdapterProxy(
         deployer, // from beforeEach
         erc721AdapterImplementationAddressG,
-        deployer.address,
         await mockNft.getAddress(),
         await (await loadFixture(deployMocksAndSignersERC721Fixture)).mockStrategy.getAddress(), // Fresh strategy address
         customWeightPerNft,
@@ -382,7 +359,6 @@ describe('ERC721VotingAdapterV1', () => {
     let user1TokenIds: bigint[];
     let user2TokenIds: bigint[];
     let deployer: SignerWithAddress;
-    let owner: SignerWithAddress;
     let mockStrategy: MockVotingStrategy;
 
     const proposalId = 1;
@@ -394,13 +370,11 @@ describe('ERC721VotingAdapterV1', () => {
       user1TokenIds = fixture.user1TokenIds;
       user2TokenIds = fixture.user2TokenIds;
       deployer = fixture.deployer;
-      owner = fixture.ownerSigner;
       mockStrategy = fixture.mockStrategy;
 
       const { adapter: deployedAdapter } = await deployERC721AdapterProxy(
         deployer,
         erc721AdapterImplementationAddressG,
-        owner.address,
         await mockNft.getAddress(),
         await mockStrategy.getAddress(),
         DEFAULT_WEIGHT_PER_NFT,
@@ -489,7 +463,6 @@ describe('ERC721VotingAdapterV1', () => {
       const {
         mockNft: localMockNft,
         mockStrategy: localMockStrategy,
-        ownerSigner: localOwner,
         user1Signer: localUser1,
         deployer: localDeployer,
       } = await loadFixture(deployMocksAndSignersERC721Fixture);
@@ -506,7 +479,6 @@ describe('ERC721VotingAdapterV1', () => {
       const { adapter: customAdapter } = await deployERC721AdapterProxy(
         localDeployer,
         erc721AdapterImplementationAddressG,
-        localOwner.address,
         await localMockNft.getAddress(),
         await localMockStrategy.getAddress(),
         customWeightPerNft,
@@ -548,7 +520,6 @@ describe('ERC721VotingAdapterV1', () => {
       const { adapter: erc721Adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
-        fixtureDeployer.address,
         await mockNft.getAddress(),
         await mockStrategy.getAddress(),
         DEFAULT_WEIGHT_PER_NFT,
@@ -573,7 +544,6 @@ describe('ERC721VotingAdapterV1', () => {
       const { adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
-        fixtureDeployer.address,
         await mockNft.getAddress(),
         await mockStrategy.getAddress(),
         DEFAULT_WEIGHT_PER_NFT,
@@ -611,101 +581,6 @@ describe('ERC721VotingAdapterV1', () => {
 
     it('should not support a random interfaceId', async () => {
       void expect(await erc721Adapter.supportsInterface('0x12345678')).to.be.false;
-    });
-  });
-
-  describe('Owner Functions', () => {
-    let adapter: ERC721VotingAdapterV1;
-    let owner: SignerWithAddress;
-    let nonOwner: SignerWithAddress;
-    let deployer: SignerWithAddress; // This will be the fixture.deployer
-    let mockNftAddress: string;
-    let mockStrategyAddress: string;
-
-    beforeEach(async () => {
-      const fixture = await loadFixture(deployMocksAndSignersERC721Fixture);
-      owner = fixture.ownerSigner; // This is the intended owner for the adapter
-      nonOwner = fixture.nonOwnerSigner;
-      deployer = fixture.deployer; // This is the signer used to deploy the proxy
-      mockNftAddress = await fixture.mockNft.getAddress();
-      mockStrategyAddress = await fixture.mockStrategy.getAddress();
-
-      const { adapter: deployedAdapter } = await deployERC721AdapterProxy(
-        deployer, // The fixture.deployer can deploy the proxy
-        erc721AdapterImplementationAddressG,
-        owner.address, // The fixture.ownerSigner becomes the owner of the adapter
-        mockNftAddress,
-        mockStrategyAddress,
-        DEFAULT_WEIGHT_PER_NFT,
-      );
-      adapter = deployedAdapter;
-    });
-
-    describe('updateWeightPerNft', () => {
-      const NEW_WEIGHT_PER_NFT = 5n;
-
-      it('should allow owner to update weightPerNft and emit event', async () => {
-        await expect(adapter.connect(owner).updateWeightPerNft(NEW_WEIGHT_PER_NFT))
-          .to.emit(adapter, 'VotingAdapterParametersUpdated')
-          .withArgs(NEW_WEIGHT_PER_NFT);
-        expect(await adapter.weightPerNft()).to.equal(NEW_WEIGHT_PER_NFT);
-      });
-
-      it('should not allow non-owner to update weightPerNft', async () => {
-        await expect(adapter.connect(nonOwner).updateWeightPerNft(NEW_WEIGHT_PER_NFT))
-          .to.be.revertedWithCustomError(adapter, 'OwnableUnauthorizedAccount')
-          .withArgs(nonOwner.address);
-      });
-
-      it('should revert if new weightPerNft is zero', async () => {
-        await expect(adapter.connect(owner).updateWeightPerNft(0n)).to.be.revertedWithCustomError(
-          adapter,
-          'InvalidWeightPerNft',
-        );
-      });
-    });
-  });
-
-  describe('UUPS Upgradeability', () => {
-    let erc721AdapterProxy: ERC721VotingAdapterV1;
-    let fixtureOwner: SignerWithAddress;
-    let fixtureNonOwner: SignerWithAddress;
-    let fixtureDeployer: SignerWithAddress;
-
-    beforeEach(async () => {
-      const {
-        ownerSigner,
-        nonOwnerSigner,
-        deployer: testDeployer,
-        mockNft,
-        mockStrategy,
-      } = await loadFixture(deployMocksAndSignersERC721Fixture);
-      fixtureOwner = ownerSigner;
-      fixtureNonOwner = nonOwnerSigner;
-      fixtureDeployer = testDeployer;
-
-      const { adapter } = await deployERC721AdapterProxy(
-        fixtureDeployer,
-        erc721AdapterImplementationAddressG,
-        fixtureOwner.address,
-        await mockNft.getAddress(),
-        await mockStrategy.getAddress(),
-        DEFAULT_WEIGHT_PER_NFT,
-      );
-      erc721AdapterProxy = adapter;
-    });
-
-    runUUPSUpgradeabilityTests({
-      getContract: () => erc721AdapterProxy,
-      createNewImplementation: async () => {
-        const newImplementation = await new ERC721VotingAdapterV1__factory(
-          fixtureDeployer,
-        ).deploy();
-        await newImplementation.waitForDeployment();
-        return newImplementation;
-      },
-      owner: () => fixtureOwner,
-      nonOwner: () => fixtureNonOwner,
     });
   });
 });
