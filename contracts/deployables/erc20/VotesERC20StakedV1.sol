@@ -53,17 +53,17 @@ contract VotesERC20StakedV1 is
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
         stakedToken = IERC20(_stakedToken);
-        _setMinimumStakingPeriod(_minimumStakingPeriod);
+        _updateMinimumStakingPeriod(_minimumStakingPeriod);
     }
 
     /**
-     * @notice Sets the minimum staking period, only callable by the owner.
+     * @notice Updates the minimum staking period, only callable by the owner.
      * @param newMinimumStakingPeriod The new minimum staking period in seconds.
      */
-    function setMinimumStakingPeriod(
+    function updateMinimumStakingPeriod(
         uint256 newMinimumStakingPeriod
     ) public onlyOwner {
-        _setMinimumStakingPeriod(newMinimumStakingPeriod);
+        _updateMinimumStakingPeriod(newMinimumStakingPeriod);
     }
 
     /**
@@ -101,10 +101,10 @@ contract VotesERC20StakedV1 is
     }
 
     /**
-     * @notice Sets the minimum staking period.
+     * @notice Updates the minimum staking period.
      * @param newMinimumStakingPeriod The new minimum staking period in seconds.
      */
-    function _setMinimumStakingPeriod(
+    function _updateMinimumStakingPeriod(
         uint256 newMinimumStakingPeriod
     ) internal {
         minimumStakingPeriod = newMinimumStakingPeriod;
