@@ -797,6 +797,140 @@ describe('VotesERC20LockableV1', () => {
     });
   });
 
+  describe('Burning Tokens', () => {
+    const maxTotalSupply = ethers.parseEther('1');
+    const halfTotalSupply = ethers.parseEther('0.5');
+    let proxy: VotesERC20LockableV1;
+
+    describe('when token is locked', () => {
+      const locked = true;
+
+      beforeEach(async () => {
+        proxy = await deployVotesERC20Lockable(
+          deployer,
+          implementation,
+          owner,
+          locked,
+          maxTotalSupply,
+          'Test',
+          'TEST',
+          [],
+          [],
+        );
+      });
+
+      describe('when caller is owner', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).mint(owner.address, halfTotalSupply);
+          await proxy.connect(owner).mint(tokenHolder.address, halfTotalSupply);
+        });
+
+        it('should burn tokens of owner', async () => {
+          await proxy.connect(owner).burn(owner.address, halfTotalSupply);
+          expect(await proxy.balanceOf(owner.address)).to.equal(0n);
+        });
+
+        it('should burn tokens of others', async () => {
+          await proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply);
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(0n);
+        });
+
+        it('should revert when burn more than balance', async () => {
+          await expect(
+            proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply + 1n),
+          ).to.be.revertedWithCustomError(proxy, 'ERC20InsufficientBalance');
+        });
+      });
+
+      describe('when caller is whitelisted', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+        });
+
+        it('should revert', async () => {
+          // revert shouldn't happen due to whitelist issues
+          expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
+
+          await expect(
+            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
+          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        });
+      });
+
+      describe('when caller is not owner or whitelisted', () => {
+        it('should revert', async () => {
+          await expect(
+            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
+          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        });
+      });
+    });
+
+    describe('when token is not locked', () => {
+      const locked = false;
+
+      beforeEach(async () => {
+        proxy = await deployVotesERC20Lockable(
+          deployer,
+          implementation,
+          owner,
+          locked,
+          maxTotalSupply,
+          'Test',
+          'TEST',
+          [],
+          [],
+        );
+      });
+
+      describe('when caller is owner', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).mint(owner.address, halfTotalSupply);
+          await proxy.connect(owner).mint(tokenHolder.address, halfTotalSupply);
+        });
+
+        it('should burn tokens of owner', async () => {
+          await proxy.connect(owner).burn(owner.address, halfTotalSupply);
+          expect(await proxy.balanceOf(owner.address)).to.equal(0n);
+        });
+
+        it('should burn tokens of others', async () => {
+          await proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply);
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(0n);
+        });
+
+        it('should revert when burn more than balance', async () => {
+          await expect(
+            proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply + 1n),
+          ).to.be.revertedWithCustomError(proxy, 'ERC20InsufficientBalance');
+        });
+      });
+
+      describe('when caller is whitelisted', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+        });
+
+        it('should revert', async () => {
+          // revert shouldn't happen due to whitelist issues
+          expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
+
+          await expect(
+            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
+          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        });
+      });
+
+      describe('when caller is not owner or whitelisted', () => {
+        it('should revert', async () => {
+          await expect(
+            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
+          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        });
+      });
+    });
+  });
+
   describe('Version', () => {
     it('should return the correct version', async () => {
       const proxy = await deployVotesERC20Lockable(

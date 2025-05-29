@@ -3,11 +3,17 @@ pragma solidity ^0.8.30;
 
 import {ILockableV1} from "../../interfaces/decent/deployables/ILockableV1.sol";
 import {IMintableV1} from "../../interfaces/decent/deployables/IMintableV1.sol";
+import {IBurnableV1} from "../../interfaces/decent/deployables/IBurnableV1.sol";
 import {VotesERC20V1} from "./VotesERC20V1.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
+contract VotesERC20LockableV1 is
+    ILockableV1,
+    IMintableV1,
+    IBurnableV1,
+    VotesERC20V1
+{
     uint16 private constant VERSION = 1;
 
     bool public locked;
@@ -18,13 +24,14 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         _disableInitializers();
     }
 
-    modifier isTransferable(address from) {
+    modifier isTransferable(address from, address to) {
         if (
             locked &&
             // overrides while locked
             !(from == owner() || // owner can always transfer
                 whitelisted[from] || // whitelisted addresses can always transfer
-                from == address(0)) // can always mint when locked
+                from == address(0)) && // can always mint when locked
+            to != address(0) // can always burn when locked
         ) {
             revert IsLocked();
         }
@@ -92,11 +99,15 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         _mint(to, amount);
     }
 
+    function burn(address account, uint256 amount) external onlyOwner {
+        _burn(account, amount);
+    }
+
     function _update(
         address from,
         address to,
         uint256 amount
-    ) internal virtual override isTransferable(from) {
+    ) internal virtual override isTransferable(from, to) {
         super._update(from, to, amount);
     }
 
