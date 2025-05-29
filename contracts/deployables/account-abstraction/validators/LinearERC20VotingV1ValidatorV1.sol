@@ -37,20 +37,9 @@ interface IERC20Votes {
     ) external view returns (Checkpoint208 memory);
 }
 
-/**
- * @title LinearERC20VotingV1ValidatorV1
- * @dev Validates vote operations for LinearERC20VotingV1 to ensure they will succeed
- */
 contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
     uint16 public constant VERSION = 1;
 
-    /**
-     * @dev Validates if a vote operation will succeed
-     * @param lightAccountOwner The account attempting to vote
-     * @param votingContract The address of the voting contract
-     * @param callData The encoded vote function call
-     * @return isValid True if the vote operation will succeed
-     */
     function validateOperation(
         address,
         address lightAccountOwner,
@@ -158,9 +147,6 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
         return VERSION;
     }
 
-    /**
-     * @dev ERC165 interface support
-     */
     function supportsInterface(
         bytes4 interfaceId
     )
