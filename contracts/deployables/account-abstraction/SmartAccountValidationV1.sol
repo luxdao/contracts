@@ -3,25 +3,34 @@ pragma solidity ^0.8.30;
 
 import {ILightAccount} from "../../interfaces/light-account/ILightAccount.sol";
 import {ILightAccountFactory} from "../../interfaces/light-account/ILightAccountFactory.sol";
+import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-abstract contract SmartAccountValidationV1 is Initializable {
-    ILightAccountFactory public lightAccountFactory;
-
-    error InvalidSmartAccount();
-    error InvalidUserOpCallDataLength();
-    error InvalidCallData();
-    error InvalidInnerCallDataLength();
+abstract contract SmartAccountValidationV1 is
+    ISmartAccountValidationV1,
+    Initializable
+{
+    ILightAccountFactory internal _lightAccountFactory;
 
     constructor() {
         _disableInitializers();
     }
 
     function __SmartAccountValidationV1_init(
-        address _lightAccountFactory
+        address lightAccountFactory_
     ) internal initializer {
-        lightAccountFactory = ILightAccountFactory(_lightAccountFactory);
+        _lightAccountFactory = ILightAccountFactory(lightAccountFactory_);
+    }
+
+    function lightAccountFactory()
+        external
+        view
+        virtual
+        override
+        returns (address)
+    {
+        return address(_lightAccountFactory);
     }
 
     function validateSmartAccount(
@@ -42,7 +51,7 @@ abstract contract SmartAccountValidationV1 is Initializable {
             address lightAccountOwner
         ) {
             // Regenerate the expected light account address
-            address lightAccountAddress = lightAccountFactory.getAddress(
+            address lightAccountAddress = _lightAccountFactory.getAddress(
                 lightAccountOwner,
                 0 // we assume that Decent App is only creating one account per user
             );
