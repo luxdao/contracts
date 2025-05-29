@@ -24,16 +24,12 @@ async function deployFractalModuleProxy(
   owner: SignerWithAddress,
   avatar: string,
   target: string,
-  controllers: string[],
 ): Promise<FractalModuleV1> {
   // Combine selector and encoded params
   const fullInitData =
     FractalModuleV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
-      .encode(
-        ['address', 'address', 'address', 'address[]'],
-        [owner.address, avatar, target, controllers],
-      )
+      .encode(['address', 'address', 'address'], [owner.address, avatar, target])
       .slice(2);
 
   // Deploy the proxy with the implementation
@@ -50,13 +46,12 @@ async function deployFractalModuleProxyWithSetUp(
   owner: SignerWithAddress,
   avatar: string,
   target: string,
-  controllers: string[],
 ): Promise<FractalModuleV1> {
   // Create the call to setUp with the encoded parameters
   const fullInitData = FractalModuleV1__factory.createInterface().encodeFunctionData('setUp', [
     ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'address', 'address', 'address[]'],
-      [owner.address, avatar, target, controllers],
+      ['address', 'address', 'address'],
+      [owner.address, avatar, target],
     ),
   ]);
 
@@ -72,7 +67,6 @@ describe('FractalModuleV1', () => {
   let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let nonOwner: SignerWithAddress;
-  let controller: SignerWithAddress;
   let user: SignerWithAddress;
 
   // mocks and mastercopies
@@ -81,7 +75,7 @@ describe('FractalModuleV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, nonOwner, controller, user] = await ethers.getSigners();
+    [proxyDeployer, owner, nonOwner, user] = await ethers.getSigners();
 
     // Deploy implementation contract
     const implementation = await new FractalModuleV1__factory(proxyDeployer).deploy();
@@ -105,7 +99,6 @@ describe('FractalModuleV1', () => {
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
-          [],
         );
 
         expect(await fractalModule.owner()).to.equal(owner.address);
@@ -120,7 +113,6 @@ describe('FractalModuleV1', () => {
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
-          [],
         );
 
         expect(await fractalModule.avatar()).to.equal(await avatar.getAddress());
@@ -134,7 +126,6 @@ describe('FractalModuleV1', () => {
           owner,
           await avatar.getAddress(),
           user.address, // Different from avatar
-          [],
         );
 
         expect(await fractalModule.avatar()).to.equal(await avatar.getAddress());
@@ -148,7 +139,6 @@ describe('FractalModuleV1', () => {
           owner,
           ethers.ZeroAddress,
           await avatar.getAddress(),
-          [],
         );
 
         expect(await fractalModule.avatar()).to.equal(ethers.ZeroAddress);
@@ -162,7 +152,6 @@ describe('FractalModuleV1', () => {
           owner,
           await avatar.getAddress(),
           ethers.ZeroAddress,
-          [],
         );
 
         expect(await fractalModule.avatar()).to.equal(await avatar.getAddress());
@@ -176,89 +165,10 @@ describe('FractalModuleV1', () => {
           owner,
           ethers.ZeroAddress,
           ethers.ZeroAddress,
-          [],
         );
 
         expect(await fractalModule.avatar()).to.equal(ethers.ZeroAddress);
         expect(await fractalModule.getFunction('target')()).to.equal(ethers.ZeroAddress);
-      });
-    });
-
-    describe('Controllers parameter', () => {
-      describe('No controllers', () => {
-        it('should initialize with no controllers', async () => {
-          fractalModule = await deployFractalModuleProxy(
-            proxyDeployer,
-            masterCopy,
-            owner,
-            await avatar.getAddress(),
-            await avatar.getAddress(),
-            [], // empty controllers array
-          );
-
-          void expect(await fractalModule.controllers(owner.address)).to.be.false;
-          void expect(await fractalModule.controllers(controller.address)).to.be.false;
-          void expect(await fractalModule.controllers(user.address)).to.be.false;
-        });
-      });
-
-      describe('Single controller', () => {
-        it('should initialize with single controller', async () => {
-          fractalModule = await deployFractalModuleProxy(
-            proxyDeployer,
-            masterCopy,
-            owner,
-            await avatar.getAddress(),
-            await avatar.getAddress(),
-            [controller.address],
-          );
-
-          void expect(await fractalModule.controllers(controller.address)).to.be.true;
-          void expect(await fractalModule.controllers(owner.address)).to.be.false;
-          void expect(await fractalModule.controllers(user.address)).to.be.false;
-        });
-      });
-
-      describe('Multiple controllers', () => {
-        it('should initialize with multiple controllers', async () => {
-          const controllers = [controller.address, user.address];
-          fractalModule = await deployFractalModuleProxy(
-            proxyDeployer,
-            masterCopy,
-            owner,
-            await avatar.getAddress(),
-            await avatar.getAddress(),
-            controllers,
-          );
-
-          void expect(await fractalModule.controllers(controller.address)).to.be.true;
-          void expect(await fractalModule.controllers(user.address)).to.be.true;
-          void expect(await fractalModule.controllers(owner.address)).to.be.false;
-        });
-
-        it('should not allow duplicate controllers', async () => {
-          const controllers = [controller.address, controller.address];
-
-          // The second controller.address will overwrite the first one's mapping,
-          // but both will emit events. This is expected behavior from the contract.
-          fractalModule = await deployFractalModuleProxy(
-            proxyDeployer,
-            masterCopy,
-            owner,
-            await avatar.getAddress(),
-            await avatar.getAddress(),
-            controllers,
-          );
-
-          // Verify the controller is still enabled (only once)
-          void expect(await fractalModule.controllers(controller.address)).to.be.true;
-
-          // Verify that a ControllersAdded event was emitted with both addresses
-          const filter = fractalModule.filters.ControllersAdded;
-          const events = await fractalModule.queryFilter(filter);
-          expect(events.length).to.equal(1);
-          expect(events[0].args[0]).to.deep.equal(controllers);
-        });
       });
     });
 
@@ -270,14 +180,12 @@ describe('FractalModuleV1', () => {
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
-          [controller.address],
         );
 
         // Verify initialization was successful
         expect(await fractalModule.owner()).to.equal(owner.address);
         expect(await fractalModule.avatar()).to.equal(await avatar.getAddress());
         expect(await fractalModule.getFunction('target')()).to.equal(await avatar.getAddress());
-        void expect(await fractalModule.controllers(controller.address)).to.be.true;
       });
 
       it('should not allow setUp to be called again after initialization', async () => {
@@ -287,18 +195,12 @@ describe('FractalModuleV1', () => {
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
-          [controller.address],
         );
 
         // Encode parameters correctly for setUp
         const innerParams = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address', 'address', 'address[]'],
-          [
-            owner.address,
-            await avatar.getAddress(),
-            await avatar.getAddress(),
-            [controller.address],
-          ],
+          ['address', 'address', 'address'],
+          [owner.address, await avatar.getAddress(), await avatar.getAddress()],
         );
 
         // Attempt to call setUp again - should revert
@@ -317,128 +219,11 @@ describe('FractalModuleV1', () => {
           owner,
           await avatar.getAddress(),
           await avatar.getAddress(),
-          [],
         );
 
         await expect(
-          fractalModule.initialize(owner.address, ethers.ZeroAddress, ethers.ZeroAddress, []),
+          fractalModule.initialize(owner.address, ethers.ZeroAddress, ethers.ZeroAddress),
         ).to.be.revertedWithCustomError(fractalModule, 'InvalidInitialization');
-      });
-    });
-  });
-
-  describe('Controller Management', () => {
-    let fractalModule: FractalModuleV1;
-    let avatar: MockAvatar;
-
-    beforeEach(async () => {
-      avatar = await new MockAvatar__factory(proxyDeployer).deploy();
-      fractalModule = await deployFractalModuleProxy(
-        proxyDeployer,
-        masterCopy,
-        owner,
-        await avatar.getAddress(),
-        await avatar.getAddress(),
-        [],
-      );
-    });
-
-    describe('Adding controllers', () => {
-      describe('Via owner', () => {
-        it('should allow owner to add single controller', async () => {
-          await fractalModule.addControllers([controller.address]);
-          void expect(await fractalModule.controllers(controller.address)).to.be.true;
-        });
-
-        it('should allow owner to add multiple controllers', async () => {
-          const controllers = [controller.address, user.address];
-          await fractalModule.addControllers(controllers);
-
-          void expect(await fractalModule.controllers(controller.address)).to.be.true;
-          void expect(await fractalModule.controllers(user.address)).to.be.true;
-        });
-
-        it('should emit ControllersAdded event', async () => {
-          const controllers = [controller.address, user.address];
-          await expect(fractalModule.addControllers(controllers))
-            .to.emit(fractalModule, 'ControllersAdded')
-            .withArgs(controllers);
-        });
-
-        it('should properly update controllers mapping', async () => {
-          // Check initial state
-          void expect(await fractalModule.controllers(controller.address)).to.be.false;
-          void expect(await fractalModule.controllers(user.address)).to.be.false;
-
-          // Add controllers
-          const controllers = [controller.address, user.address];
-          await fractalModule.addControllers(controllers);
-
-          // Verify mapping is updated
-          void expect(await fractalModule.controllers(controller.address)).to.be.true;
-          void expect(await fractalModule.controllers(user.address)).to.be.true;
-          void expect(await fractalModule.controllers(owner.address)).to.be.false; // Owner not added as controller
-        });
-      });
-
-      describe('Via non-owner', () => {
-        it('should not allow non-owner to add controllers', async () => {
-          await expect(
-            fractalModule.connect(user).addControllers([controller.address]),
-          ).to.be.revertedWithCustomError(fractalModule, 'OwnableUnauthorizedAccount');
-        });
-      });
-    });
-
-    describe('Removing controllers', () => {
-      describe('Via owner', () => {
-        beforeEach(async () => {
-          // Add controllers for testing removal
-          await fractalModule.addControllers([controller.address, user.address]);
-        });
-
-        it('should allow owner to remove single controller', async () => {
-          await fractalModule.removeControllers([controller.address]);
-          void expect(await fractalModule.controllers(controller.address)).to.be.false;
-          void expect(await fractalModule.controllers(user.address)).to.be.true; // Other controller still enabled
-        });
-
-        it('should allow owner to remove multiple controllers', async () => {
-          const controllers = [controller.address, user.address];
-          await fractalModule.removeControllers(controllers);
-
-          void expect(await fractalModule.controllers(controller.address)).to.be.false;
-          void expect(await fractalModule.controllers(user.address)).to.be.false;
-        });
-
-        it('should emit ControllersRemoved event', async () => {
-          const controllers = [controller.address, user.address];
-          await expect(fractalModule.removeControllers(controllers))
-            .to.emit(fractalModule, 'ControllersRemoved')
-            .withArgs(controllers);
-        });
-
-        it('should properly update controllers mapping', async () => {
-          // Verify initial state
-          void expect(await fractalModule.controllers(controller.address)).to.be.true;
-          void expect(await fractalModule.controllers(user.address)).to.be.true;
-
-          // Remove controllers
-          const controllers = [controller.address, user.address];
-          await fractalModule.removeControllers(controllers);
-
-          // Verify mapping is updated
-          void expect(await fractalModule.controllers(controller.address)).to.be.false;
-          void expect(await fractalModule.controllers(user.address)).to.be.false;
-        });
-      });
-
-      describe('Via non-owner', () => {
-        it('should not allow non-owner to remove controllers', async () => {
-          await expect(
-            fractalModule.connect(user).removeControllers([controller.address]),
-          ).to.be.revertedWithCustomError(fractalModule, 'OwnableUnauthorizedAccount');
-        });
       });
     });
   });
@@ -455,7 +240,6 @@ describe('FractalModuleV1', () => {
         owner,
         await avatar.getAddress(),
         await avatar.getAddress(),
-        [controller.address],
       );
       await avatar.enableModule(await fractalModule.getAddress());
     });
@@ -482,16 +266,10 @@ describe('FractalModuleV1', () => {
         expect(await mockToken.balanceOf(user.address)).to.equal(100);
       });
 
-      it('should allow controller to execute transactions', async () => {
-        await mockToken.mint(await avatar.getAddress(), 1000);
-        await fractalModule.connect(controller).execTx(txData);
-        expect(await mockToken.balanceOf(user.address)).to.equal(100);
-      });
-
-      it('should revert with Unauthorized for non-owner/non-controller', async () => {
+      it('should revert with OwnableUnauthorizedAccount for non-owner', async () => {
         await expect(fractalModule.connect(user).execTx(txData)).to.be.revertedWithCustomError(
           fractalModule,
-          'Unauthorized',
+          'OwnableUnauthorizedAccount',
         );
       });
     });
@@ -630,7 +408,6 @@ describe('FractalModuleV1', () => {
         owner,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
-        [],
       );
     });
 
@@ -654,7 +431,6 @@ describe('FractalModuleV1', () => {
         owner,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
-        [],
       );
 
       // Dynamically calculate interface IDs
@@ -701,7 +477,6 @@ describe('FractalModuleV1', () => {
         owner,
         ethers.ZeroAddress,
         ethers.ZeroAddress,
-        [],
       );
     });
 
