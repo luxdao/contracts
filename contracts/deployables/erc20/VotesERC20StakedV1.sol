@@ -14,7 +14,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
  * Staking contract that immediately distributes rewards in full
  * to all stakers upon each distribution.
  */
-contract VotesStakedERC20V1 is
+contract VotesERC20StakedV1 is
     Version,
     ERC20VotesUpgradeable,
     UUPSUpgradeable,

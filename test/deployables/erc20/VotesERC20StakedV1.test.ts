@@ -8,16 +8,16 @@ import {
   IERC20__factory,
   IVersion__factory,
   IVotes__factory,
-  VotesStakedERC20V1,
-  VotesStakedERC20V1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
+  VotesERC20StakedV1,
+  VotesERC20StakedV1__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
-// Helper function for deploying VotesERC20V1 instances using ERC1967Proxy
-async function deployVotesStakedERC20Proxy(
+// Helper function for deploying VotesERC20StakedV1 instances using ERC1967Proxy
+async function deployVotesERC20StakedProxy(
   proxyDeployer: SignerWithAddress,
   implementation: string,
   owner: SignerWithAddress,
@@ -25,10 +25,10 @@ async function deployVotesStakedERC20Proxy(
   symbol: string,
   stakedToken: string,
   minimumStakingPeriod: bigint,
-): Promise<VotesStakedERC20V1> {
+): Promise<VotesERC20StakedV1> {
   // Create initialization data with function selector
   const fullInitData =
-    VotesStakedERC20V1__factory.createInterface().getFunction('initialize').selector +
+    VotesERC20StakedV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
         ['string', 'string', 'address', 'address', 'uint256'],
@@ -40,10 +40,10 @@ async function deployVotesStakedERC20Proxy(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return VotesStakedERC20V1__factory.connect(await proxy.getAddress(), owner);
+  return VotesERC20StakedV1__factory.connect(await proxy.getAddress(), owner);
 }
 
-describe('VotesStakedERC20V1', () => {
+describe('VotesERC20StakedV1', () => {
   // signers
   let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
@@ -53,7 +53,7 @@ describe('VotesStakedERC20V1', () => {
   let nonOwner: SignerWithAddress;
 
   // contracts
-  let votesStakedERC20: VotesStakedERC20V1;
+  let votesERC20Staked: VotesERC20StakedV1;
   let masterCopy: string;
   let stakedToken: MockERC20Votes;
 
@@ -61,13 +61,13 @@ describe('VotesStakedERC20V1', () => {
     // Get signers
     [proxyDeployer, owner, alice, nonOwner] = await ethers.getSigners();
 
-    masterCopy = await (await new VotesStakedERC20V1__factory(owner).deploy()).getAddress();
+    masterCopy = await (await new VotesERC20StakedV1__factory(owner).deploy()).getAddress();
     stakedToken = await new MockERC20Votes__factory(owner).deploy();
   });
 
   describe('Initialization', () => {
     it('should initialize with correct values', async () => {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -77,15 +77,15 @@ describe('VotesStakedERC20V1', () => {
         604800n,
       );
 
-      expect(await votesStakedERC20.name()).to.equal('Test Staking Contract');
-      expect(await votesStakedERC20.symbol()).to.equal('TSC');
-      expect(await votesStakedERC20.owner()).to.equal(owner.address);
-      expect(await votesStakedERC20.stakedToken()).to.equal(await stakedToken.getAddress());
-      expect(await votesStakedERC20.minimumStakingPeriod()).to.equal(604800n);
+      expect(await votesERC20Staked.name()).to.equal('Test Staking Contract');
+      expect(await votesERC20Staked.symbol()).to.equal('TSC');
+      expect(await votesERC20Staked.owner()).to.equal(owner.address);
+      expect(await votesERC20Staked.stakedToken()).to.equal(await stakedToken.getAddress());
+      expect(await votesERC20Staked.minimumStakingPeriod()).to.equal(604800n);
     });
 
     it('should not allow reinitialization', async () => {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -96,18 +96,18 @@ describe('VotesStakedERC20V1', () => {
       );
 
       await expect(
-        votesStakedERC20.initialize(
+        votesERC20Staked.initialize(
           'New Name',
           'NEW',
           owner.address,
           await stakedToken.getAddress(),
           604800n,
         ),
-      ).to.be.revertedWithCustomError(votesStakedERC20, 'InvalidInitialization');
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidInitialization');
     });
 
     it('Should have initialization disabled in the implementation', async function () {
-      const implementationContract = VotesStakedERC20V1__factory.connect(masterCopy, proxyDeployer);
+      const implementationContract = VotesERC20StakedV1__factory.connect(masterCopy, proxyDeployer);
 
       await expect(
         implementationContract.initialize(
@@ -121,7 +121,7 @@ describe('VotesStakedERC20V1', () => {
     });
 
     it('should set the owner correctly', async () => {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -131,13 +131,13 @@ describe('VotesStakedERC20V1', () => {
         604800n,
       );
 
-      expect(await votesStakedERC20.owner()).to.equal(owner.address);
+      expect(await votesERC20Staked.owner()).to.equal(owner.address);
     });
   });
 
   describe('Ownership', () => {
     beforeEach(async () => {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -149,36 +149,36 @@ describe('VotesStakedERC20V1', () => {
     });
 
     it('should set the owner correctly', async () => {
-      const currentOwner = await votesStakedERC20.owner();
+      const currentOwner = await votesERC20Staked.owner();
       expect(currentOwner).to.equal(owner.address);
     });
 
     it('should allow the owner to call authorized functions', async () => {
-      await votesStakedERC20.connect(owner).renounceOwnership();
-      expect(await votesStakedERC20.owner()).to.equal(ethers.ZeroAddress);
+      await votesERC20Staked.connect(owner).renounceOwnership();
+        expect(await votesERC20Staked.owner()).to.equal(ethers.ZeroAddress);
     });
 
     it('should not allow non-owners to call owner-only functions', async () => {
       await expect(
-        votesStakedERC20.connect(alice).renounceOwnership(),
-      ).to.be.revertedWithCustomError(votesStakedERC20, 'OwnableUnauthorizedAccount');
+        votesERC20Staked.connect(alice).renounceOwnership(),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
     });
 
     it('should allow the owner to set a new minimum staking period', async () => {
-      await votesStakedERC20.connect(owner).setMinimumStakingPeriod(10n);
-      expect(await votesStakedERC20.minimumStakingPeriod()).to.equal(10n);
+      await votesERC20Staked.connect(owner).setMinimumStakingPeriod(10n);
+      expect(await votesERC20Staked.minimumStakingPeriod()).to.equal(10n);
     });
 
     it('should not allow non-owners to set a new minimum staking period', async () => {
       await expect(
-        votesStakedERC20.connect(alice).setMinimumStakingPeriod(10n),
-      ).to.be.revertedWithCustomError(votesStakedERC20, 'OwnableUnauthorizedAccount');
+        votesERC20Staked.connect(alice).setMinimumStakingPeriod(10n),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
     });
   });
 
   describe('Version', () => {
     beforeEach(async () => {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -190,7 +190,7 @@ describe('VotesStakedERC20V1', () => {
     });
 
     it('should return the correct version number', async () => {
-      expect(await votesStakedERC20.getVersion()).to.equal(1);
+      expect(await votesERC20Staked.getVersion()).to.equal(1);
     });
   });
 
@@ -202,7 +202,7 @@ describe('VotesStakedERC20V1', () => {
     let iERC165InterfaceId: string;
 
     beforeEach(async function () {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -227,35 +227,35 @@ describe('VotesStakedERC20V1', () => {
     });
 
     it('Should support IERC165 interface', async function () {
-      const supported = await votesStakedERC20.supportsInterface(iERC165InterfaceId);
+      const supported = await votesERC20Staked.supportsInterface(iERC165InterfaceId);
       void expect(supported).to.be.true;
     });
 
     it('Should support IVersion interface', async function () {
-      const supported = await votesStakedERC20.supportsInterface(iVersionInterfaceId);
+      const supported = await votesERC20Staked.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
     });
 
     it('Should support IERC20 interface', async function () {
-      const supported = await votesStakedERC20.supportsInterface(iERC20InterfaceId);
+      const supported = await votesERC20Staked.supportsInterface(iERC20InterfaceId);
       void expect(supported).to.be.true;
     });
 
     it('Should support IVotes interface', async function () {
-      const supported = await votesStakedERC20.supportsInterface(iVotesInterfaceId);
+      const supported = await votesERC20Staked.supportsInterface(iVotesInterfaceId);
       void expect(supported).to.be.true;
     });
 
     it('Should not support random interface', async function () {
       const randomInterfaceId = '0x12345678';
-      const supported = await votesStakedERC20.supportsInterface(randomInterfaceId);
+      const supported = await votesERC20Staked.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
     });
   });
 
   describe('Timestamp-based clock functions', () => {
     beforeEach(async () => {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -268,19 +268,19 @@ describe('VotesStakedERC20V1', () => {
 
     it('should return current timestamp from clock()', async () => {
       const currentTime = await ethers.provider.getBlock('latest').then(b => b!.timestamp);
-      const clockTime = await votesStakedERC20.clock();
+      const clockTime = await votesERC20Staked.clock();
 
       // Allow small variance due to block mining time
       expect(Number(clockTime)).to.be.closeTo(currentTime, 5);
     });
 
     it("should return 'mode=timestamp' from CLOCK_MODE()", async () => {
-      expect(await votesStakedERC20.CLOCK_MODE()).to.equal('mode=timestamp');
+      expect(await votesERC20Staked.CLOCK_MODE()).to.equal('mode=timestamp');
     });
 
     it('should use timestamp for vote checkpoints', async () => {
       // Delegate to another address
-      await votesStakedERC20.connect(owner).delegate(alice.address);
+      await votesERC20Staked.connect(owner).delegate(alice.address);
 
       // Mine a block to move forward in time
       await mine(1);
@@ -289,16 +289,16 @@ describe('VotesStakedERC20V1', () => {
       const currentTime = await time.latest();
 
       // The voting power at the previous timestamp should be available
-      const votingPower = await votesStakedERC20.getPastVotes(alice.address, currentTime - 1);
+      const votingPower = await votesERC20Staked.getPastVotes(alice.address, currentTime - 1);
 
       // Should match the owner's balance since we just delegated
-      expect(votingPower).to.equal(await votesStakedERC20.balanceOf(owner.address));
+      expect(votingPower).to.equal(await votesERC20Staked.balanceOf(owner.address));
     });
   });
 
   describe('VotesERC20V1 UUPS Upgradeability', function () {
     beforeEach(async function () {
-      votesStakedERC20 = await deployVotesStakedERC20Proxy(
+      votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
         masterCopy,
         owner,
@@ -311,9 +311,9 @@ describe('VotesStakedERC20V1', () => {
 
     // Run UUPS upgradeability tests
     runUUPSUpgradeabilityTests({
-      getContract: () => votesStakedERC20,
+      getContract: () => votesERC20Staked,
       createNewImplementation: async () => {
-        const newImplementation = await new VotesStakedERC20V1__factory(owner).deploy();
+        const newImplementation = await new VotesERC20StakedV1__factory(owner).deploy();
         return newImplementation;
       },
       owner: () => owner,
