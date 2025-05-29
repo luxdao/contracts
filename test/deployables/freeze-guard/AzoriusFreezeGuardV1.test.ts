@@ -5,7 +5,10 @@ import {
   AzoriusFreezeGuardV1,
   AzoriusFreezeGuardV1__factory,
   ERC1967Proxy__factory,
+  IAzoriusFreezeGuardV1__factory,
   IERC165__factory,
+  IFreezeGuardBaseV1__factory,
+  IGuard__factory,
   IVersion__factory,
   MockFreezeVoting,
   MockFreezeVoting__factory,
@@ -22,8 +25,7 @@ async function deployAzoriusFreezeGuardProxy(
 ): Promise<AzoriusFreezeGuardV1> {
   // Create initialization data with function selector
   const fullInitData =
-    AzoriusFreezeGuardV1__factory.createInterface().getFunction('initialize(address,address)')
-      .selector +
+    AzoriusFreezeGuardV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(['address', 'address'], [owner.address, freezeVoting])
       .slice(2);
@@ -77,26 +79,6 @@ describe('AzoriusFreezeGuardV1', () => {
       expect(await azoriusFreezeGuard.freezeVoting()).to.equal(await mockFreezeVoting.getAddress());
     });
 
-    it('should emit AzoriusFreezeGuardSetUp event on initialization', async () => {
-      const freezeVotingAddress = await mockFreezeVoting.getAddress();
-
-      // Deploy via our helper
-      const tx = await deployAzoriusFreezeGuardProxy(
-        proxyDeployer,
-        masterCopy,
-        owner,
-        freezeVotingAddress,
-      );
-
-      // Check event emission
-      const filter = tx.filters.AzoriusFreezeGuardSetUp;
-      const events = await tx.queryFilter(filter);
-
-      expect(events.length).to.equal(1);
-      expect(events[0].args[1]).to.equal(owner.address); // owner
-      expect(events[0].args[2]).to.equal(freezeVotingAddress); // freezeVoting
-    });
-
     it('should not allow reinitialization', async () => {
       azoriusFreezeGuard = await deployAzoriusFreezeGuardProxy(
         proxyDeployer,
@@ -106,7 +88,7 @@ describe('AzoriusFreezeGuardV1', () => {
       );
 
       await expect(
-        azoriusFreezeGuard['initialize(address,address)'](user.address, ethers.ZeroAddress),
+        azoriusFreezeGuard.initialize(user.address, ethers.ZeroAddress),
       ).to.be.revertedWithCustomError(azoriusFreezeGuard, 'InvalidInitialization');
     });
 
@@ -117,7 +99,7 @@ describe('AzoriusFreezeGuardV1', () => {
       );
 
       await expect(
-        implementationContract['initialize(address,address)'](owner.address, ethers.ZeroAddress),
+        implementationContract.initialize(owner.address, ethers.ZeroAddress),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
@@ -135,6 +117,7 @@ describe('AzoriusFreezeGuardV1', () => {
     it('Should allow owner to call owner-only functions', async function () {
       // The transfer ownership function is an example of an owner-only function
       await azoriusFreezeGuard.connect(owner).transferOwnership(user.address);
+      await azoriusFreezeGuard.connect(user).acceptOwnership();
       expect(await azoriusFreezeGuard.owner()).to.equal(user.address);
     });
 
@@ -226,6 +209,9 @@ describe('AzoriusFreezeGuardV1', () => {
   describe('ERC165', function () {
     let iVersionInterfaceId: string;
     let iERC165InterfaceId: string;
+    let iAzoriusFreezeGuardV1InterfaceId: string;
+    let iFreezeGuardBaseV1InterfaceId: string;
+    let iGuardInterfaceId: string;
 
     beforeEach(async function () {
       azoriusFreezeGuard = await deployAzoriusFreezeGuardProxy(
@@ -241,6 +227,20 @@ describe('AzoriusFreezeGuardV1', () => {
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+
+      const IAzoriusFreezeGuardV1Interface = IAzoriusFreezeGuardV1__factory.createInterface();
+      iAzoriusFreezeGuardV1InterfaceId = calculateInterfaceId(IAzoriusFreezeGuardV1Interface, [
+        IFreezeGuardBaseV1__factory.createInterface(),
+        IGuard__factory.createInterface(),
+      ]);
+
+      const IFreezeGuardBaseV1Interface = IFreezeGuardBaseV1__factory.createInterface();
+      iFreezeGuardBaseV1InterfaceId = calculateInterfaceId(IFreezeGuardBaseV1Interface, [
+        IGuard__factory.createInterface(),
+      ]);
+
+      const IGuardInterface = IGuard__factory.createInterface();
+      iGuardInterfaceId = calculateInterfaceId(IGuardInterface);
     });
 
     it('Should support IERC165 interface', async function () {
@@ -250,6 +250,23 @@ describe('AzoriusFreezeGuardV1', () => {
 
     it('Should support IVersion interface', async function () {
       const supported = await azoriusFreezeGuard.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IAzoriusFreezeGuardV1 interface', async function () {
+      const supported = await azoriusFreezeGuard.supportsInterface(
+        iAzoriusFreezeGuardV1InterfaceId,
+      );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IFreezeGuardBaseV1 interface', async function () {
+      const supported = await azoriusFreezeGuard.supportsInterface(iFreezeGuardBaseV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IGuard interface', async function () {
+      const supported = await azoriusFreezeGuard.supportsInterface(iGuardInterfaceId);
       void expect(supported).to.be.true;
     });
 
