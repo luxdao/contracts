@@ -17,24 +17,22 @@ contract FractalModuleV1 is
 {
     uint16 private constant VERSION = 1;
 
-    error TxFailed();
-
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address _owner,
-        address _avatar,
-        address _target
-    ) public virtual initializer {
+        address owner_,
+        address avatar_,
+        address target_
+    ) public virtual override initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
 
-        setAvatar(_avatar);
-        setTarget(_target);
+        setAvatar(avatar_);
+        setTarget(target_);
 
-        OwnableUpgradeable.transferOwnership(_owner);
+        OwnableUpgradeable.transferOwnership(owner_);
     }
 
     function setUp(
@@ -51,13 +49,12 @@ contract FractalModuleV1 is
         address newImplementation
     ) internal virtual override onlyOwner {}
 
-    function execTx(bytes memory execTxData) public virtual onlyOwner {
-        (
-            address _target,
-            uint256 _value,
-            bytes memory _data,
-            Enum.Operation _operation
-        ) = abi.decode(execTxData, (address, uint256, bytes, Enum.Operation));
+    function execTx(
+        address _target,
+        uint256 _value,
+        bytes memory _data,
+        Enum.Operation _operation
+    ) public virtual override onlyOwner {
         if (!exec(_target, _value, _data, _operation)) revert TxFailed();
     }
 

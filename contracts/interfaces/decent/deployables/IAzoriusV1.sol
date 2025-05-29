@@ -4,6 +4,27 @@ pragma solidity ^0.8.30;
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
 interface IAzoriusV1 {
+    event ProposalCreated(
+        address strategy,
+        uint256 proposalId,
+        address proposer,
+        Transaction[] transactions,
+        string metadata
+    );
+    event ProposalExecuted(uint32 proposalId, bytes32[] txHashes);
+    event TimelockPeriodUpdated(uint32 timelockPeriod);
+    event ExecutionPeriodUpdated(uint32 executionPeriod);
+    event StrategyUpdated(address strategy);
+
+    error InvalidStrategy();
+    error InvalidProposal();
+    error InvalidProposer();
+    error ProposalNotExecutable();
+    error InvalidTxHash();
+    error TxFailed();
+    error InvalidTxs();
+    error InvalidArrayLengths();
+
     struct Transaction {
         address to;
         uint256 value;
@@ -27,6 +48,27 @@ interface IAzoriusV1 {
         EXPIRED,
         FAILED
     }
+
+    function initialize(
+        address owner,
+        address avatar,
+        address target,
+        address strategy,
+        uint32 timelockPeriod,
+        uint32 executionPeriod
+    ) external;
+
+    function totalProposalCount() external view returns (uint32);
+
+    function timelockPeriod() external view returns (uint32);
+
+    function executionPeriod() external view returns (uint32);
+
+    function proposals(
+        uint32 _proposalId
+    ) external view returns (Proposal memory);
+
+    function strategy() external view returns (address);
 
     function updateTimelockPeriod(uint32 _timelockPeriod) external;
 
