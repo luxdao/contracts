@@ -80,6 +80,10 @@ contract VotesERC20StakedV1 is
         revert NonTransferable();
     }   
 
+    function approve(address, uint256) public virtual override returns (bool) {
+        revert NonTransferable();
+    }
+
     function clock() public view override returns (uint48) {
         return uint48(block.timestamp);
     }
