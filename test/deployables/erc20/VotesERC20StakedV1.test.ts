@@ -165,13 +165,13 @@ describe('VotesERC20StakedV1', () => {
     });
 
     it('should allow the owner to set a new minimum staking period', async () => {
-      await votesERC20Staked.connect(owner).setMinimumStakingPeriod(10n);
+      await votesERC20Staked.connect(owner).updateMinimumStakingPeriod(10n);
       expect(await votesERC20Staked.minimumStakingPeriod()).to.equal(10n);
     });
 
     it('should not allow non-owners to set a new minimum staking period', async () => {
       await expect(
-        votesERC20Staked.connect(alice).setMinimumStakingPeriod(10n),
+        votesERC20Staked.connect(alice).updateMinimumStakingPeriod(10n),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
     });
   });
