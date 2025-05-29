@@ -161,7 +161,7 @@ describe('VotesERC20StakedV1', () => {
 
     it('should allow the owner to call authorized functions', async () => {
       await votesERC20Staked.connect(owner).renounceOwnership();
-        expect(await votesERC20Staked.owner()).to.equal(ethers.ZeroAddress);
+      expect(await votesERC20Staked.owner()).to.equal(ethers.ZeroAddress);
     });
 
     it('should not allow non-owners to call owner-only functions', async () => {
