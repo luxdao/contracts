@@ -2,62 +2,64 @@
 pragma solidity ^0.8.30;
 
 import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
+import {IERC721FreezeVotingV1} from "../../interfaces/decent/deployables/IERC721FreezeVotingV1.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
+contract ERC721FreezeVotingV1 is
+    IERC721FreezeVotingV1,
+    BaseFreezeVotingV1,
+    Version
+{
     uint16 private constant VERSION = 1;
 
-    IERC721VotingStrategyV1 public strategy;
-
-    mapping(uint256 => mapping(address => mapping(uint256 => bool)))
-        public idHasFreezeVoted;
-
-    event ERC721FreezeVotingSetUp(
-        address indexed owner,
-        address indexed strategy
-    );
-
-    error NoVotes();
-    error NotSupported();
-    error UnequalArrays();
+    IERC721VotingStrategyV1 internal _strategy;
+    mapping(uint48 => mapping(address => mapping(uint256 => bool)))
+        internal _idHasFreezeVoted;
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address _owner,
-        uint256 _freezeVotesThreshold,
-        uint32 _freezeProposalPeriod,
-        uint32 _freezePeriod,
-        address _strategy
-    ) public virtual initializer {
+        address owner_,
+        uint256 freezeVotesThreshold_,
+        uint32 freezeProposalPeriod_,
+        uint32 freezePeriod_,
+        address strategy_
+    ) public virtual override initializer {
         __BaseFreezeVotingV1_init(
-            _owner,
-            _freezeProposalPeriod,
-            _freezePeriod,
-            _freezeVotesThreshold
+            owner_,
+            freezeProposalPeriod_,
+            freezePeriod_,
+            freezeVotesThreshold_
         );
-        strategy = IERC721VotingStrategyV1(_strategy);
-
-        emit ERC721FreezeVotingSetUp(_owner, _strategy);
+        _strategy = IERC721VotingStrategyV1(strategy_);
     }
 
-    function castFreezeVote() external pure virtual override {
-        revert NotSupported();
+    function strategy() external view virtual override returns (address) {
+        return address(_strategy);
+    }
+
+    function idHasFreezeVoted(
+        uint48 freezeProposalCreated_,
+        address tokenAddress_,
+        uint256 tokenId_
+    ) external view virtual override returns (bool) {
+        return
+            _idHasFreezeVoted[freezeProposalCreated_][tokenAddress_][tokenId_];
     }
 
     function castFreezeVote(
         address[] memory _tokenAddresses,
         uint256[] memory _tokenIds
-    ) external virtual {
+    ) external virtual override {
         if (_tokenAddresses.length != _tokenIds.length) revert UnequalArrays();
 
-        if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
-            freezeProposalCreated = uint48(block.timestamp);
-            freezeProposalVoteCount = 0;
+        if (block.timestamp > _freezeProposalCreated + _freezeProposalPeriod) {
+            _freezeProposalCreated = uint48(block.timestamp);
+            _freezeProposalVoteCount = 0;
             emit FreezeProposalCreated(msg.sender);
         }
 
@@ -68,7 +70,7 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         );
         if (userVotes == 0) revert NoVotes();
 
-        freezeProposalVoteCount += userVotes;
+        _freezeProposalVoteCount += userVotes;
 
         emit FreezeVoteCast(msg.sender, userVotes);
     }
@@ -89,14 +91,14 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
             }
 
             if (
-                idHasFreezeVoted[freezeProposalCreated][tokenAddress][tokenId]
+                _idHasFreezeVoted[_freezeProposalCreated][tokenAddress][tokenId]
             ) {
                 continue;
             }
 
-            votes += strategy.getTokenWeight(tokenAddress);
+            votes += _strategy.getTokenWeight(tokenAddress);
 
-            idHasFreezeVoted[freezeProposalCreated][tokenAddress][
+            _idHasFreezeVoted[_freezeProposalCreated][tokenAddress][
                 tokenId
             ] = true;
         }
@@ -111,6 +113,8 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override(BaseFreezeVotingV1, Version) returns (bool) {
-        return super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IERC721FreezeVotingV1).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }
