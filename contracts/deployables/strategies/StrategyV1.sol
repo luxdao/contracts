@@ -13,7 +13,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 contract StrategyV1 is
     Initializable,
     IStrategyV1,
-    ERC165,
     ERC4337VoterSupportV1,
     Version
 {
@@ -331,7 +330,13 @@ contract StrategyV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(Version, ERC4337VoterSupportV1)
+        returns (bool)
+    {
         return
             interfaceId == type(IStrategyV1).interfaceId ||
             interfaceId == type(IStrategyBaseV1).interfaceId ||
