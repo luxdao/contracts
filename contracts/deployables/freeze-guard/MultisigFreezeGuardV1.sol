@@ -7,12 +7,7 @@ import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMulti
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-/**
- * Implementation of [IMultisigFreezeGuard](./interfaces/IMultisigFreezeGuard.md).
- */
 contract MultisigFreezeGuardV1 is
     IMultisigFreezeGuardV1,
     Version,
@@ -20,22 +15,14 @@ contract MultisigFreezeGuardV1 is
 {
     uint16 private constant VERSION = 1;
 
-    /** Timelock period (in seconds). */
     uint32 public timelockPeriod;
 
-    /** Execution period (in seconds). */
     uint32 public executionPeriod;
 
-    /**
-     * Reference to the [IBaseFreezeVoting](./interfaces/IBaseFreezeVoting.md)
-     * implementation that determines whether the Safe is frozen.
-     */
     IBaseFreezeVotingV1 public freezeVoting;
 
-    /** Reference to the Safe that can be frozen. */
     ISafe public childGnosisSafe;
 
-    /** Mapping of signatures hash to the timestamp during which it was timelocked. */
     mapping(bytes32 => uint48) internal transactionTimelocked;
 
     event MultisigFreezeGuardSetup(
@@ -62,15 +49,6 @@ contract MultisigFreezeGuardV1 is
         _disableInitializers();
     }
 
-    /**
-     * Initialize function, will be triggered when a new instance is deployed.
-     *
-     * @param _timelockPeriod The timelock period in blocks
-     * @param _executionPeriod The execution period in blocks
-     * @param _owner The owner of the contract
-     * @param _freezeVoting The address of the freeze voting contract
-     * @param _childGnosisSafe The address of the child Gnosis Safe
-     */
     function initialize(
         uint32 _timelockPeriod,
         uint32 _executionPeriod,
@@ -78,7 +56,7 @@ contract MultisigFreezeGuardV1 is
         address _freezeVoting,
         address _childGnosisSafe
     ) public initializer {
-        super.initialize(_owner);
+        __BaseFreezeGuardV1_init(_owner);
         _updateTimelockPeriod(_timelockPeriod);
         _updateExecutionPeriod(_executionPeriod);
         freezeVoting = IBaseFreezeVotingV1(_freezeVoting);
@@ -92,15 +70,6 @@ contract MultisigFreezeGuardV1 is
         );
     }
 
-    /**
-     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
-     * @param newImplementation The address of the new implementation
-     */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {}
-
-    /** @inheritdoc IMultisigFreezeGuardV1*/
     function timelockTransaction(
         address to,
         uint256 value,
@@ -135,7 +104,6 @@ contract MultisigFreezeGuardV1 is
 
         bytes32 transactionHash = keccak256(transactionHashData);
 
-        // if signatures are not valid, this will revert
         childGnosisSafe.checkSignatures(
             transactionHash,
             transactionHashData,
@@ -147,20 +115,14 @@ contract MultisigFreezeGuardV1 is
         emit TransactionTimelocked(msg.sender, transactionHash, signatures);
     }
 
-    /** @inheritdoc IMultisigFreezeGuardV1*/
     function updateTimelockPeriod(uint32 _timelockPeriod) external onlyOwner {
         _updateTimelockPeriod(_timelockPeriod);
     }
 
-    /** @inheritdoc IMultisigFreezeGuardV1*/
     function updateExecutionPeriod(uint32 _executionPeriod) external onlyOwner {
         _updateExecutionPeriod(_executionPeriod);
     }
 
-    /**
-     * Called by the Safe to check if the transaction is able to be executed and reverts
-     * if the guard conditions are not met.
-     */
     function checkTransaction(
         address,
         uint256,
@@ -193,37 +155,27 @@ contract MultisigFreezeGuardV1 is
         if (freezeVoting.isFrozen()) revert DAOFrozen();
     }
 
-    /**
-     * A callback performed after a transaction is executed on the Safe. This is a required
-     * function of the `BaseGuard` and `IGuard` interfaces that we do not make use of.
-     */
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseFreezeGuardV1) {
-        // not implementated
-    }
+    ) external view override(BaseFreezeGuardV1) {}
 
-    /** @inheritdoc IMultisigFreezeGuardV1*/
     function getTransactionTimelocked(
         bytes32 _signaturesHash
     ) public view returns (uint48) {
         return transactionTimelocked[_signaturesHash];
     }
 
-    /** Internal implementation of `updateTimelockPeriod` */
     function _updateTimelockPeriod(uint32 _timelockPeriod) internal {
         timelockPeriod = _timelockPeriod;
         emit TimelockPeriodUpdated(_timelockPeriod);
     }
 
-    /** Internal implementation of `updateExecutionPeriod` */
     function _updateExecutionPeriod(uint32 _executionPeriod) internal {
         executionPeriod = _executionPeriod;
         emit ExecutionPeriodUpdated(_executionPeriod);
     }
 
-    /// @inheritdoc Version
     function getVersion() public view virtual override returns (uint16) {
         return VERSION;
     }

@@ -22,8 +22,7 @@ async function deployAzoriusFreezeGuardProxy(
 ): Promise<AzoriusFreezeGuardV1> {
   // Create initialization data with function selector
   const fullInitData =
-    AzoriusFreezeGuardV1__factory.createInterface().getFunction('initialize(address,address)')
-      .selector +
+    AzoriusFreezeGuardV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(['address', 'address'], [owner.address, freezeVoting])
       .slice(2);
@@ -106,7 +105,7 @@ describe('AzoriusFreezeGuardV1', () => {
       );
 
       await expect(
-        azoriusFreezeGuard['initialize(address,address)'](user.address, ethers.ZeroAddress),
+        azoriusFreezeGuard.initialize(user.address, ethers.ZeroAddress),
       ).to.be.revertedWithCustomError(azoriusFreezeGuard, 'InvalidInitialization');
     });
 
@@ -117,7 +116,7 @@ describe('AzoriusFreezeGuardV1', () => {
       );
 
       await expect(
-        implementationContract['initialize(address,address)'](owner.address, ethers.ZeroAddress),
+        implementationContract.initialize(owner.address, ethers.ZeroAddress),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
@@ -135,6 +134,7 @@ describe('AzoriusFreezeGuardV1', () => {
     it('Should allow owner to call owner-only functions', async function () {
       // The transfer ownership function is an example of an owner-only function
       await azoriusFreezeGuard.connect(owner).transferOwnership(user.address);
+      await azoriusFreezeGuard.connect(user).acceptOwnership();
       expect(await azoriusFreezeGuard.owner()).to.equal(user.address);
     });
 
