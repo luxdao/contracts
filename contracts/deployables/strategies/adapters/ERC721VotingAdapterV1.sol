@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ITokenAdapterV1} from "../../../interfaces/decent/deployables/ITokenAdapterV1.sol";
-import {ITokenAdapterBaseV1} from "../../../interfaces/decent/deployables/ITokenAdapterBaseV1.sol";
+import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
+import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {IStrategyBaseV1} from "../../../interfaces/decent/deployables/IStrategyBaseV1.sol";
 import {Version} from "../../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -11,8 +11,8 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract ERC721TokenAdapterV1 is
-    ITokenAdapterV1,
+contract ERC721VotingAdapterV1 is
+    IVotingAdapterV1,
     Initializable,
     OwnableUpgradeable,
     UUPSUpgradeable,
@@ -27,7 +27,7 @@ contract ERC721TokenAdapterV1 is
 
     uint16 public constant VERSION = 1;
 
-    event TokenAdapterParametersUpdated(uint256 newWeightPerNft);
+    event VotingAdapterParametersUpdated(uint256 newWeightPerNft);
 
     error InvalidTokenAddress();
     error InvalidStrategyAddress();
@@ -54,7 +54,7 @@ contract ERC721TokenAdapterV1 is
 
         _updateWeightPerNft(_weightPerNft);
 
-        emit TokenAdapterParametersUpdated(weightPerNft);
+        emit VotingAdapterParametersUpdated(weightPerNft);
     }
 
     function _authorizeUpgrade(
@@ -65,7 +65,7 @@ contract ERC721TokenAdapterV1 is
         uint256 _newWeightPerNft
     ) external virtual onlyOwner {
         _updateWeightPerNft(_newWeightPerNft);
-        emit TokenAdapterParametersUpdated(weightPerNft);
+        emit VotingAdapterParametersUpdated(weightPerNft);
     }
 
     function _updateWeightPerNft(uint256 _newWeightPerNft) internal virtual {
@@ -169,8 +169,8 @@ contract ERC721TokenAdapterV1 is
         bytes4 interfaceId
     ) public view virtual override(ERC165, Version) returns (bool) {
         return
-            interfaceId == type(ITokenAdapterV1).interfaceId ||
-            interfaceId == type(ITokenAdapterBaseV1).interfaceId ||
+            interfaceId == type(IVotingAdapterV1).interfaceId ||
+            interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

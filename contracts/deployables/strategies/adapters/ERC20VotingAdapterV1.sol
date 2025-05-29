@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ITokenAdapterV1} from "../../../interfaces/decent/deployables/ITokenAdapterV1.sol";
-import {ITokenAdapterBaseV1} from "../../../interfaces/decent/deployables/ITokenAdapterBaseV1.sol";
+import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
+import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {IStrategyBaseV1} from "../../../interfaces/decent/deployables/IStrategyBaseV1.sol";
 import {ClockMode} from "../../../interfaces/decent/ClockMode.sol";
 import {Version} from "../../Version.sol";
@@ -13,8 +13,8 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract ERC20TokenAdapterV1 is
-    ITokenAdapterV1,
+contract ERC20VotingAdapterV1 is
+    IVotingAdapterV1,
     Initializable,
     OwnableUpgradeable,
     UUPSUpgradeable,
@@ -31,7 +31,7 @@ contract ERC20TokenAdapterV1 is
 
     uint16 public constant VERSION = 1;
 
-    event TokenAdapterParametersUpdated(uint256 newWeightPerToken);
+    event VotingAdapterParametersUpdated(uint256 newWeightPerToken);
 
     error InvalidTokenAddress();
     error InvalidStrategyAddress();
@@ -61,7 +61,7 @@ contract ERC20TokenAdapterV1 is
         strategy = IStrategyBaseV1(_strategy);
         tokenClockMode = ClockModeLib.getClockMode(_token);
 
-        emit TokenAdapterParametersUpdated(weightPerToken);
+        emit VotingAdapterParametersUpdated(weightPerToken);
     }
 
     function _authorizeUpgrade(
@@ -72,7 +72,7 @@ contract ERC20TokenAdapterV1 is
         uint256 _newWeightPerToken
     ) external virtual onlyOwner {
         _updateWeightPerToken(_newWeightPerToken);
-        emit TokenAdapterParametersUpdated(weightPerToken);
+        emit VotingAdapterParametersUpdated(weightPerToken);
     }
 
     function _updateWeightPerToken(
@@ -135,8 +135,8 @@ contract ERC20TokenAdapterV1 is
         bytes4 interfaceId
     ) public view virtual override(ERC165, Version) returns (bool) {
         return
-            interfaceId == type(ITokenAdapterV1).interfaceId ||
-            interfaceId == type(ITokenAdapterBaseV1).interfaceId ||
+            interfaceId == type(IVotingAdapterV1).interfaceId ||
+            interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
