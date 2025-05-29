@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IVotesERC20LockableV1 {
+import {IVotesERC20V1} from "./IVotesERC20V1.sol";
+
+interface IVotesERC20LockableV1 is IVotesERC20V1 {
     event Locked(bool isLocked);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
