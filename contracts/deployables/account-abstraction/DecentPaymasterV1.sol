@@ -126,7 +126,13 @@ contract DecentPaymasterV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(SmartAccountValidationV1, Version)
+        returns (bool)
+    {
         return
             interfaceId == type(IDecentPaymasterV1).interfaceId ||
             interfaceId == type(IPaymaster).interfaceId ||
