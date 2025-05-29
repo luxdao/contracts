@@ -10,31 +10,22 @@ import {
   IVersion__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 // Helper function for deploying DecentAutonomousAdminV1 instances using ERC1967Proxy
 async function deployDecentAutonomousAdminProxy(
   proxyDeployer: SignerWithAddress,
   implementation: string,
-  owner: SignerWithAddress,
 ): Promise<DecentAutonomousAdminV1> {
-  // Create initialization data with function selector
-  const fullInitData =
-    DecentAutonomousAdminV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder().encode(['address'], [owner.address]).slice(2);
-
   // Deploy the proxy with the implementation
-  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, '0x');
 
   // Return a contract instance connected to the proxy
-  return DecentAutonomousAdminV1__factory.connect(await proxy.getAddress(), owner);
+  return DecentAutonomousAdminV1__factory.connect(await proxy.getAddress(), proxyDeployer);
 }
 
 describe('DecentAutonomousAdminV1', function () {
   // Signer accounts
   let proxyDeployer: SignerWithAddress;
-  let owner: SignerWithAddress;
-  let nonOwner: SignerWithAddress;
 
   // Contract instances
   let decentAutonomousAdmin: DecentAutonomousAdminV1;
@@ -42,7 +33,7 @@ describe('DecentAutonomousAdminV1', function () {
 
   beforeEach(async function () {
     // Get signers
-    [proxyDeployer, owner, nonOwner] = await ethers.getSigners();
+    [proxyDeployer] = await ethers.getSigners();
 
     // Deploy DecentAutonomousAdminV1 implementation
     masterCopy = await (
@@ -50,37 +41,7 @@ describe('DecentAutonomousAdminV1', function () {
     ).getAddress();
 
     // Deploy DecentAutonomousAdminV1 via proxy
-    decentAutonomousAdmin = await deployDecentAutonomousAdminProxy(
-      proxyDeployer,
-      masterCopy,
-      owner,
-    );
-  });
-
-  describe('Initialization', function () {
-    it('Should set the owner correctly', async function () {
-      expect(await decentAutonomousAdmin.owner()).to.equal(owner.address);
-    });
-
-    it('Should not allow reinitialization', async function () {
-      await expect(
-        decentAutonomousAdmin.initialize(nonOwner.address),
-      ).to.be.revertedWithCustomError(decentAutonomousAdmin, 'InvalidInitialization');
-    });
-  });
-
-  describe('Ownership', function () {
-    it('Should allow owner to call owner-only functions', async function () {
-      // The transfer ownership function is an example of an owner-only function
-      await decentAutonomousAdmin.connect(owner).transferOwnership(nonOwner.address);
-      expect(await decentAutonomousAdmin.owner()).to.equal(nonOwner.address);
-    });
-
-    it('Should prevent non-owners from calling owner-only functions', async function () {
-      await expect(
-        decentAutonomousAdmin.connect(nonOwner).transferOwnership(nonOwner.address),
-      ).to.be.revertedWithCustomError(decentAutonomousAdmin, 'OwnableUnauthorizedAccount');
-    });
+    decentAutonomousAdmin = await deployDecentAutonomousAdminProxy(proxyDeployer, masterCopy);
   });
 
   describe('ERC165', function () {
@@ -129,18 +90,6 @@ describe('DecentAutonomousAdminV1', function () {
   describe('Version', () => {
     it('should return the correct version number', async () => {
       expect(await decentAutonomousAdmin.getVersion()).to.equal(1);
-    });
-  });
-
-  describe('UUPS Upgradeability', function () {
-    runUUPSUpgradeabilityTests({
-      getContract: () => decentAutonomousAdmin,
-      createNewImplementation: async () => {
-        const newImplementation = await new DecentAutonomousAdminV1__factory(owner).deploy();
-        return newImplementation;
-      },
-      owner: () => owner,
-      nonOwner: () => nonOwner,
     });
   });
 });
