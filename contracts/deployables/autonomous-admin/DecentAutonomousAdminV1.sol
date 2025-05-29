@@ -9,7 +9,9 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version {
     uint16 private constant VERSION = 1;
 
-    function triggerStartNextTerm(TriggerStartArgs calldata args) public {
+    function triggerStartNextTerm(
+        TriggerStartArgs calldata args
+    ) public virtual override {
         IHatsElectionsEligibility hatsElectionModule = IHatsElectionsEligibility(
                 args.hatsProtocol.getHatEligibilityModule(args.hatId)
             );
@@ -31,7 +33,7 @@ contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view override returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IDecentAutonomousAdminV1).interfaceId ||
             super.supportsInterface(interfaceId);

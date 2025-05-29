@@ -55,7 +55,7 @@ contract MultisigFreezeGuardV1 is
         address _owner,
         address _freezeVoting,
         address _childGnosisSafe
-    ) public initializer {
+    ) public virtual initializer {
         __BaseFreezeGuardV1_init(_owner);
         _updateTimelockPeriod(_timelockPeriod);
         _updateExecutionPeriod(_executionPeriod);
@@ -82,7 +82,7 @@ contract MultisigFreezeGuardV1 is
         address payable refundReceiver,
         bytes memory signatures,
         uint256 nonce
-    ) external {
+    ) external virtual {
         bytes32 signaturesHash = keccak256(signatures);
 
         if (transactionTimelocked[signaturesHash] != 0)
@@ -115,11 +115,15 @@ contract MultisigFreezeGuardV1 is
         emit TransactionTimelocked(msg.sender, transactionHash, signatures);
     }
 
-    function updateTimelockPeriod(uint32 _timelockPeriod) external onlyOwner {
+    function updateTimelockPeriod(
+        uint32 _timelockPeriod
+    ) external virtual onlyOwner {
         _updateTimelockPeriod(_timelockPeriod);
     }
 
-    function updateExecutionPeriod(uint32 _executionPeriod) external onlyOwner {
+    function updateExecutionPeriod(
+        uint32 _executionPeriod
+    ) external virtual onlyOwner {
         _updateExecutionPeriod(_executionPeriod);
     }
 
@@ -135,7 +139,7 @@ contract MultisigFreezeGuardV1 is
         address payable,
         bytes memory signatures,
         address
-    ) external view override(BaseFreezeGuardV1) {
+    ) external view virtual override(BaseFreezeGuardV1) {
         bytes32 signaturesHash = keccak256(signatures);
 
         if (transactionTimelocked[signaturesHash] == 0) revert NotTimelocked();
@@ -158,20 +162,20 @@ contract MultisigFreezeGuardV1 is
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseFreezeGuardV1) {}
+    ) external view virtual override(BaseFreezeGuardV1) {}
 
     function getTransactionTimelocked(
         bytes32 _signaturesHash
-    ) public view returns (uint48) {
+    ) public view virtual returns (uint48) {
         return transactionTimelocked[_signaturesHash];
     }
 
-    function _updateTimelockPeriod(uint32 _timelockPeriod) internal {
+    function _updateTimelockPeriod(uint32 _timelockPeriod) internal virtual {
         timelockPeriod = _timelockPeriod;
         emit TimelockPeriodUpdated(_timelockPeriod);
     }
 
-    function _updateExecutionPeriod(uint32 _executionPeriod) internal {
+    function _updateExecutionPeriod(uint32 _executionPeriod) internal virtual {
         executionPeriod = _executionPeriod;
         emit ExecutionPeriodUpdated(_executionPeriod);
     }

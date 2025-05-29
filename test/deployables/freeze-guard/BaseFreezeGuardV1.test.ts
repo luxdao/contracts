@@ -21,8 +21,8 @@ async function deployConcreteBaseFreezeGuardProxy(
 ): Promise<ConcreteBaseFreezeGuardV1> {
   // Combine selector and encoded params
   const fullInitData =
-    ConcreteBaseFreezeGuardV1__factory.createInterface().getFunction('__BaseFreezeGuardV1_init')
-      .selector + ethers.AbiCoder.defaultAbiCoder().encode(['address'], [owner.address]).slice(2);
+    ConcreteBaseFreezeGuardV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder().encode(['address'], [owner.address]).slice(2);
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);

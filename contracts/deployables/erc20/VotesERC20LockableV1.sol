@@ -48,7 +48,7 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         locked = _locked;
     }
 
-    function lock(bool _locked) external onlyOwner {
+    function lock(bool _locked) external virtual onlyOwner {
         if (_locked == locked) {
             revert CannotSwitchLockState(_locked);
         }
@@ -56,7 +56,10 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         emit Locked(_locked);
     }
 
-    function whitelist(address account, bool isWhitelisted) external onlyOwner {
+    function whitelist(
+        address account,
+        bool isWhitelisted
+    ) external virtual onlyOwner {
         bool currentlyWhitelisted = whitelisted[account];
         whitelisted[account] = isWhitelisted;
         if (currentlyWhitelisted != isWhitelisted) {
@@ -64,7 +67,7 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         }
     }
 
-    function mint(address to, uint256 amount) external onlyOwner {
+    function mint(address to, uint256 amount) external virtual onlyOwner {
         _mint(to, amount);
     }
 

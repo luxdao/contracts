@@ -44,7 +44,7 @@ contract DecentPaymasterV1 is
         address _owner,
         address _entryPoint,
         address _lightAccountFactory
-    ) public initializer {
+    ) public virtual initializer {
         __BasePaymasterV1_init(_owner, IEntryPoint(_entryPoint));
         __SmartAccountValidationV1_init(_lightAccountFactory);
     }
@@ -57,7 +57,7 @@ contract DecentPaymasterV1 is
         address target,
         bytes4 selector,
         address validator
-    ) external onlyOwner {
+    ) external virtual override onlyOwner {
         if (validator == address(0)) revert InvalidValidator();
 
         if (
@@ -75,7 +75,7 @@ contract DecentPaymasterV1 is
     function removeFunctionValidator(
         address target,
         bytes4 selector
-    ) external onlyOwner {
+    ) external virtual override onlyOwner {
         _functionValidators[target][selector] = address(0);
         emit FunctionValidatorRemoved(target, selector);
     }
@@ -83,7 +83,7 @@ contract DecentPaymasterV1 is
     function getFunctionValidator(
         address target,
         bytes4 selector
-    ) public view returns (address) {
+    ) public view virtual override returns (address) {
         return _functionValidators[target][selector];
     }
 
@@ -94,6 +94,7 @@ contract DecentPaymasterV1 is
     )
         internal
         view
+        virtual
         override
         returns (bytes memory context, uint256 validationData)
     {
@@ -151,7 +152,12 @@ contract DecentPaymasterV1 is
 
     function transferOwnership(
         address newOwner
-    ) public override(Ownable2StepUpgradeable, OwnableUpgradeable) onlyOwner {
+    )
+        public
+        virtual
+        override(Ownable2StepUpgradeable, OwnableUpgradeable)
+        onlyOwner
+    {
         Ownable2StepUpgradeable.transferOwnership(newOwner);
     }
 }

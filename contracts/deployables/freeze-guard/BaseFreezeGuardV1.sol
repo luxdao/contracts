@@ -17,7 +17,7 @@ abstract contract BaseFreezeGuardV1 is
         _disableInitializers();
     }
 
-    function __BaseFreezeGuardV1_init(address _owner) public initializer {
+    function __BaseFreezeGuardV1_init(address _owner) internal initializer {
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
     }
