@@ -5,6 +5,8 @@ import {
   ConcreteSmartAccountValidation,
   ConcreteSmartAccountValidation__factory,
   ERC1967Proxy__factory,
+  IERC165__factory,
+  ISmartAccountValidationV1__factory,
   MockGaslessTarget,
   MockGaslessTarget__factory,
   MockInvalidLightAccount,
@@ -14,6 +16,7 @@ import {
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
 } from '../../../typechain-types';
+import { calculateInterfaceId } from '../../helpers/utils';
 
 interface PackedUserOperation {
   sender: string;
@@ -260,6 +263,24 @@ describe('SmartAccountValidationV1', function () {
       await expect(
         concreteSmartAccountValidation.validateUserOpPublic(userOp),
       ).to.be.revertedWithCustomError(concreteSmartAccountValidation, 'InvalidInnerCallDataLength');
+    });
+  });
+
+  describe('ERC165 Supports Interface', () => {
+    it('Should support IERC165 interface', async () => {
+      void expect(
+        await concreteSmartAccountValidation.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('Should support ISmartAccountValidationV1 interface', async () => {
+      void expect(
+        await concreteSmartAccountValidation.supportsInterface(
+          calculateInterfaceId(ISmartAccountValidationV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
   });
 });

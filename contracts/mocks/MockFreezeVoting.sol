@@ -26,9 +26,6 @@ contract MockFreezeVoting is IBaseFreezeVotingV1 {
         return _isFrozen;
     }
 
-    /**
-     * @inheritdoc IBaseFreezeVotingV1
-     */
     function castFreezeVote() external {
         // Mock implementation - does nothing except emit an event for testing
         emit FreezeVoteCast(msg.sender);
@@ -45,31 +42,52 @@ contract MockFreezeVoting is IBaseFreezeVotingV1 {
     /**
      * @inheritdoc IBaseFreezeVotingV1
      */
-    function updateFreezeVotesThreshold(uint256 freezeVotesThreshold) external {
-        _freezeVotesThreshold = freezeVotesThreshold;
-        emit FreezeVotesThresholdUpdated(freezeVotesThreshold);
+    function updateFreezeVotesThreshold(
+        uint256 freezeVotesThreshold_
+    ) external override {
+        _freezeVotesThreshold = freezeVotesThreshold_;
+        emit FreezeVotesThresholdUpdated(freezeVotesThreshold_);
     }
 
     /**
      * @inheritdoc IBaseFreezeVotingV1
      */
-    function updateFreezeProposalPeriod(uint32 freezeProposalPeriod) external {
-        _freezeProposalPeriod = freezeProposalPeriod;
-        emit FreezeProposalPeriodUpdated(freezeProposalPeriod);
+    function updateFreezeProposalPeriod(
+        uint32 freezeProposalPeriod_
+    ) external override {
+        _freezeProposalPeriod = freezeProposalPeriod_;
+        emit FreezeProposalPeriodUpdated(freezeProposalPeriod_);
     }
 
     /**
      * @inheritdoc IBaseFreezeVotingV1
      */
-    function updateFreezePeriod(uint32 freezePeriod) external {
-        _freezePeriod = freezePeriod;
-        emit FreezePeriodUpdated(freezePeriod);
+    function updateFreezePeriod(uint32 freezePeriod_) external override {
+        _freezePeriod = freezePeriod_;
+        emit FreezePeriodUpdated(freezePeriod_);
     }
 
     // Mock events for testing
     event FreezeVoteCast(address indexed voter);
     event DAOUnfrozen(address indexed unfreezer);
-    event FreezeVotesThresholdUpdated(uint256 newThreshold);
-    event FreezeProposalPeriodUpdated(uint32 newPeriod);
-    event FreezePeriodUpdated(uint32 newPeriod);
+
+    function freezeProposalCreated() external view override returns (uint48) {}
+
+    function freezePeriod() external view override returns (uint32) {}
+
+    function freezeVotesThreshold() external view override returns (uint256) {}
+
+    function freezeProposalPeriod() external view override returns (uint32) {}
+
+    function freezeProposalVoteCount()
+        external
+        view
+        override
+        returns (uint256)
+    {}
+
+    function userHasFreezeVoted(
+        address user,
+        uint48 proposalId
+    ) external view override returns (bool) {}
 }
