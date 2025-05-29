@@ -12,8 +12,8 @@ import {
   MockLightAccountFactory__factory,
   MockProposerAdapter,
   MockProposerAdapter__factory,
-  MockTokenAdapter,
-  MockTokenAdapter__factory,
+  MockVotingAdapter,
+  MockVotingAdapter__factory,
   StrategyV1,
   StrategyV1__factory,
 } from '../../../typechain-types';
@@ -32,8 +32,8 @@ describe('StrategyV1', () => {
   // Contract Instances
   let strategyImplementation: StrategyV1;
   let strategy: StrategyV1;
-  let mockAdapter1: MockTokenAdapter;
-  let mockAdapter2: MockTokenAdapter;
+  let mockAdapter1: MockVotingAdapter;
+  let mockAdapter2: MockVotingAdapter;
   let mockProposerAdapter1: MockProposerAdapter;
   let mockProposerAdapter2: MockProposerAdapter;
   let lightAccountFactoryMock: MockLightAccountFactory;
@@ -90,9 +90,9 @@ describe('StrategyV1', () => {
     await lightAccountFactoryMock.waitForDeployment();
     lightAccountFactoryMockAddress = lightAccountFactoryMock.target as string;
 
-    mockAdapter1 = await new MockTokenAdapter__factory(deployer).deploy();
+    mockAdapter1 = await new MockVotingAdapter__factory(deployer).deploy();
     await mockAdapter1.waitForDeployment();
-    mockAdapter2 = await new MockTokenAdapter__factory(deployer).deploy();
+    mockAdapter2 = await new MockVotingAdapter__factory(deployer).deploy();
     await mockAdapter2.waitForDeployment();
 
     // Deploy MockProposerAdapters
@@ -151,8 +151,8 @@ describe('StrategyV1', () => {
       expect(await testStrategy.quorumThreshold()).to.equal(quorumThreshold);
       expect(await testStrategy.basisNumerator()).to.equal(basisNumerator);
       expect(await testStrategy.lightAccountFactory()).to.equal(lightAccountFactoryAddress);
-      expect(await testStrategy.getTokenAdapterCount()).to.equal(1);
-      expect(await testStrategy.tokenAdapters(0)).to.equal(await mockAdapter1.getAddress());
+      expect(await testStrategy.getVotingAdapterCount()).to.equal(1);
+      expect(await testStrategy.votingAdapters(0)).to.equal(await mockAdapter1.getAddress());
       expect(await testStrategy.getProposerAdapterCount()).to.equal(1);
       expect(await testStrategy.proposerAdapters(0)).to.equal(
         await mockProposerAdapter1.getAddress(),
@@ -282,120 +282,120 @@ describe('StrategyV1', () => {
     // --- addAdapter ---
     it('should allow owner to add a new adapter', async () => {
       const adapterAddress = await mockAdapter1.getAddress();
-      await expect(strategy.connect(owner).addTokenAdapter(adapterAddress))
-        .to.emit(strategy, 'TokenAdapterAdded')
+      await expect(strategy.connect(owner).addVotingAdapter(adapterAddress))
+        .to.emit(strategy, 'VotingAdapterAdded')
         .withArgs(adapterAddress, 0);
-      expect(await strategy.tokenAdapters(0)).to.equal(adapterAddress);
-      expect(await strategy.getTokenAdapterCount()).to.equal(1);
+      expect(await strategy.votingAdapters(0)).to.equal(adapterAddress);
+      expect(await strategy.getVotingAdapterCount()).to.equal(1);
     });
 
     it('should revert when non-owner tries to add an adapter', async () => {
       await expect(
-        strategy.connect(nonOwner).addTokenAdapter(await mockAdapter1.getAddress()),
+        strategy.connect(nonOwner).addVotingAdapter(await mockAdapter1.getAddress()),
       ).to.be.revertedWithCustomError(strategy, 'OwnableUnauthorizedAccount');
     });
 
     it('should revert when adding a zero address adapter', async () => {
       await expect(
-        strategy.connect(owner).addTokenAdapter(ethers.ZeroAddress),
-      ).to.be.revertedWithCustomError(strategy, 'TokenAdapterIsZeroAddress');
+        strategy.connect(owner).addVotingAdapter(ethers.ZeroAddress),
+      ).to.be.revertedWithCustomError(strategy, 'VotingAdapterIsZeroAddress');
     });
 
     it('should revert when adding an already existing adapter', async () => {
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
       await expect(
-        strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress()),
-      ).to.be.revertedWithCustomError(strategy, 'TokenAdapterAlreadyExists');
+        strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress()),
+      ).to.be.revertedWithCustomError(strategy, 'VotingAdapterAlreadyExists');
     });
 
     it('should allow adding multiple different adapters', async () => {
       const adapter1Addr = await mockAdapter1.getAddress();
       const adapter2Addr = await mockAdapter2.getAddress();
-      await strategy.connect(owner).addTokenAdapter(adapter1Addr);
-      await strategy.connect(owner).addTokenAdapter(adapter2Addr);
-      expect(await strategy.getTokenAdapterCount()).to.equal(2);
-      expect(await strategy.tokenAdapters(0)).to.equal(adapter1Addr);
-      expect(await strategy.tokenAdapters(1)).to.equal(adapter2Addr);
+      await strategy.connect(owner).addVotingAdapter(adapter1Addr);
+      await strategy.connect(owner).addVotingAdapter(adapter2Addr);
+      expect(await strategy.getVotingAdapterCount()).to.equal(2);
+      expect(await strategy.votingAdapters(0)).to.equal(adapter1Addr);
+      expect(await strategy.votingAdapters(1)).to.equal(adapter2Addr);
     });
 
     // --- removeAdapter ---
     it('should allow owner to remove an existing adapter', async () => {
       const adapter1Addr = await mockAdapter1.getAddress();
       const adapter2Addr = await mockAdapter2.getAddress();
-      await strategy.connect(owner).addTokenAdapter(adapter1Addr);
-      await strategy.connect(owner).addTokenAdapter(adapter2Addr);
+      await strategy.connect(owner).addVotingAdapter(adapter1Addr);
+      await strategy.connect(owner).addVotingAdapter(adapter2Addr);
 
       // To correctly test the emitted index, we need to know the exact removal logic
       // Assuming it swaps with last and pops:
       // If removing adapter1Addr (at index 0), adapter2Addr (at index 1) moves to 0.
       // The event should reflect the original index of the removed item.
-      await expect(strategy.connect(owner).removeTokenAdapter(adapter1Addr))
-        .to.emit(strategy, 'TokenAdapterRemoved')
+      await expect(strategy.connect(owner).removeVotingAdapter(adapter1Addr))
+        .to.emit(strategy, 'VotingAdapterRemoved')
         .withArgs(adapter1Addr, 0);
 
-      expect(await strategy.getTokenAdapterCount()).to.equal(1);
-      expect(await strategy.tokenAdapters(0)).to.equal(adapter2Addr);
+      expect(await strategy.getVotingAdapterCount()).to.equal(1);
+      expect(await strategy.votingAdapters(0)).to.equal(adapter2Addr);
     });
 
     it('should allow owner to remove an existing adapter (removing last)', async () => {
       const adapter1Addr = await mockAdapter1.getAddress();
       const adapter2Addr = await mockAdapter2.getAddress();
-      await strategy.connect(owner).addTokenAdapter(adapter1Addr);
-      await strategy.connect(owner).addTokenAdapter(adapter2Addr);
+      await strategy.connect(owner).addVotingAdapter(adapter1Addr);
+      await strategy.connect(owner).addVotingAdapter(adapter2Addr);
 
-      await expect(strategy.connect(owner).removeTokenAdapter(adapter2Addr))
-        .to.emit(strategy, 'TokenAdapterRemoved')
+      await expect(strategy.connect(owner).removeVotingAdapter(adapter2Addr))
+        .to.emit(strategy, 'VotingAdapterRemoved')
         .withArgs(adapter2Addr, 1);
 
-      expect(await strategy.getTokenAdapterCount()).to.equal(1);
-      expect(await strategy.tokenAdapters(0)).to.equal(adapter1Addr);
+      expect(await strategy.getVotingAdapterCount()).to.equal(1);
+      expect(await strategy.votingAdapters(0)).to.equal(adapter1Addr);
     });
 
     it('should correctly remove the only adapter in the list', async () => {
       const adapter1Addr = await mockAdapter1.getAddress();
-      await strategy.connect(owner).addTokenAdapter(adapter1Addr);
+      await strategy.connect(owner).addVotingAdapter(adapter1Addr);
 
-      await expect(strategy.connect(owner).removeTokenAdapter(adapter1Addr))
-        .to.emit(strategy, 'TokenAdapterRemoved')
+      await expect(strategy.connect(owner).removeVotingAdapter(adapter1Addr))
+        .to.emit(strategy, 'VotingAdapterRemoved')
         .withArgs(adapter1Addr, 0);
-      expect(await strategy.getTokenAdapterCount()).to.equal(0);
+      expect(await strategy.getVotingAdapterCount()).to.equal(0);
     });
 
     it('should revert when non-owner tries to remove an adapter', async () => {
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
       await expect(
-        strategy.connect(nonOwner).removeTokenAdapter(await mockAdapter1.getAddress()),
+        strategy.connect(nonOwner).removeVotingAdapter(await mockAdapter1.getAddress()),
       ).to.be.revertedWithCustomError(strategy, 'OwnableUnauthorizedAccount');
     });
 
     it('should revert when removing a zero address adapter', async () => {
       await expect(
-        strategy.connect(owner).removeTokenAdapter(ethers.ZeroAddress),
-      ).to.be.revertedWithCustomError(strategy, 'TokenAdapterIsZeroAddress');
+        strategy.connect(owner).removeVotingAdapter(ethers.ZeroAddress),
+      ).to.be.revertedWithCustomError(strategy, 'VotingAdapterIsZeroAddress');
     });
 
     it('should revert when removing an adapter that does not exist', async () => {
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter2.getAddress()); // Add a different one
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter2.getAddress()); // Add a different one
       await expect(
-        strategy.connect(owner).removeTokenAdapter(await mockAdapter1.getAddress()),
-      ).to.be.revertedWithCustomError(strategy, 'TokenAdapterNotFound');
+        strategy.connect(owner).removeVotingAdapter(await mockAdapter1.getAddress()),
+      ).to.be.revertedWithCustomError(strategy, 'VotingAdapterNotFound');
     });
 
     it('should revert when removing from an empty list of adapters', async () => {
       await expect(
-        strategy.connect(owner).removeTokenAdapter(await mockAdapter1.getAddress()),
-      ).to.be.revertedWithCustomError(strategy, 'TokenAdapterNotFound');
+        strategy.connect(owner).removeVotingAdapter(await mockAdapter1.getAddress()),
+      ).to.be.revertedWithCustomError(strategy, 'VotingAdapterNotFound');
     });
 
-    // --- getTokenAdapterCount ---
+    // --- getVotingAdapterCount ---
     it('should return the correct number of adapters', async () => {
-      expect(await strategy.getTokenAdapterCount()).to.equal(0);
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
-      expect(await strategy.getTokenAdapterCount()).to.equal(1);
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter2.getAddress());
-      expect(await strategy.getTokenAdapterCount()).to.equal(2);
-      await strategy.connect(owner).removeTokenAdapter(await mockAdapter1.getAddress());
-      expect(await strategy.getTokenAdapterCount()).to.equal(1);
+      expect(await strategy.getVotingAdapterCount()).to.equal(0);
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
+      expect(await strategy.getVotingAdapterCount()).to.equal(1);
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter2.getAddress());
+      expect(await strategy.getVotingAdapterCount()).to.equal(2);
+      await strategy.connect(owner).removeVotingAdapter(await mockAdapter1.getAddress());
+      expect(await strategy.getVotingAdapterCount()).to.equal(1);
     });
   });
 
@@ -530,7 +530,7 @@ describe('StrategyV1', () => {
 
     it('should revert if called by a non-azorius address', async () => {
       // Ensure at least one adapter is set so NoAdapters isn't hit first
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
       await expect(
         strategy
           .connect(nonOwner)
@@ -544,11 +544,11 @@ describe('StrategyV1', () => {
         strategy
           .connect(azoriusMock)
           .initializeProposal(encodedDefaultProposalId, [], ethers.ZeroHash),
-      ).to.be.revertedWithCustomError(strategy, 'NoTokenAdapters');
+      ).to.be.revertedWithCustomError(strategy, 'NoVotingAdapters');
     });
 
     it('should correctly initialize proposal details and emit event', async () => {
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
 
       const blockBefore = await ethers.provider.getBlock('latest');
       if (!blockBefore) throw new Error('Failed to get latest block');
@@ -581,7 +581,7 @@ describe('StrategyV1', () => {
     });
 
     it('should reset vote counts for a re-initialized proposal', async () => {
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
       await strategy
         .connect(azoriusMock)
         .initializeProposal(encodedDefaultProposalId, [], ethers.ZeroHash);
@@ -642,7 +642,7 @@ describe('StrategyV1', () => {
       proposalId = 1;
       encodedProposalId = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
       // Ensure at least one adapter is added for initializeProposal to succeed
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
     });
 
     it('should return correct timestamps and block after proposal initialization', async () => {
@@ -689,7 +689,7 @@ describe('StrategyV1', () => {
       encodedProposalId = ethers.AbiCoder.defaultAbiCoder().encode(['uint32'], [proposalId]);
 
       // Add at least one adapter for most tests
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
       // Initialize the proposal by azoriusMock
       await strategy
         .connect(azoriusMock)
@@ -745,8 +745,8 @@ describe('StrategyV1', () => {
       ).to.be.revertedWithCustomError(strategy, 'InvalidVoteType');
     });
 
-    it('should revert with InvalidAdapterProvidedInVote if an adapter in _adaptersToUse is not configured in the strategy', async () => {
-      const unconfiguredAdapter = await new MockTokenAdapter__factory(deployer).deploy();
+    it('should revert with InvalidVotingAdapter if an adapter in _adaptersToUse is not configured in the strategy', async () => {
+      const unconfiguredAdapter = await new MockVotingAdapter__factory(deployer).deploy();
       await unconfiguredAdapter.waitForDeployment();
       const unconfiguredAdapterAddress = await unconfiguredAdapter.getAddress();
 
@@ -758,7 +758,7 @@ describe('StrategyV1', () => {
 
       await expect(
         strategy.connect(user1).vote(proposalId, 1 /* YES */, adaptersToUse, adapterDataArray),
-      ).to.be.revertedWithCustomError(strategy, 'InvalidAdapterProvidedInVote');
+      ).to.be.revertedWithCustomError(strategy, 'InvalidVotingAdapter');
     });
 
     it('should correctly record a YES vote, update counts, and emit Voted event', async () => {
@@ -781,7 +781,7 @@ describe('StrategyV1', () => {
       // Verify adapter's recordVote was called (using our mock's state)
       expect(await mockAdapter1.lastVoterForRecordVote()).to.equal(user1.address);
       expect(await mockAdapter1.lastProposalIdForRecordVote()).to.equal(proposalId);
-      // Note: MockTokenAdapter currently doesn't store lastAdapterDataForRecordVote to save gas
+      // Note: MockVotingAdapter currently doesn't store lastAdapterDataForRecordVote to save gas
       // but we can check if it was recorded if needed by enhancing the mock.
       expect(
         await mockAdapter1.recordedVotesWeight(
@@ -826,7 +826,7 @@ describe('StrategyV1', () => {
 
     it('should sum weights if multiple adapters are used in one vote call', async () => {
       // Add second adapter to the strategy for this test
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter2.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter2.getAddress());
 
       const weight1 = 60;
       const weight2 = 40;
@@ -895,11 +895,11 @@ describe('StrategyV1', () => {
 
       await expect(
         strategy.connect(user1).vote(proposalId, 1 /* YES */, [mockAdapter1], [adapter1Data]),
-      ).to.be.revertedWith('MockTokenAdapter: recordVote forced revert');
+      ).to.be.revertedWith('MockVotingAdapter: recordVote forced revert');
     });
 
     it('should revert if any adapter call reverts in a multi-adapter vote (all-or-nothing)', async () => {
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter2.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter2.getAddress());
 
       await mockAdapter1.connect(owner).setWeight(user1.address, 10);
       await mockAdapter2.connect(owner).setWeight(user1.address, 20);
@@ -920,7 +920,7 @@ describe('StrategyV1', () => {
 
       await expect(
         strategy.connect(user1).vote(proposalId, 1 /* YES */, adaptersToUse, adapterVoteDataArray),
-      ).to.be.revertedWith('MockTokenAdapter: recordVote forced revert');
+      ).to.be.revertedWith('MockVotingAdapter: recordVote forced revert');
 
       const proposalDetails = await strategy.proposalVotingDetails(proposalId);
       expect(proposalDetails.yesVotes).to.equal(0);
@@ -939,7 +939,7 @@ describe('StrategyV1', () => {
     // the strategy has an adapter and a proposal is initialized.
     beforeEach(async () => {
       // Ensure adapter is present on the strategy instance for these specific tests
-      await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+      await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
       // Initialize the proposal fresh for each isPassed test
       await strategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
     });
@@ -1185,9 +1185,9 @@ describe('StrategyV1', () => {
     const PROPOSAL_ID = 1;
 
     beforeEach(async () => {
-      const adapterCount = await strategy.getTokenAdapterCount();
+      const adapterCount = await strategy.getVotingAdapterCount();
       if (adapterCount === 0n) {
-        await strategy.connect(owner).addTokenAdapter(await mockAdapter1.getAddress());
+        await strategy.connect(owner).addVotingAdapter(await mockAdapter1.getAddress());
       }
 
       await strategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ITokenAdapterBaseV1} from "./ITokenAdapterBaseV1.sol";
+import {IVotingAdapterBaseV1} from "./IVotingAdapterBaseV1.sol";
 
-interface ITokenAdapterV1 is ITokenAdapterBaseV1 {
+interface IVotingAdapterV1 is IVotingAdapterBaseV1 {
     function weightOf(
         address _voter,
         uint32 _proposalId,
-        bytes calldata _tokenAdapterVoteData
+        bytes calldata _votingAdapterVoteData
     ) external view returns (uint256 weight);
 }
