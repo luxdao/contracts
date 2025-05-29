@@ -8,14 +8,10 @@ import {Version} from "../../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 contract ERC721VotingAdapterV1 is
     IVotingAdapterV1,
     Initializable,
-    OwnableUpgradeable,
-    UUPSUpgradeable,
     ERC165,
     Version
 {
@@ -27,8 +23,6 @@ contract ERC721VotingAdapterV1 is
 
     uint16 public constant VERSION = 1;
 
-    event VotingAdapterParametersUpdated(uint256 newWeightPerNft);
-
     error InvalidTokenAddress();
     error InvalidStrategyAddress();
     error InvalidWeightPerNft();
@@ -38,39 +32,18 @@ contract ERC721VotingAdapterV1 is
     }
 
     function initialize(
-        address _initialOwner,
         address _token,
         address _strategy,
         uint256 _weightPerNft
     ) external virtual initializer {
-        __Ownable_init(_initialOwner);
-        __UUPSUpgradeable_init();
-
         if (_token == address(0)) revert InvalidTokenAddress();
         if (_strategy == address(0)) revert InvalidStrategyAddress();
 
         token = IERC721(_token);
         strategy = IStrategyBaseV1(_strategy);
 
-        _updateWeightPerNft(_weightPerNft);
-
-        emit VotingAdapterParametersUpdated(weightPerNft);
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {}
-
-    function updateWeightPerNft(
-        uint256 _newWeightPerNft
-    ) external virtual onlyOwner {
-        _updateWeightPerNft(_newWeightPerNft);
-        emit VotingAdapterParametersUpdated(weightPerNft);
-    }
-
-    function _updateWeightPerNft(uint256 _newWeightPerNft) internal virtual {
-        if (_newWeightPerNft == 0) revert InvalidWeightPerNft();
-        weightPerNft = _newWeightPerNft;
+        if (_weightPerNft == 0) revert InvalidWeightPerNft();
+        weightPerNft = _weightPerNft;
     }
 
     function _getValidUnvotedTokenIdsAndWeight(
