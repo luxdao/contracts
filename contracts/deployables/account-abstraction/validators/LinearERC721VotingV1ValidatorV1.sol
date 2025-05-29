@@ -55,7 +55,7 @@ contract LinearERC721VotingV1ValidatorV1 is
         address lightAccountOwner,
         address votingContract,
         bytes calldata callData
-    ) external view returns (bool) {
+    ) external view virtual override returns (bool) {
         // Verify function selector matches vote(uint32,uint8,address[],uint256[])
         if (bytes4(callData) != ILinearERC721VotingV1.vote.selector) {
             return false;
@@ -135,7 +135,7 @@ contract LinearERC721VotingV1ValidatorV1 is
         return true;
     }
 
-    function getVersion() public pure override returns (uint16) {
+    function getVersion() public pure virtual override returns (uint16) {
         return VERSION;
     }
 
@@ -144,7 +144,13 @@ contract LinearERC721VotingV1ValidatorV1 is
      */
     function supportsInterface(
         bytes4 interfaceId
-    ) public view override(ERC165, Version, IFunctionValidator) returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(ERC165, Version, IFunctionValidator)
+        returns (bool)
+    {
         return
             interfaceId == type(IFunctionValidator).interfaceId ||
             super.supportsInterface(interfaceId);

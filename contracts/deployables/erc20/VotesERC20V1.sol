@@ -32,7 +32,7 @@ contract VotesERC20V1 is
         address[] memory allocationAddresses,
         uint256[] memory allocationAmounts,
         address owner
-    ) public initializer {
+    ) public virtual initializer {
         __ERC20_init(name, symbol);
         __ERC20Permit_init(name);
         __ERC20Votes_init();
@@ -52,11 +52,11 @@ contract VotesERC20V1 is
         address newImplementation
     ) internal virtual override onlyOwner {}
 
-    function clock() public view override returns (uint48) {
+    function clock() public view virtual override returns (uint48) {
         return uint48(block.timestamp);
     }
 
-    function CLOCK_MODE() public pure override returns (string memory) {
+    function CLOCK_MODE() public pure virtual override returns (string memory) {
         return "mode=timestamp";
     }
 

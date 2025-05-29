@@ -28,7 +28,7 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
         uint32 _freezeProposalPeriod,
         uint32 _freezePeriod,
         address _parentSafe
-    ) public initializer {
+    ) public virtual initializer {
         __BaseFreezeVotingV1_init(
             _owner,
             _freezeProposalPeriod,
@@ -40,7 +40,7 @@ contract MultisigFreezeVotingV1 is BaseFreezeVotingV1, Version {
         emit MultisigFreezeVotingSetup(_owner, _parentSafe);
     }
 
-    function castFreezeVote() external override {
+    function castFreezeVote() external virtual override {
         if (!parentSafe.isOwner(msg.sender)) revert NotOwner();
 
         if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {

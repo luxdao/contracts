@@ -28,7 +28,7 @@ contract ERC20FreezeVotingV1 is BaseFreezeVotingV1, Version {
         uint32 _freezeProposalPeriod,
         uint32 _freezePeriod,
         address _votesERC20
-    ) public initializer {
+    ) public virtual initializer {
         __BaseFreezeVotingV1_init(
             _owner,
             _freezeProposalPeriod,
@@ -40,7 +40,7 @@ contract ERC20FreezeVotingV1 is BaseFreezeVotingV1, Version {
         emit ERC20FreezeVotingSetUp(_owner, _votesERC20);
     }
 
-    function castFreezeVote() external override {
+    function castFreezeVote() external virtual override {
         uint256 userVotes;
 
         if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
