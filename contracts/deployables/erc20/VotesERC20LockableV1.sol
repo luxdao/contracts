@@ -74,6 +74,9 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
     }
 
     function setMaxTotalSupply(uint256 newMaxTotalSupply) external onlyOwner {
+        if (newMaxTotalSupply < totalSupply()) {
+            revert InvalidMaxTotalSupply();
+        }
         uint256 currentlyMaxTotalSupply = maxTotalSupply;
         maxTotalSupply = newMaxTotalSupply;
         if (currentlyMaxTotalSupply != newMaxTotalSupply) {

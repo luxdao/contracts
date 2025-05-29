@@ -5,6 +5,7 @@ interface IMintableV1 {
     event MaxTotalSupplyUpdated(uint256 newMaxTotalSupply);
 
     error ExceedMaxTotalSupply();
+    error InvalidMaxTotalSupply();
 
     function maxTotalSupply() external view returns (uint256);
 
