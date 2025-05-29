@@ -373,6 +373,16 @@ describe('VotesERC20LockableV1', () => {
       });
     });
 
+    describe('Updating by a owner with maxTotalSupply lower than totalSupply', () => {
+      it('should revert', async () => {
+        const mintedAmount = maxTotalSupply - 1n;
+        await proxy.connect(owner).mint(owner, mintedAmount);
+        await expect(
+          proxy.connect(owner).setMaxTotalSupply(mintedAmount - 1n),
+        ).to.be.revertedWithCustomError(proxy, 'InvalidMaxTotalSupply');
+      });
+    });
+
     describe('Updating by a non-owner should fail', () => {
       it('should revert', async () => {
         await expect(
