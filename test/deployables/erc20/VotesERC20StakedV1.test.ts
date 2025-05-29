@@ -153,6 +153,12 @@ describe('VotesERC20StakedV1', () => {
       expect(currentOwner).to.equal(owner.address);
     });
 
+    it('Should allow owner to transfer ownership', async function () {
+      await votesERC20Staked.connect(owner).transferOwnership(alice.address);
+      await votesERC20Staked.connect(alice).acceptOwnership();
+      expect(await votesERC20Staked.owner()).to.equal(alice.address);
+    });
+
     it('should allow the owner to call authorized functions', async () => {
       await votesERC20Staked.connect(owner).renounceOwnership();
         expect(await votesERC20Staked.owner()).to.equal(ethers.ZeroAddress);

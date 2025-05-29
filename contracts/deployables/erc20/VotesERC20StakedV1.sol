@@ -8,7 +8,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * Staking contract that immediately distributes rewards in full
@@ -18,7 +18,7 @@ contract VotesERC20StakedV1 is
     Version,
     ERC20VotesUpgradeable,
     UUPSUpgradeable,
-    OwnableUpgradeable
+    Ownable2StepUpgradeable
 {
     uint16 private constant VERSION = 1;
     IERC20 public stakedToken;
