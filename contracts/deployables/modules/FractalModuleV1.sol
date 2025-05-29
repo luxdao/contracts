@@ -27,7 +27,7 @@ contract FractalModuleV1 is
         address _owner,
         address _avatar,
         address _target
-    ) public initializer {
+    ) public virtual initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
 
@@ -37,7 +37,9 @@ contract FractalModuleV1 is
         OwnableUpgradeable.transferOwnership(_owner);
     }
 
-    function setUp(bytes memory initializeParams) public override initializer {
+    function setUp(
+        bytes memory initializeParams
+    ) public virtual override initializer {
         (address _owner, address _avatar, address _target) = abi.decode(
             initializeParams,
             (address, address, address)
@@ -49,7 +51,7 @@ contract FractalModuleV1 is
         address newImplementation
     ) internal virtual override onlyOwner {}
 
-    function execTx(bytes memory execTxData) public onlyOwner {
+    function execTx(bytes memory execTxData) public virtual onlyOwner {
         (
             address _target,
             uint256 _value,
@@ -79,7 +81,12 @@ contract FractalModuleV1 is
 
     function transferOwnership(
         address newOwner
-    ) public override(Ownable2StepUpgradeable, OwnableUpgradeable) onlyOwner {
+    )
+        public
+        virtual
+        override(Ownable2StepUpgradeable, OwnableUpgradeable)
+        onlyOwner
+    {
         Ownable2StepUpgradeable.transferOwnership(newOwner);
     }
 }

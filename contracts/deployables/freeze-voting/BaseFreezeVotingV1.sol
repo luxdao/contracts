@@ -39,7 +39,7 @@ abstract contract BaseFreezeVotingV1 is
         uint32 _freezeProposalPeriod,
         uint32 _freezePeriod,
         uint256 _freezeVotesThreshold
-    ) public initializer {
+    ) internal initializer {
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
         _updateFreezeProposalPeriod(_freezeProposalPeriod);
@@ -53,48 +53,50 @@ abstract contract BaseFreezeVotingV1 is
 
     function castFreezeVote() external virtual;
 
-    function isFrozen() external view returns (bool) {
+    function isFrozen() external view virtual returns (bool) {
         return
             freezeProposalVoteCount >= freezeVotesThreshold &&
             block.timestamp < freezeProposalCreated + freezePeriod;
     }
 
-    function unfreeze() external onlyOwner {
+    function unfreeze() external virtual onlyOwner {
         freezeProposalCreated = 0;
         freezeProposalVoteCount = 0;
     }
 
     function updateFreezeVotesThreshold(
         uint256 _freezeVotesThreshold
-    ) external onlyOwner {
+    ) external virtual onlyOwner {
         _updateFreezeVotesThreshold(_freezeVotesThreshold);
     }
 
     function updateFreezeProposalPeriod(
         uint32 _freezeProposalPeriod
-    ) external onlyOwner {
+    ) external virtual onlyOwner {
         _updateFreezeProposalPeriod(_freezeProposalPeriod);
     }
 
-    function updateFreezePeriod(uint32 _freezePeriod) external onlyOwner {
+    function updateFreezePeriod(
+        uint32 _freezePeriod
+    ) external virtual onlyOwner {
         _updateFreezePeriod(_freezePeriod);
     }
 
     function _updateFreezeVotesThreshold(
         uint256 _freezeVotesThreshold
-    ) internal {
+    ) internal virtual {
         freezeVotesThreshold = _freezeVotesThreshold;
         emit FreezeVotesThresholdUpdated(_freezeVotesThreshold);
     }
 
     function _updateFreezeProposalPeriod(
         uint32 _freezeProposalPeriod
-    ) internal {
+    ) internal virtual {
         freezeProposalPeriod = _freezeProposalPeriod;
         emit FreezeProposalPeriodUpdated(_freezeProposalPeriod);
     }
 
-    function _updateFreezePeriod(uint32 _freezePeriod) internal {
+    function _updateFreezePeriod(uint32 _freezePeriod) internal virtual {
         freezePeriod = _freezePeriod;
         emit FreezePeriodUpdated(_freezePeriod);
     }

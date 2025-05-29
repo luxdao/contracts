@@ -8,6 +8,10 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
  * A concrete implementation of BaseGuardV1 for testing
  */
 contract ConcreteBaseFreezeGuardV1 is BaseFreezeGuardV1 {
+    function initialize(address _owner) public virtual initializer {
+        __BaseFreezeGuardV1_init(_owner);
+    }
+
     function checkTransaction(
         address,
         uint256,

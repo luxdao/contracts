@@ -391,7 +391,12 @@ contract AzoriusV1 is
 
     function transferOwnership(
         address newOwner
-    ) public override(Ownable2StepUpgradeable, OwnableUpgradeable) onlyOwner {
+    )
+        public
+        virtual
+        override(Ownable2StepUpgradeable, OwnableUpgradeable)
+        onlyOwner
+    {
         Ownable2StepUpgradeable.transferOwnership(newOwner);
     }
 }

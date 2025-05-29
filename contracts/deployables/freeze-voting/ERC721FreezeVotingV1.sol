@@ -33,7 +33,7 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         uint32 _freezeProposalPeriod,
         uint32 _freezePeriod,
         address _strategy
-    ) public initializer {
+    ) public virtual initializer {
         __BaseFreezeVotingV1_init(
             _owner,
             _freezeProposalPeriod,
@@ -45,14 +45,14 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         emit ERC721FreezeVotingSetUp(_owner, _strategy);
     }
 
-    function castFreezeVote() external pure override {
+    function castFreezeVote() external pure virtual override {
         revert NotSupported();
     }
 
     function castFreezeVote(
         address[] memory _tokenAddresses,
         uint256[] memory _tokenIds
-    ) external {
+    ) external virtual {
         if (_tokenAddresses.length != _tokenIds.length) revert UnequalArrays();
 
         if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
@@ -77,7 +77,7 @@ contract ERC721FreezeVotingV1 is BaseFreezeVotingV1, Version {
         address[] memory _tokenAddresses,
         uint256[] memory _tokenIds,
         address _voter
-    ) internal returns (uint256) {
+    ) internal virtual returns (uint256) {
         uint256 votes = 0;
 
         for (uint256 i = 0; i < _tokenAddresses.length; i++) {
