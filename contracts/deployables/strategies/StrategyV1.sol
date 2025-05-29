@@ -6,8 +6,6 @@ import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBase
 import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {Version} from "../Version.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -15,8 +13,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 contract StrategyV1 is
     Initializable,
     IStrategyV1,
-    OwnableUpgradeable,
-    UUPSUpgradeable,
     ERC165,
     ERC4337VoterSupportV1,
     Version
@@ -49,15 +45,6 @@ contract StrategyV1 is
         ABSTAIN
     }
 
-    event StrategyParametersUpdated(
-        uint32 votingPeriod,
-        uint256 quorumThreshold,
-        uint256 basisNumerator
-    );
-    event VotingAdapterAdded(address indexed adapter, uint256 index);
-    event VotingAdapterRemoved(address indexed adapter, uint256 index);
-    event ProposerAdapterAdded(address indexed adapter, uint256 index);
-    event ProposerAdapterRemoved(address indexed adapter, uint256 index);
     event Voted(
         address indexed voter,
         uint32 indexed proposalId,
@@ -76,11 +63,9 @@ contract StrategyV1 is
     error InvalidBasisNumerator();
     error VotingAdapterIsZeroAddress();
     error VotingAdapterAlreadyExists();
-    error VotingAdapterNotFound();
     error NoVotingAdapters();
     error ProposerAdapterIsZeroAddress();
     error ProposerAdapterAlreadyExists();
-    error ProposerAdapterNotFound();
     error ProposalNotFoundOrNotActive();
     error NoVotingWeight();
     error InvalidVoteType();
@@ -93,104 +78,50 @@ contract StrategyV1 is
     }
 
     function initialize(
-        address _initialOwner,
         address _azorius,
         uint32 _votingPeriod,
         uint256 _quorumThreshold,
         uint256 _basisNumerator,
-        address[] memory _initialVotingAdapters,
-        address[] memory _initialProposerAdapters,
+        address[] memory _votingAdapters,
+        address[] memory _proposerAdapters,
         address _lightAccountFactory
     ) public virtual initializer {
         if (_azorius == address(0)) revert InvalidAzoriusAddress();
 
-        __Ownable_init(_initialOwner);
-        __UUPSUpgradeable_init();
         __ERC4337VoterSupportV1_init(_lightAccountFactory);
 
         azorius = _azorius;
-        _updateVotingPeriod(_votingPeriod);
-        _updateQuorumThreshold(_quorumThreshold);
-        _updateBasisNumerator(_basisNumerator);
 
-        if (_initialVotingAdapters.length > 0) {
-            for (uint256 i = 0; i < _initialVotingAdapters.length; i++) {
-                _addVotingAdapter(_initialVotingAdapters[i]);
+        if (_votingPeriod == 0) revert InvalidVotingPeriod();
+        votingPeriod = _votingPeriod;
+
+        quorumThreshold = _quorumThreshold;
+
+        if (
+            _basisNumerator >= BASIS_DENOMINATOR ||
+            _basisNumerator < BASIS_DENOMINATOR / 2
+        ) revert InvalidBasisNumerator();
+        basisNumerator = _basisNumerator;
+
+        for (uint256 i = 0; i < _votingAdapters.length; i++) {
+            address _adapter = _votingAdapters[i];
+            if (_adapter == address(0)) revert VotingAdapterIsZeroAddress();
+            for (uint256 j = 0; j < votingAdapters.length; j++) {
+                if (address(votingAdapters[j]) == _adapter)
+                    revert VotingAdapterAlreadyExists();
             }
+            votingAdapters.push(IVotingAdapterBaseV1(_adapter));
         }
 
-        if (_initialProposerAdapters.length > 0) {
-            for (uint256 i = 0; i < _initialProposerAdapters.length; i++) {
-                _addProposerAdapter(_initialProposerAdapters[i]);
+        for (uint256 i = 0; i < _proposerAdapters.length; i++) {
+            address _adapter = _proposerAdapters[i];
+            if (_adapter == address(0)) revert ProposerAdapterIsZeroAddress();
+            for (uint256 j = 0; j < proposerAdapters.length; j++) {
+                if (address(proposerAdapters[j]) == _adapter)
+                    revert ProposerAdapterAlreadyExists();
             }
+            proposerAdapters.push(IProposerAdapterBaseV1(_adapter));
         }
-
-        emit StrategyParametersUpdated(
-            votingPeriod,
-            quorumThreshold,
-            basisNumerator
-        );
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {}
-
-    function updateVotingPeriod(
-        uint32 _newVotingPeriod
-    ) external virtual override onlyOwner {
-        _updateVotingPeriod(_newVotingPeriod);
-        emit StrategyParametersUpdated(
-            votingPeriod,
-            quorumThreshold,
-            basisNumerator
-        );
-    }
-
-    function updateQuorumThreshold(
-        uint256 _newQuorumThreshold
-    ) external virtual override onlyOwner {
-        _updateQuorumThreshold(_newQuorumThreshold);
-        emit StrategyParametersUpdated(
-            votingPeriod,
-            quorumThreshold,
-            basisNumerator
-        );
-    }
-
-    function updateBasisNumerator(
-        uint256 _newBasisNumerator
-    ) external virtual override onlyOwner {
-        _updateBasisNumerator(_newBasisNumerator);
-        emit StrategyParametersUpdated(
-            votingPeriod,
-            quorumThreshold,
-            basisNumerator
-        );
-    }
-
-    function addVotingAdapter(
-        address _adapter
-    ) public virtual override onlyOwner {
-        _addVotingAdapter(_adapter);
-    }
-
-    function removeVotingAdapter(
-        address _adapter
-    ) external virtual override onlyOwner {
-        if (_adapter == address(0)) revert VotingAdapterIsZeroAddress();
-        uint256 adapterCount = votingAdapters.length;
-        if (adapterCount == 0) revert VotingAdapterNotFound();
-
-        for (uint256 i = 0; i < adapterCount; i++) {
-            if (address(votingAdapters[i]) == _adapter) {
-                votingAdapters[i] = votingAdapters[adapterCount - 1];
-                votingAdapters.pop();
-                emit VotingAdapterRemoved(address(_adapter), i);
-                return;
-            }
-        }
-        revert VotingAdapterNotFound();
     }
 
     function getVotingAdapterCount()
@@ -201,30 +132,6 @@ contract StrategyV1 is
         returns (uint256)
     {
         return votingAdapters.length;
-    }
-
-    function addProposerAdapter(
-        address _adapter
-    ) public virtual override onlyOwner {
-        _addProposerAdapter(_adapter);
-    }
-
-    function removeProposerAdapter(
-        address _adapter
-    ) external virtual override onlyOwner {
-        if (_adapter == address(0)) revert ProposerAdapterIsZeroAddress();
-        uint256 adapterCount = proposerAdapters.length;
-        if (adapterCount == 0) revert ProposerAdapterNotFound();
-
-        for (uint256 i = 0; i < adapterCount; i++) {
-            if (address(proposerAdapters[i]) == _adapter) {
-                proposerAdapters[i] = proposerAdapters[adapterCount - 1];
-                proposerAdapters.pop();
-                emit ProposerAdapterRemoved(address(_adapter), i);
-                return;
-            }
-        }
-        revert ProposerAdapterNotFound();
     }
 
     function getProposerAdapterCount()
@@ -416,51 +323,6 @@ contract StrategyV1 is
         ];
         if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
         return details.votingStartBlock;
-    }
-
-    function _updateVotingPeriod(uint32 _newVotingPeriod) internal virtual {
-        if (_newVotingPeriod == 0) revert InvalidVotingPeriod();
-        votingPeriod = _newVotingPeriod;
-    }
-
-    function _updateQuorumThreshold(
-        uint256 _newQuorumThreshold
-    ) internal virtual {
-        quorumThreshold = _newQuorumThreshold;
-    }
-
-    function _updateBasisNumerator(
-        uint256 _newBasisNumerator
-    ) internal virtual {
-        if (
-            _newBasisNumerator >= BASIS_DENOMINATOR ||
-            _newBasisNumerator < BASIS_DENOMINATOR / 2
-        ) revert InvalidBasisNumerator();
-
-        basisNumerator = _newBasisNumerator;
-    }
-
-    function _addVotingAdapter(address _adapter) internal virtual {
-        if (_adapter == address(0)) revert VotingAdapterIsZeroAddress();
-        for (uint256 i = 0; i < votingAdapters.length; i++) {
-            if (address(votingAdapters[i]) == _adapter)
-                revert VotingAdapterAlreadyExists();
-        }
-        votingAdapters.push(IVotingAdapterBaseV1(_adapter));
-        emit VotingAdapterAdded(address(_adapter), votingAdapters.length - 1);
-    }
-
-    function _addProposerAdapter(address _adapter) internal virtual {
-        if (_adapter == address(0)) revert ProposerAdapterIsZeroAddress();
-        for (uint256 i = 0; i < proposerAdapters.length; i++) {
-            if (address(proposerAdapters[i]) == _adapter)
-                revert ProposerAdapterAlreadyExists();
-        }
-        proposerAdapters.push(IProposerAdapterBaseV1(_adapter));
-        emit ProposerAdapterAdded(
-            address(_adapter),
-            proposerAdapters.length - 1
-        );
     }
 
     function getVersion() public view virtual override returns (uint16) {
