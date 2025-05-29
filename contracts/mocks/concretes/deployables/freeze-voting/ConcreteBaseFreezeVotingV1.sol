@@ -33,23 +33,23 @@ contract ConcreteBaseFreezeVotingV1 is BaseFreezeVotingV1 {
      *
      * Each call counts as one vote by default, or as many votes as set by setMockVotePower.
      */
-    function castFreezeVote() external override {
+    function castFreezeVote() external {
         // If no freeze proposal exists yet, create one
-        if (freezeProposalCreated == 0) {
-            freezeProposalCreated = uint48(block.timestamp);
-            freezeProposalVoteCount = 0; // Initialize to zero
+        if (_freezeProposalCreated == 0) {
+            _freezeProposalCreated = uint48(block.timestamp);
+            _freezeProposalVoteCount = 0; // Initialize to zero
             emit FreezeProposalCreated(msg.sender);
         }
 
         // Check if proposal period has expired
         require(
-            block.timestamp <= freezeProposalCreated + freezeProposalPeriod,
+            block.timestamp <= _freezeProposalCreated + _freezeProposalPeriod,
             "Freeze proposal period expired"
         );
 
         // Check if the user has already voted on this proposal
         require(
-            !userHasFreezeVoted[msg.sender][freezeProposalCreated],
+            !_userHasFreezeVoted[msg.sender][_freezeProposalCreated],
             "Already voted"
         );
 
@@ -57,8 +57,8 @@ contract ConcreteBaseFreezeVotingV1 is BaseFreezeVotingV1 {
         uint256 _mockVotePower = 1;
 
         // Record the vote
-        userHasFreezeVoted[msg.sender][freezeProposalCreated] = true;
-        freezeProposalVoteCount += _mockVotePower;
+        _userHasFreezeVoted[msg.sender][_freezeProposalCreated] = true;
+        _freezeProposalVoteCount += _mockVotePower;
 
         emit FreezeVoteCast(msg.sender, _mockVotePower);
     }
