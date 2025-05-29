@@ -8,6 +8,7 @@ import {
   IERC20__factory,
   IVersion__factory,
   IVotes__factory,
+  IVotesERC20StakedV1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
   VotesERC20StakedV1,
@@ -206,7 +207,7 @@ describe('VotesERC20StakedV1', () => {
     let iERC20InterfaceId: string;
     let iVotesInterfaceId: string;
     let iERC165InterfaceId: string;
-
+    let iVotesERC20StakedV1InterfaceId: string;
     beforeEach(async function () {
       votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
@@ -230,10 +231,18 @@ describe('VotesERC20StakedV1', () => {
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+
+      const IVotesERC20StakedV1Interface = IVotesERC20StakedV1__factory.createInterface();
+      iVotesERC20StakedV1InterfaceId = calculateInterfaceId(IVotesERC20StakedV1Interface);
     });
 
     it('Should support IERC165 interface', async function () {
       const supported = await votesERC20Staked.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVotesERC20StakedV1 interface', async function () {
+      const supported = await votesERC20Staked.supportsInterface(iVotesERC20StakedV1InterfaceId);
       void expect(supported).to.be.true;
     });
 
