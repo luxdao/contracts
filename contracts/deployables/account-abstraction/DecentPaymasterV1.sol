@@ -23,30 +23,19 @@ contract DecentPaymasterV1 is
 {
     uint16 private constant VERSION = 1;
 
-    mapping(address => mapping(bytes4 => address)) private _functionValidators;
-
-    event FunctionValidatorSet(
-        address target,
-        bytes4 selector,
-        address validator
-    );
-    event FunctionValidatorRemoved(address target, bytes4 selector);
-
-    error NoValidatorSet(address target, bytes4 selector);
-    error ValidationFailed(address target, bytes4 selector);
-    error InvalidValidator();
+    mapping(address => mapping(bytes4 => address)) internal _functionValidators;
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address _owner,
-        address _entryPoint,
-        address _lightAccountFactory
-    ) public virtual initializer {
-        __BasePaymasterV1_init(_owner, IEntryPoint(_entryPoint));
-        __SmartAccountValidationV1_init(_lightAccountFactory);
+        address owner_,
+        address entryPoint_,
+        address lightAccountFactory_
+    ) public virtual override initializer {
+        __BasePaymasterV1_init(owner_, IEntryPoint(entryPoint_));
+        __SmartAccountValidationV1_init(lightAccountFactory_);
     }
 
     function _authorizeUpgrade(
