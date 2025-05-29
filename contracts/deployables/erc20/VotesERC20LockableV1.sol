@@ -45,20 +45,7 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
             _allocationAmounts,
             _owner
         );
-        _transferOwnership(_owner);
         locked = _locked;
-    }
-
-    /**
-     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
-     * Called by {upgradeTo} and {upgradeToAndCall}.
-     *
-     * Reverts if the sender is not the owner of the contract.
-     */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {
-        // Authorization is handled by the onlyOwner modifier
     }
 
     function lock(bool _locked) external onlyOwner {

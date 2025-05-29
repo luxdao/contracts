@@ -11,18 +11,14 @@ import {NoncesUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/Nonce
 import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-/**
- * An implementation of the OpenZeppelin `IVotes` voting token standard.
- * Implements the UUPS proxy pattern for upgradeability.
- */
 contract VotesERC20V1 is
     Version,
     ERC20VotesUpgradeable,
     ERC20PermitUpgradeable,
     UUPSUpgradeable,
-    OwnableUpgradeable
+    Ownable2StepUpgradeable
 {
     uint16 private constant VERSION = 1;
 
@@ -30,15 +26,6 @@ contract VotesERC20V1 is
         _disableInitializers();
     }
 
-    /**
-     * Initialize function, will be triggered when a new proxy instance is deployed.
-     *
-     * @param name Token name
-     * @param symbol Token symbol
-     * @param allocationAddresses Addresses of initial allocations
-     * @param allocationAmounts Amounts of initial allocations
-     * @param owner Address that will own the proxy and be able to upgrade it
-     */
     function initialize(
         string memory name,
         string memory symbol,
@@ -61,24 +48,16 @@ contract VotesERC20V1 is
         }
     }
 
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
+
     function clock() public view override returns (uint48) {
         return uint48(block.timestamp);
     }
 
     function CLOCK_MODE() public pure override returns (string memory) {
         return "mode=timestamp";
-    }
-
-    /**
-     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
-     * Called by {upgradeTo} and {upgradeToAndCall}.
-     *
-     * Reverts if the sender is not the owner of the contract.
-     */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {
-        // Authorization is handled by the onlyOwner modifier
     }
 
     function _update(
@@ -101,7 +80,6 @@ contract VotesERC20V1 is
         return super.nonces(owner);
     }
 
-    /// @inheritdoc Version
     function getVersion() public view virtual override returns (uint16) {
         return VERSION;
     }
