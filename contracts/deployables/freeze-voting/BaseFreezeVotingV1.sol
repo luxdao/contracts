@@ -7,98 +7,136 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 abstract contract BaseFreezeVotingV1 is
+    IBaseFreezeVotingV1,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    IBaseFreezeVotingV1,
     ERC165
 {
-    uint48 public freezeProposalCreated;
-
-    uint32 public freezeProposalPeriod;
-
-    uint32 public freezePeriod;
-
-    uint256 public freezeVotesThreshold;
-
-    uint256 public freezeProposalVoteCount;
-
-    mapping(address => mapping(uint48 => bool)) public userHasFreezeVoted;
-
-    event FreezeVoteCast(address indexed voter, uint256 votesCast);
-    event FreezeProposalCreated(address indexed creator);
-    event FreezeVotesThresholdUpdated(uint256 freezeVotesThreshold);
-    event FreezePeriodUpdated(uint32 freezePeriod);
-    event FreezeProposalPeriodUpdated(uint32 freezeProposalPeriod);
+    uint48 internal _freezeProposalCreated;
+    uint32 internal _freezeProposalPeriod;
+    uint32 internal _freezePeriod;
+    uint256 internal _freezeVotesThreshold;
+    uint256 internal _freezeProposalVoteCount;
+    mapping(address => mapping(uint48 => bool)) internal _userHasFreezeVoted;
 
     constructor() {
         _disableInitializers();
     }
 
     function __BaseFreezeVotingV1_init(
-        address _owner,
-        uint32 _freezeProposalPeriod,
-        uint32 _freezePeriod,
-        uint256 _freezeVotesThreshold
+        address owner_,
+        uint32 freezeProposalPeriod_,
+        uint32 freezePeriod_,
+        uint256 freezeVotesThreshold_
     ) internal initializer {
-        __Ownable_init(_owner);
+        __Ownable_init(owner_);
         __UUPSUpgradeable_init();
-        _updateFreezeProposalPeriod(_freezeProposalPeriod);
-        _updateFreezePeriod(_freezePeriod);
-        _updateFreezeVotesThreshold(_freezeVotesThreshold);
+        _updateFreezeProposalPeriod(freezeProposalPeriod_);
+        _updateFreezePeriod(freezePeriod_);
+        _updateFreezeVotesThreshold(freezeVotesThreshold_);
     }
 
     function _authorizeUpgrade(
         address newImplementation
     ) internal virtual override onlyOwner {}
 
-    function castFreezeVote() external virtual;
-
-    function isFrozen() external view virtual returns (bool) {
-        return
-            freezeProposalVoteCount >= freezeVotesThreshold &&
-            block.timestamp < freezeProposalCreated + freezePeriod;
+    function freezeProposalCreated()
+        external
+        view
+        virtual
+        override
+        returns (uint48)
+    {
+        return _freezeProposalCreated;
     }
 
-    function unfreeze() external virtual onlyOwner {
-        freezeProposalCreated = 0;
-        freezeProposalVoteCount = 0;
+    function freezePeriod() external view virtual override returns (uint32) {
+        return _freezePeriod;
+    }
+
+    function freezeVotesThreshold()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        return _freezeVotesThreshold;
+    }
+
+    function freezeProposalPeriod()
+        external
+        view
+        virtual
+        override
+        returns (uint32)
+    {
+        return _freezeProposalPeriod;
+    }
+
+    function freezeProposalVoteCount()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        return _freezeProposalVoteCount;
+    }
+
+    function userHasFreezeVoted(
+        address user,
+        uint48 proposalId
+    ) external view virtual override returns (bool) {
+        return _userHasFreezeVoted[user][proposalId];
+    }
+
+    function isFrozen() external view virtual override returns (bool) {
+        return
+            _freezeProposalVoteCount >= _freezeVotesThreshold &&
+            block.timestamp < _freezeProposalCreated + _freezePeriod;
+    }
+
+    function unfreeze() external virtual override onlyOwner {
+        _freezeProposalCreated = 0;
+        _freezeProposalVoteCount = 0;
     }
 
     function updateFreezeVotesThreshold(
-        uint256 _freezeVotesThreshold
-    ) external virtual onlyOwner {
-        _updateFreezeVotesThreshold(_freezeVotesThreshold);
+        uint256 freezeVotesThreshold_
+    ) external virtual override onlyOwner {
+        _updateFreezeVotesThreshold(freezeVotesThreshold_);
     }
 
     function updateFreezeProposalPeriod(
-        uint32 _freezeProposalPeriod
-    ) external virtual onlyOwner {
-        _updateFreezeProposalPeriod(_freezeProposalPeriod);
+        uint32 freezeProposalPeriod_
+    ) external virtual override onlyOwner {
+        _updateFreezeProposalPeriod(freezeProposalPeriod_);
     }
 
     function updateFreezePeriod(
-        uint32 _freezePeriod
-    ) external virtual onlyOwner {
-        _updateFreezePeriod(_freezePeriod);
+        uint32 freezePeriod_
+    ) external virtual override onlyOwner {
+        _updateFreezePeriod(freezePeriod_);
     }
 
     function _updateFreezeVotesThreshold(
-        uint256 _freezeVotesThreshold
+        uint256 freezeVotesThreshold_
     ) internal virtual {
-        freezeVotesThreshold = _freezeVotesThreshold;
-        emit FreezeVotesThresholdUpdated(_freezeVotesThreshold);
+        _freezeVotesThreshold = freezeVotesThreshold_;
+        emit FreezeVotesThresholdUpdated(freezeVotesThreshold_);
     }
 
     function _updateFreezeProposalPeriod(
-        uint32 _freezeProposalPeriod
+        uint32 freezeProposalPeriod_
     ) internal virtual {
-        freezeProposalPeriod = _freezeProposalPeriod;
-        emit FreezeProposalPeriodUpdated(_freezeProposalPeriod);
+        _freezeProposalPeriod = freezeProposalPeriod_;
+        emit FreezeProposalPeriodUpdated(freezeProposalPeriod_);
     }
 
-    function _updateFreezePeriod(uint32 _freezePeriod) internal virtual {
-        freezePeriod = _freezePeriod;
-        emit FreezePeriodUpdated(_freezePeriod);
+    function _updateFreezePeriod(uint32 freezePeriod_) internal virtual {
+        _freezePeriod = freezePeriod_;
+        emit FreezePeriodUpdated(freezePeriod_);
     }
 
     function supportsInterface(
