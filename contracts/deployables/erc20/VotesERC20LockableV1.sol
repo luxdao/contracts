@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ILockableV1} from "../../interfaces/decent/deployables/ILockableV1.sol";
-import {IMintableV1} from "../../interfaces/decent/deployables/IMintableV1.sol";
+import {IVotesERC20LockableV1} from "../../interfaces/decent/deployables/IVotesERC20LockableV1.sol";
 import {VotesERC20V1} from "./VotesERC20V1.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
+contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     uint16 private constant VERSION = 1;
 
-    bool public locked;
-    mapping(address => bool) public whitelisted;
+    bool internal _locked;
+    mapping(address => bool) internal _whitelisted;
 
     constructor() {
         _disableInitializers();
@@ -19,10 +18,10 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
 
     modifier isTransferable(address from) {
         if (
-            locked &&
+            _locked &&
             // overrides while locked
             !(from == owner() || // owner can always transfer
-                whitelisted[from] || // whitelisted addresses can always transfer
+                _whitelisted[from] || // whitelisted addresses can always transfer
                 from == address(0)) // can always mint when locked
         ) {
             revert IsLocked();
@@ -31,43 +30,56 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
     }
 
     function initialize(
-        address _owner,
-        bool _locked,
-        string memory _name,
-        string memory _symbol,
-        address[] memory _allocationAddresses,
-        uint256[] memory _allocationAmounts
-    ) public virtual initializer {
+        address owner_,
+        bool locked_,
+        string memory name_,
+        string memory symbol_,
+        address[] memory allocationAddresses_,
+        uint256[] memory allocationAmounts_
+    ) public virtual override initializer {
         super.initialize(
-            _name,
-            _symbol,
-            _allocationAddresses,
-            _allocationAmounts,
-            _owner
+            name_,
+            symbol_,
+            allocationAddresses_,
+            allocationAmounts_,
+            owner_
         );
-        locked = _locked;
+        _locked = locked_;
     }
 
-    function lock(bool _locked) external virtual onlyOwner {
-        if (_locked == locked) {
-            revert CannotSwitchLockState(_locked);
+    function locked() external view virtual override returns (bool) {
+        return _locked;
+    }
+
+    function whitelisted(
+        address account
+    ) external view virtual override returns (bool) {
+        return _whitelisted[account];
+    }
+
+    function lock(bool locked_) external virtual override onlyOwner {
+        if (locked_ == _locked) {
+            revert CannotSwitchLockState(locked_);
         }
-        locked = _locked;
+        _locked = locked_;
         emit Locked(_locked);
     }
 
     function whitelist(
         address account,
         bool isWhitelisted
-    ) external virtual onlyOwner {
-        bool currentlyWhitelisted = whitelisted[account];
-        whitelisted[account] = isWhitelisted;
+    ) external virtual override onlyOwner {
+        bool currentlyWhitelisted = _whitelisted[account];
+        _whitelisted[account] = isWhitelisted;
         if (currentlyWhitelisted != isWhitelisted) {
             emit Whitelisted(account, isWhitelisted);
         }
     }
 
-    function mint(address to, uint256 amount) external virtual onlyOwner {
+    function mint(
+        address to,
+        uint256 amount
+    ) external virtual override onlyOwner {
         _mint(to, amount);
     }
 
@@ -87,8 +99,7 @@ contract VotesERC20LockableV1 is ILockableV1, IMintableV1, VotesERC20V1 {
         bytes4 interfaceId
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(ILockableV1).interfaceId ||
-            interfaceId == type(IMintableV1).interfaceId ||
+            interfaceId == type(IVotesERC20LockableV1).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
