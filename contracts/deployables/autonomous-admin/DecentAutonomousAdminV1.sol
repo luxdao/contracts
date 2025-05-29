@@ -5,47 +5,10 @@ import {IHatsElectionsEligibility} from "../../interfaces/hats/modules/IHatsElec
 import {IDecentAutonomousAdminV1} from "../../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract DecentAutonomousAdminV1 is
-    IDecentAutonomousAdminV1,
-    Version,
-    UUPSUpgradeable,
-    OwnableUpgradeable
-{
+contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version {
     uint16 private constant VERSION = 1;
 
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * Initialize function for the proxy deployment. This standardizes the initialization
-     * to better work with ProxyFactory.
-     *
-     * @param _owner Address that will own the proxy and be able to upgrade it
-     */
-    function initialize(address _owner) public initializer {
-        __Ownable_init(_owner);
-        __UUPSUpgradeable_init();
-    }
-
-    /**
-     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
-     * Called by {upgradeTo} and {upgradeToAndCall}.
-     *
-     * Reverts if the sender is not the owner of the contract.
-     */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {
-        // Authorization is handled by the onlyOwner modifier
-    }
-
-    // //////////////////////////////////////////////////////////////
-    //                         Public Functions
-    // //////////////////////////////////////////////////////////////
     function triggerStartNextTerm(TriggerStartArgs calldata args) public {
         IHatsElectionsEligibility hatsElectionModule = IHatsElectionsEligibility(
                 args.hatsProtocol.getHatEligibilityModule(args.hatId)
@@ -62,7 +25,6 @@ contract DecentAutonomousAdminV1 is
         }
     }
 
-    /// @inheritdoc Version
     function getVersion() public view virtual override returns (uint16) {
         return VERSION;
     }
