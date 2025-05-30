@@ -7,6 +7,7 @@ import {
   ERC20VotingAdapterV1,
   ERC20VotingAdapterV1__factory,
   IERC165__factory,
+  IERC20VotingAdapterV1__factory,
   IVersion__factory,
   IVotingAdapterBaseV1__factory,
   IVotingAdapterV1__factory,
@@ -407,7 +408,7 @@ describe('ERC20VotingAdapterV1', () => {
         .withArgs(voter.address, proposalId, expectedWeightCasted, expectedEventAdapterVoteData);
     });
 
-    it('should revert with ERC20AlreadyVoted if trying to vote again', async () => {
+    it('should revert with AlreadyVoted if trying to vote again', async () => {
       await setupAdapterForRecordVote(0);
       const votingStartTimestamp = (await time.latest()) + 200;
       await token.setPastVotes(voter.address, votingStartTimestamp, ethers.parseUnits('10', 18));
@@ -419,7 +420,7 @@ describe('ERC20VotingAdapterV1', () => {
       await adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData);
       await expect(
         adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
-      ).to.be.revertedWithCustomError(adapter, 'ERC20AlreadyVoted');
+      ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
     });
 
     it('subsequent weightOf should return 0 after recordVote', async () => {
@@ -469,10 +470,6 @@ describe('ERC20VotingAdapterV1', () => {
 
   describe('ERC165 supportsInterface', () => {
     let erc20Adapter: ERC20VotingAdapterV1;
-    let iVotingAdapterV1InterfaceId: string;
-    let iVotingAdapterBaseV1InterfaceId: string;
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
 
     beforeEach(async () => {
       const { adapter } = await deployERC20AdapterProxy(
@@ -483,32 +480,51 @@ describe('ERC20VotingAdapterV1', () => {
         DEFAULT_WEIGHT_PER_TOKEN,
       );
       erc20Adapter = adapter;
+    });
 
-      iVotingAdapterV1InterfaceId = calculateInterfaceId(
-        IVotingAdapterV1__factory.createInterface(),
-        [IVotingAdapterBaseV1__factory.createInterface()],
-      );
-      iVotingAdapterBaseV1InterfaceId = calculateInterfaceId(
-        IVotingAdapterBaseV1__factory.createInterface(),
-      );
-      iVersionInterfaceId = calculateInterfaceId(IVersion__factory.createInterface());
-      iERC165InterfaceId = calculateInterfaceId(IERC165__factory.createInterface());
+    it('should support IERC20VotingAdapterV1', async () => {
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface(), [
+            IVotingAdapterBaseV1__factory.createInterface(),
+            IVotingAdapterV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
     });
 
     it('should support IVotingAdapterV1', async () => {
-      void expect(await erc20Adapter.supportsInterface(iVotingAdapterV1InterfaceId)).to.be.true;
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IVotingAdapterV1__factory.createInterface(), [
+            IVotingAdapterBaseV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
     });
 
     it('should support IVotingAdapterBaseV1', async () => {
-      void expect(await erc20Adapter.supportsInterface(iVotingAdapterBaseV1InterfaceId)).to.be.true;
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IVotingAdapterBaseV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('should support IVersion', async () => {
-      void expect(await erc20Adapter.supportsInterface(iVersionInterfaceId)).to.be.true;
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('should support IERC165', async () => {
-      void expect(await erc20Adapter.supportsInterface(iERC165InterfaceId)).to.be.true;
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('should not support a random interfaceId', async () => {
