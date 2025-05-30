@@ -6,6 +6,7 @@ import {
   HatsProposerAdapterV1,
   HatsProposerAdapterV1__factory,
   IERC165__factory,
+  IHatsProposerAdapterV1__factory,
   IProposerAdapterBaseV1__factory,
   IProposerAdapterV1__factory,
   IVersion__factory,
@@ -67,7 +68,7 @@ describe('HatsProposerAdapterV1', () => {
   describe('Initialization (via Proxy)', () => {
     it('should initialize correctly with valid parameters', async () => {
       expect(await adapter.hatsContract()).to.equal(await mockHats.getAddress());
-      const whitelistedHats = await adapter.getWhitelistedHatIds();
+      const whitelistedHats = await adapter.whitelistedHatIds();
       expect(whitelistedHats).to.deep.equal([HAT_ID_1]);
     });
 
@@ -147,27 +148,50 @@ describe('HatsProposerAdapterV1', () => {
     });
   });
 
-  describe('supportsInterface', () => {
-    it('should support IProposerAdapterV1, IProposerAdapterBaseV1, IVersion and IERC165', async () => {
-      const iProposerAdapterV1Interface = IProposerAdapterV1__factory.createInterface();
-      const iProposerAdapterBaseV1Interface = IProposerAdapterBaseV1__factory.createInterface();
-      const iVersionInterface = IVersion__factory.createInterface();
-      const iERC165Interface = IERC165__factory.createInterface();
+  describe('ERC165 supportsInterface', () => {
+    it('should support IHatsProposerAdapterV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IHatsProposerAdapterV1__factory.createInterface(), [
+            IProposerAdapterV1__factory.createInterface(),
+            IProposerAdapterBaseV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
 
-      const iProposerAdapterV1Id = calculateInterfaceId(iProposerAdapterV1Interface);
-      const iProposerAdapterBaseV1Id = calculateInterfaceId(iProposerAdapterBaseV1Interface);
-      const iVersionId = calculateInterfaceId(iVersionInterface);
-      const iERC165Id = calculateInterfaceId(iERC165Interface);
+    it('should support IProposerAdapterV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IProposerAdapterV1__factory.createInterface(), [
+            IProposerAdapterBaseV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
 
-      void expect(await adapter.supportsInterface(iProposerAdapterV1Id)).to.be.true;
-      void expect(await adapter.supportsInterface(iProposerAdapterBaseV1Id)).to.be.true;
-      void expect(await adapter.supportsInterface(iVersionId)).to.be.true;
-      void expect(await adapter.supportsInterface(iERC165Id)).to.be.true;
+    it('should support IProposerAdapterBaseV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IProposerAdapterBaseV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support IVersion', async () => {
+      void expect(
+        await adapter.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
+      ).to.be.true;
+    });
+
+    it('should support IERC165', async () => {
+      void expect(
+        await adapter.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
+      ).to.be.true;
     });
 
     it('should not support a random interfaceId', async () => {
-      const randomInterfaceId = '0x12345678';
-      void expect(await adapter.supportsInterface(randomInterfaceId)).to.be.false;
+      void expect(await adapter.supportsInterface('0x12345678')).to.be.false;
     });
   });
 });
