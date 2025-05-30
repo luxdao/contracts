@@ -709,7 +709,7 @@ describe('LinearERC20VotingV1ValidatorV1', function () {
 
   describe('Version', function () {
     it('Should return correct version', async function () {
-      expect(await validator.getVersion()).to.equal(1);
+      expect(await validator.version()).to.equal(1);
     });
   });
 });

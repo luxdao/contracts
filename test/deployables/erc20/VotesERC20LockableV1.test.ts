@@ -723,7 +723,7 @@ describe('VotesERC20LockableV1', () => {
         [],
         [],
       );
-      expect(await proxy.getVersion()).to.equal(1);
+      expect(await proxy.version()).to.equal(1);
     });
   });
 

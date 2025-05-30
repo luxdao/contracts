@@ -454,7 +454,7 @@ describe('ERC20VotingAdapterV1', () => {
     });
   });
 
-  describe('getVersion()', () => {
+  describe('version()', () => {
     it('should return the correct version', async () => {
       const { adapter: erc20Adapter } = await deployERC20AdapterProxy(
         deployer,
@@ -464,7 +464,7 @@ describe('ERC20VotingAdapterV1', () => {
         DEFAULT_WEIGHT_PER_TOKEN,
       );
 
-      expect(await erc20Adapter.getVersion()).to.equal(1);
+      expect(await erc20Adapter.version()).to.equal(1);
     });
   });
 

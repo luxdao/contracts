@@ -27,7 +27,7 @@ contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version {
         }
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 

@@ -147,9 +147,9 @@ describe('ERC20ProposerAdapterV1', () => {
     });
   });
 
-  describe('getVersion', () => {
+  describe('version', () => {
     it('should return the correct version', async () => {
-      expect(await adapter.getVersion()).to.equal(1n);
+      expect(await adapter.version()).to.equal(1n);
     });
   });
 
