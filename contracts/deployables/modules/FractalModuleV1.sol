@@ -32,7 +32,7 @@ contract FractalModuleV1 is
         setAvatar(avatar_);
         setTarget(target_);
 
-        OwnableUpgradeable.transferOwnership(owner_);
+        _transferOwnership(owner_);
     }
 
     function setUp(
