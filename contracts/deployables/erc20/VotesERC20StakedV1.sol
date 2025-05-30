@@ -34,17 +34,17 @@ contract VotesERC20StakedV1 is
     }
 
     function initialize(
-        string memory name,
-        string memory symbol,
-        address owner,
+        string memory name_,
+        string memory symbol_,
+        address owner_,
         address stakedToken_,
         uint256 minimumStakingPeriod_,
         address[] memory rewardsTokens_
     ) public virtual override initializer {
-        __ERC20_init(name, symbol);
+        __ERC20_init(name_, symbol_);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
-        __Ownable_init(owner);
+        __Ownable_init(owner_);
         _stakedToken = IERC20(stakedToken_);
         _updateMinimumStakingPeriod(minimumStakingPeriod_);
         _addRewardsTokens(rewardsTokens_);
