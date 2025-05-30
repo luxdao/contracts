@@ -71,7 +71,7 @@ contract AzoriusV1 is
         _updateTimelockPeriod(timelockPeriod_);
         _updateExecutionPeriod(executionPeriod_);
 
-        OwnableUpgradeable.transferOwnership(owner_);
+        _transferOwnership(owner_);
     }
 
     function setUp(
