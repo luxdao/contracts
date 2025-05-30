@@ -6,6 +6,9 @@ import {IVotingAdapterV1} from "./IVotingAdapterV1.sol";
 interface IERC721VotingAdapterV1 is IVotingAdapterV1 {
     error InvalidTokenAddress();
     error InvalidWeightPerToken();
+    error NoTokenIdsPassed();
+    error TokenIdAlreadyUsedForVote(uint256 tokenId);
+    error TokenIdNotOwnedByVoter(uint256 tokenId);
 
     function initialize(address token, uint256 weightPerToken) external;
 
@@ -17,4 +20,10 @@ interface IERC721VotingAdapterV1 is IVotingAdapterV1 {
         uint32 proposalId,
         uint256 tokenId
     ) external view returns (bool);
+
+    function weightOfWithValidTokenIds(
+        address _voter,
+        uint32 _proposalId,
+        bytes calldata _adapterVoteData
+    ) external view returns (uint256 weight, uint256[] memory unusedTokenIds);
 }

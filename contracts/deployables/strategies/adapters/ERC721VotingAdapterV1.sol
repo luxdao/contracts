@@ -51,57 +51,125 @@ contract ERC721VotingAdapterV1 is
         return _tokenIdUsedForVote[proposalId][tokenId];
     }
 
-    function _getValidUnvotedTokenIdsAndWeight(
-        address _voter,
-        uint32 _proposalId,
+    function _decodeTokenIds(
         bytes calldata _adapterVoteData
+    ) internal view virtual returns (uint256[] memory tokenIds) {
+        tokenIds = abi.decode(_adapterVoteData, (uint256[]));
+    }
+
+    function _getUniqueTokenIds(
+        uint256[] memory tokenIds
+    ) internal view virtual returns (uint256[] memory uniqueTokenIds) {
+        uint256[] memory tempUniqueTokenIds = new uint256[](tokenIds.length);
+        uint256 uniqueCount = 0;
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            bool isDuplicate = false;
+            for (uint256 j = 0; j < uniqueCount; j++) {
+                if (tempUniqueTokenIds[j] == tokenIds[i]) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+            if (!isDuplicate) {
+                tempUniqueTokenIds[uniqueCount] = tokenIds[i];
+                uniqueCount++;
+            }
+        }
+
+        if (uniqueCount == 0) {
+            return new uint256[](0);
+        }
+
+        uniqueTokenIds = new uint256[](uniqueCount);
+        for (uint256 i = 0; i < uniqueCount; i++) {
+            uniqueTokenIds[i] = tempUniqueTokenIds[i];
+        }
+    }
+
+    function _getOwnedTokenIds(
+        address voter,
+        uint256[] memory tokenIds
+    ) internal view virtual returns (uint256[] memory ownedTokenIds) {
+        bool[] memory isTokenOwnedByVoter = new bool[](tokenIds.length);
+        uint256 ownedTokenCount = 0;
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (_token.ownerOf(tokenIds[i]) == voter) {
+                isTokenOwnedByVoter[i] = true;
+                ownedTokenCount++;
+            }
+        }
+
+        if (ownedTokenCount == 0) {
+            return new uint256[](0);
+        }
+
+        ownedTokenIds = new uint256[](ownedTokenCount);
+        uint256 ownedTokenCurrentIndex = 0;
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (isTokenOwnedByVoter[i]) {
+                ownedTokenIds[ownedTokenCurrentIndex] = tokenIds[i];
+                ownedTokenCurrentIndex++;
+            }
+        }
+    }
+
+    function _getUnusedTokenIds(
+        uint32 proposalId,
+        uint256[] memory ownedTokenIds
+    ) internal view virtual returns (uint256[] memory unusedTokenIds) {
+        bool[] memory isTokenUnused = new bool[](ownedTokenIds.length);
+        uint256 unusedTokenCount = 0;
+        for (uint256 i = 0; i < ownedTokenIds.length; i++) {
+            if (!_tokenIdUsedForVote[proposalId][ownedTokenIds[i]]) {
+                isTokenUnused[i] = true;
+                unusedTokenCount++;
+            }
+        }
+
+        unusedTokenIds = new uint256[](unusedTokenCount);
+        uint256 unusedTokenCurrentIndex = 0;
+        for (uint256 i = 0; i < ownedTokenIds.length; i++) {
+            if (isTokenUnused[i]) {
+                unusedTokenIds[unusedTokenCurrentIndex] = ownedTokenIds[i];
+                unusedTokenCurrentIndex++;
+            }
+        }
+    }
+
+    function _getValidTokenIds(
+        address voter,
+        uint32 proposalId,
+        bytes calldata adapterVoteData
     )
         internal
         view
         virtual
-        returns (
-            uint256[] memory validTokenIdsForThisCall,
-            uint256 totalCalculatedWeight
-        )
+        returns (uint256 weight, uint256[] memory unusedTokenIds)
     {
-        uint256[] memory tokenIds = abi.decode(_adapterVoteData, (uint256[]));
-
-        if (tokenIds.length == 0) {
-            return (new uint256[](0), 0);
+        uint256[] memory allTokenIds = _decodeTokenIds(adapterVoteData);
+        if (allTokenIds.length == 0) {
+            return (0, new uint256[](0));
         }
 
-        uint256[] memory tempValidTokenIds = new uint256[](tokenIds.length);
-        uint256 validCount = 0;
-
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 tokenId = tokenIds[i];
-            if (_token.ownerOf(tokenId) != _voter) {
-                continue;
-            }
-
-            if (_tokenIdUsedForVote[_proposalId][tokenId]) {
-                continue;
-            }
-
-            bool alreadyProcessedInThisCall = false;
-            for (uint256 j = 0; j < validCount; j++) {
-                if (tempValidTokenIds[j] == tokenId) {
-                    alreadyProcessedInThisCall = true;
-                    break;
-                }
-            }
-
-            if (!alreadyProcessedInThisCall) {
-                tempValidTokenIds[validCount] = tokenId;
-                validCount++;
-                totalCalculatedWeight += _weightPerToken;
-            }
+        uint256[] memory uniqueTokenIds = _getUniqueTokenIds(allTokenIds);
+        if (uniqueTokenIds.length == 0) {
+            return (0, new uint256[](0));
         }
 
-        validTokenIdsForThisCall = new uint256[](validCount);
-        for (uint256 i = 0; i < validCount; i++) {
-            validTokenIdsForThisCall[i] = tempValidTokenIds[i];
+        uint256[] memory ownedTokenIds = _getOwnedTokenIds(
+            voter,
+            uniqueTokenIds
+        );
+        if (ownedTokenIds.length == 0) {
+            return (0, new uint256[](0));
         }
+
+        unusedTokenIds = _getUnusedTokenIds(proposalId, ownedTokenIds);
+        if (unusedTokenIds.length == 0) {
+            return (0, new uint256[](0));
+        }
+
+        weight = unusedTokenIds.length * _weightPerToken;
     }
 
     function weightOf(
@@ -109,12 +177,25 @@ contract ERC721VotingAdapterV1 is
         uint32 _proposalId,
         bytes calldata _adapterVoteData
     ) external view virtual override returns (uint256 weight) {
-        (, uint256 totalCalculatedWeight) = _getValidUnvotedTokenIdsAndWeight(
+        (weight, ) = _getValidTokenIds(_voter, _proposalId, _adapterVoteData);
+    }
+
+    function weightOfWithValidTokenIds(
+        address _voter,
+        uint32 _proposalId,
+        bytes calldata _adapterVoteData
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256 weight, uint256[] memory unusedTokenIds)
+    {
+        (weight, unusedTokenIds) = _getValidTokenIds(
             _voter,
             _proposalId,
             _adapterVoteData
         );
-        weight = totalCalculatedWeight;
     }
 
     function recordVote(
@@ -122,19 +203,23 @@ contract ERC721VotingAdapterV1 is
         uint32 _proposalId,
         bytes calldata _adapterVoteData
     ) external virtual override returns (uint256 weightCasted) {
-        (
-            uint256[] memory validTokenIdsToRecord,
-            uint256 totalCalculatedWeight
-        ) = _getValidUnvotedTokenIdsAndWeight(
-                _voter,
-                _proposalId,
-                _adapterVoteData
-            );
-
-        for (uint256 i = 0; i < validTokenIdsToRecord.length; i++) {
-            _tokenIdUsedForVote[_proposalId][validTokenIdsToRecord[i]] = true;
+        uint256[] memory tokenIds = _decodeTokenIds(_adapterVoteData);
+        if (tokenIds.length == 0) {
+            revert NoTokenIdsPassed();
         }
-        weightCasted = totalCalculatedWeight;
+
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 tokenId = tokenIds[i];
+            if (_token.ownerOf(tokenId) != _voter) {
+                revert TokenIdNotOwnedByVoter(tokenId);
+            }
+            if (_tokenIdUsedForVote[_proposalId][tokenId]) {
+                revert TokenIdAlreadyUsedForVote(tokenId);
+            }
+            _tokenIdUsedForVote[_proposalId][tokenId] = true;
+        }
+
+        weightCasted = tokenIds.length * _weightPerToken;
 
         emit VoteRecorded(_voter, _proposalId, weightCasted, _adapterVoteData);
     }
