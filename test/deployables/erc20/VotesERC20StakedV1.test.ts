@@ -463,7 +463,7 @@ describe('VotesERC20StakedV1', () => {
     });
   });
 
-  describe('Staking', function () {
+  describe.only('Staking', function () {
     beforeEach(async function () {
       votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
@@ -534,6 +534,62 @@ describe('VotesERC20StakedV1', () => {
       expect(
         await votesERC20Staked.stakerRewardsData(await rewardsTokenA.getAddress(), alice.address),
       ).to.deep.equal([0n, 0n]);
+    });
+
+    it('should allow users to unstake tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+      const stakeTimestamp = await time.latest();
+
+      // move forward 7 days
+      await time.increase(604800);
+
+      await votesERC20Staked.connect(alice).unstake(ethers.parseEther('10'));
+
+      expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
+      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
+
+      expect(await stakedToken.balanceOf(await votesERC20Staked.getAddress())).to.equal(
+        ethers.parseEther('0'),
+      );
+
+      expect(await votesERC20Staked.totalStaked()).to.equal(ethers.parseEther('0'));
+
+      expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        stakeTimestamp,
+      ]);
+
+      expect(
+        await votesERC20Staked.stakerRewardsData(await rewardsTokenA.getAddress(), alice.address),
+      ).to.deep.equal([0n, 0n]);
+    });
+
+    it('should not allow users to unstake zero tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await time.increase(604800);
+
+      await expect(
+        votesERC20Staked.connect(alice).unstake(0n),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroUnstake');
+    });
+
+    it('should not allow users to unstake tokens before their minimum staking period has elapsed', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await expect(
+        votesERC20Staked.connect(alice).unstake(ethers.parseEther('10')),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'MinimumStakingPeriod');
+    });
+
+    it('should not allow users to unstake more token than they have staked', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await time.increase(604800);
+
+      await expect(
+        votesERC20Staked.connect(alice).unstake(ethers.parseEther('11')),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 });
