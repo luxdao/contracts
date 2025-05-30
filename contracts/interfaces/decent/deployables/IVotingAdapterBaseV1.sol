@@ -2,13 +2,6 @@
 pragma solidity ^0.8.30;
 
 interface IVotingAdapterBaseV1 {
-    event VoteRecorded(
-        address indexed voter,
-        uint32 indexed proposalId,
-        uint256 weightCasted,
-        bytes votingAdapterVoteData
-    );
-
     function recordVote(
         address _voter,
         uint32 _proposalId,
