@@ -22,9 +22,10 @@ interface IVotesERC20StakedV1 {
 
     error NonTransferable();
     error ZeroStake();
+    error ZeroUnstake();
     error InvalidRewardsToken();
     error DuplicateRewardsToken();
-
+    error MinimumStakingPeriod();
     function initialize(
         string memory name,
         string memory symbol,
@@ -41,6 +42,8 @@ interface IVotesERC20StakedV1 {
     ) external;
 
     function stake(uint256 amount) external;
+
+    function unstake(uint256 amount) external;
 
     function clock() external view returns (uint48);
 
