@@ -569,9 +569,10 @@ describe('VotesERC20StakedV1', () => {
 
       await time.increase(604800);
 
-      await expect(
-        votesERC20Staked.connect(alice).unstake(0n),
-      ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroUnstake');
+      await expect(votesERC20Staked.connect(alice).unstake(0n)).to.be.revertedWithCustomError(
+        votesERC20Staked,
+        'ZeroUnstake',
+      );
     });
 
     it('should not allow users to unstake tokens before their minimum staking period has elapsed', async function () {
