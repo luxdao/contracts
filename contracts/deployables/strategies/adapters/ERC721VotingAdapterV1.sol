@@ -60,29 +60,25 @@ contract ERC721VotingAdapterV1 is
     function _getUniqueTokenIds(
         uint256[] memory tokenIds
     ) internal view virtual returns (uint256[] memory uniqueTokenIds) {
-        uint256[] memory tempUniqueTokenIds = new uint256[](tokenIds.length);
+        uniqueTokenIds = new uint256[](tokenIds.length);
         uint256 uniqueCount = 0;
+
         for (uint256 i = 0; i < tokenIds.length; i++) {
             bool isDuplicate = false;
             for (uint256 j = 0; j < uniqueCount; j++) {
-                if (tempUniqueTokenIds[j] == tokenIds[i]) {
+                if (uniqueTokenIds[j] == tokenIds[i]) {
                     isDuplicate = true;
                     break;
                 }
             }
             if (!isDuplicate) {
-                tempUniqueTokenIds[uniqueCount] = tokenIds[i];
+                uniqueTokenIds[uniqueCount] = tokenIds[i];
                 uniqueCount++;
             }
         }
 
-        if (uniqueCount == 0) {
-            return new uint256[](0);
-        }
-
-        uniqueTokenIds = new uint256[](uniqueCount);
-        for (uint256 i = 0; i < uniqueCount; i++) {
-            uniqueTokenIds[i] = tempUniqueTokenIds[i];
+        assembly {
+            mstore(uniqueTokenIds, uniqueCount)
         }
     }
 
@@ -90,49 +86,37 @@ contract ERC721VotingAdapterV1 is
         address voter,
         uint256[] memory tokenIds
     ) internal view virtual returns (uint256[] memory ownedTokenIds) {
-        bool[] memory isTokenOwnedByVoter = new bool[](tokenIds.length);
+        ownedTokenIds = new uint256[](tokenIds.length);
         uint256 ownedTokenCount = 0;
+
         for (uint256 i = 0; i < tokenIds.length; i++) {
             if (_token.ownerOf(tokenIds[i]) == voter) {
-                isTokenOwnedByVoter[i] = true;
+                ownedTokenIds[ownedTokenCount] = tokenIds[i];
                 ownedTokenCount++;
             }
         }
 
-        if (ownedTokenCount == 0) {
-            return new uint256[](0);
-        }
-
-        ownedTokenIds = new uint256[](ownedTokenCount);
-        uint256 ownedTokenCurrentIndex = 0;
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            if (isTokenOwnedByVoter[i]) {
-                ownedTokenIds[ownedTokenCurrentIndex] = tokenIds[i];
-                ownedTokenCurrentIndex++;
-            }
+        assembly {
+            mstore(ownedTokenIds, ownedTokenCount)
         }
     }
 
     function _getUnusedTokenIds(
         uint32 proposalId,
-        uint256[] memory ownedTokenIds
+        uint256[] memory tokenIds
     ) internal view virtual returns (uint256[] memory unusedTokenIds) {
-        bool[] memory isTokenUnused = new bool[](ownedTokenIds.length);
+        unusedTokenIds = new uint256[](tokenIds.length);
         uint256 unusedTokenCount = 0;
-        for (uint256 i = 0; i < ownedTokenIds.length; i++) {
-            if (!_tokenIdUsedForVote[proposalId][ownedTokenIds[i]]) {
-                isTokenUnused[i] = true;
+
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (!_tokenIdUsedForVote[proposalId][tokenIds[i]]) {
+                unusedTokenIds[unusedTokenCount] = tokenIds[i];
                 unusedTokenCount++;
             }
         }
 
-        unusedTokenIds = new uint256[](unusedTokenCount);
-        uint256 unusedTokenCurrentIndex = 0;
-        for (uint256 i = 0; i < ownedTokenIds.length; i++) {
-            if (isTokenUnused[i]) {
-                unusedTokenIds[unusedTokenCurrentIndex] = ownedTokenIds[i];
-                unusedTokenCurrentIndex++;
-            }
+        assembly {
+            mstore(unusedTokenIds, unusedTokenCount)
         }
     }
 
