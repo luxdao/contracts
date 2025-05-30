@@ -136,12 +136,8 @@ describe('StrategyV1', () => {
       expect(await testStrategy.quorumThreshold()).to.equal(quorumThreshold);
       expect(await testStrategy.basisNumerator()).to.equal(basisNumerator);
       expect(await testStrategy.lightAccountFactory()).to.equal(lightAccountFactoryAddress);
-      expect(await testStrategy.getVotingAdapterCount()).to.equal(initialVotingAdapters.length);
-      expect(await testStrategy.votingAdapters(0)).to.equal(initialVotingAdapters[0]);
-      expect(await testStrategy.votingAdapters(1)).to.equal(initialVotingAdapters[1]);
-      expect(await testStrategy.getProposerAdapterCount()).to.equal(initialProposerAdapters.length);
-      expect(await testStrategy.proposerAdapters(0)).to.equal(initialProposerAdapters[0]);
-      expect(await testStrategy.proposerAdapters(1)).to.equal(initialProposerAdapters[1]);
+      expect(await testStrategy.votingAdapters()).to.deep.equal(initialVotingAdapters);
+      expect(await testStrategy.proposerAdapters()).to.deep.equal(initialProposerAdapters);
     });
 
     it('should revert if azorius address is zero', async () => {
@@ -313,59 +309,15 @@ describe('StrategyV1', () => {
     });
   });
 
-  describe('Voting Adapter Counts (Post-Initialization)', () => {
-    it('should return the correct number of voting adapters based on initialization', async () => {
-      expect(await strategy.getVotingAdapterCount()).to.equal(defaultInitialVotingAdapters.length);
-
-      const testStrategy2 = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        DEFAULT_BASIS_NUMERATOR,
-        [await mockAdapter1.getAddress()], // 1 voting adapter
-        [],
-        lightAccountFactoryMockAddress,
-      );
-      expect(await testStrategy2.getVotingAdapterCount()).to.equal(1);
-
-      const testStrategy0 = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        DEFAULT_BASIS_NUMERATOR,
-        [], // 0 voting adapters
-        [],
-        lightAccountFactoryMockAddress,
-      );
-      expect(await testStrategy0.getVotingAdapterCount()).to.equal(0);
+  describe('votingAdapters', () => {
+    it('should return the correct voting adapters', async () => {
+      expect(await strategy.votingAdapters()).to.deep.equal(defaultInitialVotingAdapters);
     });
+  });
 
-    it('should return the correct number of proposer adapters based on initialization', async () => {
-      expect(await strategy.getProposerAdapterCount()).to.equal(
-        defaultInitialProposerAdapters.length,
-      );
-
-      const testStrategy2 = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        DEFAULT_BASIS_NUMERATOR,
-        [],
-        [await mockProposerAdapter1.getAddress()], // 1 proposer adapter
-        lightAccountFactoryMockAddress,
-      );
-      expect(await testStrategy2.getProposerAdapterCount()).to.equal(1);
-
-      const testStrategy0 = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        DEFAULT_BASIS_NUMERATOR,
-        [],
-        [], // 0 proposer adapters
-        lightAccountFactoryMockAddress,
-      );
-      expect(await testStrategy0.getProposerAdapterCount()).to.equal(0);
+  describe('proposerAdapters', () => {
+    it('should return the correct proposer adapters', async () => {
+      expect(await strategy.proposerAdapters()).to.deep.equal(defaultInitialProposerAdapters);
     });
   });
 
