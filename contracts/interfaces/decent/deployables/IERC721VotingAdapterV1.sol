@@ -4,8 +4,6 @@ pragma solidity ^0.8.30;
 import {IVotingAdapterV1} from "./IVotingAdapterV1.sol";
 
 interface IERC721VotingAdapterV1 is IVotingAdapterV1 {
-    error InvalidTokenAddress();
-    error InvalidWeightPerToken();
     error NoTokenIdsPassed();
     error TokenIdAlreadyUsedForVote(uint256 tokenId);
     error TokenIdNotOwnedByVoter(uint256 tokenId);

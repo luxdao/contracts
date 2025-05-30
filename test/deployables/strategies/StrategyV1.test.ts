@@ -23,7 +23,7 @@ import { calculateInterfaceId } from '../../helpers/utils';
 describe('StrategyV1', () => {
   // Signers
   let deployer: SignerWithAddress;
-  let azoriusMock: SignerWithAddress; // To simulate calls from Azorius
+  let proposerInitializer: SignerWithAddress; // To simulate calls from proposer initializer
   let nonOwner: SignerWithAddress;
   let user1: SignerWithAddress;
   let voter1: SignerWithAddress, voter2: SignerWithAddress, voter3: SignerWithAddress;
@@ -46,7 +46,7 @@ describe('StrategyV1', () => {
   let defaultInitialProposerAdapters: string[];
 
   async function deployStrategyProxy(
-    azoriusAddress: string,
+    proposerInitializerAddress: string,
     votingPeriod: number,
     quorumThreshold: bigint,
     basisNumerator: bigint,
@@ -55,7 +55,7 @@ describe('StrategyV1', () => {
     lightAccountFactoryAddress: string,
   ): Promise<StrategyV1> {
     const initializeCalldata = strategyImplementation.interface.encodeFunctionData('initialize', [
-      azoriusAddress,
+      proposerInitializerAddress,
       votingPeriod,
       quorumThreshold,
       basisNumerator,
@@ -71,7 +71,7 @@ describe('StrategyV1', () => {
   }
 
   beforeEach(async () => {
-    [deployer, azoriusMock, nonOwner, user1, voter2, voter3] = await ethers.getSigners();
+    [deployer, proposerInitializer, nonOwner, user1, voter2, voter3] = await ethers.getSigners();
     voter1 = user1; // Alias for clarity in some tests
 
     strategyImplementation = await new StrategyV1__factory(deployer).deploy();
@@ -95,7 +95,7 @@ describe('StrategyV1', () => {
     defaultInitialProposerAdapters = [await mockProposerAdapter1.getAddress()];
 
     strategy = await deployStrategyProxy(
-      azoriusMock.address,
+      proposerInitializer.address,
       DEFAULT_VOTING_PERIOD,
       DEFAULT_QUORUM_THRESHOLD,
       DEFAULT_BASIS_NUMERATOR,
@@ -107,7 +107,7 @@ describe('StrategyV1', () => {
 
   describe('Initialization', () => {
     it('should initialize with correct parameters', async () => {
-      const azoriusAddress = azoriusMock.address;
+      const proposerInitializerAddress = proposerInitializer.address;
       const lightAccountFactoryAddress = lightAccountFactoryMockAddress;
       const initialVotingAdapters: string[] = [
         await mockAdapter1.getAddress(),
@@ -122,7 +122,7 @@ describe('StrategyV1', () => {
       const basisNumerator = DEFAULT_BASIS_NUMERATOR + 1n;
 
       const testStrategy = await deployStrategyProxy(
-        azoriusAddress,
+        proposerInitializerAddress,
         votingPeriod,
         quorumThreshold,
         basisNumerator,
@@ -131,181 +131,13 @@ describe('StrategyV1', () => {
         lightAccountFactoryAddress,
       );
 
-      expect(await testStrategy.azorius()).to.equal(azoriusAddress);
+      expect(await testStrategy.proposalInitializer()).to.equal(proposerInitializer);
       expect(await testStrategy.votingPeriod()).to.equal(votingPeriod);
       expect(await testStrategy.quorumThreshold()).to.equal(quorumThreshold);
       expect(await testStrategy.basisNumerator()).to.equal(basisNumerator);
       expect(await testStrategy.lightAccountFactory()).to.equal(lightAccountFactoryAddress);
       expect(await testStrategy.votingAdapters()).to.deep.equal(initialVotingAdapters);
       expect(await testStrategy.proposerAdapters()).to.deep.equal(initialProposerAdapters);
-    });
-
-    it('should revert if azorius address is zero', async () => {
-      await expect(
-        deployStrategyProxy(
-          ethers.ZeroAddress, // Invalid Azorius
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          DEFAULT_BASIS_NUMERATOR,
-          [],
-          [],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidAzoriusAddress');
-    });
-
-    it('should revert if voting period is zero during initialization', async () => {
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          0, // Invalid voting period
-          DEFAULT_QUORUM_THRESHOLD,
-          DEFAULT_BASIS_NUMERATOR,
-          [],
-          [],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidVotingPeriod');
-    });
-
-    it('should revert if basis numerator is invalid (too high) during initialization', async () => {
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          1_000_001n,
-          [],
-          [],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
-    });
-
-    it('should revert if basis numerator is invalid (too low, <50%) during initialization', async () => {
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          499_999n,
-          [],
-          [],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
-    });
-
-    it('should initialize correctly with zero quorum threshold', async () => {
-      const testStrategy = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        0n, // Zero quorum threshold
-        DEFAULT_BASIS_NUMERATOR,
-        [],
-        [],
-        lightAccountFactoryMockAddress,
-      );
-      expect(await testStrategy.quorumThreshold()).to.equal(0n);
-    });
-
-    it('should initialize correctly with basis numerator at 50%', async () => {
-      const testStrategy = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        500_000n, // 50% basis numerator
-        [],
-        [],
-        lightAccountFactoryMockAddress,
-      );
-      expect(await testStrategy.basisNumerator()).to.equal(500_000n);
-    });
-
-    it('should revert when initializing with basis numerator at 100% (1,000,000)', async () => {
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          1_000_000n, // 100% basis numerator - now invalid
-          [],
-          [],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
-    });
-
-    it('should initialize correctly with basis numerator at new maximum (BASIS_DENOMINATOR - 1)', async () => {
-      const maxValidBasis = 1_000_000n - 1n; // BASIS_DENOMINATOR - 1
-      const testStrategy = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        maxValidBasis,
-        [],
-        [],
-        lightAccountFactoryMockAddress,
-      );
-      expect(await testStrategy.basisNumerator()).to.equal(maxValidBasis);
-    });
-
-    it('should revert if a voting adapter address is zero', async () => {
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          DEFAULT_BASIS_NUMERATOR,
-          [ethers.ZeroAddress],
-          [],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'VotingAdapterIsZeroAddress');
-    });
-
-    it('should revert if a voting adapter address is repeated', async () => {
-      const adapterAddr = await mockAdapter1.getAddress();
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          DEFAULT_BASIS_NUMERATOR,
-          [adapterAddr, adapterAddr],
-          [],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'VotingAdapterAlreadyExists');
-    });
-
-    it('should revert if a proposer adapter address is zero', async () => {
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          DEFAULT_BASIS_NUMERATOR,
-          [],
-          [ethers.ZeroAddress],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'ProposerAdapterIsZeroAddress');
-    });
-
-    it('should revert if a proposer adapter address is repeated', async () => {
-      const adapterAddr = await mockProposerAdapter1.getAddress();
-      await expect(
-        deployStrategyProxy(
-          azoriusMock.address,
-          DEFAULT_VOTING_PERIOD,
-          DEFAULT_QUORUM_THRESHOLD,
-          DEFAULT_BASIS_NUMERATOR,
-          [],
-          [adapterAddr, adapterAddr],
-          lightAccountFactoryMockAddress,
-        ),
-      ).to.be.revertedWithCustomError(strategyImplementation, 'ProposerAdapterAlreadyExists');
     });
   });
 
@@ -328,27 +160,10 @@ describe('StrategyV1', () => {
       defaultProposalId = 1;
     });
 
-    it('should revert if called by a non-azorius address', async () => {
+    it('should revert if called by a non-proposer initializer address', async () => {
       await expect(
         strategy.connect(nonOwner).initializeProposal(defaultProposalId, [], ethers.ZeroHash),
-      ).to.be.revertedWithCustomError(strategy, 'InvalidAzoriusAddress');
-    });
-
-    it('should revert if no voting adapters are configured', async () => {
-      const noAdapterStrategy = await deployStrategyProxy(
-        azoriusMock.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        DEFAULT_BASIS_NUMERATOR,
-        [], // NO voting adapters
-        [],
-        lightAccountFactoryMockAddress,
-      );
-      await expect(
-        noAdapterStrategy
-          .connect(azoriusMock)
-          .initializeProposal(defaultProposalId, [], ethers.ZeroHash),
-      ).to.be.revertedWithCustomError(noAdapterStrategy, 'NoVotingAdapters');
+      ).to.be.revertedWithCustomError(strategy, 'InvalidProposalInitializer');
     });
 
     it('should correctly initialize proposal details and emit event', async () => {
@@ -358,7 +173,9 @@ describe('StrategyV1', () => {
       const blockNumberBefore = blockBefore.number;
 
       await expect(
-        strategy.connect(azoriusMock).initializeProposal(defaultProposalId, [], ethers.ZeroHash),
+        strategy
+          .connect(proposerInitializer)
+          .initializeProposal(defaultProposalId, [], ethers.ZeroHash),
       )
         .to.emit(strategy, 'ProposalInitialized')
         .withArgs(
@@ -382,11 +199,11 @@ describe('StrategyV1', () => {
 
     it('should reset vote counts for a re-initialized proposal', async () => {
       await strategy
-        .connect(azoriusMock)
+        .connect(proposerInitializer)
         .initializeProposal(defaultProposalId, [], ethers.ZeroHash);
 
       await strategy
-        .connect(azoriusMock)
+        .connect(proposerInitializer)
         .initializeProposal(defaultProposalId, [], ethers.ZeroHash); // Re-initialize
 
       const proposalDetails = await strategy.proposalVotingDetails(defaultProposalId);
@@ -399,7 +216,7 @@ describe('StrategyV1', () => {
   describe('isProposer', () => {
     it('should return false if no proposer adapters are configured at init', async () => {
       const noProposerAdapterStrategy = await deployStrategyProxy(
-        azoriusMock.address,
+        proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -412,7 +229,7 @@ describe('StrategyV1', () => {
 
     it('should return true if any configured adapter identifies the address as a proposer', async () => {
       const multiProposerStrategy = await deployStrategyProxy(
-        azoriusMock.address,
+        proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -432,7 +249,7 @@ describe('StrategyV1', () => {
       void expect(await strategy.isProposer(user1.address)).to.be.false;
 
       const multiProposerStrategy = await deployStrategyProxy(
-        azoriusMock.address,
+        proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -456,7 +273,9 @@ describe('StrategyV1', () => {
 
     beforeEach(async () => {
       proposalId = 1;
-      await strategy.connect(azoriusMock).initializeProposal(proposalId, [], ethers.ZeroHash);
+      await strategy
+        .connect(proposerInitializer)
+        .initializeProposal(proposalId, [], ethers.ZeroHash);
     });
 
     it('should return correct timestamps and block after proposal initialization', async () => {
@@ -493,7 +312,9 @@ describe('StrategyV1', () => {
 
     beforeEach(async () => {
       proposalId = 1;
-      await strategy.connect(azoriusMock).initializeProposal(proposalId, [], ethers.ZeroHash);
+      await strategy
+        .connect(proposerInitializer)
+        .initializeProposal(proposalId, [], ethers.ZeroHash);
 
       adapter1Data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[1]]);
       adapter2Data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[2]]);
@@ -627,7 +448,7 @@ describe('StrategyV1', () => {
 
     it('should sum weights if multiple adapters are used in one vote call', async () => {
       const multiAdapterStrategy = await deployStrategyProxy(
-        azoriusMock.address,
+        proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -636,7 +457,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await multiAdapterStrategy
-        .connect(azoriusMock)
+        .connect(proposerInitializer)
         .initializeProposal(proposalId, [], ethers.ZeroHash);
 
       const weight1 = 60;
@@ -715,7 +536,7 @@ describe('StrategyV1', () => {
 
     it('should revert if any adapter call reverts in a multi-adapter vote (all-or-nothing)', async () => {
       const multiAdapterStrategy = await deployStrategyProxy(
-        azoriusMock.address,
+        proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -724,7 +545,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await multiAdapterStrategy
-        .connect(azoriusMock)
+        .connect(proposerInitializer)
         .initializeProposal(proposalId, [], ethers.ZeroHash);
 
       await mockAdapter1.setWeight(user1.address, 10);
@@ -767,7 +588,9 @@ describe('StrategyV1', () => {
   describe('isPassed', () => {
     const PROPOSAL_ID = 1;
     beforeEach(async () => {
-      await strategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy
+        .connect(proposerInitializer)
+        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
     });
 
     it('should revert with ProposalNotInitialized if proposal was not initialized', async () => {
@@ -800,7 +623,7 @@ describe('StrategyV1', () => {
 
     it('should return false if quorum is met but basis is not, after voting period', async () => {
       const specificStrategy = await deployStrategyProxy(
-        azoriusMock.address,
+        proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         50n, // quorumThreshold
         500_001n, // basisNumerator (yes > no)
@@ -809,7 +632,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await specificStrategy
-        .connect(azoriusMock)
+        .connect(proposerInitializer)
         .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
       await mockAdapter1.setWeight(voter1.address, 50n);
@@ -834,7 +657,7 @@ describe('StrategyV1', () => {
 
     it('should return false if basis is met but quorum is not, after voting period', async () => {
       const specificStrategy = await deployStrategyProxy(
-        azoriusMock.address,
+        proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         100n, // quorumThreshold
         500_001n, // basisNumerator (yes > no)
@@ -843,7 +666,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await specificStrategy
-        .connect(azoriusMock)
+        .connect(proposerInitializer)
         .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
       await mockAdapter1.setWeight(voter1.address, 60n); // YES
@@ -910,7 +733,9 @@ describe('StrategyV1', () => {
     const PROPOSAL_ID = 1;
 
     beforeEach(async () => {
-      await strategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy
+        .connect(proposerInitializer)
+        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
     });
 
     describe('isQuorumMet', () => {
@@ -924,7 +749,7 @@ describe('StrategyV1', () => {
       it('should return true if quorum is met exactly (yes + abstain == threshold)', async () => {
         const testQuorum = 100n;
         const qStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           testQuorum,
           DEFAULT_BASIS_NUMERATOR,
@@ -932,7 +757,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 40n);
@@ -948,7 +775,7 @@ describe('StrategyV1', () => {
       it('should return true if quorum is exceeded (yes + abstain > threshold)', async () => {
         const testQuorum = 100n;
         const qStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           testQuorum,
           DEFAULT_BASIS_NUMERATOR,
@@ -956,7 +783,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 41n); // Exceeds
@@ -972,7 +801,7 @@ describe('StrategyV1', () => {
       it('should return false if quorum is not met (yes + abstain < threshold)', async () => {
         const testQuorum = 100n;
         const qStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           testQuorum,
           DEFAULT_BASIS_NUMERATOR,
@@ -980,7 +809,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 50n);
         await mockAdapter1.setWeight(voter2.address, 40n); // 90 total, < 100
@@ -996,7 +827,7 @@ describe('StrategyV1', () => {
 
       it('should return true if quorum threshold is 0, even with no votes contributing to quorum count', async () => {
         const qStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           0n /* quorum */,
           DEFAULT_BASIS_NUMERATOR,
@@ -1004,7 +835,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 10n); // Only NO votes
         await qStrategy
@@ -1077,7 +910,7 @@ describe('StrategyV1', () => {
 
       it('should return true if basisNumerator is 500,000 (50%) and yes > no', async () => {
         const bStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           500_000n /* basis */,
@@ -1085,7 +918,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 101n);
         await mockAdapter1.setWeight(voter2.address, 100n);
@@ -1100,7 +935,7 @@ describe('StrategyV1', () => {
 
       it('should return false if basisNumerator is 500,000 (50%) and yes == no', async () => {
         const bStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           500_000n /* basis */,
@@ -1108,7 +943,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 100n);
@@ -1124,7 +961,7 @@ describe('StrategyV1', () => {
       it('should return true if basisNumerator is max valid (DENOMINATOR - 1) and yes > 0, no == 0', async () => {
         const maxValidBasis = 1_000_000n - 1n;
         const bStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           maxValidBasis,
@@ -1132,7 +969,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await bStrategy
@@ -1144,7 +983,7 @@ describe('StrategyV1', () => {
       it('should return false if basisNumerator is max valid (DENOMINATOR - 1) and yes > 0, no > 0', async () => {
         const maxValidBasis = 1_000_000n - 1n;
         const bStrategy = await deployStrategyProxy(
-          azoriusMock.address,
+          proposerInitializer.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           maxValidBasis,
@@ -1152,7 +991,9 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(azoriusMock).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy
+          .connect(proposerInitializer)
+          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 1n);

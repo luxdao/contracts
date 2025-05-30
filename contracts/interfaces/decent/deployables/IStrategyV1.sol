@@ -32,14 +32,7 @@ interface IStrategyV1 is IStrategyBaseV1 {
         uint32 votingStartBlock
     );
 
-    error InvalidAzoriusAddress();
-    error InvalidVotingPeriod();
-    error InvalidBasisNumerator();
-    error VotingAdapterIsZeroAddress();
-    error VotingAdapterAlreadyExists();
-    error NoVotingAdapters();
-    error ProposerAdapterIsZeroAddress();
-    error ProposerAdapterAlreadyExists();
+    error InvalidProposalInitializer();
     error ProposalNotFoundOrNotActive();
     error NoVotingWeight();
     error InvalidVoteType();
@@ -48,7 +41,7 @@ interface IStrategyV1 is IStrategyBaseV1 {
     error InvalidVotingAdapter();
 
     function initialize(
-        address azorius,
+        address proposalInitializer,
         uint32 votingPeriod,
         uint256 quorumThreshold,
         uint256 basisNumerator,
@@ -57,7 +50,7 @@ interface IStrategyV1 is IStrategyBaseV1 {
         address lightAccountFactory
     ) external;
 
-    function azorius() external view returns (address);
+    function proposalInitializer() external view returns (address);
 
     function votingPeriod() external view returns (uint32);
 

@@ -28,8 +28,6 @@ contract ERC20ProposerAdapterV1 is
         address token_,
         uint256 proposerThreshold_
     ) external virtual override initializer {
-        if (token_ == address(0)) revert InvalidTokenAddress();
-
         _token = IVotes(token_);
         _proposerThreshold = proposerThreshold_;
     }
