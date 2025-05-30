@@ -1,0 +1,338 @@
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
+import { expect } from 'chai';
+import { ethers } from 'hardhat';
+import {
+  ERC1967Proxy__factory,
+  IERC165__factory,
+  IERC20__factory,
+  IVersion__factory,
+  IVotes__factory,
+  IVotesERC20StakedV1__factory,
+  MockERC20Votes,
+  MockERC20Votes__factory,
+  VotesERC20StakedV1,
+  VotesERC20StakedV1__factory,
+} from '../../../typechain-types';
+import { calculateInterfaceId } from '../../helpers/utils';
+import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
+
+// Helper function for deploying VotesERC20StakedV1 instances using ERC1967Proxy
+async function deployVotesERC20StakedProxy(
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
+  owner: SignerWithAddress,
+  name: string,
+  symbol: string,
+  stakedToken: string,
+  minimumStakingPeriod: bigint,
+): Promise<VotesERC20StakedV1> {
+  // Create initialization data with function selector
+  const fullInitData =
+    VotesERC20StakedV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
+        ['string', 'string', 'address', 'address', 'uint256'],
+        [name, symbol, owner.address, stakedToken, minimumStakingPeriod],
+      )
+      .slice(2);
+
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
+
+  // Return a contract instance connected to the proxy
+  return VotesERC20StakedV1__factory.connect(await proxy.getAddress(), owner);
+}
+
+describe('VotesERC20StakedV1', () => {
+  // signers
+  let proxyDeployer: SignerWithAddress;
+  let owner: SignerWithAddress;
+  let alice: SignerWithAddress;
+  // let bob: SignerWithAddress;
+  // let carol: SignerWithAddress;
+  let nonOwner: SignerWithAddress;
+
+  // contracts
+  let votesERC20Staked: VotesERC20StakedV1;
+  let masterCopy: string;
+  let stakedToken: MockERC20Votes;
+
+  beforeEach(async () => {
+    // Get signers
+    [proxyDeployer, owner, alice, nonOwner] = await ethers.getSigners();
+
+    masterCopy = await (await new VotesERC20StakedV1__factory(owner).deploy()).getAddress();
+    stakedToken = await new MockERC20Votes__factory(owner).deploy();
+  });
+
+  describe('Initialization', () => {
+    it('should initialize with correct values', async () => {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+
+      expect(await votesERC20Staked.name()).to.equal('Test Staking Contract');
+      expect(await votesERC20Staked.symbol()).to.equal('TSC');
+      expect(await votesERC20Staked.owner()).to.equal(owner.address);
+      expect(await votesERC20Staked.stakedToken()).to.equal(await stakedToken.getAddress());
+      expect(await votesERC20Staked.minimumStakingPeriod()).to.equal(604800n);
+    });
+
+    it('should not allow reinitialization', async () => {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+
+      await expect(
+        votesERC20Staked.initialize(
+          'New Name',
+          'NEW',
+          owner.address,
+          await stakedToken.getAddress(),
+          604800n,
+        ),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidInitialization');
+    });
+
+    it('Should have initialization disabled in the implementation', async function () {
+      const implementationContract = VotesERC20StakedV1__factory.connect(masterCopy, proxyDeployer);
+
+      await expect(
+        implementationContract.initialize(
+          'New Name',
+          'NEW',
+          owner.address,
+          await stakedToken.getAddress(),
+          604800n,
+        ),
+      ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
+    });
+
+    it('should set the owner correctly', async () => {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+
+      expect(await votesERC20Staked.owner()).to.equal(owner.address);
+    });
+  });
+
+  describe('Ownership', () => {
+    beforeEach(async () => {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+    });
+
+    it('should set the owner correctly', async () => {
+      const currentOwner = await votesERC20Staked.owner();
+      expect(currentOwner).to.equal(owner.address);
+    });
+
+    it('Should allow owner to transfer ownership', async function () {
+      await votesERC20Staked.connect(owner).transferOwnership(alice.address);
+      await votesERC20Staked.connect(alice).acceptOwnership();
+      expect(await votesERC20Staked.owner()).to.equal(alice.address);
+    });
+
+    it('should allow the owner to call authorized functions', async () => {
+      await votesERC20Staked.connect(owner).renounceOwnership();
+      expect(await votesERC20Staked.owner()).to.equal(ethers.ZeroAddress);
+    });
+
+    it('should not allow non-owners to call owner-only functions', async () => {
+      await expect(
+        votesERC20Staked.connect(alice).renounceOwnership(),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
+    });
+
+    it('should allow the owner to set a new minimum staking period', async () => {
+      await votesERC20Staked.connect(owner).updateMinimumStakingPeriod(10n);
+      expect(await votesERC20Staked.minimumStakingPeriod()).to.equal(10n);
+    });
+
+    it('should not allow non-owners to set a new minimum staking period', async () => {
+      await expect(
+        votesERC20Staked.connect(alice).updateMinimumStakingPeriod(10n),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
+    });
+  });
+
+  describe('Version', () => {
+    beforeEach(async () => {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+    });
+
+    it('should return the correct version number', async () => {
+      expect(await votesERC20Staked.getVersion()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', function () {
+    // Interface IDs
+    let iVersionInterfaceId: string;
+    let iERC20InterfaceId: string;
+    let iVotesInterfaceId: string;
+    let iERC165InterfaceId: string;
+    let iVotesERC20StakedV1InterfaceId: string;
+    beforeEach(async function () {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+
+      // Calculate interface IDs
+      const IVersionInterface = IVersion__factory.createInterface();
+      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
+
+      const IERC20Interface = IERC20__factory.createInterface();
+      iERC20InterfaceId = calculateInterfaceId(IERC20Interface);
+
+      const IVotesInterface = IVotes__factory.createInterface();
+      iVotesInterfaceId = calculateInterfaceId(IVotesInterface);
+
+      const IERC165Interface = IERC165__factory.createInterface();
+      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
+
+      const IVotesERC20StakedV1Interface = IVotesERC20StakedV1__factory.createInterface();
+      iVotesERC20StakedV1InterfaceId = calculateInterfaceId(IVotesERC20StakedV1Interface);
+    });
+
+    it('Should support IERC165 interface', async function () {
+      const supported = await votesERC20Staked.supportsInterface(iERC165InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVotesERC20StakedV1 interface', async function () {
+      const supported = await votesERC20Staked.supportsInterface(iVotesERC20StakedV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVersion interface', async function () {
+      const supported = await votesERC20Staked.supportsInterface(iVersionInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IERC20 interface', async function () {
+      const supported = await votesERC20Staked.supportsInterface(iERC20InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IVotes interface', async function () {
+      const supported = await votesERC20Staked.supportsInterface(iVotesInterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should not support random interface', async function () {
+      const randomInterfaceId = '0x12345678';
+      const supported = await votesERC20Staked.supportsInterface(randomInterfaceId);
+      void expect(supported).to.be.false;
+    });
+  });
+
+  describe('Timestamp-based clock functions', () => {
+    beforeEach(async () => {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+    });
+
+    it('should return current timestamp from clock()', async () => {
+      const currentTime = await ethers.provider.getBlock('latest').then(b => b!.timestamp);
+      const clockTime = await votesERC20Staked.clock();
+
+      // Allow small variance due to block mining time
+      expect(Number(clockTime)).to.be.closeTo(currentTime, 5);
+    });
+
+    it("should return 'mode=timestamp' from CLOCK_MODE()", async () => {
+      expect(await votesERC20Staked.CLOCK_MODE()).to.equal('mode=timestamp');
+    });
+
+    it('should use timestamp for vote checkpoints', async () => {
+      // Delegate to another address
+      await votesERC20Staked.connect(owner).delegate(alice.address);
+
+      // Mine a block to move forward in time
+      await mine(1);
+
+      // Get current timestamp which is now > the delegation timestamp
+      const currentTime = await time.latest();
+
+      // The voting power at the previous timestamp should be available
+      const votingPower = await votesERC20Staked.getPastVotes(alice.address, currentTime - 1);
+
+      // Should match the owner's balance since we just delegated
+      expect(votingPower).to.equal(await votesERC20Staked.balanceOf(owner.address));
+    });
+  });
+
+  describe('VotesERC20V1 UUPS Upgradeability', function () {
+    beforeEach(async function () {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+      );
+    });
+
+    // Run UUPS upgradeability tests
+    runUUPSUpgradeabilityTests({
+      getContract: () => votesERC20Staked,
+      createNewImplementation: async () => {
+        const newImplementation = await new VotesERC20StakedV1__factory(owner).deploy();
+        return newImplementation;
+      },
+      owner: () => owner,
+      nonOwner: () => nonOwner,
+    });
+  });
+});
