@@ -346,7 +346,7 @@ describe('ERC721VotingAdapterV1', () => {
     });
 
     it('should return correct weight and token IDs, filtering out unowned tokens', async () => {
-      const tokenIdsToVoteWith = [user1TokenIds[0], user2TokenIds[0]]; // User1 owns first (0), not second (3)
+      const tokenIdsToVoteWith = [user1TokenIds[0], user2TokenIds[0], user1TokenIds[1]]; // User1 owns first and third, user2 owns second
       const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
         ['uint256[]'],
         [tokenIdsToVoteWith],
@@ -356,8 +356,8 @@ describe('ERC721VotingAdapterV1', () => {
         proposalId,
         adapterVoteData,
       );
-      expect(weight).to.equal(1n * DEFAULT_WEIGHT_PER_NFT);
-      expect(unusedTokenIds).to.deep.equal([user1TokenIds[0]]);
+      expect(weight).to.equal(2n * DEFAULT_WEIGHT_PER_NFT);
+      expect(unusedTokenIds).to.deep.equal([user1TokenIds[0], user1TokenIds[1]]);
     });
 
     it('should return correct weight and token IDs, filtering out tokens already used in the proposal', async () => {
