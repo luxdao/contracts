@@ -95,7 +95,7 @@ contract VotesERC20V1 is
         return super.nonces(owner);
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 

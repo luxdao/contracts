@@ -902,7 +902,7 @@ describe('StrategyV1', () => {
 
   describe('Version', () => {
     it('should return the correct version', async () => {
-      void expect(await strategy.getVersion()).to.equal(1);
+      void expect(await strategy.version()).to.equal(1);
     });
   });
 

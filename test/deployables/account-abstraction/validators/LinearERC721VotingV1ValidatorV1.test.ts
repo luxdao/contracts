@@ -411,7 +411,7 @@ describe('LinearERC721VotingV1ValidatorV1', function () {
 
   describe('Version', function () {
     it('Should return correct version', async function () {
-      void expect(await validator.getVersion()).to.equal(1);
+      void expect(await validator.version()).to.equal(1);
     });
   });
 });

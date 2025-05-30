@@ -67,7 +67,7 @@ contract HatsProposerAdapterV1 is
         return false;
     }
 
-    function getVersion() public pure virtual override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 

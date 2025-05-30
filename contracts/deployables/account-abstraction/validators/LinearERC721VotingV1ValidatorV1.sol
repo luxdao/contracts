@@ -128,7 +128,7 @@ contract LinearERC721VotingV1ValidatorV1 is
         return true;
     }
 
-    function getVersion() public pure virtual override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 

@@ -182,7 +182,7 @@ contract MultisigFreezeGuardV1 is
         emit ExecutionPeriodUpdated(executionPeriod_);
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 

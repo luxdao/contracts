@@ -197,7 +197,7 @@ describe('VotesERC20StakedV1', () => {
     });
 
     it('should return the correct version number', async () => {
-      expect(await votesERC20Staked.getVersion()).to.equal(1);
+      expect(await votesERC20Staked.version()).to.equal(1);
     });
   });
 

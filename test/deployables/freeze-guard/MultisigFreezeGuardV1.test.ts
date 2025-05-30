@@ -454,7 +454,7 @@ describe('MultisigFreezeGuardV1', () => {
   describe('Version', () => {
     // Use the shared version test utility
     it('should return the correct version number', async () => {
-      expect(await multisigFreezeGuard.getVersion()).to.equal(1);
+      expect(await multisigFreezeGuard.version()).to.equal(1);
     });
   });
 

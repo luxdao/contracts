@@ -1562,7 +1562,7 @@ describe('AzoriusV1', () => {
 
     // Use the shared version test utility
     it('should return the correct version number', async () => {
-      expect(await azorius.getVersion()).to.equal(1);
+      expect(await azorius.version()).to.equal(1);
     });
   });
 

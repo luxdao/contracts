@@ -454,7 +454,7 @@ describe('ERC721VotingAdapterV1', () => {
     });
   });
 
-  describe('getVersion()', () => {
+  describe('version()', () => {
     it('should return the correct version', async () => {
       const { mockNft, deployer: fixtureDeployer } = await loadFixture(
         deployMocksAndSignersERC721Fixture,
@@ -465,7 +465,7 @@ describe('ERC721VotingAdapterV1', () => {
         await mockNft.getAddress(),
         DEFAULT_WEIGHT_PER_NFT,
       );
-      expect(await erc721Adapter.getVersion()).to.equal(1);
+      expect(await erc721Adapter.version()).to.equal(1);
     });
   });
 
