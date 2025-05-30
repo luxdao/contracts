@@ -1,49 +1,54 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IERC721VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC721VotingAdapterV1.sol";
 import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
 import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
-import {IStrategyBaseV1} from "../../../interfaces/decent/deployables/IStrategyBaseV1.sol";
 import {Version} from "../../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract ERC721VotingAdapterV1 is
-    IVotingAdapterV1,
+    IERC721VotingAdapterV1,
     Initializable,
     ERC165,
     Version
 {
-    IERC721 public token;
-    IStrategyBaseV1 public strategy;
-    uint256 public weightPerNft;
-
-    mapping(uint32 => mapping(uint256 => bool)) public nftUsedForVote;
-
     uint16 public constant VERSION = 1;
 
-    error InvalidTokenAddress();
-    error InvalidStrategyAddress();
-    error InvalidWeightPerNft();
+    IERC721 internal _token;
+    uint256 internal _weightPerToken;
+    mapping(uint32 => mapping(uint256 => bool)) internal _tokenIdUsedForVote;
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address _token,
-        address _strategy,
-        uint256 _weightPerNft
-    ) external virtual initializer {
-        if (_token == address(0)) revert InvalidTokenAddress();
-        if (_strategy == address(0)) revert InvalidStrategyAddress();
+        address token_,
+        uint256 weightPerToken_
+    ) external virtual override initializer {
+        if (token_ == address(0)) revert InvalidTokenAddress();
+        if (weightPerToken_ == 0) revert InvalidWeightPerToken();
 
-        token = IERC721(_token);
-        strategy = IStrategyBaseV1(_strategy);
+        _token = IERC721(token_);
+        _weightPerToken = weightPerToken_;
+    }
 
-        if (_weightPerNft == 0) revert InvalidWeightPerNft();
-        weightPerNft = _weightPerNft;
+    function token() external view virtual override returns (address) {
+        return address(_token);
+    }
+
+    function weightPerToken() external view virtual override returns (uint256) {
+        return _weightPerToken;
+    }
+
+    function tokenIdUsedForVote(
+        uint32 proposalId,
+        uint256 tokenId
+    ) external view virtual override returns (bool) {
+        return _tokenIdUsedForVote[proposalId][tokenId];
     }
 
     function _getValidUnvotedTokenIdsAndWeight(
@@ -70,11 +75,11 @@ contract ERC721VotingAdapterV1 is
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             uint256 tokenId = tokenIds[i];
-            if (token.ownerOf(tokenId) != _voter) {
+            if (_token.ownerOf(tokenId) != _voter) {
                 continue;
             }
 
-            if (nftUsedForVote[_proposalId][tokenId]) {
+            if (_tokenIdUsedForVote[_proposalId][tokenId]) {
                 continue;
             }
 
@@ -89,7 +94,7 @@ contract ERC721VotingAdapterV1 is
             if (!alreadyProcessedInThisCall) {
                 tempValidTokenIds[validCount] = tokenId;
                 validCount++;
-                totalCalculatedWeight += weightPerNft;
+                totalCalculatedWeight += _weightPerToken;
             }
         }
 
@@ -127,7 +132,7 @@ contract ERC721VotingAdapterV1 is
             );
 
         for (uint256 i = 0; i < validTokenIdsToRecord.length; i++) {
-            nftUsedForVote[_proposalId][validTokenIdsToRecord[i]] = true;
+            _tokenIdUsedForVote[_proposalId][validTokenIdsToRecord[i]] = true;
         }
         weightCasted = totalCalculatedWeight;
 
@@ -142,6 +147,7 @@ contract ERC721VotingAdapterV1 is
         bytes4 interfaceId
     ) public view virtual override(ERC165, Version) returns (bool) {
         return
+            interfaceId == type(IERC721VotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
             super.supportsInterface(interfaceId);
