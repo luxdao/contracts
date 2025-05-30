@@ -103,7 +103,7 @@ contract ERC20VotingAdapterV1 is
         emit VoteRecorded(_voter, _proposalId, weightCasted, bytes(""));
     }
 
-    function getVersion() public pure virtual override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 

@@ -57,7 +57,7 @@ contract MultisigFreezeVotingV1 is
         emit FreezeVoteCast(msg.sender, 1);
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 

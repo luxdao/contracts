@@ -54,7 +54,7 @@ contract ERC20ProposerAdapterV1 is
         return _token.getVotes(_proposer) >= _proposerThreshold;
     }
 
-    function getVersion() public pure virtual override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 

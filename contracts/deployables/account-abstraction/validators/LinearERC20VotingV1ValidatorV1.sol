@@ -143,7 +143,7 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
         return true;
     }
 
-    function getVersion() public pure virtual override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 

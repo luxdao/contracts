@@ -58,7 +58,7 @@ contract FractalModuleV1 is
         if (!exec(_target, _value, _data, _operation)) revert TxFailed();
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
