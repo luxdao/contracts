@@ -89,7 +89,7 @@ describe('DecentAutonomousAdminV1', function () {
 
   describe('Version', () => {
     it('should return the correct version number', async () => {
-      expect(await decentAutonomousAdmin.getVersion()).to.equal(1);
+      expect(await decentAutonomousAdmin.version()).to.equal(1);
     });
   });
 });

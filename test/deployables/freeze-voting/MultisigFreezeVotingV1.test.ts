@@ -486,7 +486,7 @@ describe('MultisigFreezeVotingV1', () => {
 
   describe('Version', () => {
     it('should return the correct version number', async () => {
-      expect(await freezeVoting.getVersion()).to.equal(1);
+      expect(await freezeVoting.version()).to.equal(1);
     });
   });
 

@@ -106,7 +106,7 @@ contract ERC721FreezeVotingV1 is
         return votes;
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 

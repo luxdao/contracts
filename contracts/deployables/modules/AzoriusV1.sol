@@ -366,7 +366,7 @@ contract AzoriusV1 is
         emit StrategyUpdated(strategy_);
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 

@@ -64,7 +64,7 @@ contract AzoriusFreezeGuardV1 is
         bool
     ) external view virtual override {}
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
