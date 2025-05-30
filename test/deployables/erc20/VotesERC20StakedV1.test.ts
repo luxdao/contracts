@@ -398,6 +398,71 @@ describe('VotesERC20StakedV1', () => {
     });
   });
 
+  describe.only('Rewards Tokens', function () {
+    beforeEach(async function () {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
+      );
+
+      // Mint 10 staked tokens to alice
+      await stakedToken.mint(alice.address, ethers.parseEther('10'));
+
+      // Alice approves the staking contract to spend her tokens
+      await stakedToken.connect(alice).approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
+    });
+
+    it('should not allow adding duplicate rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.connect(owner).addRewardsTokens([await rewardsTokenA.getAddress()]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'DuplicateRewardsToken');
+    });
+
+    it('should allow owner to add rewards tokens', async function () {
+      const rewardsTokenD = await new MockERC20Votes__factory(owner).deploy();
+      const rewardsTokenE = await new MockERC20Votes__factory(owner).deploy();
+
+      await votesERC20Staked.connect(owner).addRewardsTokens([
+        await rewardsTokenD.getAddress(),
+        await rewardsTokenE.getAddress(),
+      ]);
+
+      expect(await votesERC20Staked.rewardsTokens()).to.deep.equal([
+        await rewardsTokenA.getAddress(),
+        await rewardsTokenB.getAddress(),
+        await rewardsTokenC.getAddress(),
+        await rewardsTokenD.getAddress(),
+        await rewardsTokenE.getAddress(),
+      ]);
+    });
+
+    it('should return rewards token data', async function () {
+      const [rewardsRate, rewardsDistributed, rewardsClaimed] = await votesERC20Staked.rewardsTokenData(
+        await rewardsTokenA.getAddress(),
+      );
+
+      expect(rewardsRate).to.equal(0n);
+      expect(rewardsDistributed).to.equal(0n);
+      expect(rewardsClaimed).to.equal(0n);
+    });
+
+    it('should not return data for invalid rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.rewardsTokenData(await bob.address),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken');
+    });
+  });
+
   describe.only('Staking', function () {
     beforeEach(async function () {
       votesERC20Staked = await deployVotesERC20StakedProxy(
@@ -422,13 +487,13 @@ describe('VotesERC20StakedV1', () => {
       await stakedToken.connect(alice).approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
     });
 
-    it('Does not allow users to stake 0 tokens', async function () {
+    it('should not allow users to stake 0 tokens', async function () {
       await expect(
         votesERC20Staked.connect(alice).stake(0n),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroStake');
     });
 
-    it('Does not allow users to transfer or approve VotesERC20StakedV1 tokens', async function () {
+    it('should not allow users to transfer or approve VotesERC20StakedV1 tokens', async function () {
       await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
 
       await expect(
@@ -438,13 +503,13 @@ describe('VotesERC20StakedV1', () => {
       await expect(
         votesERC20Staked.connect(alice).transfer(bob.address, ethers.parseEther('10')),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'NonTransferable');
-      
+
       await expect(
         votesERC20Staked.connect(alice).transferFrom(bob.address, alice.address, ethers.parseEther('10')),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'NonTransferable');
     });
 
-    it('Allows users to stake tokens', async function () {
+    it('should allow users to stake tokens', async function () {
       await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
 
       expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
