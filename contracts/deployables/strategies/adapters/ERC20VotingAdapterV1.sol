@@ -36,10 +36,6 @@ contract ERC20VotingAdapterV1 is
         address strategy_,
         uint256 weightPerToken_
     ) external virtual override initializer {
-        if (token_ == address(0)) revert InvalidTokenAddress();
-        if (strategy_ == address(0)) revert InvalidStrategyAddress();
-        if (weightPerToken_ == 0) revert InvalidWeightPerToken();
-
         _token = IVotes(token_);
         _strategy = IStrategyBaseV1(strategy_);
         _weightPerToken = weightPerToken_;

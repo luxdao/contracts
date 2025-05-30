@@ -41,7 +41,6 @@ async function deployERC721AdapterProxy(
 describe('ERC721VotingAdapterV1', () => {
   // Globally scoped (from first fixture load in `before`)
   let erc721AdapterImplementationAddressG: string;
-  let deployerG: SignerWithAddress;
 
   // Default Test Params
   const DEFAULT_WEIGHT_PER_NFT = 1n;
@@ -52,7 +51,6 @@ describe('ERC721VotingAdapterV1', () => {
     const deployedAdapterImpl = await adapterImplFactory.deploy();
     await deployedAdapterImpl.waitForDeployment();
     erc721AdapterImplementationAddressG = await deployedAdapterImpl.getAddress();
-    deployerG = deployer;
     return { erc721AdapterImplementationAddress: erc721AdapterImplementationAddressG, deployer };
   }
 
@@ -121,40 +119,6 @@ describe('ERC721VotingAdapterV1', () => {
 
       expect(await erc721Adapter.token()).to.equal(await mockNft.getAddress());
       expect(await erc721Adapter.weightPerToken()).to.equal(DEFAULT_WEIGHT_PER_NFT);
-    });
-
-    it('should revert if token address is zero', async () => {
-      const { deployer: fixtureDeployer } = await loadFixture(deployMocksAndSignersERC721Fixture);
-      const erc721AdapterImplementation = ERC721VotingAdapterV1__factory.connect(
-        erc721AdapterImplementationAddressG,
-        deployerG,
-      );
-      await expect(
-        deployERC721AdapterProxy(
-          fixtureDeployer,
-          erc721AdapterImplementationAddressG,
-          ethers.ZeroAddress,
-          DEFAULT_WEIGHT_PER_NFT,
-        ),
-      ).to.be.revertedWithCustomError(erc721AdapterImplementation, 'InvalidTokenAddress');
-    });
-
-    it('should revert if weightPerNft is zero', async () => {
-      const { mockNft, deployer: fixtureDeployer } = await loadFixture(
-        deployMocksAndSignersERC721Fixture,
-      );
-      const erc721AdapterImplementation = ERC721VotingAdapterV1__factory.connect(
-        erc721AdapterImplementationAddressG,
-        deployerG,
-      );
-      await expect(
-        deployERC721AdapterProxy(
-          fixtureDeployer,
-          erc721AdapterImplementationAddressG,
-          await mockNft.getAddress(),
-          0n, // Invalid weight
-        ),
-      ).to.be.revertedWithCustomError(erc721AdapterImplementation, 'InvalidWeightPerToken');
     });
 
     it('should not allow reinitialization', async () => {

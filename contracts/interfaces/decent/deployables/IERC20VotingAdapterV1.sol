@@ -4,11 +4,8 @@ pragma solidity ^0.8.30;
 import {IVotingAdapterV1} from "./IVotingAdapterV1.sol";
 
 interface IERC20VotingAdapterV1 is IVotingAdapterV1 {
-    error InvalidTokenAddress();
-    error InvalidWeightPerToken();
     error ProposalNotReadyForSnapshot();
     error AlreadyVoted();
-    error InvalidStrategyAddress();
 
     function initialize(
         address token,

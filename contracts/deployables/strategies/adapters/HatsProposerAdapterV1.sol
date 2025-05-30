@@ -28,18 +28,8 @@ contract HatsProposerAdapterV1 is
         address hatsContract_,
         uint256[] memory whitelistedHatIds_
     ) public virtual override initializer {
-        if (hatsContract_ == address(0)) revert MissingHatsContract();
         _hatsContract = IHats(hatsContract_);
-
-        if (whitelistedHatIds_.length == 0) revert NoHatsWhitelisted();
-        for (uint256 i = 0; i < whitelistedHatIds_.length; i++) {
-            uint256 _hatId = whitelistedHatIds_[i];
-            for (uint256 j = 0; j < _whitelistedHatIds.length; j++) {
-                if (_whitelistedHatIds[j] == _hatId)
-                    revert HatAlreadyWhitelisted();
-            }
-            _whitelistedHatIds.push(_hatId);
-        }
+        _whitelistedHatIds = whitelistedHatIds_;
     }
 
     function hatsContract() external view virtual override returns (address) {
