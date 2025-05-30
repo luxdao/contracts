@@ -398,7 +398,7 @@ describe('VotesERC20StakedV1', () => {
     });
   });
 
-  describe.only('Rewards Tokens', function () {
+  describe('Rewards Tokens', function () {
     beforeEach(async function () {
       votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
@@ -463,7 +463,7 @@ describe('VotesERC20StakedV1', () => {
     });
   });
 
-  describe.only('Staking', function () {
+  describe('Staking', function () {
     beforeEach(async function () {
       votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
