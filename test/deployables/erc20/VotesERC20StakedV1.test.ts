@@ -419,7 +419,9 @@ describe('VotesERC20StakedV1', () => {
       await stakedToken.mint(alice.address, ethers.parseEther('10'));
 
       // Alice approves the staking contract to spend her tokens
-      await stakedToken.connect(alice).approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
+      await stakedToken
+        .connect(alice)
+        .approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
     });
 
     it('should not allow adding duplicate rewards tokens', async function () {
@@ -432,10 +434,9 @@ describe('VotesERC20StakedV1', () => {
       const rewardsTokenD = await new MockERC20Votes__factory(owner).deploy();
       const rewardsTokenE = await new MockERC20Votes__factory(owner).deploy();
 
-      await votesERC20Staked.connect(owner).addRewardsTokens([
-        await rewardsTokenD.getAddress(),
-        await rewardsTokenE.getAddress(),
-      ]);
+      await votesERC20Staked
+        .connect(owner)
+        .addRewardsTokens([await rewardsTokenD.getAddress(), await rewardsTokenE.getAddress()]);
 
       expect(await votesERC20Staked.rewardsTokens()).to.deep.equal([
         await rewardsTokenA.getAddress(),
@@ -447,9 +448,8 @@ describe('VotesERC20StakedV1', () => {
     });
 
     it('should return rewards token data', async function () {
-      const [rewardsRate, rewardsDistributed, rewardsClaimed] = await votesERC20Staked.rewardsTokenData(
-        await rewardsTokenA.getAddress(),
-      );
+      const [rewardsRate, rewardsDistributed, rewardsClaimed] =
+        await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress());
 
       expect(rewardsRate).to.equal(0n);
       expect(rewardsDistributed).to.equal(0n);
@@ -484,13 +484,16 @@ describe('VotesERC20StakedV1', () => {
       await stakedToken.mint(alice.address, ethers.parseEther('10'));
 
       // Alice approves the staking contract to spend her tokens
-      await stakedToken.connect(alice).approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
+      await stakedToken
+        .connect(alice)
+        .approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
     });
 
     it('should not allow users to stake 0 tokens', async function () {
-      await expect(
-        votesERC20Staked.connect(alice).stake(0n),
-      ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroStake');
+      await expect(votesERC20Staked.connect(alice).stake(0n)).to.be.revertedWithCustomError(
+        votesERC20Staked,
+        'ZeroStake',
+      );
     });
 
     it('should not allow users to transfer or approve VotesERC20StakedV1 tokens', async function () {
@@ -505,7 +508,9 @@ describe('VotesERC20StakedV1', () => {
       ).to.be.revertedWithCustomError(votesERC20Staked, 'NonTransferable');
 
       await expect(
-        votesERC20Staked.connect(alice).transferFrom(bob.address, alice.address, ethers.parseEther('10')),
+        votesERC20Staked
+          .connect(alice)
+          .transferFrom(bob.address, alice.address, ethers.parseEther('10')),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'NonTransferable');
     });
 
@@ -515,7 +520,9 @@ describe('VotesERC20StakedV1', () => {
       expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
       expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
 
-      expect(await stakedToken.balanceOf(await votesERC20Staked.getAddress())).to.equal(ethers.parseEther('10'));
+      expect(await stakedToken.balanceOf(await votesERC20Staked.getAddress())).to.equal(
+        ethers.parseEther('10'),
+      );
 
       expect(await votesERC20Staked.totalStaked()).to.equal(ethers.parseEther('10'));
 
@@ -524,10 +531,9 @@ describe('VotesERC20StakedV1', () => {
         await time.latest(),
       ]);
 
-      expect(await votesERC20Staked.stakerRewardsData(await rewardsTokenA.getAddress(), alice.address)).to.deep.equal([
-        0n,
-        0n,
-      ]);
+      expect(
+        await votesERC20Staked.stakerRewardsData(await rewardsTokenA.getAddress(), alice.address),
+      ).to.deep.equal([0n, 0n]);
     });
   });
 });
