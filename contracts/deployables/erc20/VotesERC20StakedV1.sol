@@ -78,6 +78,17 @@ contract VotesERC20StakedV1 is
         emit Staked(msg.sender, amount);
     }
 
+    function unstake(uint256 amount) external virtual override {
+        if (amount == 0) revert ZeroUnstake();
+        if (block.timestamp < _stakerData[msg.sender].lastStakeTimestamp + _minimumStakingPeriod) revert MinimumStakingPeriod();
+
+        _accumulateRewards(msg.sender);
+
+        _stakerData[msg.sender].stakedAmount -= amount;
+        _totalStaked -= amount;
+        
+    }   
+
     function _addRewardsTokens(address[] memory rewardsTokens_) internal {
         for (uint256 i = 0; i < rewardsTokens_.length; ) {
             if (_rewardsTokenDatas[rewardsTokens_[i]].enabled)
