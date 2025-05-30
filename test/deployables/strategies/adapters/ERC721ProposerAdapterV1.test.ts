@@ -6,6 +6,7 @@ import {
   ERC721ProposerAdapterV1,
   ERC721ProposerAdapterV1__factory,
   IERC165__factory,
+  IERC721ProposerAdapterV1__factory,
   IProposerAdapterBaseV1__factory,
   IProposerAdapterV1__factory,
   IVersion__factory,
@@ -19,13 +20,11 @@ async function deployERC721ProposerAdapterProxy(
   implementationAddress: string,
   tokenAddress: string,
   proposerThreshold: bigint,
-  weightPerNft: bigint,
 ): Promise<ERC721ProposerAdapterV1> {
   const adapterInterface = ERC721ProposerAdapterV1__factory.createInterface();
   const initializeCalldata = adapterInterface.encodeFunctionData('initialize', [
     tokenAddress,
     proposerThreshold,
-    weightPerNft,
   ]);
   const proxyFactory = new ERC1967Proxy__factory(deployer);
   const proxy = await proxyFactory.deploy(implementationAddress, initializeCalldata);
@@ -42,7 +41,6 @@ describe('ERC721ProposerAdapterV1', () => {
   let mockNft: MockERC721;
 
   const DEFAULT_PROPOSER_THRESHOLD = 5n;
-  const DEFAULT_WEIGHT_PER_NFT = 1n;
 
   beforeEach(async () => {
     [deployer, user1] = await ethers.getSigners();
@@ -62,7 +60,6 @@ describe('ERC721ProposerAdapterV1', () => {
       await adapterImplementation.getAddress(),
       await mockNft.getAddress(),
       DEFAULT_PROPOSER_THRESHOLD,
-      DEFAULT_WEIGHT_PER_NFT,
     );
   });
 
@@ -70,7 +67,6 @@ describe('ERC721ProposerAdapterV1', () => {
     it('should initialize correctly with valid parameters', async () => {
       expect(await adapter.token()).to.equal(await mockNft.getAddress());
       expect(await adapter.proposerThreshold()).to.equal(DEFAULT_PROPOSER_THRESHOLD);
-      expect(await adapter.weightPerNft()).to.equal(DEFAULT_WEIGHT_PER_NFT);
     });
 
     it('should revert if token address is zero during proxy initialization', async () => {
@@ -80,21 +76,8 @@ describe('ERC721ProposerAdapterV1', () => {
           await adapterImplementation.getAddress(),
           ethers.ZeroAddress,
           DEFAULT_PROPOSER_THRESHOLD,
-          DEFAULT_WEIGHT_PER_NFT,
         ),
       ).to.be.revertedWithCustomError(adapterImplementation, 'InvalidTokenAddress');
-    });
-
-    it('should revert if weightPerNft is zero during proxy initialization', async () => {
-      await expect(
-        deployERC721ProposerAdapterProxy(
-          deployer,
-          await adapterImplementation.getAddress(),
-          await mockNft.getAddress(),
-          DEFAULT_PROPOSER_THRESHOLD,
-          0n,
-        ),
-      ).to.be.revertedWithCustomError(adapterImplementation, 'InvalidWeightPerNft');
     });
 
     it('should allow proposerThreshold to be zero during proxy initialization', async () => {
@@ -103,28 +86,19 @@ describe('ERC721ProposerAdapterV1', () => {
         await adapterImplementation.getAddress(),
         await mockNft.getAddress(),
         0n,
-        DEFAULT_WEIGHT_PER_NFT,
       );
       expect(await localAdapter.proposerThreshold()).to.equal(0n);
     });
 
     it('should prevent reinitialization on proxied adapter', async () => {
       await expect(
-        adapter.initialize(
-          await mockNft.getAddress(),
-          DEFAULT_PROPOSER_THRESHOLD,
-          DEFAULT_WEIGHT_PER_NFT,
-        ),
+        adapter.initialize(await mockNft.getAddress(), DEFAULT_PROPOSER_THRESHOLD),
       ).to.be.revertedWithCustomError(adapter, 'InvalidInitialization');
     });
 
     it('Implementation contract should remain uninitialized', async () => {
       await expect(
-        adapterImplementation.initialize(
-          await mockNft.getAddress(),
-          DEFAULT_PROPOSER_THRESHOLD,
-          DEFAULT_WEIGHT_PER_NFT,
-        ),
+        adapterImplementation.initialize(await mockNft.getAddress(), DEFAULT_PROPOSER_THRESHOLD),
       ).to.be.revertedWithCustomError(adapterImplementation, 'InvalidInitialization');
     });
   });
@@ -165,7 +139,6 @@ describe('ERC721ProposerAdapterV1', () => {
         await adapterImplementation.getAddress(),
         await mockNft.getAddress(),
         0n,
-        DEFAULT_WEIGHT_PER_NFT,
       );
       const canPropose = await localAdapter.isProposer(user1.address);
       void expect(canPropose).to.be.true;
@@ -178,29 +151,50 @@ describe('ERC721ProposerAdapterV1', () => {
     });
   });
 
-  describe('supportsInterface', () => {
-    it('should support IProposerAdapterV1, IProposerAdapterBaseV1, IVersion and IERC165', async () => {
-      const iProposerAdapterV1Interface = IProposerAdapterV1__factory.createInterface();
-      const iProposerAdapterBaseV1Interface = IProposerAdapterBaseV1__factory.createInterface();
-      const iVersionInterface = IVersion__factory.createInterface();
-      const iERC165Interface = IERC165__factory.createInterface();
+  describe('ERC165 supportsInterface', () => {
+    it('should support IERC721ProposerAdapterV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IERC721ProposerAdapterV1__factory.createInterface(), [
+            IProposerAdapterV1__factory.createInterface(),
+            IProposerAdapterBaseV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
 
-      const iProposerAdapterV1Id = calculateInterfaceId(iProposerAdapterV1Interface, [
-        iProposerAdapterBaseV1Interface,
-      ]);
-      const iProposerAdapterBaseV1Id = calculateInterfaceId(iProposerAdapterBaseV1Interface);
-      const iVersionId = calculateInterfaceId(iVersionInterface);
-      const iERC165Id = calculateInterfaceId(iERC165Interface);
+    it('should support IProposerAdapterV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IProposerAdapterV1__factory.createInterface(), [
+            IProposerAdapterBaseV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
 
-      void expect(await adapter.supportsInterface(iProposerAdapterV1Id)).to.be.true;
-      void expect(await adapter.supportsInterface(iProposerAdapterBaseV1Id)).to.be.true;
-      void expect(await adapter.supportsInterface(iVersionId)).to.be.true;
-      void expect(await adapter.supportsInterface(iERC165Id)).to.be.true;
+    it('should support IProposerAdapterBaseV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IProposerAdapterBaseV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support IVersion', async () => {
+      void expect(
+        await adapter.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
+      ).to.be.true;
+    });
+
+    it('should support IERC165', async () => {
+      void expect(
+        await adapter.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
+      ).to.be.true;
     });
 
     it('should not support a random interfaceId', async () => {
-      const randomInterfaceId = '0x12345678';
-      void expect(await adapter.supportsInterface(randomInterfaceId)).to.be.false;
+      void expect(await adapter.supportsInterface('0x12345678')).to.be.false;
     });
   });
 });
