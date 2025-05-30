@@ -23,6 +23,7 @@ interface IVotesERC20StakedV1 {
     error NonTransferable();
     error ZeroStake();
     error InvalidRewardsToken();
+    error DuplicateRewardsToken();
 
     function initialize(
         string memory name,
