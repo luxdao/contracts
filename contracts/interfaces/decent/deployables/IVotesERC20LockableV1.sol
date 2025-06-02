@@ -36,5 +36,5 @@ interface IVotesERC20LockableV1 is IVotesERC20V1 {
 
     function setMaxTotalSupply(uint256 newMaxTotalSupply) external;
 
-    function burn(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
 }

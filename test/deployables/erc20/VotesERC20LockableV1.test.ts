@@ -798,9 +798,14 @@ describe('VotesERC20LockableV1', () => {
   });
 
   describe('Burning Tokens', () => {
-    const maxTotalSupply = ethers.parseEther('1');
-    const halfTotalSupply = ethers.parseEther('0.5');
+    let tokenHolderAddresses: string[];
+    let tokenHolderAmounts: bigint[];
     let proxy: VotesERC20LockableV1;
+
+    beforeEach(async () => {
+      tokenHolderAddresses = [tokenHolder.address, owner.address];
+      tokenHolderAmounts = [ethers.parseEther('100'), ethers.parseEther('100')];
+    });
 
     describe('when token is locked', () => {
       const locked = true;
@@ -811,57 +816,39 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
-          maxTotalSupply,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
-          [],
-          [],
+          tokenHolderAddresses,
+          tokenHolderAmounts,
         );
       });
 
       describe('when caller is owner', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).mint(owner.address, halfTotalSupply);
-          await proxy.connect(owner).mint(tokenHolder.address, halfTotalSupply);
+          await proxy.connect(owner).burn(ethers.parseEther('1'));
         });
 
-        it('should burn tokens of owner', async () => {
-          await proxy.connect(owner).burn(owner.address, halfTotalSupply);
-          expect(await proxy.balanceOf(owner.address)).to.equal(0n);
-        });
-
-        it('should burn tokens of others', async () => {
-          await proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply);
-          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(0n);
-        });
-
-        it('should revert when burn more than balance', async () => {
-          await expect(
-            proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply + 1n),
-          ).to.be.revertedWithCustomError(proxy, 'ERC20InsufficientBalance');
+        it('should burn tokens', async () => {
+          expect(await proxy.balanceOf(owner.address)).to.equal(ethers.parseEther('99'));
         });
       });
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
           await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(tokenHolder).burn(ethers.parseEther('1'));
         });
 
-        it('should revert', async () => {
-          // revert shouldn't happen due to whitelist issues
-          expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
-
-          await expect(
-            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
         });
       });
 
       describe('when caller is not owner or whitelisted', () => {
-        it('should revert', async () => {
-          await expect(
-            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        it('should not revert', async () => {
+          await proxy.connect(tokenHolder).burn(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
         });
       });
     });
@@ -875,57 +862,45 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
-          maxTotalSupply,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
-          [],
-          [],
+          tokenHolderAddresses,
+          tokenHolderAmounts,
         );
       });
 
       describe('when caller is owner', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).mint(owner.address, halfTotalSupply);
-          await proxy.connect(owner).mint(tokenHolder.address, halfTotalSupply);
+          await proxy.connect(owner).transfer(tokenRecipient.address, ethers.parseEther('1'));
         });
 
-        it('should burn tokens of owner', async () => {
-          await proxy.connect(owner).burn(owner.address, halfTotalSupply);
-          expect(await proxy.balanceOf(owner.address)).to.equal(0n);
-        });
-
-        it('should burn tokens of others', async () => {
-          await proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply);
-          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(0n);
-        });
-
-        it('should revert when burn more than balance', async () => {
-          await expect(
-            proxy.connect(owner).burn(tokenHolder.address, halfTotalSupply + 1n),
-          ).to.be.revertedWithCustomError(proxy, 'ERC20InsufficientBalance');
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(owner.address)).to.equal(ethers.parseEther('99'));
         });
       });
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
           await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(tokenHolder).transfer(tokenRecipient.address, ethers.parseEther('1'));
         });
 
-        it('should revert', async () => {
-          // revert shouldn't happen due to whitelist issues
-          expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
-
-          await expect(
-            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
         });
       });
 
       describe('when caller is not owner or whitelisted', () => {
-        it('should revert', async () => {
-          await expect(
-            proxy.connect(tokenHolder).burn(tokenHolder.address, 1n),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        beforeEach(async () => {
+          await proxy.connect(tokenHolder).transfer(tokenRecipient.address, ethers.parseEther('1'));
+        });
+
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
         });
       });
     });
