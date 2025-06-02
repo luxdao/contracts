@@ -102,8 +102,8 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         _mint(to, amount);
     }
 
-    function burn(address account, uint256 amount) external onlyOwner {
-        _burn(account, amount);
+    function burn(uint256 amount) external virtual override {
+        _burn(_msgSender(), amount);
     }
 
     function _update(
