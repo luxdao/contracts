@@ -21,6 +21,7 @@ contract VotesERC20StakedV1 is
 
     uint16 private constant VERSION = 1;
     IERC20 internal _stakedToken;
+    uint256 private constant PRECISION = 10 ** 18;
     uint256 internal _minimumStakingPeriod;
     uint256 internal _totalStaked;
 
@@ -97,6 +98,28 @@ contract VotesERC20StakedV1 is
         emit Unstaked(msg.sender, amount);
     }
 
+    // struct RewardsTokenData {
+    //     bool enabled;
+    //     uint256 rewardsRate;
+    //     uint256 rewardsDistributed;
+    //     uint256 rewardsClaimed;
+    //     mapping(address staker => uint256 rewardRate) stakerRewardsRates;
+    //     mapping(address staker => uint256 accumulatedRewards) stakerAccumulatedRewards;
+    // }
+
+    function _distributeRewards(address _token) internal {
+        RewardsTokenData storage token = _rewardsTokenDatas[_token];
+
+        uint256 rewardsToDistribute = IERC20(_token).balanceOf(address(this)) +
+            token.rewardsClaimed -
+            token.rewardsDistributed;
+        token.rewardsRate += rewardsToDistribute * PRECISION / _totalStaked;
+
+        token.rewardsDistributed += rewardsToDistribute;
+
+        emit RewardsDistributed(_token, rewardsToDistribute);
+    }
+
     function _addRewardsTokens(address[] memory rewardsTokens_) internal {
         for (uint256 i = 0; i < rewardsTokens_.length; ) {
             if (_rewardsTokenDatas[rewardsTokens_[i]].enabled)
@@ -123,7 +146,7 @@ contract VotesERC20StakedV1 is
             token.stakerAccumulatedRewards[_staker] +=
                 (_stakerData[_staker].stakedAmount *
                     (token.rewardsRate - token.stakerRewardsRates[_staker])) /
-                (10 ** 18);
+                PRECISION;
 
             token.stakerRewardsRates[_staker] = token.rewardsRate;
 
