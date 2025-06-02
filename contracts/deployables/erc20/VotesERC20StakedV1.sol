@@ -100,6 +100,7 @@ contract VotesERC20StakedV1 is
 
     function distributeRewards() external virtual override {
         if (_totalStaked == 0) revert ZeroStaked();
+        
         for (uint256 i = 0; i < _rewardsTokens.length; ) {
             _distributeRewards(_rewardsTokens[i]);
 
@@ -113,7 +114,7 @@ contract VotesERC20StakedV1 is
         address[] memory _tokens
     ) external virtual override {
         if (_totalStaked == 0) revert ZeroStaked();
-        
+
         for (uint256 i = 0; i < _tokens.length; ) {
             if (!_rewardsTokenDatas[_tokens[i]].enabled)
                 revert InvalidRewardsToken();
