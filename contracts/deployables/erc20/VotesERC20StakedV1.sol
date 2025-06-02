@@ -133,23 +133,24 @@ contract VotesERC20StakedV1 is
     function _distributeRewards(address _token) internal {
         RewardsTokenData storage token = _rewardsTokenDatas[_token];
 
-        uint256 rewardsToDistribute;
+        uint256 amountToDistribute;
         if (_token == NATIVE_ASSET) {
-            rewardsToDistribute = address(this).balance +
+            amountToDistribute = address(this).balance +
                 token.rewardsClaimed -
                 token.rewardsDistributed;
         } else {
-            rewardsToDistribute = IERC20(_token).balanceOf(address(this)) +
+            amountToDistribute = IERC20(_token).balanceOf(address(this)) +
                 token.rewardsClaimed -
                 token.rewardsDistributed;
         }
-        if (rewardsToDistribute == 0) return;
+        if (amountToDistribute == 0) return;
 
-        token.rewardsRate += (rewardsToDistribute * PRECISION) / _totalStaked;
+        uint256 newRewardsRate = token.rewardsRate + (amountToDistribute * PRECISION) / _totalStaked;
 
-        token.rewardsDistributed += rewardsToDistribute;
+        token.rewardsDistributed += amountToDistribute;
+        token.rewardsRate = newRewardsRate;
 
-        emit RewardsDistributed(_token, rewardsToDistribute);
+        emit RewardsDistributed(_token, amountToDistribute, newRewardsRate);
     }
 
     function _addRewardsTokens(address[] memory rewardsTokens_) internal {
