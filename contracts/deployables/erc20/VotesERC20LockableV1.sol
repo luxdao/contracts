@@ -83,11 +83,8 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         if (newMaxTotalSupply < totalSupply()) {
             revert InvalidMaxTotalSupply();
         }
-        uint256 currentlyMaxTotalSupply = _maxTotalSupply;
         _maxTotalSupply = newMaxTotalSupply;
-        if (currentlyMaxTotalSupply != newMaxTotalSupply) {
-            emit MaxTotalSupplyUpdated(newMaxTotalSupply);
-        }
+        emit MaxTotalSupplyUpdated(newMaxTotalSupply);
     }
 
     function mint(
