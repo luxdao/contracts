@@ -20,7 +20,7 @@ interface IVotesERC20StakedV1 {
     event Staked(address indexed staker, uint256 amount);
     event Unstaked(address indexed staker, uint256 amount);
     event RewardsTokenAdded(address indexed token);
-
+    event RewardsDistributed(address indexed token, uint256 amount);
     error NonTransferable();
     error ZeroStake();
     error ZeroUnstake();
