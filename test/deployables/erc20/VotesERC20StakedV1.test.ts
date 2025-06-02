@@ -736,5 +736,17 @@ describe('VotesERC20StakedV1', () => {
         ethers.parseEther('0'), // rewardsClaimed
       ]);
     });
+
+    it('should not distribute rewards if staked amount is zero', async function () {
+      await expect(
+        votesERC20Staked.connect(rewardsDistributor)['distributeRewards()'](),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroStaked');
+
+      await expect(
+        votesERC20Staked.connect(rewardsDistributor)['distributeRewards(address[])']([
+          await rewardsTokenA.getAddress(),
+        ]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroStaked');
+    });
   });
 });
