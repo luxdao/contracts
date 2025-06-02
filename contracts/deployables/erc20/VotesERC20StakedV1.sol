@@ -35,6 +35,8 @@ contract VotesERC20StakedV1 is
         _disableInitializers();
     }
 
+    receive() external payable {}
+
     function initialize(
         string memory name_,
         string memory symbol_,
