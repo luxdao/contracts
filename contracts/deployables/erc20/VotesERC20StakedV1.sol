@@ -21,9 +21,9 @@ contract VotesERC20StakedV1 is
 
     uint16 private constant VERSION = 1;
     IERC20 internal _stakedToken;
-    address private constant NATIVE_ASSET =
+    address internal constant NATIVE_ASSET =
         0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    uint256 private constant PRECISION = 10 ** 18;
+    uint256 internal constant PRECISION = 10 ** 18;
     uint256 internal _minimumStakingPeriod;
     uint256 internal _totalStaked;
 
