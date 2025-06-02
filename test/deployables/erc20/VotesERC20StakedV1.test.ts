@@ -53,6 +53,7 @@ describe('VotesERC20StakedV1', () => {
   let bob: SignerWithAddress;
   // let carol: SignerWithAddress;
   let nonOwner: SignerWithAddress;
+  let rewardsDistributor: SignerWithAddress;
 
   // contracts
   let votesERC20Staked: VotesERC20StakedV1;
@@ -64,7 +65,7 @@ describe('VotesERC20StakedV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, alice, bob, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, alice, bob, nonOwner, rewardsDistributor] = await ethers.getSigners();
 
     masterCopy = await (await new VotesERC20StakedV1__factory(owner).deploy()).getAddress();
     stakedToken = await new MockERC20Votes__factory(owner).deploy();
@@ -463,7 +464,7 @@ describe('VotesERC20StakedV1', () => {
     });
   });
 
-  describe.only('Staking', function () {
+  describe('Staking', function () {
     beforeEach(async function () {
       votesERC20Staked = await deployVotesERC20StakedProxy(
         proxyDeployer,
@@ -591,6 +592,149 @@ describe('VotesERC20StakedV1', () => {
       await expect(
         votesERC20Staked.connect(alice).unstake(ethers.parseEther('11')),
       ).to.be.revertedWithPanic(0x11);
+    });
+  });
+
+  describe.only('Rewards Distribution', function () {
+    beforeEach(async function () {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
+      );
+
+      // Mint 10 staked tokens to alice
+      await stakedToken.mint(alice.address, ethers.parseEther('10'));
+
+      // Alice approves the staking contract to spend her tokens
+      await stakedToken
+        .connect(alice)
+        .approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
+    });
+
+    it('should distribute rewards for all rewards tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('30'));
+      await rewardsTokenC.mint(await votesERC20Staked.getAddress(), ethers.parseEther('40'));
+
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Check rewards token data
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress())).to.deep.equal([
+        ethers.parseEther('2'), // rewardsRate: 20/10 = 2
+        ethers.parseEther('20'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenB.getAddress())).to.deep.equal([
+        ethers.parseEther('3'), // rewardsRate: 30/10 = 3
+        ethers.parseEther('30'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenC.getAddress())).to.deep.equal([
+        ethers.parseEther('4'), // rewardsRate: 40/10 = 4
+        ethers.parseEther('40'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // Distribute more rewards for token A
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('50'));
+
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Check updated rewards data for token A
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress())).to.deep.equal([
+        ethers.parseEther('7'), // rewardsRate: (20 + 50)/10 = 7
+        ethers.parseEther('70'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // Check rewards for token B haven't changed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenB.getAddress())).to.deep.equal([
+        ethers.parseEther('3'), // rewardsRate: 30/10 = 3
+        ethers.parseEther('30'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // Check rewards for token C haven't changed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenC.getAddress())).to.deep.equal([
+        ethers.parseEther('4'), // rewardsRate: 40/10 = 4
+        ethers.parseEther('40'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+    });
+
+    it('should distribute rewards for specified rewards tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('30'));
+      await rewardsTokenC.mint(await votesERC20Staked.getAddress(), ethers.parseEther('40'));
+
+      // only distribute rewards for token A and B
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards(address[])']([
+        await rewardsTokenA.getAddress(),
+        await rewardsTokenB.getAddress()
+      ]);
+
+      // Check rewards for token A were distributed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress())).to.deep.equal([
+        ethers.parseEther('2'), // rewardsRate: 20/10 = 2
+        ethers.parseEther('20'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // Check rewards for token B were distributed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenB.getAddress())).to.deep.equal([
+        ethers.parseEther('3'), // rewardsRate: 30/10 = 3
+        ethers.parseEther('30'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // Check rewards for token C haven't been distributed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenC.getAddress())).to.deep.equal([
+        ethers.parseEther('0'), // rewardsRate: 0/10 = 0
+        ethers.parseEther('0'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // now distribute rewards for token C
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards(address[])']([
+        await rewardsTokenC.getAddress(),
+      ]);
+
+      // Check rewards for token A haven't changed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress())).to.deep.equal([
+        ethers.parseEther('2'), // rewardsRate: 20/10 = 2
+        ethers.parseEther('20'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // Check rewards for token B haven't changed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenB.getAddress())).to.deep.equal([
+        ethers.parseEther('3'), // rewardsRate: 30/10 = 3
+        ethers.parseEther('30'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
+
+      // Check rewards for token C have now been distributed
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenC.getAddress())).to.deep.equal([
+        ethers.parseEther('4'), // rewardsRate: 40/10 = 4
+        ethers.parseEther('40'), // rewardsDistributed
+        ethers.parseEther('0'), // rewardsClaimed
+      ]);
     });
   });
 });
