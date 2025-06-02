@@ -131,6 +131,103 @@ contract VotesERC20StakedV1 is
         }
     }
 
+    function claimRewards(address _recipient) external virtual override {
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            _claimRewards(_recipient, _rewardsTokens[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function claimRewards(
+        address _recipient,
+        address[] memory _tokens
+    ) external virtual override {
+        for (uint256 i = 0; i < _tokens.length; ) {
+            _claimRewards(_recipient, _tokens[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function _claimRewards(address _recipient, address _token) internal {
+        uint256 amountToClaim = _claimableRewards(msg.sender, _token);
+
+        RewardsTokenData storage token = _rewardsTokenDatas[_token];
+
+        token.stakerAccumulatedRewards[msg.sender] = 0;
+        token.stakerRewardsRates[msg.sender] = token.rewardsRate;
+
+        if (amountToClaim == 0) return;
+
+        token.rewardsClaimed += amountToClaim;
+
+        IERC20(_token).safeTransfer(_recipient, amountToClaim);
+
+        emit RewardsClaimed(msg.sender, _token, _recipient, amountToClaim);
+    }
+
+    function claimableRewards(
+        address _staker
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256[] memory claimableRewards_)
+    {
+        claimableRewards_ = new uint256[](_rewardsTokens.length);
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            claimableRewards_[i] = _claimableRewards(
+                _staker,
+                _rewardsTokens[i]
+            );
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function claimableRewards(
+        address _staker,
+        address[] memory _tokens
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256[] memory claimableRewards_)
+    {
+        claimableRewards_ = new uint256[](_tokens.length);
+        for (uint256 i = 0; i < _tokens.length; ) {
+            claimableRewards_[i] = _claimableRewards(_staker, _tokens[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function _claimableRewards(
+        address _staker,
+        address _token
+    ) internal view returns (uint256 claimableRewards_) {
+        RewardsTokenData storage token = _rewardsTokenDatas[_token];
+
+        if (!token.enabled) revert InvalidRewardsToken();
+
+        claimableRewards_ =
+            token.stakerAccumulatedRewards[_staker] +
+            ((_stakerData[_staker].stakedAmount *
+                (token.rewardsRate - token.stakerRewardsRates[_staker])) /
+                PRECISION);
+    }
+
     function _distributeRewards(address _token) internal {
         RewardsTokenData storage token = _rewardsTokenDatas[_token];
 
