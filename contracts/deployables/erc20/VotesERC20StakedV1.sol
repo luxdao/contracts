@@ -21,7 +21,8 @@ contract VotesERC20StakedV1 is
 
     uint16 private constant VERSION = 1;
     IERC20 internal _stakedToken;
-    address private constant NATIVE_ASSET = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address private constant NATIVE_ASSET =
+        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 private constant PRECISION = 10 ** 18;
     uint256 internal _minimumStakingPeriod;
     uint256 internal _totalStaked;
@@ -135,17 +136,22 @@ contract VotesERC20StakedV1 is
 
         uint256 amountToDistribute;
         if (_token == NATIVE_ASSET) {
-            amountToDistribute = address(this).balance +
+            amountToDistribute =
+                address(this).balance +
                 token.rewardsClaimed -
                 token.rewardsDistributed;
         } else {
-            amountToDistribute = IERC20(_token).balanceOf(address(this)) +
+            amountToDistribute =
+                IERC20(_token).balanceOf(address(this)) +
                 token.rewardsClaimed -
                 token.rewardsDistributed;
         }
+
         if (amountToDistribute == 0) return;
 
-        uint256 newRewardsRate = token.rewardsRate + (amountToDistribute * PRECISION) / _totalStaked;
+        uint256 newRewardsRate = token.rewardsRate +
+            (amountToDistribute * PRECISION) /
+            _totalStaked;
 
         token.rewardsDistributed += amountToDistribute;
         token.rewardsRate = newRewardsRate;
