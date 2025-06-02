@@ -113,6 +113,9 @@ contract VotesERC20StakedV1 is
         uint256 rewardsToDistribute = IERC20(_token).balanceOf(address(this)) +
             token.rewardsClaimed -
             token.rewardsDistributed;
+
+        if (rewardsToDistribute == 0) return;
+
         token.rewardsRate += rewardsToDistribute * PRECISION / _totalStaked;
 
         token.rewardsDistributed += rewardsToDistribute;
