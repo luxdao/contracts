@@ -757,5 +757,17 @@ describe('VotesERC20StakedV1', () => {
         ]),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroStaked');
     });
+
+    it('should not distribute rewards for a token that is not enabled', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await rewardsTokenC.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+
+      await expect(
+        votesERC20Staked.connect(rewardsDistributor)['distributeRewards(address[])']([
+          await rewardsTokenC.getAddress(),
+        ]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken');
+    });
   });
 });
