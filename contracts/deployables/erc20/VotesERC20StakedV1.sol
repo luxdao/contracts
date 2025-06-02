@@ -98,14 +98,30 @@ contract VotesERC20StakedV1 is
         emit Unstaked(msg.sender, amount);
     }
 
-    // struct RewardsTokenData {
-    //     bool enabled;
-    //     uint256 rewardsRate;
-    //     uint256 rewardsDistributed;
-    //     uint256 rewardsClaimed;
-    //     mapping(address staker => uint256 rewardRate) stakerRewardsRates;
-    //     mapping(address staker => uint256 accumulatedRewards) stakerAccumulatedRewards;
-    // }
+    function distributeRewards() external virtual override {
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            _distributeRewards(_rewardsTokens[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function distributeRewards(
+        address[] memory _tokens
+    ) external virtual override {
+        for (uint256 i = 0; i < _tokens.length; ) {
+            if (!_rewardsTokenDatas[_tokens[i]].enabled)
+                revert InvalidRewardsToken();
+
+            _distributeRewards(_tokens[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
 
     function _distributeRewards(address _token) internal {
         RewardsTokenData storage token = _rewardsTokenDatas[_token];
@@ -116,7 +132,7 @@ contract VotesERC20StakedV1 is
 
         if (rewardsToDistribute == 0) return;
 
-        token.rewardsRate += rewardsToDistribute * PRECISION / _totalStaked;
+        token.rewardsRate += (rewardsToDistribute * PRECISION) / _totalStaked;
 
         token.rewardsDistributed += rewardsToDistribute;
 

@@ -47,6 +47,10 @@ interface IVotesERC20StakedV1 {
 
     function unstake(uint256 amount) external;
 
+    function distributeRewards() external;
+
+    function distributeRewards(address[] memory _tokens) external;
+
     function clock() external view returns (uint48);
 
     function CLOCK_MODE() external pure returns (string memory);
