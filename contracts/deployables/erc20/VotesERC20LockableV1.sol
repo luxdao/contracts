@@ -14,6 +14,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     uint256 internal _maxTotalSupply;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER_ROLE");
+    bytes32 public constant TRANSFER_TO_ROLE = keccak256("TRANSFER_TO_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     constructor() {
@@ -25,7 +26,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
             _locked &&
             // overrides while locked
             !hasRole(TRANSFER_ROLE, from) && // whitelisted addresses can always transfer
-            to != address(0) // can always burn when locked
+            !hasRole(TRANSFER_TO_ROLE, to)
         ) {
             revert IsLocked();
         }
@@ -47,6 +48,8 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         _grantRole(TRANSFER_ROLE, owner_);
         // can always mint when locked
         _grantRole(TRANSFER_ROLE, address(0));
+        // can always burn when locked
+        _grantRole(TRANSFER_TO_ROLE, address(0));
         _locked = locked_;
         _maxTotalSupply = maxTotalSupply_;
     }
