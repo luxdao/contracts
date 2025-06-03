@@ -60,9 +60,6 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     }
 
     function lock(bool locked_) external virtual override onlyOwner {
-        if (locked_ == _locked) {
-            revert CannotSwitchLockState(locked_);
-        }
         _locked = locked_;
         emit Locked(_locked);
     }
@@ -71,11 +68,8 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         address account,
         bool isWhitelisted
     ) external virtual override onlyOwner {
-        bool currentlyWhitelisted = _whitelisted[account];
         _whitelisted[account] = isWhitelisted;
-        if (currentlyWhitelisted != isWhitelisted) {
-            emit Whitelisted(account, isWhitelisted);
-        }
+        emit Whitelisted(account, isWhitelisted);
     }
 
     function setMaxTotalSupply(

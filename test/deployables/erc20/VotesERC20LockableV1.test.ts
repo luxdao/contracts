@@ -174,12 +174,9 @@ describe('VotesERC20LockableV1', () => {
         });
       });
 
-      describe('Trying to lock should fail', () => {
-        it('should revert', async () => {
-          await expect(proxy.connect(owner).lock(true)).to.be.revertedWithCustomError(
-            proxy,
-            'CannotSwitchLockState(bool true)',
-          );
+      describe('Trying to lock (despite being locked) should succeed', () => {
+        it('should succeed', async () => {
+          await expect(proxy.connect(owner).lock(true)).to.not.be.reverted;
         });
       });
     });
@@ -227,12 +224,9 @@ describe('VotesERC20LockableV1', () => {
         });
       });
 
-      describe('Trying to unlock should fail', () => {
-        it('should revert', async () => {
-          await expect(proxy.connect(owner).lock(false)).to.be.revertedWithCustomError(
-            proxy,
-            'CannotSwitchLockState(bool false)',
-          );
+      describe('Trying to unlock (despite being unlocked) should succeed', () => {
+        it('should succeed', async () => {
+          await expect(proxy.connect(owner).lock(false)).to.not.be.reverted;
         });
       });
     });
@@ -276,8 +270,10 @@ describe('VotesERC20LockableV1', () => {
             addTx = await proxy.connect(owner).whitelist(whitelistMember.address, true);
           });
 
-          it('should not emit an event', async () => {
-            await expect(addTx).to.not.emit(proxy, 'Whitelisted');
+          it('should emit an event again', async () => {
+            await expect(addTx)
+              .to.emit(proxy, 'Whitelisted')
+              .withArgs(whitelistMember.address, true);
           });
         });
       });
@@ -316,8 +312,10 @@ describe('VotesERC20LockableV1', () => {
             removeTx = await proxy.connect(owner).whitelist(whitelistMember.address, false);
           });
 
-          it('should not emit an event', async () => {
-            await expect(removeTx).to.not.emit(proxy, 'Whitelisted');
+          it('should emit an event again', async () => {
+            await expect(removeTx)
+              .to.emit(proxy, 'Whitelisted')
+              .withArgs(whitelistMember.address, false);
           });
         });
       });
