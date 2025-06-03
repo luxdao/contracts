@@ -18,13 +18,14 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         _disableInitializers();
     }
 
-    modifier isTransferable(address from) {
+    modifier isTransferable(address from, address to) {
         if (
             _locked &&
             // overrides while locked
             !(from == owner() || // owner can always transfer
                 _whitelisted[from] || // whitelisted addresses can always transfer
-                from == address(0)) // can always mint when locked
+                from == address(0)) && // can always mint when locked
+            to != address(0) // can always burn when locked
         ) {
             revert IsLocked();
         }
@@ -98,11 +99,15 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         _mint(to, amount);
     }
 
+    function burn(uint256 amount) external virtual override {
+        _burn(msg.sender, amount);
+    }
+
     function _update(
         address from,
         address to,
         uint256 amount
-    ) internal virtual override isTransferable(from) {
+    ) internal virtual override isTransferable(from, to) {
         super._update(from, to, amount);
     }
 
