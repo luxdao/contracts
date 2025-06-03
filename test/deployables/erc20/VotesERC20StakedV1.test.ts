@@ -466,9 +466,9 @@ describe('VotesERC20StakedV1', () => {
     });
 
     it('should not return data for invalid rewards tokens', async function () {
-      await expect(
-        votesERC20Staked.rewardsTokenData(await bob.address),
-      ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken');
+      await expect(votesERC20Staked.rewardsTokenData(await bob.address))
+        .to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken')
+        .withArgs(await bob.address);
     });
   });
 
@@ -817,7 +817,9 @@ describe('VotesERC20StakedV1', () => {
         votesERC20Staked
           .connect(rewardsDistributor)
           ['distributeRewards(address[])']([await rewardsTokenC.getAddress()]),
-      ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken');
+      )
+        .to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken')
+        .withArgs(await rewardsTokenC.getAddress());
     });
   });
 });
