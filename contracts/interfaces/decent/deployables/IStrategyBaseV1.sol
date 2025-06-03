@@ -5,24 +5,32 @@ interface IStrategyBaseV1 {
     error InvalidProposerAdapter(address _proposerAdapter);
 
     function isProposer(
-        address _address,
-        address _proposerAdapter,
-        bytes calldata _proposerAdapterData
+        address address_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_
     ) external view returns (bool);
 
     function initializeProposal(
-        uint32 _proposalId,
-        bytes32[] memory _txHashes,
-        bytes memory _proposalInitializerData
+        uint32 proposalId_,
+        bytes32[] memory txHashes_,
+        bytes memory proposalInitializerData_
     ) external;
 
-    function isPassed(uint32 _proposalId) external view returns (bool);
+    function isPassed(uint32 proposalId_) external view returns (bool);
 
     function getVotingTimestamps(
-        uint32 _proposalId
+        uint32 proposalId_
     ) external view returns (uint48 startTime, uint48 endTime);
 
     function getVotingStartBlock(
-        uint32 _proposalId
+        uint32 proposalId_
     ) external view returns (uint32 votingStartBlock);
+
+    function isVotingAdapter(
+        address votingAdapter_
+    ) external view returns (bool);
+
+    function isProposerAdapter(
+        address proposerAdapter_
+    ) external view returns (bool);
 }

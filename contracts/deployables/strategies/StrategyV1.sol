@@ -30,6 +30,8 @@ contract StrategyV1 is
 
     address[] internal _votingAdapters;
     address[] internal _proposerAdapters;
+    mapping(address => bool) internal _isVotingAdapter;
+    mapping(address => bool) internal _isProposerAdapter;
 
     modifier onlyProposalInitializer() {
         if (msg.sender != _proposalInitializer)
@@ -50,6 +52,19 @@ contract StrategyV1 is
         address[] memory proposerAdapters_,
         address lightAccountFactory_
     ) public virtual override initializer {
+        if (votingAdapters_.length == 0) {
+            revert NoVotingAdapters();
+        }
+
+        if (proposerAdapters_.length == 0) {
+            revert NoProposerAdapters();
+        }
+
+        if (
+            basisNumerator_ >= BASIS_DENOMINATOR ||
+            basisNumerator_ < BASIS_DENOMINATOR / 2
+        ) revert InvalidBasisNumerator();
+
         __ERC4337VoterSupportV1_init(lightAccountFactory_);
         _proposalInitializer = proposalInitializer_;
         _votingPeriod = votingPeriod_;
@@ -58,18 +73,12 @@ contract StrategyV1 is
         _votingAdapters = votingAdapters_;
         _proposerAdapters = proposerAdapters_;
 
-        if (_proposerAdapters.length == 0) {
-            revert NoProposerAdapters();
+        for (uint256 i = 0; i < votingAdapters_.length; i++) {
+            _isVotingAdapter[votingAdapters_[i]] = true;
         }
-
-        if (_votingAdapters.length == 0) {
-            revert NoVotingAdapters();
+        for (uint256 i = 0; i < proposerAdapters_.length; i++) {
+            _isProposerAdapter[proposerAdapters_[i]] = true;
         }
-
-        if (
-            basisNumerator_ >= BASIS_DENOMINATOR ||
-            basisNumerator_ < BASIS_DENOMINATOR / 2
-        ) revert InvalidBasisNumerator();
     }
 
     function proposalInitializer()
@@ -114,6 +123,18 @@ contract StrategyV1 is
         returns (address[] memory)
     {
         return _votingAdapters;
+    }
+
+    function isVotingAdapter(
+        address votingAdapter_
+    ) external view virtual override returns (bool) {
+        return _isVotingAdapter[votingAdapter_];
+    }
+
+    function isProposerAdapter(
+        address proposerAdapter_
+    ) external view virtual override returns (bool) {
+        return _isProposerAdapter[proposerAdapter_];
     }
 
     function proposerAdapters()
@@ -264,26 +285,26 @@ contract StrategyV1 is
     }
 
     function isProposer(
-        address _address,
-        address _proposerAdapter,
-        bytes calldata _proposerAdapterData
+        address address_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_
     ) external view virtual override returns (bool) {
         bool foundAdapter = false;
         for (uint256 i = 0; i < _proposerAdapters.length; i++) {
-            if (_proposerAdapters[i] == _proposerAdapter) {
+            if (_proposerAdapters[i] == proposerAdapter_) {
                 foundAdapter = true;
                 break;
             }
         }
 
         if (!foundAdapter) {
-            revert InvalidProposerAdapter(_proposerAdapter);
+            revert InvalidProposerAdapter(proposerAdapter_);
         }
 
         return
-            IProposerAdapterBaseV1(_proposerAdapter).isProposer(
-                _address,
-                _proposerAdapterData
+            IProposerAdapterBaseV1(proposerAdapter_).isProposer(
+                address_,
+                proposerAdapterData_
             );
     }
 
