@@ -254,13 +254,15 @@ contract StrategyV1 is
     }
 
     function isProposer(
-        address _address
+        address _address,
+        bytes memory _data
     ) external view virtual override returns (bool) {
         if (_proposerAdapters.length == 0) return false;
         for (uint256 i = 0; i < _proposerAdapters.length; i++) {
             if (
                 IProposerAdapterBaseV1(_proposerAdapters[i]).isProposer(
-                    _address
+                    _address,
+                    _data
                 )
             ) {
                 return true;

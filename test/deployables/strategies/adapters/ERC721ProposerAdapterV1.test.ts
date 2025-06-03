@@ -87,7 +87,7 @@ describe('ERC721ProposerAdapterV1', () => {
       for (let i = 0; i < 5; i++) {
         await mockNft.connect(deployer).mint(user1.address);
       }
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
 
@@ -95,7 +95,7 @@ describe('ERC721ProposerAdapterV1', () => {
       for (let i = 0; i < 6; i++) {
         await mockNft.connect(deployer).mint(user1.address);
       }
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
 
@@ -103,12 +103,12 @@ describe('ERC721ProposerAdapterV1', () => {
       for (let i = 0; i < 4; i++) {
         await mockNft.connect(deployer).mint(user1.address);
       }
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.false;
     });
 
     it('should return false if user has no NFTs', async () => {
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.false;
     });
 
@@ -119,7 +119,7 @@ describe('ERC721ProposerAdapterV1', () => {
         await mockNft.getAddress(),
         0n,
       );
-      const canPropose = await localAdapter.isProposer(user1.address);
+      const canPropose = await localAdapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
   });
