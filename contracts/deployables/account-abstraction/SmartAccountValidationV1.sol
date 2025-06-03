@@ -21,7 +21,7 @@ abstract contract SmartAccountValidationV1 is
 
     function __SmartAccountValidationV1_init(
         address lightAccountFactory_
-    ) internal initializer {
+    ) internal onlyInitializing {
         _lightAccountFactory = ILightAccountFactory(lightAccountFactory_);
     }
 
