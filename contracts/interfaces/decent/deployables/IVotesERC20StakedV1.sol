@@ -18,12 +18,15 @@ interface IVotesERC20StakedV1 {
 
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
     event Staked(address indexed staker, uint256 amount);
+    event Unstaked(address indexed staker, uint256 amount);
     event RewardsTokenAdded(address indexed token);
 
     error NonTransferable();
     error ZeroStake();
+    error ZeroUnstake();
     error InvalidRewardsToken();
     error DuplicateRewardsToken();
+    error MinimumStakingPeriod();
 
     function initialize(
         string memory name,
@@ -41,6 +44,8 @@ interface IVotesERC20StakedV1 {
     ) external;
 
     function stake(uint256 amount) external;
+
+    function unstake(uint256 amount) external;
 
     function clock() external view returns (uint48);
 
