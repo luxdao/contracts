@@ -12,6 +12,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
 
     bool internal _locked;
     mapping(address => bool) internal _whitelisted;
+    uint256 internal _maxTotalSupply;
 
     constructor() {
         _disableInitializers();
@@ -33,19 +34,14 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     function initialize(
         address owner_,
         bool locked_,
+        uint256 maxTotalSupply_,
         string memory name_,
         string memory symbol_,
-        address[] memory allocationAddresses_,
-        uint256[] memory allocationAmounts_
+        Allocation[] memory allocations_
     ) public virtual override initializer {
-        super.initialize(
-            name_,
-            symbol_,
-            allocationAddresses_,
-            allocationAmounts_,
-            owner_
-        );
+        super.initialize(name_, symbol_, allocations_, owner_);
         _locked = locked_;
+        _maxTotalSupply = maxTotalSupply_;
     }
 
     function locked() external view virtual override returns (bool) {
@@ -56,6 +52,10 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         address account
     ) external view virtual override returns (bool) {
         return _whitelisted[account];
+    }
+
+    function maxTotalSupply() external view override returns (uint256) {
+        return _maxTotalSupply;
     }
 
     function lock(bool locked_) external virtual override onlyOwner {
@@ -77,10 +77,24 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         }
     }
 
+    function setMaxTotalSupply(
+        uint256 newMaxTotalSupply
+    ) external virtual override onlyOwner {
+        if (newMaxTotalSupply < totalSupply()) {
+            revert InvalidMaxTotalSupply();
+        }
+        _maxTotalSupply = newMaxTotalSupply;
+        emit MaxTotalSupplyUpdated(newMaxTotalSupply);
+    }
+
     function mint(
         address to,
         uint256 amount
     ) external virtual override onlyOwner {
+        uint256 newTotalSupply = totalSupply() + amount;
+        if (newTotalSupply > _maxTotalSupply) {
+            revert ExceedMaxTotalSupply();
+        }
         _mint(to, amount);
     }
 

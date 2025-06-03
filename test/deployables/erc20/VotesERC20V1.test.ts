@@ -27,12 +27,18 @@ async function deployVotesERC20Proxy(
   allocationAmounts: bigint[],
 ): Promise<VotesERC20V1> {
   // Create initialization data with function selector
+
+  const allocations = allocationAddresses.map((address, index) => ({
+    to: address,
+    amount: allocationAmounts[index],
+  }));
+
   const fullInitData =
     VotesERC20V1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['string', 'string', 'address[]', 'uint256[]', 'address'],
-        [name, symbol, allocationAddresses, allocationAmounts, owner.address],
+        ['string', 'string', 'tuple(address to, uint256 amount)[]', 'address'],
+        [name, symbol, allocations, owner.address],
       )
       .slice(2);
 
@@ -131,7 +137,7 @@ describe('VotesERC20V1', () => {
       );
 
       await expect(
-        votesERC20.initialize('New Name', 'NEW', [], [], owner.address),
+        votesERC20.initialize('New Name', 'NEW', [], owner.address),
       ).to.be.revertedWithCustomError(votesERC20, 'InvalidInitialization');
     });
 
@@ -139,7 +145,7 @@ describe('VotesERC20V1', () => {
       const implementationContract = VotesERC20V1__factory.connect(masterCopy, proxyDeployer);
 
       await expect(
-        implementationContract.initialize('New Name', 'NEW', [], [], owner.address),
+        implementationContract.initialize('New Name', 'NEW', [], owner.address),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
 

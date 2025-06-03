@@ -6,17 +6,20 @@ import {IVotesERC20V1} from "./IVotesERC20V1.sol";
 interface IVotesERC20LockableV1 is IVotesERC20V1 {
     event Locked(bool isLocked);
     event Whitelisted(address indexed account, bool isWhitelisted);
+    event MaxTotalSupplyUpdated(uint256 newMaxTotalSupply);
 
     error IsLocked();
     error CannotSwitchLockState(bool newLockState);
+    error ExceedMaxTotalSupply();
+    error InvalidMaxTotalSupply();
 
     function initialize(
         address owner_,
         bool locked_,
+        uint256 maxTotalSupply_,
         string memory name_,
         string memory symbol_,
-        address[] memory allocationAddresses_,
-        uint256[] memory allocationAmounts_
+        Allocation[] memory allocations_
     ) external;
 
     function lock(bool _locked) external;
@@ -28,4 +31,8 @@ interface IVotesERC20LockableV1 is IVotesERC20V1 {
     function whitelisted(address account) external view returns (bool);
 
     function mint(address to, uint256 amount) external;
+
+    function maxTotalSupply() external view returns (uint256);
+
+    function setMaxTotalSupply(uint256 newMaxTotalSupply) external;
 }
