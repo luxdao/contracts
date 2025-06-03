@@ -32,6 +32,8 @@ interface IStrategyV1 is IStrategyBaseV1 {
         uint32 votingStartBlock
     );
 
+    error NoVotingAdapters();
+    error NoProposerAdapters();
     error InvalidBasisNumerator();
     error InvalidProposalInitializer();
     error ProposalNotFoundOrNotActive();

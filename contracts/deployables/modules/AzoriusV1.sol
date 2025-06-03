@@ -151,11 +151,17 @@ contract AzoriusV1 is
     function submitProposal(
         Transaction[] calldata _transactions,
         string calldata _metadata,
-        bytes memory _proposerData,
-        bytes memory _proposalData
+        address _proposerAdapter,
+        bytes calldata _proposerAdapterData,
+        bytes calldata _proposalInitializerData
     ) external virtual override {
-        if (!_strategy.isProposer(msg.sender, _proposerData))
-            revert InvalidProposer();
+        if (
+            !_strategy.isProposer(
+                msg.sender,
+                _proposerAdapter,
+                _proposerAdapterData
+            )
+        ) revert InvalidProposer();
 
         bytes32[] memory txHashes = new bytes32[](_transactions.length);
         uint256 transactionsLength = _transactions.length;
@@ -179,7 +185,7 @@ contract AzoriusV1 is
         _strategy.initializeProposal(
             _totalProposalCount,
             txHashes,
-            _proposalData
+            _proposalInitializerData
         );
 
         emit ProposalCreated(

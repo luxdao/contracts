@@ -79,8 +79,9 @@ interface IAzoriusV1 {
     function submitProposal(
         Transaction[] calldata _transactions,
         string calldata _metadata,
-        bytes memory _proposerData,
-        bytes memory _proposalData
+        address _proposerAdapter,
+        bytes calldata _proposerAdapterData,
+        bytes calldata _proposalInitializerData
     ) external;
 
     function executeProposal(
