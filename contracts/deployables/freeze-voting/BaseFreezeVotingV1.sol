@@ -28,7 +28,7 @@ abstract contract BaseFreezeVotingV1 is
         uint32 freezeProposalPeriod_,
         uint32 freezePeriod_,
         uint256 freezeVotesThreshold_
-    ) internal initializer {
+    ) internal onlyInitializing {
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
         _updateFreezeProposalPeriod(freezeProposalPeriod_);
