@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Version} from "../Version.sol";
 import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -14,6 +15,7 @@ import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/
 import {VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/VotesUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 contract VotesERC20V1 is
     IVotesERC20V1,
@@ -21,7 +23,8 @@ contract VotesERC20V1 is
     ERC20VotesUpgradeable,
     ERC20PermitUpgradeable,
     UUPSUpgradeable,
-    Ownable2StepUpgradeable
+    Ownable2StepUpgradeable,
+    AccessControlUpgradeable
 {
     uint16 private constant VERSION = 1;
 
@@ -40,6 +43,7 @@ contract VotesERC20V1 is
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
+        __AccessControl_init();
 
         uint256 holderCount = allocations.length;
         for (uint256 i; i < holderCount; ) {
@@ -100,12 +104,19 @@ contract VotesERC20V1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(Version, AccessControlUpgradeable)
+        returns (bool)
+    {
         return
             interfaceId == type(IVotesERC20V1).interfaceId ||
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(IERC20Permit).interfaceId ||
             interfaceId == type(IVotes).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
