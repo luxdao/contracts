@@ -11,8 +11,9 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     uint16 private constant VERSION = 1;
 
     bool internal _locked;
-    mapping(address => bool) internal _whitelisted;
     uint256 internal _maxTotalSupply;
+
+    bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER_ROLE");
 
     constructor() {
         _disableInitializers();
@@ -23,7 +24,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
             _locked &&
             // overrides while locked
             !(from == owner() || // owner can always transfer
-                _whitelisted[from] || // whitelisted addresses can always transfer
+                hasRole(TRANSFER_ROLE, from) || // whitelisted addresses can always transfer
                 from == address(0)) && // can always mint when locked
             to != address(0) // can always burn when locked
         ) {
@@ -41,18 +42,13 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         Allocation[] memory allocations_
     ) public virtual override initializer {
         super.initialize(name_, symbol_, allocations_, owner_);
+        _grantRole(DEFAULT_ADMIN_ROLE, owner_);
         _locked = locked_;
         _maxTotalSupply = maxTotalSupply_;
     }
 
     function locked() external view virtual override returns (bool) {
         return _locked;
-    }
-
-    function whitelisted(
-        address account
-    ) external view virtual override returns (bool) {
-        return _whitelisted[account];
     }
 
     function maxTotalSupply() external view override returns (uint256) {
@@ -65,17 +61,6 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         }
         _locked = locked_;
         emit Locked(_locked);
-    }
-
-    function whitelist(
-        address account,
-        bool isWhitelisted
-    ) external virtual override onlyOwner {
-        bool currentlyWhitelisted = _whitelisted[account];
-        _whitelisted[account] = isWhitelisted;
-        if (currentlyWhitelisted != isWhitelisted) {
-            emit Whitelisted(account, isWhitelisted);
-        }
     }
 
     function setMaxTotalSupply(
