@@ -47,7 +47,8 @@ contract ERC20ProposerAdapterV1 is
     }
 
     function isProposer(
-        address _proposer
+        address _proposer,
+        bytes memory
     ) external view virtual override returns (bool) {
         return _token.getVotes(_proposer) >= _proposerThreshold;
     }

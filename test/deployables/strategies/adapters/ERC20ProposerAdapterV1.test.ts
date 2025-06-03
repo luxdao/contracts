@@ -96,14 +96,14 @@ describe('ERC20ProposerAdapterV1', () => {
     it('should return true if user meets the proposer threshold', async () => {
       await mockToken.connect(deployer).mint(user1.address, DEFAULT_PROPOSER_THRESHOLD);
       await mockToken.connect(user1).delegate(user1.address);
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
 
     it('should return true if user exceeds the proposer threshold', async () => {
       await mockToken.connect(deployer).mint(user1.address, DEFAULT_PROPOSER_THRESHOLD);
       await mockToken.connect(user1).delegate(user1.address);
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
 
@@ -113,13 +113,13 @@ describe('ERC20ProposerAdapterV1', () => {
 
       await mockToken.connect(user1).delegate(user1.address);
 
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.false;
     });
 
     it('should return false if user has no votes (or token balance)', async () => {
       await mockToken.connect(user1).delegate(user1.address);
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.false;
     });
 
@@ -131,7 +131,7 @@ describe('ERC20ProposerAdapterV1', () => {
         0n,
       );
       await mockToken.connect(user1).delegate(user1.address);
-      const canPropose = await localAdapter.isProposer(user1.address);
+      const canPropose = await localAdapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
   });

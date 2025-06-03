@@ -17,6 +17,7 @@ contract HatsProposerAdapterV1 is
 {
     IHats internal _hatsContract;
     uint256[] internal _whitelistedHatIds;
+    mapping(uint256 => bool) internal _hatIdToIsWhitelisted;
 
     uint16 public constant VERSION = 1;
 
@@ -30,6 +31,9 @@ contract HatsProposerAdapterV1 is
     ) public virtual override initializer {
         _hatsContract = IHats(hatsContract_);
         _whitelistedHatIds = whitelistedHatIds_;
+        for (uint256 i = 0; i < whitelistedHatIds_.length; i++) {
+            _hatIdToIsWhitelisted[whitelistedHatIds_[i]] = true;
+        }
     }
 
     function hatsContract() external view virtual override returns (address) {
@@ -47,14 +51,13 @@ contract HatsProposerAdapterV1 is
     }
 
     function isProposer(
-        address _proposer
+        address _proposer,
+        bytes memory _data
     ) public view virtual override returns (bool) {
-        for (uint256 i = 0; i < _whitelistedHatIds.length; i++) {
-            if (_hatsContract.isWearerOfHat(_proposer, _whitelistedHatIds[i])) {
-                return true;
-            }
-        }
-        return false;
+        uint256 hatId = abi.decode(_data, (uint256));
+        return
+            _hatIdToIsWhitelisted[hatId] &&
+            _hatsContract.isWearerOfHat(_proposer, hatId);
     }
 
     function version() public pure virtual override returns (uint16) {
