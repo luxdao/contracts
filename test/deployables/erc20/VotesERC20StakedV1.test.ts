@@ -549,12 +549,12 @@ describe('VotesERC20StakedV1', () => {
       // move forward 7 days
       await time.increase(604800);
 
-      await votesERC20Staked.connect(alice).unstake(ethers.parseEther('5'));
+      await votesERC20Staked.connect(alice).unstake(ethers.parseEther('6'));
 
-      expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('5'));
-      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('5'));
+      expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('4'));
+      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('6'));
       expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
-        ethers.parseEther('5'),
+        ethers.parseEther('4'),
         stakeTimestamp,
       ]);
     });
