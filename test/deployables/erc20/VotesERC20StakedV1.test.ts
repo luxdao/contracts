@@ -26,14 +26,15 @@ async function deployVotesERC20StakedProxy(
   symbol: string,
   stakedToken: string,
   minimumStakingPeriod: bigint,
+  rewardsTokens: string[],
 ): Promise<VotesERC20StakedV1> {
   // Create initialization data with function selector
   const fullInitData =
     VotesERC20StakedV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['string', 'string', 'address', 'address', 'uint256'],
-        [name, symbol, owner.address, stakedToken, minimumStakingPeriod],
+        ['string', 'string', 'address', 'address', 'uint256', 'address[]'],
+        [name, symbol, owner.address, stakedToken, minimumStakingPeriod, rewardsTokens],
       )
       .slice(2);
 
@@ -49,7 +50,7 @@ describe('VotesERC20StakedV1', () => {
   let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let alice: SignerWithAddress;
-  // let bob: SignerWithAddress;
+  let bob: SignerWithAddress;
   // let carol: SignerWithAddress;
   let nonOwner: SignerWithAddress;
 
@@ -57,13 +58,19 @@ describe('VotesERC20StakedV1', () => {
   let votesERC20Staked: VotesERC20StakedV1;
   let masterCopy: string;
   let stakedToken: MockERC20Votes;
+  let rewardsTokenA: MockERC20Votes;
+  let rewardsTokenB: MockERC20Votes;
+  let rewardsTokenC: MockERC20Votes;
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, alice, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, alice, bob, nonOwner] = await ethers.getSigners();
 
     masterCopy = await (await new VotesERC20StakedV1__factory(owner).deploy()).getAddress();
     stakedToken = await new MockERC20Votes__factory(owner).deploy();
+    rewardsTokenA = await new MockERC20Votes__factory(owner).deploy();
+    rewardsTokenB = await new MockERC20Votes__factory(owner).deploy();
+    rewardsTokenC = await new MockERC20Votes__factory(owner).deploy();
   });
 
   describe('Initialization', () => {
@@ -76,6 +83,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
 
       expect(await votesERC20Staked.name()).to.equal('Test Staking Contract');
@@ -83,6 +95,11 @@ describe('VotesERC20StakedV1', () => {
       expect(await votesERC20Staked.owner()).to.equal(owner.address);
       expect(await votesERC20Staked.stakedToken()).to.equal(await stakedToken.getAddress());
       expect(await votesERC20Staked.minimumStakingPeriod()).to.equal(604800n);
+      expect(await votesERC20Staked.rewardsTokens()).to.deep.equal([
+        await rewardsTokenA.getAddress(),
+        await rewardsTokenB.getAddress(),
+        await rewardsTokenC.getAddress(),
+      ]);
     });
 
     it('should not allow reinitialization', async () => {
@@ -94,6 +111,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
 
       await expect(
@@ -103,6 +125,11 @@ describe('VotesERC20StakedV1', () => {
           owner.address,
           await stakedToken.getAddress(),
           604800n,
+          [
+            await rewardsTokenA.getAddress(),
+            await rewardsTokenB.getAddress(),
+            await rewardsTokenC.getAddress(),
+          ],
         ),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidInitialization');
     });
@@ -117,6 +144,11 @@ describe('VotesERC20StakedV1', () => {
           owner.address,
           await stakedToken.getAddress(),
           604800n,
+          [
+            await rewardsTokenA.getAddress(),
+            await rewardsTokenB.getAddress(),
+            await rewardsTokenC.getAddress(),
+          ],
         ),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
@@ -130,6 +162,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
 
       expect(await votesERC20Staked.owner()).to.equal(owner.address);
@@ -146,6 +183,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
     });
 
@@ -193,6 +235,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
     });
 
@@ -217,6 +264,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
 
       // Calculate interface IDs
@@ -278,6 +330,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
     });
 
@@ -321,6 +378,11 @@ describe('VotesERC20StakedV1', () => {
         'TSC',
         await stakedToken.getAddress(),
         604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
       );
     });
 
@@ -333,6 +395,151 @@ describe('VotesERC20StakedV1', () => {
       },
       owner: () => owner,
       nonOwner: () => nonOwner,
+    });
+  });
+
+  describe('Rewards Tokens', function () {
+    beforeEach(async function () {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
+      );
+
+      // Mint 10 staked tokens to alice
+      await stakedToken.mint(alice.address, ethers.parseEther('10'));
+
+      // Alice approves the staking contract to spend her tokens
+      await stakedToken
+        .connect(alice)
+        .approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
+    });
+
+    it('should not allow adding duplicate rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.connect(owner).addRewardsTokens([await rewardsTokenA.getAddress()]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'DuplicateRewardsToken');
+    });
+
+    it('should allow owner to add rewards tokens', async function () {
+      const rewardsTokenD = await new MockERC20Votes__factory(owner).deploy();
+      const rewardsTokenE = await new MockERC20Votes__factory(owner).deploy();
+
+      await votesERC20Staked
+        .connect(owner)
+        .addRewardsTokens([await rewardsTokenD.getAddress(), await rewardsTokenE.getAddress()]);
+
+      expect(await votesERC20Staked.rewardsTokens()).to.deep.equal([
+        await rewardsTokenA.getAddress(),
+        await rewardsTokenB.getAddress(),
+        await rewardsTokenC.getAddress(),
+        await rewardsTokenD.getAddress(),
+        await rewardsTokenE.getAddress(),
+      ]);
+    });
+
+    it('should not allow non-owner to add rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.connect(alice).addRewardsTokens([await rewardsTokenA.getAddress()]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
+    });
+
+    it('should return rewards token data', async function () {
+      const [rewardsRate, rewardsDistributed, rewardsClaimed] =
+        await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress());
+
+      expect(rewardsRate).to.equal(0n);
+      expect(rewardsDistributed).to.equal(0n);
+      expect(rewardsClaimed).to.equal(0n);
+    });
+
+    it('should not return data for invalid rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.rewardsTokenData(await bob.address),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken');
+    });
+  });
+
+  describe('Staking', function () {
+    beforeEach(async function () {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+        [
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+          await rewardsTokenC.getAddress(),
+        ],
+      );
+
+      // Mint 10 staked tokens to alice
+      await stakedToken.mint(alice.address, ethers.parseEther('10'));
+
+      // Alice approves the staking contract to spend her tokens
+      await stakedToken
+        .connect(alice)
+        .approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
+    });
+
+    it('should not allow users to stake 0 tokens', async function () {
+      await expect(votesERC20Staked.connect(alice).stake(0n)).to.be.revertedWithCustomError(
+        votesERC20Staked,
+        'ZeroStake',
+      );
+    });
+
+    it('should not allow users to transfer or approve VotesERC20StakedV1 tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await expect(
+        votesERC20Staked.connect(alice).approve(bob.address, ethers.parseEther('10')),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'NonTransferable');
+
+      await expect(
+        votesERC20Staked.connect(alice).transfer(bob.address, ethers.parseEther('10')),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'NonTransferable');
+
+      await expect(
+        votesERC20Staked
+          .connect(alice)
+          .transferFrom(bob.address, alice.address, ethers.parseEther('10')),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'NonTransferable');
+    });
+
+    it('should allow users to stake tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
+      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
+
+      expect(await stakedToken.balanceOf(await votesERC20Staked.getAddress())).to.equal(
+        ethers.parseEther('10'),
+      );
+
+      expect(await votesERC20Staked.totalStaked()).to.equal(ethers.parseEther('10'));
+
+      expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
+        ethers.parseEther('10'),
+        await time.latest(),
+      ]);
+
+      expect(
+        await votesERC20Staked.stakerRewardsData(await rewardsTokenA.getAddress(), alice.address),
+      ).to.deep.equal([0n, 0n]);
     });
   });
 });

@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Version} from "../Version.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20VotesUpgradeable, VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -16,33 +17,101 @@ contract VotesERC20StakedV1 is
     UUPSUpgradeable,
     Ownable2StepUpgradeable
 {
+    using SafeERC20 for IERC20;
+
     uint16 private constant VERSION = 1;
     IERC20 internal _stakedToken;
     uint256 internal _minimumStakingPeriod;
+    uint256 internal _totalStaked;
+
+    mapping(address => StakerData) internal _stakerData;
+
+    address[] internal _rewardsTokens;
+    mapping(address => RewardsTokenData) internal _rewardsTokenDatas;
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        string memory name,
-        string memory symbol,
-        address owner,
+        string memory name_,
+        string memory symbol_,
+        address owner_,
         address stakedToken_,
-        uint256 minimumStakingPeriod_
+        uint256 minimumStakingPeriod_,
+        address[] memory rewardsTokens_
     ) public virtual override initializer {
-        __ERC20_init(name, symbol);
+        __ERC20_init(name_, symbol_);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
-        __Ownable_init(owner);
+        __Ownable_init(owner_);
         _stakedToken = IERC20(stakedToken_);
         _updateMinimumStakingPeriod(minimumStakingPeriod_);
+        _addRewardsTokens(rewardsTokens_);
+    }
+
+    function addRewardsTokens(
+        address[] memory rewardsTokens_
+    ) external virtual override onlyOwner {
+        _addRewardsTokens(rewardsTokens_);
     }
 
     function updateMinimumStakingPeriod(
         uint256 newMinimumStakingPeriod
     ) external virtual override onlyOwner {
         _updateMinimumStakingPeriod(newMinimumStakingPeriod);
+    }
+
+    function stake(uint256 amount) external virtual override {
+        if (amount == 0) revert ZeroStake();
+
+        _accumulateRewards(msg.sender);
+
+        _stakerData[msg.sender].stakedAmount += amount;
+        _stakerData[msg.sender].lastStakeTimestamp = block.timestamp;
+        _totalStaked += amount;
+
+        _mint(msg.sender, amount);
+
+        _stakedToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Staked(msg.sender, amount);
+    }
+
+    function _addRewardsTokens(address[] memory rewardsTokens_) internal {
+        for (uint256 i = 0; i < rewardsTokens_.length; ) {
+            if (_rewardsTokenDatas[rewardsTokens_[i]].enabled)
+                revert DuplicateRewardsToken();
+
+            _rewardsTokens.push(rewardsTokens_[i]);
+
+            _rewardsTokenDatas[rewardsTokens_[i]].enabled = true;
+
+            emit RewardsTokenAdded(rewardsTokens_[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function _accumulateRewards(address _staker) internal {
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            RewardsTokenData storage token = _rewardsTokenDatas[
+                _rewardsTokens[i]
+            ];
+
+            token.stakerAccumulatedRewards[_staker] +=
+                (_stakerData[_staker].stakedAmount *
+                    (token.rewardsRate - token.stakerRewardsRates[_staker])) /
+                (10 ** 18);
+
+            token.stakerRewardsRates[_staker] = token.rewardsRate;
+
+            unchecked {
+                i++;
+            }
+        }
     }
 
     function transfer(address, uint256) public virtual override returns (bool) {
@@ -109,6 +178,75 @@ contract VotesERC20StakedV1 is
         returns (uint256)
     {
         return _minimumStakingPeriod;
+    }
+
+    function totalStaked() external view virtual override returns (uint256) {
+        return _totalStaked;
+    }
+
+    function rewardsTokens()
+        external
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _rewardsTokens;
+    }
+
+    function rewardsTokenData(
+        address token
+    )
+        external
+        view
+        virtual
+        override
+        returns (
+            uint256 rewardsRate,
+            uint256 rewardsDistributed,
+            uint256 rewardsClaimed
+        )
+    {
+        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+
+        return (
+            _rewardsTokenDatas[token].rewardsRate,
+            _rewardsTokenDatas[token].rewardsDistributed,
+            _rewardsTokenDatas[token].rewardsClaimed
+        );
+    }
+
+    function stakerData(
+        address staker
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256 stakedAmount, uint256 lastStakeTimestamp)
+    {
+        return (
+            _stakerData[staker].stakedAmount,
+            _stakerData[staker].lastStakeTimestamp
+        );
+    }
+
+    function stakerRewardsData(
+        address token,
+        address staker
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256 rewardRate, uint256 accumulatedRewards)
+    {
+        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+
+        return (
+            _rewardsTokenDatas[token].stakerRewardsRates[staker],
+            _rewardsTokenDatas[token].stakerAccumulatedRewards[staker]
+        );
     }
 
     function supportsInterface(
