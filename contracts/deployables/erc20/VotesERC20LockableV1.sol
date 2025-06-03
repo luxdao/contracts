@@ -24,7 +24,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         if (
             _locked &&
             // overrides while locked
-            !(hasRole(TRANSFER_ROLE, from) || from == address(0)) && // whitelisted addresses can always transfer // can always mint when locked
+            !hasRole(TRANSFER_ROLE, from) && // whitelisted addresses can always transfer
             to != address(0) // can always burn when locked
         ) {
             revert IsLocked();
@@ -42,8 +42,11 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     ) public virtual override initializer {
         super.initialize(name_, symbol_, allocations_, owner_);
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
-        _grantRole(TRANSFER_ROLE, owner_);
         _grantRole(MINTER_ROLE, owner_);
+        // owner can always transfer
+        _grantRole(TRANSFER_ROLE, owner_);
+        // can always mint when locked
+        _grantRole(TRANSFER_ROLE, address(0));
         _locked = locked_;
         _maxTotalSupply = maxTotalSupply_;
     }
