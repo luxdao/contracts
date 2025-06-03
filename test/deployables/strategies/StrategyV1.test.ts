@@ -139,6 +139,88 @@ describe('StrategyV1', () => {
       expect(await testStrategy.votingAdapters()).to.deep.equal(initialVotingAdapters);
       expect(await testStrategy.proposerAdapters()).to.deep.equal(initialProposerAdapters);
     });
+
+    it('should revert if basis numerator is invalid (too high) during initialization', async () => {
+      await expect(
+        deployStrategyProxy(
+          proposerInitializer.address,
+          DEFAULT_VOTING_PERIOD,
+          DEFAULT_QUORUM_THRESHOLD,
+          1_000_001n,
+          [],
+          [],
+          lightAccountFactoryMockAddress,
+        ),
+      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
+    });
+
+    it('should revert if basis numerator is invalid (too low, <50%) during initialization', async () => {
+      await expect(
+        deployStrategyProxy(
+          proposerInitializer.address,
+          DEFAULT_VOTING_PERIOD,
+          DEFAULT_QUORUM_THRESHOLD,
+          499_999n,
+          [],
+          [],
+          lightAccountFactoryMockAddress,
+        ),
+      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
+    });
+
+    it('should initialize correctly with zero quorum threshold', async () => {
+      const testStrategy = await deployStrategyProxy(
+        proposerInitializer.address,
+        DEFAULT_VOTING_PERIOD,
+        0n, // Zero quorum threshold
+        DEFAULT_BASIS_NUMERATOR,
+        [],
+        [],
+        lightAccountFactoryMockAddress,
+      );
+      expect(await testStrategy.quorumThreshold()).to.equal(0n);
+    });
+
+    it('should initialize correctly with basis numerator at 50%', async () => {
+      const testStrategy = await deployStrategyProxy(
+        proposerInitializer.address,
+        DEFAULT_VOTING_PERIOD,
+        DEFAULT_QUORUM_THRESHOLD,
+        500_000n, // 50% basis numerator
+        [],
+        [],
+        lightAccountFactoryMockAddress,
+      );
+      expect(await testStrategy.basisNumerator()).to.equal(500_000n);
+    });
+
+    it('should revert when initializing with basis numerator at 100% (1,000,000)', async () => {
+      await expect(
+        deployStrategyProxy(
+          proposerInitializer.address,
+          DEFAULT_VOTING_PERIOD,
+          DEFAULT_QUORUM_THRESHOLD,
+          1_000_000n, // 100% basis numerator - now invalid
+          [],
+          [],
+          lightAccountFactoryMockAddress,
+        ),
+      ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
+    });
+
+    it('should initialize correctly with basis numerator at new maximum (BASIS_DENOMINATOR - 1)', async () => {
+      const maxValidBasis = 1_000_000n - 1n; // BASIS_DENOMINATOR - 1
+      const testStrategy = await deployStrategyProxy(
+        proposerInitializer.address,
+        DEFAULT_VOTING_PERIOD,
+        DEFAULT_QUORUM_THRESHOLD,
+        maxValidBasis,
+        [],
+        [],
+        lightAccountFactoryMockAddress,
+      );
+      expect(await testStrategy.basisNumerator()).to.equal(maxValidBasis);
+    });
   });
 
   describe('votingAdapters', () => {

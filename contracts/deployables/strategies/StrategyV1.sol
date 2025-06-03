@@ -55,6 +55,11 @@ contract StrategyV1 is
         _basisNumerator = basisNumerator_;
         _votingAdapters = votingAdapters_;
         _proposerAdapters = proposerAdapters_;
+
+        if (
+            basisNumerator_ >= BASIS_DENOMINATOR ||
+            basisNumerator_ < BASIS_DENOMINATOR / 2
+        ) revert InvalidBasisNumerator();
     }
 
     function proposalInitializer()
