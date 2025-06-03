@@ -821,5 +821,35 @@ describe('VotesERC20StakedV1', () => {
         .to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken')
         .withArgs(await rewardsTokenC.getAddress());
     });
+
+    it('should return distributable rewards rewards tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('30'));
+      await ethers.provider.send('eth_sendTransaction', [
+        {
+          to: await votesERC20Staked.getAddress(),
+          value: ethers.toBeHex(ethers.parseEther('40')),
+        },
+      ]);
+
+      expect(await votesERC20Staked['distributableRewards()']()).to.deep.equal([
+        ethers.parseEther('20'),
+        ethers.parseEther('30'),
+        ethers.parseEther('40'),
+      ]);
+
+      expect(
+        await votesERC20Staked['distributableRewards(address[])']([
+          await rewardsTokenA.getAddress(),
+          await rewardsTokenB.getAddress(),
+        ]),
+      ).to.deep.equal([ethers.parseEther('20'), ethers.parseEther('30')]);
+
+      expect(
+        await votesERC20Staked['distributableRewards(address[])']([nativeAssetAddress]),
+      ).to.deep.equal([ethers.parseEther('40')]);
+    });
   });
 });
