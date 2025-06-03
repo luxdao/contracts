@@ -29,9 +29,6 @@ contract ERC721VotingAdapterV1 is
         address token_,
         uint256 weightPerToken_
     ) external virtual override initializer {
-        if (token_ == address(0)) revert InvalidTokenAddress();
-        if (weightPerToken_ == 0) revert InvalidWeightPerToken();
-
         _token = IERC721(token_);
         _weightPerToken = weightPerToken_;
     }

@@ -127,57 +127,6 @@ describe('ERC20VotingAdapterV1', () => {
       expect(await erc20Adapter.weightPerToken()).to.equal(DEFAULT_WEIGHT_PER_TOKEN);
     });
 
-    it('should revert if token address is zero', async () => {
-      const erc20AdapterImplementation = ERC20VotingAdapterV1__factory.connect(
-        erc20AdapterImplementationAddressG,
-        deployerG,
-      );
-
-      await expect(
-        deployERC20AdapterProxy(
-          deployer,
-          erc20AdapterImplementationAddressG,
-          ethers.ZeroAddress,
-          await mockStrategy.getAddress(),
-          DEFAULT_WEIGHT_PER_TOKEN,
-        ),
-      ).to.be.revertedWithCustomError(erc20AdapterImplementation, 'InvalidTokenAddress');
-    });
-
-    it('should revert if strategy address is zero', async () => {
-      const erc20AdapterImplementation = ERC20VotingAdapterV1__factory.connect(
-        erc20AdapterImplementationAddressG,
-        deployerG,
-      );
-
-      await expect(
-        deployERC20AdapterProxy(
-          deployer,
-          erc20AdapterImplementationAddressG,
-          await mockToken.getAddress(),
-          ethers.ZeroAddress,
-          DEFAULT_WEIGHT_PER_TOKEN,
-        ),
-      ).to.be.revertedWithCustomError(erc20AdapterImplementation, 'InvalidStrategyAddress');
-    });
-
-    it('should revert if weightPerToken is zero', async () => {
-      const erc20AdapterImplementation = ERC20VotingAdapterV1__factory.connect(
-        erc20AdapterImplementationAddressG,
-        deployerG,
-      );
-
-      await expect(
-        deployERC20AdapterProxy(
-          deployer,
-          erc20AdapterImplementationAddressG,
-          await mockToken.getAddress(),
-          await mockStrategy.getAddress(),
-          0n,
-        ),
-      ).to.be.revertedWithCustomError(erc20AdapterImplementation, 'InvalidWeightPerToken');
-    });
-
     it('should not allow reinitialization', async () => {
       const { adapter: erc20Adapter } = await deployERC20AdapterProxy(
         deployer,

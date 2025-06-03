@@ -11,8 +11,8 @@ import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract StrategyV1 is
-    Initializable,
     IStrategyV1,
+    Initializable,
     ERC4337VoterSupportV1,
     Version
 {
@@ -20,7 +20,7 @@ contract StrategyV1 is
 
     uint256 public constant BASIS_DENOMINATOR = 1_000_000;
 
-    address internal _azorius;
+    address internal _proposalInitializer;
     uint32 internal _votingPeriod;
     uint256 internal _quorumThreshold;
     uint256 internal _basisNumerator;
@@ -29,12 +29,18 @@ contract StrategyV1 is
     address[] internal _votingAdapters;
     address[] internal _proposerAdapters;
 
+    modifier onlyProposalInitializer() {
+        if (msg.sender != _proposalInitializer)
+            revert InvalidProposalInitializer();
+        _;
+    }
+
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address azorius_,
+        address proposalInitializer_,
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
@@ -42,46 +48,28 @@ contract StrategyV1 is
         address[] memory proposerAdapters_,
         address lightAccountFactory_
     ) public virtual override initializer {
-        if (azorius_ == address(0)) revert InvalidAzoriusAddress();
-
         __ERC4337VoterSupportV1_init(lightAccountFactory_);
-
-        _azorius = azorius_;
-
-        if (votingPeriod_ == 0) revert InvalidVotingPeriod();
+        _proposalInitializer = proposalInitializer_;
         _votingPeriod = votingPeriod_;
-
         _quorumThreshold = quorumThreshold_;
+        _basisNumerator = basisNumerator_;
+        _votingAdapters = votingAdapters_;
+        _proposerAdapters = proposerAdapters_;
 
         if (
             basisNumerator_ >= BASIS_DENOMINATOR ||
             basisNumerator_ < BASIS_DENOMINATOR / 2
         ) revert InvalidBasisNumerator();
-        _basisNumerator = basisNumerator_;
-
-        for (uint256 i = 0; i < votingAdapters_.length; i++) {
-            address adapter_ = votingAdapters_[i];
-            if (adapter_ == address(0)) revert VotingAdapterIsZeroAddress();
-            for (uint256 j = 0; j < _votingAdapters.length; j++) {
-                if (address(_votingAdapters[j]) == adapter_)
-                    revert VotingAdapterAlreadyExists();
-            }
-            _votingAdapters.push(adapter_);
-        }
-
-        for (uint256 i = 0; i < proposerAdapters_.length; i++) {
-            address adapter_ = proposerAdapters_[i];
-            if (adapter_ == address(0)) revert ProposerAdapterIsZeroAddress();
-            for (uint256 j = 0; j < _proposerAdapters.length; j++) {
-                if (address(_proposerAdapters[j]) == adapter_)
-                    revert ProposerAdapterAlreadyExists();
-            }
-            _proposerAdapters.push(adapter_);
-        }
     }
 
-    function azorius() external view virtual override returns (address) {
-        return _azorius;
+    function proposalInitializer()
+        external
+        view
+        virtual
+        override
+        returns (address)
+    {
+        return _proposalInitializer;
     }
 
     function votingPeriod() external view virtual override returns (uint32) {
@@ -132,10 +120,7 @@ contract StrategyV1 is
         uint32 proposalId,
         bytes32[] memory,
         bytes memory
-    ) external virtual override {
-        if (msg.sender != _azorius) revert InvalidAzoriusAddress();
-        if (_votingAdapters.length == 0) revert NoVotingAdapters();
-
+    ) external virtual override onlyProposalInitializer {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             proposalId
         ];
