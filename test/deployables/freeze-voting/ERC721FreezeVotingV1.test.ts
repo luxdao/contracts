@@ -6,11 +6,16 @@ import {
   ERC1967Proxy__factory,
   ERC721FreezeVotingV1,
   ERC721FreezeVotingV1__factory,
+  IBaseFreezeVotingV1__factory,
+  IERC165__factory,
+  IERC721FreezeVotingV1__factory,
+  IVersion__factory,
   MockERC721,
   MockERC721__factory,
   MockERC721VotingStrategy,
   MockERC721VotingStrategy__factory,
 } from '../../../typechain-types';
+import { calculateInterfaceId } from '../../helpers/utils';
 import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 // Helper function for deploying ERC721FreezeVotingV1 proxy instances using ERC1967Proxy
@@ -183,32 +188,22 @@ describe('ERC721FreezeVotingV1', () => {
   });
 
   describe('Freeze Voting Process', () => {
-    it('should reject casting freeze vote with base method', async () => {
-      await expect(
-        freezeVoting.connect(voter1)['castFreezeVote()'](),
-      ).to.be.revertedWithCustomError(freezeVoting, 'NotSupported');
-    });
-
     it('should reject votes with no NFTs', async () => {
       await expect(
-        freezeVoting.connect(nonVoter)['castFreezeVote(address[],uint256[])']([], []),
+        freezeVoting.connect(nonVoter).castFreezeVote([], []),
       ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
     });
 
     it('should reject votes with mismatched token arrays', async () => {
       await expect(
-        freezeVoting
-          .connect(voter1)
-          ['castFreezeVote(address[],uint256[])']([await nftCollection1.getAddress()], []),
+        freezeVoting.connect(voter1).castFreezeVote([await nftCollection1.getAddress()], []),
       ).to.be.revertedWithCustomError(freezeVoting, 'UnequalArrays');
     });
 
     it('should create a freeze proposal when first user votes', async () => {
       // Cast the first vote
       await expect(
-        freezeVoting
-          .connect(voter1)
-          ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds),
+        freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds),
       )
         .to.emit(freezeVoting, 'FreezeProposalCreated')
         .withArgs(voter1.address)
@@ -222,23 +217,17 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should accumulate votes correctly based on token weights', async () => {
       // First vote
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(TOKEN1_WEIGHT);
 
       // Second vote
-      await freezeVoting
-        .connect(voter2)
-        ['castFreezeVote(address[],uint256[])'](voter2TokenAddresses, voter2TokenIds);
+      await freezeVoting.connect(voter2).castFreezeVote(voter2TokenAddresses, voter2TokenIds);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(TOKEN1_WEIGHT + TOKEN2_WEIGHT);
     });
 
     it('should prevent duplicate votes from the same token', async () => {
       // First vote with voter1's NFT
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
       const initialVoteCount = await freezeVoting.freezeProposalVoteCount();
 
       // Voting again with the same NFT - we need to give a valid additional NFT to avoid NoVotes
@@ -253,9 +242,7 @@ describe('ERC721FreezeVotingV1', () => {
       ];
       const combinedIds = [voter1TokenIds[0], newTokenId];
 
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](combinedAddresses, combinedIds);
+      await freezeVoting.connect(voter1).castFreezeVote(combinedAddresses, combinedIds);
 
       // Only the new token's vote should be counted, so vote count should increase by TOKEN1_WEIGHT
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(
@@ -265,9 +252,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should not count votes from NFTs not owned by voter', async () => {
       // First create a proposal with voter1's NFT to avoid having empty votes
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
       const initialVoteCount = await freezeVoting.freezeProposalVoteCount();
 
       // Mint a new NFT to voter2 to avoid NoVotes when trying to vote
@@ -282,9 +267,7 @@ describe('ERC721FreezeVotingV1', () => {
       const combinedIds = [voter1TokenIds[0], validTokenId];
 
       // Should process transaction but only count voter2's own NFT
-      await freezeVoting
-        .connect(voter2)
-        ['castFreezeVote(address[],uint256[])'](combinedAddresses, combinedIds);
+      await freezeVoting.connect(voter2).castFreezeVote(combinedAddresses, combinedIds);
 
       // Only voter2's NFT vote should be counted, so vote count should increase by TOKEN1_WEIGHT
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(
@@ -294,9 +277,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should accept votes with multiple NFTs', async () => {
       // Voter3 votes with both NFTs
-      await freezeVoting
-        .connect(voter3)
-        ['castFreezeVote(address[],uint256[])'](voter3TokenAddresses, voter3TokenIds);
+      await freezeVoting.connect(voter3).castFreezeVote(voter3TokenAddresses, voter3TokenIds);
 
       // Vote count should be sum of weights (1 + 2 = 3)
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(TOKEN1_WEIGHT + TOKEN2_WEIGHT);
@@ -304,9 +285,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should create a new proposal after proposal period expiry', async () => {
       // First proposal
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
       const firstProposalTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Increase time to pass the freeze proposal period
@@ -314,9 +293,7 @@ describe('ERC721FreezeVotingV1', () => {
 
       // Second vote should create a new proposal
       await expect(
-        freezeVoting
-          .connect(voter2)
-          ['castFreezeVote(address[],uint256[])'](voter2TokenAddresses, voter2TokenIds),
+        freezeVoting.connect(voter2).castFreezeVote(voter2TokenAddresses, voter2TokenIds),
       )
         .to.emit(freezeVoting, 'FreezeProposalCreated')
         .withArgs(voter2.address);
@@ -337,9 +314,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should not be frozen when below threshold', async () => {
       // With threshold of 3, cast only 1 vote (voter1)
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
 
       // Total votes: 1, below threshold of 3
       void expect(await freezeVoting.isFrozen()).to.be.false;
@@ -347,12 +322,8 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should be frozen once threshold is met', async () => {
       // With threshold of 3, cast votes from both voter1 and voter2 (1 + 2 = 3)
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
-      await freezeVoting
-        .connect(voter2)
-        ['castFreezeVote(address[],uint256[])'](voter2TokenAddresses, voter2TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter2).castFreezeVote(voter2TokenAddresses, voter2TokenIds);
 
       // Total votes: 3, equal to threshold of 3
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -360,9 +331,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should automatically unfreeze after freeze period', async () => {
       // Cast enough votes to exceed threshold
-      await freezeVoting
-        .connect(voter3)
-        ['castFreezeVote(address[],uint256[])'](voter3TokenAddresses, voter3TokenIds);
+      await freezeVoting.connect(voter3).castFreezeVote(voter3TokenAddresses, voter3TokenIds);
 
       // Should be frozen initially
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -376,9 +345,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should allow owner to unfreeze manually', async () => {
       // Cast enough votes to exceed threshold
-      await freezeVoting
-        .connect(voter3)
-        ['castFreezeVote(address[],uint256[])'](voter3TokenAddresses, voter3TokenIds);
+      await freezeVoting.connect(voter3).castFreezeVote(voter3TokenAddresses, voter3TokenIds);
 
       // Should be frozen
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -396,9 +363,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should not allow non-owner to unfreeze', async () => {
       // Cast enough votes to exceed threshold
-      await freezeVoting
-        .connect(voter3)
-        ['castFreezeVote(address[],uint256[])'](voter3TokenAddresses, voter3TokenIds);
+      await freezeVoting.connect(voter3).castFreezeVote(voter3TokenAddresses, voter3TokenIds);
 
       // Non-owner tries to unfreeze
       await expect(freezeVoting.connect(voter1).unfreeze()).to.be.revertedWithCustomError(
@@ -412,9 +377,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should track freeze status across multiple proposals', async () => {
       // First proposal: voter3 votes with both NFTs to meet threshold
-      await freezeVoting
-        .connect(voter3)
-        ['castFreezeVote(address[],uint256[])'](voter3TokenAddresses, voter3TokenIds);
+      await freezeVoting.connect(voter3).castFreezeVote(voter3TokenAddresses, voter3TokenIds);
 
       // DAO should be frozen
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -426,17 +389,13 @@ describe('ERC721FreezeVotingV1', () => {
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Start a new proposal with not enough votes
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
 
       // DAO should not be frozen with only voter1's vote
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Add voter2's vote to reach threshold
-      await freezeVoting
-        .connect(voter2)
-        ['castFreezeVote(address[],uint256[])'](voter2TokenAddresses, voter2TokenIds);
+      await freezeVoting.connect(voter2).castFreezeVote(voter2TokenAddresses, voter2TokenIds);
 
       // DAO should be frozen again
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -494,9 +453,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should affect freeze status when threshold is updated', async () => {
       // Cast votes to meet the threshold of 3
-      await freezeVoting
-        .connect(voter3)
-        ['castFreezeVote(address[],uint256[])'](voter3TokenAddresses, voter3TokenIds);
+      await freezeVoting.connect(voter3).castFreezeVote(voter3TokenAddresses, voter3TokenIds);
 
       // DAO should be frozen
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -523,9 +480,7 @@ describe('ERC721FreezeVotingV1', () => {
       ).to.be.false;
 
       // User votes with token
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
 
       // Get the proposal created timestamp
       const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
@@ -542,9 +497,7 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should reset token voting status when unfreeze is called', async () => {
       // User votes with token
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
 
       // Get the created timestamp
       const createdTimestamp = await freezeVoting.freezeProposalCreated();
@@ -565,9 +518,7 @@ describe('ERC721FreezeVotingV1', () => {
       expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
 
       // User should be able to vote again with the same token
-      await freezeVoting
-        .connect(voter1)
-        ['castFreezeVote(address[],uint256[])'](voter1TokenAddresses, voter1TokenIds);
+      await freezeVoting.connect(voter1).castFreezeVote(voter1TokenAddresses, voter1TokenIds);
       const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // The token should be marked as voted for the new proposal
@@ -583,7 +534,47 @@ describe('ERC721FreezeVotingV1', () => {
 
   describe('Version', () => {
     it('should return the correct version number', async () => {
-      expect(await freezeVoting.getVersion()).to.equal(1);
+      expect(await freezeVoting.version()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', () => {
+    it('should support the IERC721FreezeVotingV1 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IERC721FreezeVotingV1__factory.createInterface(), [
+            IBaseFreezeVotingV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IBaseFreezeVotingV1 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IBaseFreezeVotingV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IERC165 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IVersion interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should not support a random interface', async () => {
+      void expect(await freezeVoting.supportsInterface('0x12345678')).to.be.false;
     });
   });
 
