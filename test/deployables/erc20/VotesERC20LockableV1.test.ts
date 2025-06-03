@@ -57,6 +57,7 @@ describe('VotesERC20LockableV1', () => {
   let tokenRecipient: SignerWithAddress;
   let spender: SignerWithAddress;
   const TRANSFER_ROLE = ethers.id('TRANSFER_ROLE');
+  const TRANSFER_TO_ROLE = ethers.id('TRANSFER_TO_ROLE');
   const MINTER_ROLE = ethers.id('MINTER_ROLE');
 
   beforeEach(async () => {
@@ -341,6 +342,20 @@ describe('VotesERC20LockableV1', () => {
         describe('when caller is whitelisted', () => {
           beforeEach(async () => {
             await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+            await proxy
+              .connect(tokenHolder)
+              .transfer(tokenRecipient.address, ethers.parseEther('1'));
+          });
+
+          it('should transfer tokens', async () => {
+            expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+            expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
+          });
+        });
+
+        describe('when recipient is whitelisted', () => {
+          beforeEach(async () => {
+            await proxy.connect(owner).grantRole(TRANSFER_TO_ROLE, tokenRecipient.address);
             await proxy
               .connect(tokenHolder)
               .transfer(tokenRecipient.address, ethers.parseEther('1'));
