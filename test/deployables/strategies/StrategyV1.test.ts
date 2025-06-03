@@ -147,8 +147,8 @@ describe('StrategyV1', () => {
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           1_000_001n,
-          [],
-          [],
+          [await mockAdapter1.getAddress()],
+          [await mockProposerAdapter1.getAddress()],
           lightAccountFactoryMockAddress,
         ),
       ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
@@ -161,8 +161,8 @@ describe('StrategyV1', () => {
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           499_999n,
-          [],
-          [],
+          [await mockAdapter1.getAddress()],
+          [await mockProposerAdapter1.getAddress()],
           lightAccountFactoryMockAddress,
         ),
       ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
@@ -174,8 +174,8 @@ describe('StrategyV1', () => {
         DEFAULT_VOTING_PERIOD,
         0n, // Zero quorum threshold
         DEFAULT_BASIS_NUMERATOR,
-        [],
-        [],
+        [await mockAdapter1.getAddress()],
+        [await mockProposerAdapter1.getAddress()],
         lightAccountFactoryMockAddress,
       );
       expect(await testStrategy.quorumThreshold()).to.equal(0n);
@@ -187,8 +187,8 @@ describe('StrategyV1', () => {
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         500_000n, // 50% basis numerator
-        [],
-        [],
+        [await mockAdapter1.getAddress()],
+        [await mockProposerAdapter1.getAddress()],
         lightAccountFactoryMockAddress,
       );
       expect(await testStrategy.basisNumerator()).to.equal(500_000n);
@@ -201,8 +201,8 @@ describe('StrategyV1', () => {
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           1_000_000n, // 100% basis numerator - now invalid
-          [],
-          [],
+          [await mockAdapter1.getAddress()],
+          [await mockProposerAdapter1.getAddress()],
           lightAccountFactoryMockAddress,
         ),
       ).to.be.revertedWithCustomError(strategyImplementation, 'InvalidBasisNumerator');
@@ -215,11 +215,39 @@ describe('StrategyV1', () => {
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         maxValidBasis,
-        [],
-        [],
+        [await mockAdapter1.getAddress()],
+        [await mockProposerAdapter1.getAddress()],
         lightAccountFactoryMockAddress,
       );
       expect(await testStrategy.basisNumerator()).to.equal(maxValidBasis);
+    });
+
+    it('should revert if initialProposerAdapters is empty', async () => {
+      await expect(
+        deployStrategyProxy(
+          proposerInitializer.address,
+          DEFAULT_VOTING_PERIOD,
+          DEFAULT_QUORUM_THRESHOLD,
+          DEFAULT_BASIS_NUMERATOR,
+          defaultInitialVotingAdapters, // Non-empty
+          [], // Empty proposer adapters
+          lightAccountFactoryMockAddress,
+        ),
+      ).to.be.revertedWithCustomError(strategyImplementation, 'NoProposerAdapters');
+    });
+
+    it('should revert if initialVotingAdapters is empty', async () => {
+      await expect(
+        deployStrategyProxy(
+          proposerInitializer.address,
+          DEFAULT_VOTING_PERIOD,
+          DEFAULT_QUORUM_THRESHOLD,
+          DEFAULT_BASIS_NUMERATOR,
+          [], // Empty voting adapters
+          defaultInitialProposerAdapters, // Non-empty
+          lightAccountFactoryMockAddress,
+        ),
+      ).to.be.revertedWithCustomError(strategyImplementation, 'NoVotingAdapters');
     });
   });
 
@@ -296,60 +324,82 @@ describe('StrategyV1', () => {
   });
 
   describe('isProposer', () => {
-    it('should return false if no proposer adapters are configured at init', async () => {
-      const noProposerAdapterStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
-        DEFAULT_VOTING_PERIOD,
-        DEFAULT_QUORUM_THRESHOLD,
-        DEFAULT_BASIS_NUMERATOR,
-        defaultInitialVotingAdapters,
-        [], // NO proposer adapters
-        lightAccountFactoryMockAddress,
-      );
-      void expect(await noProposerAdapterStrategy.isProposer(user1.address, ethers.ZeroHash)).to.be
-        .false;
-    });
-
     it('should return true if any configured adapter identifies the address as a proposer', async () => {
+      const mockProposerAdapter1Address = await mockProposerAdapter1.getAddress();
+      const mockProposerAdapter2Address = await mockProposerAdapter2.getAddress();
       const multiProposerStrategy = await deployStrategyProxy(
         proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
         defaultInitialVotingAdapters,
-        [await mockProposerAdapter1.getAddress(), await mockProposerAdapter2.getAddress()],
+        [mockProposerAdapter1Address, mockProposerAdapter2Address],
         lightAccountFactoryMockAddress,
       );
 
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
       await mockProposerAdapter2.setProposerStatus(user1.address, true);
 
-      void expect(await multiProposerStrategy.isProposer(user1.address, ethers.ZeroHash)).to.be
-        .true;
+      // Check against adapter 1 (should be false)
+      void expect(
+        await multiProposerStrategy.isProposer(
+          user1.address,
+          mockProposerAdapter1Address,
+          ethers.ZeroHash,
+        ),
+      ).to.be.false;
+
+      // Check against adapter 2 (should be true)
+      void expect(
+        await multiProposerStrategy.isProposer(
+          user1.address,
+          mockProposerAdapter2Address,
+          ethers.ZeroHash,
+        ),
+      ).to.be.true;
     });
 
     it('should return false if no configured adapter identifies the address as a proposer', async () => {
+      const mockProposerAdapter1Address = await mockProposerAdapter1.getAddress();
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
-      void expect(await strategy.isProposer(user1.address, ethers.ZeroHash)).to.be.false;
+      void expect(
+        await strategy.isProposer(user1.address, mockProposerAdapter1Address, ethers.ZeroHash),
+      ).to.be.false;
 
+      const mockProposerAdapter2Address = await mockProposerAdapter2.getAddress();
       const multiProposerStrategy = await deployStrategyProxy(
         proposerInitializer.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
         defaultInitialVotingAdapters,
-        [await mockProposerAdapter1.getAddress(), await mockProposerAdapter2.getAddress()],
+        [mockProposerAdapter1Address, mockProposerAdapter2Address],
         lightAccountFactoryMockAddress,
       );
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
       await mockProposerAdapter2.setProposerStatus(user1.address, false);
-      void expect(await multiProposerStrategy.isProposer(user1.address, ethers.ZeroHash)).to.be
-        .false;
+      void expect(
+        await multiProposerStrategy.isProposer(
+          user1.address,
+          mockProposerAdapter1Address,
+          ethers.ZeroHash,
+        ),
+      ).to.be.false;
+      void expect(
+        await multiProposerStrategy.isProposer(
+          user1.address,
+          mockProposerAdapter2Address,
+          ethers.ZeroHash,
+        ),
+      ).to.be.false;
     });
 
     it('should return true if the first configured adapter identifies the address as a proposer', async () => {
+      const mockProposerAdapter1Address = await mockProposerAdapter1.getAddress();
       await mockProposerAdapter1.setProposerStatus(user1.address, true);
-      void expect(await strategy.isProposer(user1.address, ethers.ZeroHash)).to.be.true;
+      void expect(
+        await strategy.isProposer(user1.address, mockProposerAdapter1Address, ethers.ZeroHash),
+      ).to.be.true;
     });
   });
 
