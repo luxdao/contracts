@@ -5,6 +5,8 @@ import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBaseV1.sol";
 import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {IERC4337VoterSupportV1} from "../../interfaces/decent/deployables/IERC4337VoterSupportV1.sol";
+import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
@@ -317,16 +319,12 @@ contract StrategyV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    )
-        public
-        view
-        virtual
-        override(Version, ERC4337VoterSupportV1)
-        returns (bool)
-    {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IStrategyV1).interfaceId ||
             interfaceId == type(IStrategyBaseV1).interfaceId ||
+            interfaceId == type(IERC4337VoterSupportV1).interfaceId ||
+            interfaceId == type(ISmartAccountValidationV1).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
