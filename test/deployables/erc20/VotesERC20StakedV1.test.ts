@@ -247,7 +247,7 @@ describe('VotesERC20StakedV1', () => {
     });
 
     it('should return the correct version number', async () => {
-      expect(await votesERC20Staked.getVersion()).to.equal(1);
+      expect(await votesERC20Staked.version()).to.equal(1);
     });
   });
 
@@ -450,6 +450,12 @@ describe('VotesERC20StakedV1', () => {
       ]);
     });
 
+    it('should not allow non-owner to add rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.connect(alice).addRewardsTokens([await rewardsTokenA.getAddress()]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
+    });
+
     it('should return rewards token data', async function () {
       const [rewardsRate, rewardsDistributed, rewardsClaimed] =
         await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress());
@@ -549,8 +555,8 @@ describe('VotesERC20StakedV1', () => {
       await votesERC20Staked.connect(alice).unstake(ethers.parseEther('10'));
 
       expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
-      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
 
+      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
       expect(await stakedToken.balanceOf(await votesERC20Staked.getAddress())).to.equal(
         ethers.parseEther('0'),
       );
@@ -559,6 +565,33 @@ describe('VotesERC20StakedV1', () => {
 
       expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
         ethers.parseEther('0'),
+        stakeTimestamp,
+      ]);
+
+      expect(
+        await votesERC20Staked.stakerRewardsData(await rewardsTokenA.getAddress(), alice.address),
+      ).to.deep.equal([0n, 0n]);
+    });
+
+    it('should allow users to unstake less tokens than their staked amount', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+      const stakeTimestamp = await time.latest();
+
+      // move forward 7 days
+      await time.increase(604800);
+
+      await votesERC20Staked.connect(alice).unstake(ethers.parseEther('6'));
+
+      expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('4'));
+
+      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('6'));
+      expect(await stakedToken.balanceOf(await votesERC20Staked.getAddress())).to.equal(
+        ethers.parseEther('4'),
+      );
+
+      expect(await votesERC20Staked.totalStaked()).to.equal(ethers.parseEther('4'));
+      expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
+        ethers.parseEther('4'),
         stakeTimestamp,
       ]);
 

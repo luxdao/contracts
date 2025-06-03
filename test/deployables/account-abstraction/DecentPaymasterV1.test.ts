@@ -8,6 +8,7 @@ import {
   IDecentPaymasterV1__factory,
   IERC165__factory,
   IPaymaster__factory,
+  ISmartAccountValidationV1__factory,
   IVersion__factory,
   MockEntryPoint,
   MockEntryPoint__factory,
@@ -171,7 +172,7 @@ describe('DecentPaymasterV1', function () {
     });
 
     it('Should have a version', async function () {
-      const version = await decentPaymaster.getVersion();
+      const version = await decentPaymaster.version();
       expect(version).to.equal(1);
     });
   });
@@ -365,48 +366,44 @@ describe('DecentPaymasterV1', function () {
   });
 
   describe('ERC165', function () {
-    // Interface IDs
-    let iPaymasterInterfaceId: string;
-    let iDecentPaymasterInterfaceId: string;
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
-
-    beforeEach(async function () {
-      // Calculate IPaymaster interface ID
-      const IPaymasterInterface = IPaymaster__factory.createInterface();
-      iPaymasterInterfaceId = calculateInterfaceId(IPaymasterInterface);
-
-      // Calculate IDecentPaymaster interface ID
-      const IDecentPaymasterInterface = IDecentPaymasterV1__factory.createInterface();
-      iDecentPaymasterInterfaceId = calculateInterfaceId(IDecentPaymasterInterface);
-
-      // Calculate IVersion interface ID
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      // Calculate IERC165 interface ID
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-    });
-
     it('Should support IERC165 interface', async function () {
-      const supported = await decentPaymaster.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await decentPaymaster.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IPaymaster interface', async function () {
-      const supported = await decentPaymaster.supportsInterface(iPaymasterInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await decentPaymaster.supportsInterface(
+          calculateInterfaceId(IPaymaster__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IDecentPaymaster interface', async function () {
-      const supported = await decentPaymaster.supportsInterface(iDecentPaymasterInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await decentPaymaster.supportsInterface(
+          calculateInterfaceId(IDecentPaymasterV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IVersion interface', async function () {
-      const supported = await decentPaymaster.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await decentPaymaster.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('Should support ISmartAccountValidationV1 interface', async function () {
+      void expect(
+        await decentPaymaster.supportsInterface(
+          calculateInterfaceId(ISmartAccountValidationV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should not support random interface', async function () {
@@ -418,7 +415,7 @@ describe('DecentPaymasterV1', function () {
 
   describe('Version', () => {
     it('should return the correct version number', async () => {
-      expect(await decentPaymaster.getVersion()).to.equal(1);
+      expect(await decentPaymaster.version()).to.equal(1);
     });
   });
 

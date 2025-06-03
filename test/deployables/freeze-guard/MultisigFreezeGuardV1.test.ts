@@ -5,6 +5,8 @@ import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IERC165__factory,
+  IFreezeGuardBaseV1__factory,
+  IGuard__factory,
   IMultisigFreezeGuardV1__factory,
   IVersion__factory,
   MockFreezeVoting,
@@ -29,10 +31,13 @@ async function deployMultisigFreezeGuardProxy(
 ): Promise<MultisigFreezeGuardV1> {
   // Create initialization data with function selector
   const initializeInterface = MultisigFreezeGuardV1__factory.createInterface();
-  const fullInitData = initializeInterface.encodeFunctionData(
-    'initialize(uint32,uint32,address,address,address)',
-    [timelockPeriod, executionPeriod, owner.address, freezeVoting, childGnosisSafe],
-  );
+  const fullInitData = initializeInterface.encodeFunctionData('initialize', [
+    timelockPeriod,
+    executionPeriod,
+    owner.address,
+    freezeVoting,
+    childGnosisSafe,
+  ]);
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
@@ -102,39 +107,9 @@ describe('MultisigFreezeGuardV1', () => {
       expect(await multisigFreezeGuard.executionPeriod()).to.equal(EXECUTION_PERIOD);
     });
 
-    it('should emit MultisigFreezeGuardSetup event on initialization', async () => {
-      const freezeVotingAddress = await mockFreezeVoting.getAddress();
-      const mockSafeAddress = await mockSafe.getAddress();
-
-      // Create initialization data
-      const initializeInterface = MultisigFreezeGuardV1__factory.createInterface();
-      const fullInitData = initializeInterface.encodeFunctionData(
-        'initialize(uint32,uint32,address,address,address)',
-        [TIMELOCK_PERIOD, EXECUTION_PERIOD, owner.address, freezeVotingAddress, mockSafeAddress],
-      );
-
-      // Deploy the proxy directly
-      const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(masterCopy, fullInitData);
-
-      const proxyAddress = await proxy.getAddress();
-
-      // Connect to the deployed contract
-      const deployedGuard = MultisigFreezeGuardV1__factory.connect(proxyAddress, owner);
-
-      // Check event emission
-      const filter = deployedGuard.filters.MultisigFreezeGuardSetup;
-      const events = await deployedGuard.queryFilter(filter);
-
-      expect(events.length).to.equal(1);
-      expect(events[0].args[0]).to.equal(proxyDeployer.address); // creator
-      expect(events[0].args[1]).to.equal(owner.address); // owner
-      expect(events[0].args[2]).to.equal(freezeVotingAddress); // freezeVoting
-      expect(events[0].args[3]).to.equal(mockSafeAddress); // childGnosisSafe
-    });
-
     it('should not allow reinitialization', async () => {
       await expect(
-        multisigFreezeGuard['initialize(uint32,uint32,address,address,address)'](
+        multisigFreezeGuard.initialize(
           50,
           100,
           user.address,
@@ -151,7 +126,7 @@ describe('MultisigFreezeGuardV1', () => {
       );
 
       await expect(
-        implementationContract['initialize(uint32,uint32,address,address,address)'](
+        implementationContract.initialize(
           50,
           100,
           owner.address,
@@ -479,7 +454,7 @@ describe('MultisigFreezeGuardV1', () => {
   describe('Version', () => {
     // Use the shared version test utility
     it('should return the correct version number', async () => {
-      expect(await multisigFreezeGuard.getVersion()).to.equal(1);
+      expect(await multisigFreezeGuard.version()).to.equal(1);
     });
   });
 
@@ -487,14 +462,27 @@ describe('MultisigFreezeGuardV1', () => {
     let iVersionInterfaceId: string;
     let iMultisigFreezeGuardV1InterfaceId: string;
     let iERC165InterfaceId: string;
+    let iFreezeGuardBaseV1InterfaceId: string;
+    let iGuardInterfaceId: string;
 
     beforeEach(async function () {
       // Dynamically calculate interface IDs
       const IVersionInterface = IVersion__factory.createInterface();
       iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
 
+      const IGuardInterface = IGuard__factory.createInterface();
+      iGuardInterfaceId = calculateInterfaceId(IGuardInterface);
+
+      const IFreezeGuardBaseV1Interface = IFreezeGuardBaseV1__factory.createInterface();
+      iFreezeGuardBaseV1InterfaceId = calculateInterfaceId(IFreezeGuardBaseV1Interface, [
+        IGuardInterface,
+      ]);
+
       const IMultisigFreezeGuardV1Interface = IMultisigFreezeGuardV1__factory.createInterface();
-      iMultisigFreezeGuardV1InterfaceId = calculateInterfaceId(IMultisigFreezeGuardV1Interface);
+      iMultisigFreezeGuardV1InterfaceId = calculateInterfaceId(IMultisigFreezeGuardV1Interface, [
+        IFreezeGuardBaseV1Interface,
+        IGuardInterface,
+      ]);
 
       const IERC165Interface = IERC165__factory.createInterface();
       iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
@@ -514,6 +502,16 @@ describe('MultisigFreezeGuardV1', () => {
       const supported = await multisigFreezeGuard.supportsInterface(
         iMultisigFreezeGuardV1InterfaceId,
       );
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IFreezeGuardBaseV1 interface', async function () {
+      const supported = await multisigFreezeGuard.supportsInterface(iFreezeGuardBaseV1InterfaceId);
+      void expect(supported).to.be.true;
+    });
+
+    it('Should support IGuard interface', async function () {
+      const supported = await multisigFreezeGuard.supportsInterface(iGuardInterfaceId);
       void expect(supported).to.be.true;
     });
 

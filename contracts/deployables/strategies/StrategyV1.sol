@@ -1,0 +1,331 @@
+// SPDX-License-Identifier: AGPL-3.0
+pragma solidity ^0.8.30;
+
+import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
+import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBaseV1.sol";
+import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
+import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {Version} from "../Version.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+contract StrategyV1 is
+    Initializable,
+    IStrategyV1,
+    ERC4337VoterSupportV1,
+    Version
+{
+    uint16 public constant VERSION = 1;
+
+    uint256 public constant BASIS_DENOMINATOR = 1_000_000;
+
+    address internal _azorius;
+    uint32 internal _votingPeriod;
+    uint256 internal _quorumThreshold;
+    uint256 internal _basisNumerator;
+    mapping(uint32 => ProposalVotingDetails) internal _proposalVotingDetails;
+
+    address[] internal _votingAdapters;
+    address[] internal _proposerAdapters;
+
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address azorius_,
+        uint32 votingPeriod_,
+        uint256 quorumThreshold_,
+        uint256 basisNumerator_,
+        address[] memory votingAdapters_,
+        address[] memory proposerAdapters_,
+        address lightAccountFactory_
+    ) public virtual override initializer {
+        if (azorius_ == address(0)) revert InvalidAzoriusAddress();
+
+        __ERC4337VoterSupportV1_init(lightAccountFactory_);
+
+        _azorius = azorius_;
+
+        if (votingPeriod_ == 0) revert InvalidVotingPeriod();
+        _votingPeriod = votingPeriod_;
+
+        _quorumThreshold = quorumThreshold_;
+
+        if (
+            basisNumerator_ >= BASIS_DENOMINATOR ||
+            basisNumerator_ < BASIS_DENOMINATOR / 2
+        ) revert InvalidBasisNumerator();
+        _basisNumerator = basisNumerator_;
+
+        for (uint256 i = 0; i < votingAdapters_.length; i++) {
+            address adapter_ = votingAdapters_[i];
+            if (adapter_ == address(0)) revert VotingAdapterIsZeroAddress();
+            for (uint256 j = 0; j < _votingAdapters.length; j++) {
+                if (address(_votingAdapters[j]) == adapter_)
+                    revert VotingAdapterAlreadyExists();
+            }
+            _votingAdapters.push(adapter_);
+        }
+
+        for (uint256 i = 0; i < proposerAdapters_.length; i++) {
+            address adapter_ = proposerAdapters_[i];
+            if (adapter_ == address(0)) revert ProposerAdapterIsZeroAddress();
+            for (uint256 j = 0; j < _proposerAdapters.length; j++) {
+                if (address(_proposerAdapters[j]) == adapter_)
+                    revert ProposerAdapterAlreadyExists();
+            }
+            _proposerAdapters.push(adapter_);
+        }
+    }
+
+    function azorius() external view virtual override returns (address) {
+        return _azorius;
+    }
+
+    function votingPeriod() external view virtual override returns (uint32) {
+        return _votingPeriod;
+    }
+
+    function quorumThreshold()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        return _quorumThreshold;
+    }
+
+    function basisNumerator() external view virtual override returns (uint256) {
+        return _basisNumerator;
+    }
+
+    function proposalVotingDetails(
+        uint32 proposalId
+    ) external view virtual override returns (ProposalVotingDetails memory) {
+        return _proposalVotingDetails[proposalId];
+    }
+
+    function votingAdapters()
+        external
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _votingAdapters;
+    }
+
+    function proposerAdapters()
+        external
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _proposerAdapters;
+    }
+
+    function initializeProposal(
+        uint32 proposalId,
+        bytes32[] memory,
+        bytes memory
+    ) external virtual override {
+        if (msg.sender != _azorius) revert InvalidAzoriusAddress();
+        if (_votingAdapters.length == 0) revert NoVotingAdapters();
+
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            proposalId
+        ];
+        proposal.votingStartTimestamp = uint48(block.timestamp);
+        proposal.votingEndTimestamp = uint48(block.timestamp + _votingPeriod);
+        proposal.votingStartBlock = uint32(block.number);
+        proposal.yesVotes = 0;
+        proposal.noVotes = 0;
+        proposal.abstainVotes = 0;
+
+        emit ProposalInitialized(
+            proposalId,
+            proposal.votingStartTimestamp,
+            proposal.votingEndTimestamp,
+            proposal.votingStartBlock
+        );
+    }
+
+    function vote(
+        uint32 _proposalId,
+        uint8 _voteType,
+        address[] calldata _votingAdaptersToUse,
+        bytes[] calldata _votingAdapterVoteData
+    ) external virtual override {
+        if (_votingAdaptersToUse.length != _votingAdapterVoteData.length)
+            revert MismatchedInputs();
+
+        address resolvedVoter = voter(msg.sender);
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            _proposalId
+        ];
+
+        if (
+            proposal.votingEndTimestamp == 0 ||
+            block.timestamp > proposal.votingEndTimestamp
+        ) {
+            revert ProposalNotFoundOrNotActive();
+        }
+
+        uint256 totalWeightForThisVoteTransaction = 0;
+        uint256 numConfiguredAdapters = _votingAdapters.length;
+
+        for (uint256 i = 0; i < _votingAdaptersToUse.length; i++) {
+            bool isValidAndConfiguredAdapter = false;
+            uint256 configuredAdapterIndex = 0;
+
+            for (uint256 j = 0; j < numConfiguredAdapters; j++) {
+                if (_votingAdapters[j] == _votingAdaptersToUse[i]) {
+                    isValidAndConfiguredAdapter = true;
+                    configuredAdapterIndex = j;
+                    break;
+                }
+            }
+
+            if (!isValidAndConfiguredAdapter) {
+                revert InvalidVotingAdapter();
+            }
+
+            totalWeightForThisVoteTransaction += IVotingAdapterBaseV1(
+                _votingAdapters[configuredAdapterIndex]
+            ).recordVote(resolvedVoter, _proposalId, _votingAdapterVoteData[i]);
+        }
+
+        if (totalWeightForThisVoteTransaction == 0) revert NoVotingWeight();
+
+        if (_voteType == uint8(VoteType.YES)) {
+            proposal.yesVotes += totalWeightForThisVoteTransaction;
+        } else if (_voteType == uint8(VoteType.NO)) {
+            proposal.noVotes += totalWeightForThisVoteTransaction;
+        } else if (_voteType == uint8(VoteType.ABSTAIN)) {
+            proposal.abstainVotes += totalWeightForThisVoteTransaction;
+        } else {
+            revert InvalidVoteType();
+        }
+
+        emit Voted(
+            resolvedVoter,
+            _proposalId,
+            VoteType(_voteType),
+            totalWeightForThisVoteTransaction
+        );
+    }
+
+    function isQuorumMet(
+        uint32 _proposalId
+    ) public view virtual override returns (bool) {
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            _proposalId
+        ];
+
+        if (proposal.votingEndTimestamp == 0) {
+            revert ProposalNotInitialized();
+        }
+
+        uint256 totalVotesForQuorum = proposal.yesVotes + proposal.abstainVotes;
+        return totalVotesForQuorum >= _quorumThreshold;
+    }
+
+    function isBasisMet(
+        uint32 _proposalId
+    ) public view virtual override returns (bool) {
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            _proposalId
+        ];
+
+        if (proposal.votingEndTimestamp == 0) {
+            revert ProposalNotInitialized();
+        }
+
+        return
+            (proposal.yesVotes * BASIS_DENOMINATOR) >
+            ((proposal.yesVotes + proposal.noVotes) * _basisNumerator);
+    }
+
+    function isPassed(
+        uint32 _proposalId
+    ) external view virtual override returns (bool) {
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            _proposalId
+        ];
+
+        if (proposal.votingEndTimestamp == 0) {
+            revert ProposalNotInitialized();
+        }
+
+        if (block.timestamp <= proposal.votingEndTimestamp) {
+            return false;
+        }
+
+        return isQuorumMet(_proposalId) && isBasisMet(_proposalId);
+    }
+
+    function isProposer(
+        address _address
+    ) external view virtual override returns (bool) {
+        if (_proposerAdapters.length == 0) return false;
+        for (uint256 i = 0; i < _proposerAdapters.length; i++) {
+            if (
+                IProposerAdapterBaseV1(_proposerAdapters[i]).isProposer(
+                    _address
+                )
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getVotingTimestamps(
+        uint32 _proposalId
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint48 startTime, uint48 endTime)
+    {
+        ProposalVotingDetails storage details = _proposalVotingDetails[
+            _proposalId
+        ];
+        if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
+        return (details.votingStartTimestamp, details.votingEndTimestamp);
+    }
+
+    function getVotingStartBlock(
+        uint32 _proposalId
+    ) external view virtual override returns (uint32 votingStartBlock) {
+        ProposalVotingDetails storage details = _proposalVotingDetails[
+            _proposalId
+        ];
+        if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
+        return details.votingStartBlock;
+    }
+
+    function version() public view virtual override returns (uint16) {
+        return VERSION;
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        virtual
+        override(Version, ERC4337VoterSupportV1)
+        returns (bool)
+    {
+        return
+            interfaceId == type(IStrategyV1).interfaceId ||
+            interfaceId == type(IStrategyBaseV1).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+}

@@ -9,14 +9,14 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * @dev Abstract contract providing standardized contract identification
  *
  * Inheriting contracts MUST implement:
- * - getVersion()
+ * - version()
  */
 abstract contract Version is IVersion, ERC165 {
     /**
      * @dev Returns the version number of this contract implementation
      * Inheriting contracts MUST override this function.
      */
-    function getVersion() public view virtual returns (uint16);
+    function version() public view virtual returns (uint16);
 
     function supportsInterface(
         bytes4 interfaceId

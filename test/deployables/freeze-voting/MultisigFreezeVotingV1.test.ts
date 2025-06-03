@@ -4,11 +4,16 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
+  IBaseFreezeVotingV1__factory,
+  IERC165__factory,
+  IMultisigFreezeVotingV1__factory,
+  IVersion__factory,
   MockSafe,
   MockSafe__factory,
   MultisigFreezeVotingV1,
   MultisigFreezeVotingV1__factory,
 } from '../../../typechain-types';
+import { calculateInterfaceId } from '../../helpers/utils';
 import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 // Helper function for deploying MultisigFreezeVotingV1 proxy instances using ERC1967Proxy
@@ -481,7 +486,47 @@ describe('MultisigFreezeVotingV1', () => {
 
   describe('Version', () => {
     it('should return the correct version number', async () => {
-      expect(await freezeVoting.getVersion()).to.equal(1);
+      expect(await freezeVoting.version()).to.equal(1);
+    });
+  });
+
+  describe('ERC165', () => {
+    it('should support the IERC721FreezeVotingV1 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IMultisigFreezeVotingV1__factory.createInterface(), [
+            IBaseFreezeVotingV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IBaseFreezeVotingV1 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IBaseFreezeVotingV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IERC165 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IVersion interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should not support a random interface', async () => {
+      void expect(await freezeVoting.supportsInterface('0x12345678')).to.be.false;
     });
   });
 
