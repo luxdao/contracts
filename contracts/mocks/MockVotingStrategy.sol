@@ -29,9 +29,11 @@ contract MockVotingStrategy is IStrategyBaseV1 {
     }
 
     function isProposer(
-        address _proposer
+        address _address,
+        address,
+        bytes memory
     ) external view override returns (bool) {
-        return _proposer == proposer;
+        return _address == proposer;
     }
 
     function getVotingTimestamps(

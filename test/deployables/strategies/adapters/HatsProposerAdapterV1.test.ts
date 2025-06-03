@@ -90,19 +90,37 @@ describe('HatsProposerAdapterV1', () => {
 
     it('should return true if user wears a whitelisted hat', async () => {
       await mockHats.setWearerStatus(user1.address, HAT_ID_1, true);
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
+      );
       void expect(canPropose).to.be.true;
     });
 
     it('should return false if user does not wear any whitelisted hat', async () => {
       await mockHats.setWearerStatus(user1.address, HAT_ID_1, false);
       await mockHats.setWearerStatus(user1.address, HAT_ID_2, true); // Wears a non-whitelisted hat
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
+      );
+      void expect(canPropose).to.be.false;
+    });
+
+    it('should return false if user wears a hat that is not whitelisted', async () => {
+      await mockHats.setWearerStatus(user1.address, HAT_ID_2, true); // Wears a non-whitelisted hat
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_2]),
+      );
       void expect(canPropose).to.be.false;
     });
 
     it('should return false if user wears no hats', async () => {
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
+      );
       void expect(canPropose).to.be.false;
     });
 
@@ -115,7 +133,10 @@ describe('HatsProposerAdapterV1', () => {
       );
       await mockHats.setWearerStatus(user1.address, HAT_ID_1, false);
       await mockHats.setWearerStatus(user1.address, HAT_ID_2, true); // Wears the second whitelisted hat
-      const canPropose = await localAdapter.isProposer(user1.address);
+      const canPropose = await localAdapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_2]),
+      );
       void expect(canPropose).to.be.true;
     });
   });

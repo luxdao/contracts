@@ -56,6 +56,14 @@ contract StrategyV1 is
         _votingAdapters = votingAdapters_;
         _proposerAdapters = proposerAdapters_;
 
+        if (_proposerAdapters.length == 0) {
+            revert NoProposerAdapters();
+        }
+
+        if (_votingAdapters.length == 0) {
+            revert NoVotingAdapters();
+        }
+
         if (
             basisNumerator_ >= BASIS_DENOMINATOR ||
             basisNumerator_ < BASIS_DENOMINATOR / 2
@@ -254,19 +262,27 @@ contract StrategyV1 is
     }
 
     function isProposer(
-        address _address
+        address _address,
+        address _proposerAdapter,
+        bytes calldata _proposerAdapterData
     ) external view virtual override returns (bool) {
-        if (_proposerAdapters.length == 0) return false;
+        bool foundAdapter = false;
         for (uint256 i = 0; i < _proposerAdapters.length; i++) {
-            if (
-                IProposerAdapterBaseV1(_proposerAdapters[i]).isProposer(
-                    _address
-                )
-            ) {
-                return true;
+            if (_proposerAdapters[i] == _proposerAdapter) {
+                foundAdapter = true;
+                break;
             }
         }
-        return false;
+
+        if (!foundAdapter) {
+            revert InvalidProposerAdapter(_proposerAdapter);
+        }
+
+        return
+            IProposerAdapterBaseV1(_proposerAdapter).isProposer(
+                _address,
+                _proposerAdapterData
+            );
     }
 
     function getVotingTimestamps(
