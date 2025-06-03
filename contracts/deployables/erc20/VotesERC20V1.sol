@@ -32,8 +32,7 @@ contract VotesERC20V1 is
     function initialize(
         string memory name,
         string memory symbol,
-        address[] memory allocationAddresses,
-        uint256[] memory allocationAmounts,
+        Allocation[] memory allocations,
         address owner
     ) public virtual override initializer {
         __ERC20_init(name, symbol);
@@ -42,9 +41,9 @@ contract VotesERC20V1 is
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
 
-        uint256 holderCount = allocationAddresses.length;
+        uint256 holderCount = allocations.length;
         for (uint256 i; i < holderCount; ) {
-            _mint(allocationAddresses[i], allocationAmounts[i]);
+            _mint(allocations[i].to, allocations[i].amount);
             unchecked {
                 ++i;
             }
