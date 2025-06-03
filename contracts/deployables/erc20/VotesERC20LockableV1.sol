@@ -14,6 +14,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     uint256 internal _maxTotalSupply;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER_ROLE");
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     constructor() {
         _disableInitializers();
@@ -23,9 +24,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         if (
             _locked &&
             // overrides while locked
-            !(from == owner() || // owner can always transfer
-                hasRole(TRANSFER_ROLE, from) || // whitelisted addresses can always transfer
-                from == address(0)) && // can always mint when locked
+            !(hasRole(TRANSFER_ROLE, from) || from == address(0)) && // whitelisted addresses can always transfer // can always mint when locked
             to != address(0) // can always burn when locked
         ) {
             revert IsLocked();
@@ -43,6 +42,8 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     ) public virtual override initializer {
         super.initialize(name_, symbol_, allocations_, owner_);
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
+        _grantRole(TRANSFER_ROLE, owner_);
+        _grantRole(MINTER_ROLE, owner_);
         _locked = locked_;
         _maxTotalSupply = maxTotalSupply_;
     }
@@ -79,7 +80,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     function mint(
         address to,
         uint256 amount
-    ) external virtual override onlyOwner {
+    ) external virtual override onlyRole(MINTER_ROLE) {
         uint256 newTotalSupply = totalSupply() + amount;
         if (newTotalSupply > _maxTotalSupply) {
             revert ExceedMaxTotalSupply();
