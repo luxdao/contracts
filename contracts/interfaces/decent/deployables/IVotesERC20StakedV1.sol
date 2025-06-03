@@ -20,7 +20,11 @@ interface IVotesERC20StakedV1 {
     event Staked(address indexed staker, uint256 amount);
     event Unstaked(address indexed staker, uint256 amount);
     event RewardsTokenAdded(address indexed token);
-    event RewardsDistributed(address indexed token, uint256 amount, uint256 newRate);
+    event RewardsDistributed(
+        address indexed token,
+        uint256 amount,
+        uint256 newRate
+    );
     error NonTransferable();
     error ZeroStake();
     error ZeroUnstake();
@@ -74,6 +78,12 @@ interface IVotesERC20StakedV1 {
             uint256 rewardsDistributed,
             uint256 rewardsClaimed
         );
+
+    function distributableRewards() external view returns (uint256[] memory);
+
+    function distributableRewards(
+        address[] memory rewardsTokens_
+    ) external view returns (uint256[] memory);
 
     function stakerData(
         address staker
