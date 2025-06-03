@@ -103,7 +103,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     }
 
     function burn(uint256 amount) external virtual override {
-        _burn(_msgSender(), amount);
+        _burn(msg.sender, amount);
     }
 
     function _update(
