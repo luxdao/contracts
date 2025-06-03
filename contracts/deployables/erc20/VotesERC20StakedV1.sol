@@ -121,7 +121,7 @@ contract VotesERC20StakedV1 is
 
         for (uint256 i = 0; i < _tokens.length; ) {
             if (!_rewardsTokenDatas[_tokens[i]].enabled)
-                revert InvalidRewardsToken();
+                revert InvalidRewardsToken(_tokens[i]);
 
             _distributeRewards(_tokens[i]);
 
@@ -288,7 +288,7 @@ contract VotesERC20StakedV1 is
             uint256 rewardsClaimed
         )
     {
-        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken(token);
 
         return (
             _rewardsTokenDatas[token].rewardsRate,
@@ -322,7 +322,7 @@ contract VotesERC20StakedV1 is
         override
         returns (uint256 rewardRate, uint256 accumulatedRewards)
     {
-        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken(token);
 
         return (
             _rewardsTokenDatas[token].stakerRewardsRates[staker],

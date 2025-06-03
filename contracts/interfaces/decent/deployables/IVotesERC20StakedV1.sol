@@ -25,7 +25,7 @@ interface IVotesERC20StakedV1 {
     error ZeroStake();
     error ZeroUnstake();
     error ZeroStaked();
-    error InvalidRewardsToken();
+    error InvalidRewardsToken(address token);
     error DuplicateRewardsToken();
     error MinimumStakingPeriod();
 
