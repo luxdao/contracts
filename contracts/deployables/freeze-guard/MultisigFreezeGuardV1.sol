@@ -1,106 +1,77 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {BaseFreezeGuardV1} from "./BaseFreezeGuardV1.sol";
 import {Version} from "../Version.sol";
 import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMultisigFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
+import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-/**
- * Implementation of [IMultisigFreezeGuard](./interfaces/IMultisigFreezeGuard.md).
- */
 contract MultisigFreezeGuardV1 is
     IMultisigFreezeGuardV1,
+    ERC165,
     Version,
-    BaseFreezeGuardV1
+    Ownable2StepUpgradeable,
+    UUPSUpgradeable
 {
     uint16 private constant VERSION = 1;
 
-    /** Timelock period (in seconds). */
-    uint32 public timelockPeriod;
-
-    /** Execution period (in seconds). */
-    uint32 public executionPeriod;
-
-    /**
-     * Reference to the [IBaseFreezeVoting](./interfaces/IBaseFreezeVoting.md)
-     * implementation that determines whether the Safe is frozen.
-     */
-    IBaseFreezeVotingV1 public freezeVoting;
-
-    /** Reference to the Safe that can be frozen. */
-    ISafe public childGnosisSafe;
-
-    /** Mapping of signatures hash to the timestamp during which it was timelocked. */
+    IBaseFreezeVotingV1 internal _freezeVoting;
+    uint32 internal _timelockPeriod;
+    uint32 internal _executionPeriod;
+    ISafe internal _childGnosisSafe;
     mapping(bytes32 => uint48) internal transactionTimelocked;
-
-    event MultisigFreezeGuardSetup(
-        address creator,
-        address indexed owner,
-        address indexed freezeVoting,
-        address indexed childGnosisSafe
-    );
-    event TransactionTimelocked(
-        address indexed timelocker,
-        bytes32 indexed transactionHash,
-        bytes indexed signatures
-    );
-    event TimelockPeriodUpdated(uint32 timelockPeriod);
-    event ExecutionPeriodUpdated(uint32 executionPeriod);
-
-    error AlreadyTimelocked();
-    error NotTimelocked();
-    error Timelocked();
-    error Expired();
-    error DAOFrozen();
 
     constructor() {
         _disableInitializers();
     }
 
-    /**
-     * Initialize function, will be triggered when a new instance is deployed.
-     *
-     * @param _timelockPeriod The timelock period in blocks
-     * @param _executionPeriod The execution period in blocks
-     * @param _owner The owner of the contract
-     * @param _freezeVoting The address of the freeze voting contract
-     * @param _childGnosisSafe The address of the child Gnosis Safe
-     */
     function initialize(
-        uint32 _timelockPeriod,
-        uint32 _executionPeriod,
-        address _owner,
-        address _freezeVoting,
-        address _childGnosisSafe
-    ) public initializer {
-        super.initialize(_owner);
-        _updateTimelockPeriod(_timelockPeriod);
-        _updateExecutionPeriod(_executionPeriod);
-        freezeVoting = IBaseFreezeVotingV1(_freezeVoting);
-        childGnosisSafe = ISafe(_childGnosisSafe);
-
-        emit MultisigFreezeGuardSetup(
-            msg.sender,
-            _owner,
-            _freezeVoting,
-            _childGnosisSafe
-        );
+        uint32 timelockPeriod_,
+        uint32 executionPeriod_,
+        address owner_,
+        address freezeVoting_,
+        address childGnosisSafe_
+    ) public virtual override initializer {
+        __Ownable_init(owner_);
+        __UUPSUpgradeable_init();
+        _updateTimelockPeriod(timelockPeriod_);
+        _updateExecutionPeriod(executionPeriod_);
+        _freezeVoting = IBaseFreezeVotingV1(freezeVoting_);
+        _childGnosisSafe = ISafe(childGnosisSafe_);
     }
 
-    /**
-     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
-     * @param newImplementation The address of the new implementation
-     */
     function _authorizeUpgrade(
         address newImplementation
     ) internal virtual override onlyOwner {}
 
-    /** @inheritdoc IMultisigFreezeGuardV1*/
+    function timelockPeriod() external view virtual override returns (uint32) {
+        return _timelockPeriod;
+    }
+
+    function executionPeriod() external view virtual override returns (uint32) {
+        return _executionPeriod;
+    }
+
+    function freezeVoting() external view virtual override returns (address) {
+        return address(_freezeVoting);
+    }
+
+    function childGnosisSafe()
+        external
+        view
+        virtual
+        override
+        returns (address)
+    {
+        return address(_childGnosisSafe);
+    }
+
     function timelockTransaction(
         address to,
         uint256 value,
@@ -113,13 +84,13 @@ contract MultisigFreezeGuardV1 is
         address payable refundReceiver,
         bytes memory signatures,
         uint256 nonce
-    ) external {
+    ) external virtual override {
         bytes32 signaturesHash = keccak256(signatures);
 
         if (transactionTimelocked[signaturesHash] != 0)
             revert AlreadyTimelocked();
 
-        bytes memory transactionHashData = childGnosisSafe
+        bytes memory transactionHashData = _childGnosisSafe
             .encodeTransactionData(
                 to,
                 value,
@@ -135,8 +106,7 @@ contract MultisigFreezeGuardV1 is
 
         bytes32 transactionHash = keccak256(transactionHashData);
 
-        // if signatures are not valid, this will revert
-        childGnosisSafe.checkSignatures(
+        _childGnosisSafe.checkSignatures(
             transactionHash,
             transactionHashData,
             signatures
@@ -147,20 +117,18 @@ contract MultisigFreezeGuardV1 is
         emit TransactionTimelocked(msg.sender, transactionHash, signatures);
     }
 
-    /** @inheritdoc IMultisigFreezeGuardV1*/
-    function updateTimelockPeriod(uint32 _timelockPeriod) external onlyOwner {
-        _updateTimelockPeriod(_timelockPeriod);
+    function updateTimelockPeriod(
+        uint32 timelockPeriod_
+    ) external virtual override onlyOwner {
+        _updateTimelockPeriod(timelockPeriod_);
     }
 
-    /** @inheritdoc IMultisigFreezeGuardV1*/
-    function updateExecutionPeriod(uint32 _executionPeriod) external onlyOwner {
-        _updateExecutionPeriod(_executionPeriod);
+    function updateExecutionPeriod(
+        uint32 executionPeriod_
+    ) external virtual override onlyOwner {
+        _updateExecutionPeriod(executionPeriod_);
     }
 
-    /**
-     * Called by the Safe to check if the transaction is able to be executed and reverts
-     * if the guard conditions are not met.
-     */
     function checkTransaction(
         address,
         uint256,
@@ -173,66 +141,58 @@ contract MultisigFreezeGuardV1 is
         address payable,
         bytes memory signatures,
         address
-    ) external view override(BaseFreezeGuardV1) {
+    ) external view virtual override {
         bytes32 signaturesHash = keccak256(signatures);
 
         if (transactionTimelocked[signaturesHash] == 0) revert NotTimelocked();
 
         if (
             block.timestamp <
-            transactionTimelocked[signaturesHash] + timelockPeriod
+            transactionTimelocked[signaturesHash] + _timelockPeriod
         ) revert Timelocked();
 
         if (
             block.timestamp >
             transactionTimelocked[signaturesHash] +
-                timelockPeriod +
-                executionPeriod
+                _timelockPeriod +
+                _executionPeriod
         ) revert Expired();
 
-        if (freezeVoting.isFrozen()) revert DAOFrozen();
+        if (_freezeVoting.isFrozen()) revert DAOFrozen();
     }
 
-    /**
-     * A callback performed after a transaction is executed on the Safe. This is a required
-     * function of the `BaseGuard` and `IGuard` interfaces that we do not make use of.
-     */
     function checkAfterExecution(
         bytes32,
         bool
-    ) external view override(BaseFreezeGuardV1) {
-        // not implementated
-    }
+    ) external view virtual override {}
 
-    /** @inheritdoc IMultisigFreezeGuardV1*/
     function getTransactionTimelocked(
         bytes32 _signaturesHash
-    ) public view returns (uint48) {
+    ) public view virtual override returns (uint48) {
         return transactionTimelocked[_signaturesHash];
     }
 
-    /** Internal implementation of `updateTimelockPeriod` */
-    function _updateTimelockPeriod(uint32 _timelockPeriod) internal {
-        timelockPeriod = _timelockPeriod;
-        emit TimelockPeriodUpdated(_timelockPeriod);
+    function _updateTimelockPeriod(uint32 timelockPeriod_) internal virtual {
+        _timelockPeriod = timelockPeriod_;
+        emit TimelockPeriodUpdated(timelockPeriod_);
     }
 
-    /** Internal implementation of `updateExecutionPeriod` */
-    function _updateExecutionPeriod(uint32 _executionPeriod) internal {
-        executionPeriod = _executionPeriod;
-        emit ExecutionPeriodUpdated(_executionPeriod);
+    function _updateExecutionPeriod(uint32 executionPeriod_) internal virtual {
+        _executionPeriod = executionPeriod_;
+        emit ExecutionPeriodUpdated(executionPeriod_);
     }
 
-    /// @inheritdoc Version
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseFreezeGuardV1, Version) returns (bool) {
+    ) public view virtual override(ERC165, Version) returns (bool) {
         return
             interfaceId == type(IMultisigFreezeGuardV1).interfaceId ||
+            interfaceId == type(IFreezeGuardBaseV1).interfaceId ||
+            interfaceId == type(IGuard).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

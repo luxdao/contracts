@@ -244,7 +244,7 @@ describe('VotesERC20StakedV1', () => {
     });
 
     it('should return the correct version number', async () => {
-      expect(await votesERC20Staked.getVersion()).to.equal(1);
+      expect(await votesERC20Staked.version()).to.equal(1);
     });
   });
 
@@ -445,6 +445,12 @@ describe('VotesERC20StakedV1', () => {
         await rewardsTokenD.getAddress(),
         await rewardsTokenE.getAddress(),
       ]);
+    });
+
+    it('should not allow non-owner to add rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.connect(alice).addRewardsTokens([await rewardsTokenA.getAddress()]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
     });
 
     it('should return rewards token data', async function () {

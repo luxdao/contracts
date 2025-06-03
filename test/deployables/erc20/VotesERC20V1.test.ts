@@ -9,6 +9,7 @@ import {
   IERC20Permit__factory,
   IVersion__factory,
   IVotes__factory,
+  IVotesERC20V1__factory,
   VotesERC20V1,
   VotesERC20V1__factory,
 } from '../../../typechain-types';
@@ -26,12 +27,18 @@ async function deployVotesERC20Proxy(
   allocationAmounts: bigint[],
 ): Promise<VotesERC20V1> {
   // Create initialization data with function selector
+
+  const allocations = allocationAddresses.map((address, index) => ({
+    to: address,
+    amount: allocationAmounts[index],
+  }));
+
   const fullInitData =
     VotesERC20V1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['string', 'string', 'address[]', 'uint256[]', 'address'],
-        [name, symbol, allocationAddresses, allocationAmounts, owner.address],
+        ['string', 'string', 'tuple(address to, uint256 amount)[]', 'address'],
+        [name, symbol, allocations, owner.address],
       )
       .slice(2);
 
@@ -130,7 +137,7 @@ describe('VotesERC20V1', () => {
       );
 
       await expect(
-        votesERC20.initialize('New Name', 'NEW', [], [], owner.address),
+        votesERC20.initialize('New Name', 'NEW', [], owner.address),
       ).to.be.revertedWithCustomError(votesERC20, 'InvalidInitialization');
     });
 
@@ -138,7 +145,7 @@ describe('VotesERC20V1', () => {
       const implementationContract = VotesERC20V1__factory.connect(masterCopy, proxyDeployer);
 
       await expect(
-        implementationContract.initialize('New Name', 'NEW', [], [], owner.address),
+        implementationContract.initialize('New Name', 'NEW', [], owner.address),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
 
@@ -202,18 +209,11 @@ describe('VotesERC20V1', () => {
     });
 
     it('should return the correct version number', async () => {
-      expect(await votesERC20.getVersion()).to.equal(1);
+      expect(await votesERC20.version()).to.equal(1);
     });
   });
 
   describe('ERC165', function () {
-    // Interface IDs
-    let iVersionInterfaceId: string;
-    let iERC20InterfaceId: string;
-    let iERC20PermitInterfaceId: string;
-    let iVotesInterfaceId: string;
-    let iERC165InterfaceId: string;
-
     beforeEach(async function () {
       votesERC20 = await deployVotesERC20Proxy(
         proxyDeployer,
@@ -224,53 +224,55 @@ describe('VotesERC20V1', () => {
         [],
         [],
       );
-
-      // Calculate interface IDs
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const IERC20Interface = IERC20__factory.createInterface();
-      iERC20InterfaceId = calculateInterfaceId(IERC20Interface);
-
-      const IERC20PermitInterface = IERC20Permit__factory.createInterface();
-      iERC20PermitInterfaceId = calculateInterfaceId(IERC20PermitInterface);
-
-      const IVotesInterface = IVotes__factory.createInterface();
-      iVotesInterfaceId = calculateInterfaceId(IVotesInterface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
     });
 
     it('Should support IERC165 interface', async function () {
-      const supported = await votesERC20.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await votesERC20.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IVersion interface', async function () {
-      const supported = await votesERC20.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await votesERC20.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IERC20 interface', async function () {
-      const supported = await votesERC20.supportsInterface(iERC20InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await votesERC20.supportsInterface(calculateInterfaceId(IERC20__factory.createInterface())),
+      ).to.be.true;
+    });
+
+    it('Should support IVotesERC20V1 interface', async function () {
+      void expect(
+        await votesERC20.supportsInterface(
+          calculateInterfaceId(IVotesERC20V1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IERC20Permit interface', async function () {
-      const supported = await votesERC20.supportsInterface(iERC20PermitInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await votesERC20.supportsInterface(
+          calculateInterfaceId(IERC20Permit__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IVotes interface', async function () {
-      const supported = await votesERC20.supportsInterface(iVotesInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await votesERC20.supportsInterface(calculateInterfaceId(IVotes__factory.createInterface())),
+      ).to.be.true;
     });
 
     it('Should not support random interface', async function () {
       const randomInterfaceId = '0x12345678';
-      const supported = await votesERC20.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
+      void expect(await votesERC20.supportsInterface(randomInterfaceId)).to.be.false;
     });
   });
 
