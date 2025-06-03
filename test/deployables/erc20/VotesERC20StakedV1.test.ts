@@ -447,6 +447,12 @@ describe('VotesERC20StakedV1', () => {
       ]);
     });
 
+    it('should not allow non-owner to add rewards tokens', async function () {
+      await expect(
+        votesERC20Staked.connect(alice).addRewardsTokens([await rewardsTokenA.getAddress()]),
+      ).to.be.revertedWithCustomError(votesERC20Staked, 'OwnableUnauthorizedAccount');
+    });
+
     it('should return rewards token data', async function () {
       const [rewardsRate, rewardsDistributed, rewardsClaimed] =
         await votesERC20Staked.rewardsTokenData(await rewardsTokenA.getAddress());
