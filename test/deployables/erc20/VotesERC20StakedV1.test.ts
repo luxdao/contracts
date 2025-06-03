@@ -542,6 +542,23 @@ describe('VotesERC20StakedV1', () => {
       ).to.deep.equal([0n, 0n]);
     });
 
+    it('should allow users to unstake less tokens than their staked amount', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+      const stakeTimestamp = await time.latest();
+
+      // move forward 7 days
+      await time.increase(604800);
+
+      await votesERC20Staked.connect(alice).unstake(ethers.parseEther('5'));
+
+      expect(await votesERC20Staked.balanceOf(alice.address)).to.equal(ethers.parseEther('5'));
+      expect(await stakedToken.balanceOf(alice.address)).to.equal(ethers.parseEther('5'));
+      expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
+        ethers.parseEther('5'),
+        stakeTimestamp,
+      ]);
+    });
+
     it('should allow users to unstake tokens', async function () {
       await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
       const stakeTimestamp = await time.latest();
