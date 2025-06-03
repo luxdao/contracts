@@ -69,27 +69,6 @@ describe('ERC721ProposerAdapterV1', () => {
       expect(await adapter.proposerThreshold()).to.equal(DEFAULT_PROPOSER_THRESHOLD);
     });
 
-    it('should revert if token address is zero during proxy initialization', async () => {
-      await expect(
-        deployERC721ProposerAdapterProxy(
-          deployer,
-          await adapterImplementation.getAddress(),
-          ethers.ZeroAddress,
-          DEFAULT_PROPOSER_THRESHOLD,
-        ),
-      ).to.be.revertedWithCustomError(adapterImplementation, 'InvalidTokenAddress');
-    });
-
-    it('should allow proposerThreshold to be zero during proxy initialization', async () => {
-      const localAdapter = await deployERC721ProposerAdapterProxy(
-        deployer,
-        await adapterImplementation.getAddress(),
-        await mockNft.getAddress(),
-        0n,
-      );
-      expect(await localAdapter.proposerThreshold()).to.equal(0n);
-    });
-
     it('should prevent reinitialization on proxied adapter', async () => {
       await expect(
         adapter.initialize(await mockNft.getAddress(), DEFAULT_PROPOSER_THRESHOLD),

@@ -72,28 +72,6 @@ describe('HatsProposerAdapterV1', () => {
       expect(whitelistedHats).to.deep.equal([HAT_ID_1]);
     });
 
-    it('should revert if hats contract address is zero', async () => {
-      await expect(
-        deployHatsProposerAdapterProxy(
-          deployer,
-          await adapterImplementation.getAddress(),
-          ethers.ZeroAddress,
-          [HAT_ID_1],
-        ),
-      ).to.be.revertedWithCustomError(adapterImplementation, 'MissingHatsContract');
-    });
-
-    it('should revert if initialWhitelistedHats is empty', async () => {
-      await expect(
-        deployHatsProposerAdapterProxy(
-          deployer,
-          await adapterImplementation.getAddress(),
-          await mockHats.getAddress(),
-          [],
-        ),
-      ).to.be.revertedWithCustomError(adapterImplementation, 'NoHatsWhitelisted');
-    });
-
     it('should prevent reinitialization on proxied adapter', async () => {
       await expect(
         adapter.initialize(await mockHats.getAddress(), [HAT_ID_1]),

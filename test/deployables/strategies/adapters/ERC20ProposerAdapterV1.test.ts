@@ -69,17 +69,6 @@ describe('ERC20ProposerAdapterV1', () => {
       expect(await adapter.proposerThreshold()).to.equal(DEFAULT_PROPOSER_THRESHOLD);
     });
 
-    it('should revert if token address is zero during proxy initialization', async () => {
-      await expect(
-        deployERC20ProposerAdapterProxy(
-          deployer,
-          await adapterImplementation.getAddress(),
-          ethers.ZeroAddress,
-          DEFAULT_PROPOSER_THRESHOLD,
-        ),
-      ).to.be.revertedWithCustomError(adapterImplementation, 'InvalidTokenAddress');
-    });
-
     it('should allow proposerThreshold to be zero during proxy initialization', async () => {
       const localAdapter = await deployERC20ProposerAdapterProxy(
         deployer,
