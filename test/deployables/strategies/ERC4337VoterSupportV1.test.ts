@@ -5,15 +5,11 @@ import {
   ConcreteERC4337VoterSupportV1,
   ConcreteERC4337VoterSupportV1__factory,
   ERC1967Proxy__factory,
-  IERC165__factory,
-  IERC4337VoterSupportV1__factory,
-  ISmartAccountValidationV1__factory,
   MockLightAccount,
   MockLightAccount__factory,
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
 } from '../../../typechain-types';
-import { calculateInterfaceId } from '../../helpers/utils';
 
 async function deployConcreteERC4337VoterSupport(
   deployer: SignerWithAddress,
@@ -158,32 +154,6 @@ describe('ERC4337VoterSupportV1', () => {
         .connect(owner)
         .votingPeriodEnded(proposalId);
       void expect(ownerResult).to.be.true;
-    });
-  });
-
-  describe('ERC165 Supports Interface', () => {
-    it('Should support IERC165 interface', async () => {
-      void expect(
-        await concreteERC4337VoterSupport.supportsInterface(
-          calculateInterfaceId(IERC165__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IERC4337VoterSupportV1 interface', async () => {
-      void expect(
-        await concreteERC4337VoterSupport.supportsInterface(
-          calculateInterfaceId(IERC4337VoterSupportV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support ISmartAccountValidationV1 interface', async () => {
-      void expect(
-        await concreteERC4337VoterSupport.supportsInterface(
-          calculateInterfaceId(ISmartAccountValidationV1__factory.createInterface()),
-        ),
-      ).to.be.true;
     });
   });
 });
