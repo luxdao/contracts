@@ -7,7 +7,8 @@ contract MockProposerAdapter is IProposerAdapterBaseV1 {
     mapping(address => bool) private _isProposer;
 
     function isProposer(
-        address _proposer
+        address _proposer,
+        bytes memory
     ) external view override returns (bool) {
         return _isProposer[_proposer];
     }

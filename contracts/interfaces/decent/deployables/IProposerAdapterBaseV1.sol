@@ -2,5 +2,8 @@
 pragma solidity ^0.8.30;
 
 interface IProposerAdapterBaseV1 {
-    function isProposer(address _proposer) external view returns (bool);
+    function isProposer(
+        address _address,
+        bytes memory _data
+    ) external view returns (bool);
 }

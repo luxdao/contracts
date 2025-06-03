@@ -2,6 +2,11 @@
 pragma solidity ^0.8.30;
 
 interface IStrategyBaseV1 {
+    function isProposer(
+        address _address,
+        bytes memory _data
+    ) external view returns (bool);
+
     function initializeProposal(
         uint32 _proposalId,
         bytes32[] memory _txHashes,
@@ -9,8 +14,6 @@ interface IStrategyBaseV1 {
     ) external;
 
     function isPassed(uint32 _proposalId) external view returns (bool);
-
-    function isProposer(address _address) external view returns (bool);
 
     function getVotingTimestamps(
         uint32 _proposalId

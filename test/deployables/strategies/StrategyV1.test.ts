@@ -306,7 +306,8 @@ describe('StrategyV1', () => {
         [], // NO proposer adapters
         lightAccountFactoryMockAddress,
       );
-      void expect(await noProposerAdapterStrategy.isProposer(user1.address)).to.be.false;
+      void expect(await noProposerAdapterStrategy.isProposer(user1.address, ethers.ZeroHash)).to.be
+        .false;
     });
 
     it('should return true if any configured adapter identifies the address as a proposer', async () => {
@@ -323,12 +324,13 @@ describe('StrategyV1', () => {
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
       await mockProposerAdapter2.setProposerStatus(user1.address, true);
 
-      void expect(await multiProposerStrategy.isProposer(user1.address)).to.be.true;
+      void expect(await multiProposerStrategy.isProposer(user1.address, ethers.ZeroHash)).to.be
+        .true;
     });
 
     it('should return false if no configured adapter identifies the address as a proposer', async () => {
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
-      void expect(await strategy.isProposer(user1.address)).to.be.false;
+      void expect(await strategy.isProposer(user1.address, ethers.ZeroHash)).to.be.false;
 
       const multiProposerStrategy = await deployStrategyProxy(
         proposerInitializer.address,
@@ -341,12 +343,13 @@ describe('StrategyV1', () => {
       );
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
       await mockProposerAdapter2.setProposerStatus(user1.address, false);
-      void expect(await multiProposerStrategy.isProposer(user1.address)).to.be.false;
+      void expect(await multiProposerStrategy.isProposer(user1.address, ethers.ZeroHash)).to.be
+        .false;
     });
 
     it('should return true if the first configured adapter identifies the address as a proposer', async () => {
       await mockProposerAdapter1.setProposerStatus(user1.address, true);
-      void expect(await strategy.isProposer(user1.address)).to.be.true;
+      void expect(await strategy.isProposer(user1.address, ethers.ZeroHash)).to.be.true;
     });
   });
 
