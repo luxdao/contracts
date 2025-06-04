@@ -109,7 +109,7 @@ contract VotesERC20StakedV1 is
             _distributeRewards(_rewardsTokens[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
@@ -121,12 +121,12 @@ contract VotesERC20StakedV1 is
 
         for (uint256 i = 0; i < _tokens.length; ) {
             if (!_rewardsTokenDatas[_tokens[i]].enabled)
-                revert InvalidRewardsToken();
+                revert InvalidRewardsToken(_tokens[i]);
 
             _distributeRewards(_tokens[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
@@ -197,18 +197,7 @@ contract VotesERC20StakedV1 is
     function _distributeRewards(address _token) internal {
         RewardsTokenData storage token = _rewardsTokenDatas[_token];
 
-        uint256 amountToDistribute;
-        if (_token == NATIVE_ASSET) {
-            amountToDistribute =
-                address(this).balance +
-                token.rewardsClaimed -
-                token.rewardsDistributed;
-        } else {
-            amountToDistribute =
-                IERC20(_token).balanceOf(address(this)) +
-                token.rewardsClaimed -
-                token.rewardsDistributed;
-        }
+        uint256 amountToDistribute = _distributableRewards(_token);
 
         if (amountToDistribute == 0) return;
 
@@ -234,7 +223,7 @@ contract VotesERC20StakedV1 is
             emit RewardsTokenAdded(rewardsTokens_[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
@@ -253,7 +242,7 @@ contract VotesERC20StakedV1 is
             token.stakerRewardsRates[_staker] = token.rewardsRate;
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
@@ -290,7 +279,7 @@ contract VotesERC20StakedV1 is
         emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
@@ -335,13 +324,76 @@ contract VotesERC20StakedV1 is
             uint256 rewardsClaimed
         )
     {
-        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+        if (!_rewardsTokenDatas[token].enabled)
+            revert InvalidRewardsToken(token);
 
         return (
             _rewardsTokenDatas[token].rewardsRate,
             _rewardsTokenDatas[token].rewardsDistributed,
             _rewardsTokenDatas[token].rewardsClaimed
         );
+    }
+
+    function distributableRewards()
+        external
+        view
+        virtual
+        override
+        returns (uint256[] memory)
+    {
+        uint256[] memory distributableRewards_ = new uint256[](
+            _rewardsTokens.length
+        );
+
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            distributableRewards_[i] = _distributableRewards(_rewardsTokens[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return distributableRewards_;
+    }
+
+    function distributableRewards(
+        address[] memory rewardsTokens_
+    ) external view virtual override returns (uint256[] memory) {
+        uint256[] memory distributableRewards_ = new uint256[](
+            rewardsTokens_.length
+        );
+
+        for (uint256 i = 0; i < rewardsTokens_.length; ) {
+            if (!_rewardsTokenDatas[rewardsTokens_[i]].enabled)
+                revert InvalidRewardsToken(rewardsTokens_[i]);
+
+            distributableRewards_[i] = _distributableRewards(rewardsTokens_[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return distributableRewards_;
+    }
+
+    function _distributableRewards(
+        address _token
+    ) internal view returns (uint256) {
+        if (!_rewardsTokenDatas[_token].enabled)
+            revert InvalidRewardsToken(_token);
+
+        uint256 thisBalance;
+        if (_token == NATIVE_ASSET) {
+            thisBalance = address(this).balance;
+        } else {
+            thisBalance = IERC20(_token).balanceOf(address(this));
+        }
+
+        return
+            thisBalance +
+            _rewardsTokenDatas[_token].rewardsClaimed -
+            _rewardsTokenDatas[_token].rewardsDistributed;
     }
 
     function stakerData(
@@ -369,7 +421,8 @@ contract VotesERC20StakedV1 is
         override
         returns (uint256 rewardRate, uint256 accumulatedRewards)
     {
-        if (!_rewardsTokenDatas[token].enabled) revert InvalidRewardsToken();
+        if (!_rewardsTokenDatas[token].enabled)
+            revert InvalidRewardsToken(token);
 
         return (
             _rewardsTokenDatas[token].stakerRewardsRates[staker],

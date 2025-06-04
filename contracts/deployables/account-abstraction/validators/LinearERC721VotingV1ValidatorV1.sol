@@ -43,19 +43,12 @@ contract LinearERC721VotingV1ValidatorV1 is
 {
     uint16 public constant VERSION = 1;
 
-    /**
-     * @dev Validates if a vote operation will succeed
-     * @param lightAccountOwner The account attempting to vote
-     * @param votingContract The address of the voting contract
-     * @param callData The encoded vote function call
-     * @return isValid True if the vote operation will succeed
-     */
     function validateOperation(
         address,
         address lightAccountOwner,
         address votingContract,
         bytes calldata callData
-    ) external view returns (bool) {
+    ) external view virtual override returns (bool) {
         // Verify function selector matches vote(uint32,uint8,address[],uint256[])
         if (bytes4(callData) != ILinearERC721VotingV1.vote.selector) {
             return false;
@@ -135,16 +128,19 @@ contract LinearERC721VotingV1ValidatorV1 is
         return true;
     }
 
-    function getVersion() public pure override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 
-    /**
-     * @dev ERC165 interface support
-     */
     function supportsInterface(
         bytes4 interfaceId
-    ) public view override(ERC165, Version, IFunctionValidator) returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(ERC165, Version, IFunctionValidator)
+        returns (bool)
+    {
         return
             interfaceId == type(IFunctionValidator).interfaceId ||
             super.supportsInterface(interfaceId);

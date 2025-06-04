@@ -10,13 +10,7 @@ contract ConcreteVersion is Version {
         _version = newVersion;
     }
 
-    function getVersion()
-        public
-        view
-        virtual
-        override(Version)
-        returns (uint16)
-    {
+    function version() public view virtual override(Version) returns (uint16) {
         return _version;
     }
 }

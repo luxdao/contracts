@@ -35,7 +35,7 @@ interface IVotesERC20StakedV1 {
     error ZeroStake();
     error ZeroUnstake();
     error ZeroStaked();
-    error InvalidRewardsToken();
+    error InvalidRewardsToken(address token);
     error DuplicateRewardsToken();
     error MinimumStakingPeriod();
     error TransferFailed();
@@ -92,6 +92,12 @@ interface IVotesERC20StakedV1 {
             uint256 rewardsDistributed,
             uint256 rewardsClaimed
         );
+
+    function distributableRewards() external view returns (uint256[] memory);
+
+    function distributableRewards(
+        address[] memory rewardsTokens_
+    ) external view returns (uint256[] memory);
 
     function stakerData(
         address staker
