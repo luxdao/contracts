@@ -2,9 +2,8 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBaseV1.sol";
-import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
-import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {IVotingAdapterV1} from "../../interfaces/decent/deployables/IVotingAdapterV1.sol";
+import {IProposerAdapterV1} from "../../interfaces/decent/deployables/IProposerAdapterV1.sol";
 import {IERC4337VoterSupportV1} from "../../interfaces/decent/deployables/IERC4337VoterSupportV1.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
@@ -212,7 +211,7 @@ contract StrategyV1 is
                 revert InvalidVotingAdapter();
             }
 
-            totalWeightForThisVoteTransaction += IVotingAdapterBaseV1(
+            totalWeightForThisVoteTransaction += IVotingAdapterV1(
                 _votingAdapters[configuredAdapterIndex]
             ).recordVote(resolvedVoter, _proposalId, _votingAdapterVoteData[i]);
         }
@@ -304,7 +303,7 @@ contract StrategyV1 is
         }
 
         return
-            IProposerAdapterBaseV1(proposerAdapter_).isProposer(
+            IProposerAdapterV1(proposerAdapter_).isProposer(
                 address_,
                 proposerAdapterData_
             );
@@ -345,7 +344,6 @@ contract StrategyV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IStrategyV1).interfaceId ||
-            interfaceId == type(IStrategyBaseV1).interfaceId ||
             interfaceId == type(IERC4337VoterSupportV1).interfaceId ||
             interfaceId == type(ISmartAccountValidationV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||

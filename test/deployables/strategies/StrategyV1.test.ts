@@ -7,7 +7,6 @@ import {
   IERC165__factory,
   IERC4337VoterSupportV1__factory,
   ISmartAccountValidationV1__factory,
-  IStrategyBaseV1__factory,
   IStrategyV1__factory,
   IVersion__factory,
   MockLightAccount__factory,
@@ -878,20 +877,10 @@ describe('StrategyV1', () => {
   });
 
   describe('ERC165 Supports Interface', () => {
-    it('Should support IStrategyBaseV1 interface', async () => {
-      void expect(
-        await strategy.supportsInterface(
-          calculateInterfaceId(IStrategyBaseV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
     it('Should support IStrategyV1 interface', async () => {
       void expect(
         await strategy.supportsInterface(
-          calculateInterfaceId(IStrategyV1__factory.createInterface(), [
-            IStrategyBaseV1__factory.createInterface(),
-          ]),
+          calculateInterfaceId(IStrategyV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
