@@ -14,7 +14,7 @@ import {
   VotesERC20StakedV1,
   VotesERC20StakedV1__factory,
 } from '../../../typechain-types';
-import { calculateInterfaceId } from '../../helpers/utils';
+import { calculateInterfaceId, executeTxAndCheckBalanceDeltas } from '../../helpers/utils';
 import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 // Helper function for deploying VotesERC20StakedV1 instances using ERC1967Proxy
@@ -43,64 +43,6 @@ async function deployVotesERC20StakedProxy(
 
   // Return a contract instance connected to the proxy
   return VotesERC20StakedV1__factory.connect(await proxy.getAddress(), owner);
-}
-
-
-
-interface TokenTransfer {
-  recipient: string;
-  token: string; // address or 'native' for ETH
-  expectedAmount: bigint;
-  isPositive: boolean; // true for receiving, false for sending
-}
-
-// Helper function to check multiple token transfers
-async function checkTokenTransfers(
-  tx: () => Promise<any>,
-  signer: SignerWithAddress,
-  transfers: TokenTransfer[]
-): Promise<void> {
-  // Get initial balances
-  const initialBalances = await Promise.all(
-    transfers.map((t) => {
-      if (t.token === 'native') {
-        return ethers.provider.getBalance(t.recipient);
-      } else {
-        return ethers.getContractAt('IERC20', t.token).then(token => token.balanceOf(t.recipient));
-      }
-    })
-  );
-
-  // Execute transaction
-  const txResponse = await tx();
-  const receipt = await txResponse.wait();
-  const gasSpent = BigInt(receipt!.gasUsed) * BigInt(receipt!.gasPrice);
-
-  // Get final balances and check changes
-  for (let i = 0; i < transfers.length; i++) {
-    const transfer = transfers[i];
-    let finalBalance: bigint;
-    
-    if (transfer.token === 'native') {
-      finalBalance = await ethers.provider.getBalance(transfer.recipient);
-    } else {
-      const token = await ethers.getContractAt('IERC20', transfer.token);
-      finalBalance = await token.balanceOf(transfer.recipient);
-    }
-
-    const balanceChange = finalBalance - initialBalances[i];
-    const expectedChange = transfer.isPositive ? transfer.expectedAmount : -transfer.expectedAmount;
-
-    // For native token, add gas spent if this is the signer
-    const actualChange = transfer.token === 'native' && transfer.recipient === signer.address
-      ? balanceChange + gasSpent
-      : balanceChange;
-
-    expect(actualChange).to.equal(
-      expectedChange,
-      `Token ${transfer.token} transfer check failed for ${transfer.recipient}`
-    );
-  }
 }
 
 describe('VotesERC20StakedV1', () => {
@@ -794,9 +736,9 @@ describe('VotesERC20StakedV1', () => {
       // only distribute rewards for token A and B
       await votesERC20Staked
         .connect(rewardsDistributor)
-        [
-          'distributeRewards(address[])'
-        ]([await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress()]);
+      [
+        'distributeRewards(address[])'
+      ]([await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress()]);
 
       // Check rewards for token A were distributed
       expect(
@@ -826,7 +768,7 @@ describe('VotesERC20StakedV1', () => {
       // now distribute rewards for native asset
       await votesERC20Staked
         .connect(rewardsDistributor)
-        ['distributeRewards(address[])']([nativeAssetAddress]);
+      ['distributeRewards(address[])']([nativeAssetAddress]);
 
       // Check rewards for token A haven't changed
       expect(
@@ -862,7 +804,7 @@ describe('VotesERC20StakedV1', () => {
       await expect(
         votesERC20Staked
           .connect(rewardsDistributor)
-          ['distributeRewards(address[])']([await rewardsTokenA.getAddress()]),
+        ['distributeRewards(address[])']([await rewardsTokenA.getAddress()]),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'ZeroStaked');
     });
 
@@ -874,7 +816,7 @@ describe('VotesERC20StakedV1', () => {
       await expect(
         votesERC20Staked
           .connect(rewardsDistributor)
-          ['distributeRewards(address[])']([await rewardsTokenC.getAddress()]),
+        ['distributeRewards(address[])']([await rewardsTokenC.getAddress()]),
       )
         .to.be.revertedWithCustomError(votesERC20Staked, 'InvalidRewardsToken')
         .withArgs(await rewardsTokenC.getAddress());
@@ -953,7 +895,7 @@ describe('VotesERC20StakedV1', () => {
           value: ethers.toBeHex(ethers.parseEther('60')),
         },
       ]);
-      
+
       await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
 
       // Alice => 25% of available rewards
@@ -999,7 +941,7 @@ describe('VotesERC20StakedV1', () => {
         nativeAssetAddress,
       ]),
       ).to.deep.equal([ethers.parseEther('15')]);
-      
+
       expect(await votesERC20Staked['claimableRewards(address,address[])'](bob.address, [
         await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(),
       ]),
@@ -1012,9 +954,11 @@ describe('VotesERC20StakedV1', () => {
     });
 
     it('should allow stakers to claim rewards for all tokens', async function () {
+      // Alice and Bob stake their tokens
       await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
       await votesERC20Staked.connect(bob).stake(ethers.parseEther('30'));
 
+      // Transfer tokens and ETH to the staking contract
       await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
       await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('40'));
       await ethers.provider.send('eth_sendTransaction', [
@@ -1024,47 +968,176 @@ describe('VotesERC20StakedV1', () => {
         },
       ]);
 
+      // Distribute the rewards
       await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
 
       // Alice => 25% of available rewards
       // Bob => 75% of available rewards
 
-      expect(await rewardsTokenA.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
-      expect(await rewardsTokenB.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
-
-      const rewardsTokenAAddress = await rewardsTokenA.getAddress();
-      const rewardsTokenBAddress = await rewardsTokenB.getAddress();
-      
-      const tx = () => votesERC20Staked.connect(alice)['claimRewards(address)'](alice.address);
-      
-      // Check all token transfers
-      await checkTokenTransfers(
-        tx,
+      // Alice claims rewards for all tokens
+      await executeTxAndCheckBalanceDeltas(
+        () => votesERC20Staked.connect(alice)['claimRewards(address)'](alice.address),
         alice,
         [
           {
-            recipient: alice.address,
-            token: rewardsTokenAAddress,
-            expectedAmount: ethers.parseEther('5'),
-            isPositive: true
+            addressToCheck: alice.address,
+            token: await rewardsTokenA.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('5'),
           },
           {
-            recipient: alice.address,
-            token: rewardsTokenBAddress,
-            expectedAmount: ethers.parseEther('10'),
-            isPositive: true
+            addressToCheck: alice.address,
+            token: await rewardsTokenB.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('10'),
           },
           {
-            recipient: alice.address,
+            addressToCheck: alice.address,
             token: 'native',
-            expectedAmount: ethers.parseEther('15'),
-            isPositive: true
+            expectedBalanceDelta: ethers.parseEther('15'),
           }
         ]
       );
 
-      expect(await rewardsTokenA.balanceOf(alice.address)).to.equal(ethers.parseEther('5'));
-      expect(await rewardsTokenB.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
+      // Bob claims rewards for all tokens
+      await executeTxAndCheckBalanceDeltas(
+        () => votesERC20Staked.connect(bob)['claimRewards(address)'](bob.address),
+        bob,
+        [
+          {
+            addressToCheck: bob.address,
+            token: await rewardsTokenA.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('15'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: await rewardsTokenB.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('30'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: 'native',
+            expectedBalanceDelta: ethers.parseEther('45'),
+          }
+        ]
+      );
+    });
+
+    it('should allow stakers to claim rewards for specified tokens', async function () {
+      // Alice and Bob stake their tokens
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+      await votesERC20Staked.connect(bob).stake(ethers.parseEther('30'));
+
+      // Transfer tokens and ETH to the staking contract
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('40'));
+      await ethers.provider.send('eth_sendTransaction', [
+        {
+          to: await votesERC20Staked.getAddress(),
+          value: ethers.toBeHex(ethers.parseEther('60')),
+        },
+      ]);
+
+      // Distribute the rewards
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Alice claims rewards for token A and B
+      await executeTxAndCheckBalanceDeltas(
+        async () => votesERC20Staked.connect(alice)['claimRewards(address,address[])'](alice.address, [
+          await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(),
+        ]),
+        alice,
+        [
+          {
+            addressToCheck: alice.address,
+            token: await rewardsTokenA.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('5'),
+          },
+          {
+            addressToCheck: alice.address,
+            token: await rewardsTokenB.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('10'),
+          },
+          {
+            addressToCheck: alice.address,
+            token: 'native',
+            expectedBalanceDelta: ethers.parseEther('0'),
+          }
+        ]
+      );
+
+      // Alice claims rewards for native asset
+      await executeTxAndCheckBalanceDeltas(
+        async () => votesERC20Staked.connect(alice)['claimRewards(address,address[])'](alice.address, [
+          nativeAssetAddress,
+        ]),
+        alice,
+        [
+          {
+            addressToCheck: alice.address,
+            token: await rewardsTokenA.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('0'),
+          },
+          {
+            addressToCheck: alice.address,
+            token: await rewardsTokenB.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('0'),
+          },
+          {
+            addressToCheck: alice.address,
+            token: 'native',
+            expectedBalanceDelta: ethers.parseEther('15'),
+          }
+        ]
+      );
+
+      // Bob claims rewards for token A and B
+      await executeTxAndCheckBalanceDeltas(
+        async () => votesERC20Staked.connect(bob)['claimRewards(address,address[])'](bob.address, [
+          await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(),
+        ]),
+        bob,
+        [
+          {
+            addressToCheck: bob.address,
+            token: await rewardsTokenA.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('15'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: await rewardsTokenB.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('30'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: 'native',
+            expectedBalanceDelta: ethers.parseEther('0'),
+          }
+        ]
+      );
+
+      // Bob claims rewards for native asset
+      await executeTxAndCheckBalanceDeltas(
+        async () => votesERC20Staked.connect(bob)['claimRewards(address,address[])'](bob.address, [
+          nativeAssetAddress,
+        ]),
+        bob,
+        [
+          {
+            addressToCheck: bob.address,
+            token: await rewardsTokenA.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('0'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: await rewardsTokenB.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('0'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: 'native',
+            expectedBalanceDelta: ethers.parseEther('45'),
+          }
+        ]
+      );
     });
   });
 });
