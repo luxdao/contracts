@@ -3,112 +3,91 @@ pragma solidity ^0.8.30;
 
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
+import {IERC20FreezeVotingV1} from "../../interfaces/decent/deployables/IERC20FreezeVotingV1.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
-/**
- * A [BaseFreezeVoting](./BaseFreezeVoting.md) implementation which handles
- * freezes on ERC20 based token voting DAOs.
- */
-contract ERC20FreezeVotingV1 is BaseFreezeVotingV1, Version {
+contract ERC20FreezeVotingV1 is
+    IERC20FreezeVotingV1,
+    BaseFreezeVotingV1,
+    Version
+{
     uint16 private constant VERSION = 1;
 
-    /** A reference to the ERC20 voting token of the subDAO. */
-    IVotes public votesERC20;
-
-    event ERC20FreezeVotingSetUp(
-        address indexed owner,
-        address indexed votesERC20
-    );
-
-    error NoVotes();
-    error AlreadyVoted();
+    IVotes internal _votesERC20;
 
     constructor() {
         _disableInitializers();
     }
 
-    /**
-     * Initialize function, will be triggered when a new instance is deployed.
-     *
-     * @param _owner The owner of the contract
-     * @param _freezeVotesThreshold The number of votes required to activate a freeze
-     * @param _freezeProposalPeriod The number of seconds a freeze proposal has to succeed
-     * @param _freezePeriod The number of seconds a freeze lasts
-     * @param _votesERC20 The ERC20 voting token contract address
-     */
     function initialize(
-        address _owner,
-        uint256 _freezeVotesThreshold,
-        uint32 _freezeProposalPeriod,
-        uint32 _freezePeriod,
-        address _votesERC20
-    ) public initializer {
-        __Ownable_init(_owner);
-        __UUPSUpgradeable_init();
-        _updateFreezeVotesThreshold(_freezeVotesThreshold);
-        _updateFreezeProposalPeriod(_freezeProposalPeriod);
-        _updateFreezePeriod(_freezePeriod);
-        votesERC20 = IVotes(_votesERC20);
-
-        emit ERC20FreezeVotingSetUp(_owner, _votesERC20);
+        address owner_,
+        uint256 freezeVotesThreshold_,
+        uint32 freezeProposalPeriod_,
+        uint32 freezePeriod_,
+        address votesERC20_
+    ) public virtual override initializer {
+        __BaseFreezeVotingV1_init(
+            owner_,
+            freezeProposalPeriod_,
+            freezePeriod_,
+            freezeVotesThreshold_
+        );
+        _votesERC20 = IVotes(votesERC20_);
     }
 
-    /**
-     * @dev Function that authorizes an upgrade. Only the owner can upgrade the implementation.
-     * @param newImplementation The address of the new implementation
-     */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {}
+    function votesERC20() external view virtual override returns (address) {
+        return address(_votesERC20);
+    }
 
-    /** @inheritdoc BaseFreezeVotingV1*/
-    function castFreezeVote() external override {
+    function castFreezeVote() external virtual override {
         uint256 userVotes;
 
-        if (block.timestamp > freezeProposalCreated + freezeProposalPeriod) {
-            // create a new freeze proposal and set total votes to msg.sender's vote count
+        if (block.timestamp > _freezeProposalCreated + _freezeProposalPeriod) {
+            _freezeProposalCreated = uint48(block.timestamp);
 
-            freezeProposalCreated = uint48(block.timestamp);
-
-            userVotes = votesERC20.getPastVotes(
+            userVotes = _votesERC20.getPastVotes(
                 msg.sender,
-                freezeProposalCreated - 1
+                _freezeProposalCreated - 1
             );
 
-            if (userVotes == 0) revert NoVotes();
+            if (userVotes == 0) {
+                revert NoVotes();
+            }
 
-            freezeProposalVoteCount = userVotes;
+            _freezeProposalVoteCount = userVotes;
 
             emit FreezeProposalCreated(msg.sender);
         } else {
-            // there is an existing freeze proposal, count user's votes toward it
-
-            if (userHasFreezeVoted[msg.sender][freezeProposalCreated])
+            if (_userHasFreezeVoted[msg.sender][_freezeProposalCreated]) {
                 revert AlreadyVoted();
+            }
 
-            userVotes = votesERC20.getPastVotes(
+            userVotes = _votesERC20.getPastVotes(
                 msg.sender,
-                freezeProposalCreated - 1
+                _freezeProposalCreated - 1
             );
 
-            if (userVotes == 0) revert NoVotes();
+            if (userVotes == 0) {
+                revert NoVotes();
+            }
 
-            freezeProposalVoteCount += userVotes;
+            _freezeProposalVoteCount += userVotes;
         }
 
-        userHasFreezeVoted[msg.sender][freezeProposalCreated] = true;
+        _userHasFreezeVoted[msg.sender][_freezeProposalCreated] = true;
 
         emit FreezeVoteCast(msg.sender, userVotes);
     }
 
-    /// Implementation for the version
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
     ) public view virtual override(BaseFreezeVotingV1, Version) returns (bool) {
-        return super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IERC20FreezeVotingV1).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

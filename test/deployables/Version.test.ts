@@ -29,7 +29,7 @@ describe('Version', () => {
 
       await concreteVersion.setVersion(version);
 
-      expect(await concreteVersion.getVersion()).to.equal(version);
+      expect(await concreteVersion.version()).to.equal(version);
     });
 
     it('should update version when setter is called', async () => {
@@ -37,10 +37,10 @@ describe('Version', () => {
       const newVersion = 2;
 
       await concreteVersion.setVersion(oldVersion);
-      expect(await concreteVersion.getVersion()).to.equal(oldVersion);
+      expect(await concreteVersion.version()).to.equal(oldVersion);
 
       await concreteVersion.setVersion(newVersion);
-      expect(await concreteVersion.getVersion()).to.equal(newVersion);
+      expect(await concreteVersion.version()).to.equal(newVersion);
     });
   });
 

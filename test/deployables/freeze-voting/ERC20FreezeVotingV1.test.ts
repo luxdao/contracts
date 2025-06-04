@@ -6,10 +6,14 @@ import {
   ERC1967Proxy__factory,
   ERC20FreezeVotingV1,
   ERC20FreezeVotingV1__factory,
+  IBaseFreezeVotingV1__factory,
+  IERC165__factory,
+  IERC20FreezeVotingV1__factory,
+  IVersion__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
 } from '../../../typechain-types';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
+import { calculateInterfaceId } from '../../helpers/utils';
 
 // Helper function for deploying ERC20FreezeVotingV1 instances using ERC1967Proxy
 async function deployERC20FreezeVotingProxy(
@@ -52,7 +56,6 @@ describe('ERC20FreezeVotingV1', () => {
   let voter2: SignerWithAddress;
   let voter3: SignerWithAddress;
   let nonVoter: SignerWithAddress;
-  let nonOwner: SignerWithAddress;
 
   // contracts
   let masterCopy: string;
@@ -71,7 +74,7 @@ describe('ERC20FreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, voter1, voter2, voter3, nonVoter, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3, nonVoter] = await ethers.getSigners();
 
     // Deploy the voting token
     votesToken = await new MockERC20Votes__factory(proxyDeployer).deploy();
@@ -351,78 +354,6 @@ describe('ERC20FreezeVotingV1', () => {
     });
   });
 
-  describe('Parameter Updates', () => {
-    it('should allow owner to update freezeVotesThreshold', async () => {
-      const newThreshold = 500;
-
-      await expect(freezeVoting.connect(owner).updateFreezeVotesThreshold(newThreshold))
-        .to.emit(freezeVoting, 'FreezeVotesThresholdUpdated')
-        .withArgs(newThreshold);
-
-      expect(await freezeVoting.freezeVotesThreshold()).to.equal(newThreshold);
-    });
-
-    it('should allow owner to update freezeProposalPeriod', async () => {
-      const newPeriod = 15;
-
-      await expect(freezeVoting.connect(owner).updateFreezeProposalPeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezeProposalPeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezeProposalPeriod()).to.equal(newPeriod);
-    });
-
-    it('should allow owner to update freezePeriod', async () => {
-      const newPeriod = 20;
-
-      await expect(freezeVoting.connect(owner).updateFreezePeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezePeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezePeriod()).to.equal(newPeriod);
-    });
-
-    it('should not allow non-owner to update freezeVotesThreshold', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezeVotesThreshold(500),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezeProposalPeriod', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezeProposalPeriod(15),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezePeriod', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezePeriod(20),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should affect freeze status when threshold is updated', async () => {
-      // Set up mock past votes for all voters
-      const voteTimestamp = await time.latest();
-      await votesToken.setPastVotes(voter1.address, voteTimestamp, VOTER1_TOKENS);
-      await votesToken.setPastVotes(voter2.address, voteTimestamp, VOTER2_TOKENS);
-      await votesToken.setPastVotes(voter3.address, voteTimestamp, VOTER3_TOKENS);
-
-      // Cast votes to meet the threshold of 300
-      await freezeVoting.connect(voter1).castFreezeVote();
-      await freezeVoting.connect(voter2).castFreezeVote();
-      await freezeVoting.connect(voter3).castFreezeVote();
-
-      // Total votes: 100 + 150 + 200 = 450, above threshold of 300
-      void expect(await freezeVoting.isFrozen()).to.be.true;
-
-      // Increase threshold to 500
-      await freezeVoting.connect(owner).updateFreezeVotesThreshold(500);
-
-      // Should no longer be frozen as 450 < 500
-      void expect(await freezeVoting.isFrozen()).to.be.false;
-    });
-  });
-
   describe('User Has Voted Tracking', () => {
     beforeEach(async () => {
       // Set up mock past votes for voter1
@@ -481,19 +412,47 @@ describe('ERC20FreezeVotingV1', () => {
   describe('Version', () => {
     // Use the shared version test utility
     it('should return the correct version number', async () => {
-      expect(await freezeVoting.getVersion()).to.equal(1);
+      expect(await freezeVoting.version()).to.equal(1);
     });
   });
 
-  describe('UUPS Upgradeability', function () {
-    runUUPSUpgradeabilityTests({
-      getContract: () => freezeVoting,
-      createNewImplementation: async () => {
-        const newImplementation = await new ERC20FreezeVotingV1__factory(owner).deploy();
-        return newImplementation;
-      },
-      owner: () => owner,
-      nonOwner: () => nonOwner,
+  describe('ERC165', () => {
+    it('should support the IERC20FreezeVotingV1 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IERC20FreezeVotingV1__factory.createInterface(), [
+            IBaseFreezeVotingV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IBaseFreezeVotingV1 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IBaseFreezeVotingV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IERC165 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IVersion interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should not support a random interface', async () => {
+      void expect(await freezeVoting.supportsInterface('0x12345678')).to.be.false;
     });
   });
 });

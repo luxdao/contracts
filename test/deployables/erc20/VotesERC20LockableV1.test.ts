@@ -6,9 +6,9 @@ import {
   ERC1967Proxy__factory,
   IERC165__factory,
   IERC20__factory,
-  ILockableV1__factory,
-  IMintableV1__factory,
   IVersion__factory,
+  IVotesERC20LockableV1__factory,
+  IVotesERC20V1__factory,
   VotesERC20LockableV1,
   VotesERC20LockableV1__factory,
 } from '../../../typechain-types';
@@ -20,19 +20,25 @@ async function deployVotesERC20Lockable(
   implementation: VotesERC20LockableV1,
   owner: SignerWithAddress,
   locked: boolean,
+  maxTotalSupply: bigint,
   name: string,
   symbol: string,
   allocationAddresses: string[],
   allocationAmounts: bigint[],
 ): Promise<VotesERC20LockableV1> {
+  const allocations = allocationAddresses.map((address, index) => ({
+    to: address,
+    amount: allocationAmounts[index],
+  }));
+
   const fullInitData =
     VotesERC20LockableV1__factory.createInterface().getFunction(
-      'initialize(address,bool,string,string,address[],uint256[])',
+      'initialize(address,bool,uint256,string,string,(address,uint256)[])',
     ).selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['address', 'bool', 'string', 'string', 'address[]', 'uint256[]'],
-        [owner.address, locked, name, symbol, allocationAddresses, allocationAmounts],
+        ['address', 'bool', 'uint256', 'string', 'string', 'tuple(address to, uint256 amount)[]'],
+        [owner.address, locked, maxTotalSupply, name, symbol, allocations],
       )
       .slice(2);
 
@@ -67,6 +73,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           true,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -81,6 +88,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           false,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -99,6 +107,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           false,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -108,12 +117,12 @@ describe('VotesERC20LockableV1', () => {
 
       it('should revert if initializer is called after deployment', async () => {
         await expect(
-          proxy['initialize(address,bool,string,string,address[],uint256[])'](
+          proxy['initialize(address,bool,uint256,string,string,(address,uint256)[])'](
             owner.address,
             false,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
-            [],
             [],
           ),
         ).to.be.revertedWithCustomError(proxy, 'InvalidInitialization');
@@ -132,6 +141,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -164,12 +174,9 @@ describe('VotesERC20LockableV1', () => {
         });
       });
 
-      describe('Trying to lock should fail', () => {
-        it('should revert', async () => {
-          await expect(proxy.connect(owner).lock(true)).to.be.revertedWithCustomError(
-            proxy,
-            'CannotSwitchLockState(bool true)',
-          );
+      describe('Trying to lock (despite being locked) should succeed', () => {
+        it('should succeed', async () => {
+          await expect(proxy.connect(owner).lock(true)).to.not.be.reverted;
         });
       });
     });
@@ -184,6 +191,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -216,12 +224,9 @@ describe('VotesERC20LockableV1', () => {
         });
       });
 
-      describe('Trying to unlock should fail', () => {
-        it('should revert', async () => {
-          await expect(proxy.connect(owner).lock(false)).to.be.revertedWithCustomError(
-            proxy,
-            'CannotSwitchLockState(bool false)',
-          );
+      describe('Trying to unlock (despite being unlocked) should succeed', () => {
+        it('should succeed', async () => {
+          await expect(proxy.connect(owner).lock(false)).to.not.be.reverted;
         });
       });
     });
@@ -236,6 +241,7 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test',
         'TEST',
         [],
@@ -264,8 +270,10 @@ describe('VotesERC20LockableV1', () => {
             addTx = await proxy.connect(owner).whitelist(whitelistMember.address, true);
           });
 
-          it('should not emit an event', async () => {
-            await expect(addTx).to.not.emit(proxy, 'Whitelisted');
+          it('should emit an event again', async () => {
+            await expect(addTx)
+              .to.emit(proxy, 'Whitelisted')
+              .withArgs(whitelistMember.address, true);
           });
         });
       });
@@ -304,8 +312,10 @@ describe('VotesERC20LockableV1', () => {
             removeTx = await proxy.connect(owner).whitelist(whitelistMember.address, false);
           });
 
-          it('should not emit an event', async () => {
-            await expect(removeTx).to.not.emit(proxy, 'Whitelisted');
+          it('should emit an event again', async () => {
+            await expect(removeTx)
+              .to.emit(proxy, 'Whitelisted')
+              .withArgs(whitelistMember.address, false);
           });
         });
       });
@@ -316,6 +326,66 @@ describe('VotesERC20LockableV1', () => {
             proxy.connect(nonOwner).whitelist(whitelistMember.address, false),
           ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
         });
+      });
+    });
+  });
+
+  describe('SetMaxTotalSupply function', () => {
+    const locked = false;
+    const maxTotalSupply = ethers.parseEther('2');
+    const newMaxTotalSupply = ethers.parseEther('20');
+    let proxy: VotesERC20LockableV1;
+
+    beforeEach(async () => {
+      proxy = await deployVotesERC20Lockable(
+        deployer,
+        implementation,
+        owner,
+        locked,
+        maxTotalSupply,
+        'Test',
+        'TEST',
+        [],
+        [],
+      );
+    });
+
+    describe('Updating by the owner should succeed', () => {
+      let updateTx: ContractTransactionResponse;
+
+      beforeEach(async () => {
+        updateTx = await proxy.connect(owner).setMaxTotalSupply(newMaxTotalSupply);
+      });
+
+      it('should be updated', async () => {
+        expect(await proxy.maxTotalSupply()).to.equal(newMaxTotalSupply);
+      });
+
+      it('should emit an event', async () => {
+        expect(updateTx).to.emit(proxy, 'MaxTotalSupplyUpdated').withArgs(newMaxTotalSupply);
+      });
+
+      it('should not emit an event if newMaxTotalSupply is same', async () => {
+        const anotherUpdateTx = await proxy.connect(owner).setMaxTotalSupply(newMaxTotalSupply);
+        expect(anotherUpdateTx).not.to.emit(proxy, 'MaxTotalSupplyUpdated');
+      });
+    });
+
+    describe('Updating by a owner with maxTotalSupply lower than totalSupply', () => {
+      it('should revert', async () => {
+        const mintedAmount = maxTotalSupply - 1n;
+        await proxy.connect(owner).mint(owner, mintedAmount);
+        await expect(
+          proxy.connect(owner).setMaxTotalSupply(mintedAmount - 1n),
+        ).to.be.revertedWithCustomError(proxy, 'InvalidMaxTotalSupply');
+      });
+    });
+
+    describe('Updating by a non-owner should fail', () => {
+      it('should revert', async () => {
+        await expect(
+          proxy.connect(nonOwner).setMaxTotalSupply(newMaxTotalSupply),
+        ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
       });
     });
   });
@@ -341,6 +411,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -391,6 +462,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -450,6 +522,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -522,6 +595,7 @@ describe('VotesERC20LockableV1', () => {
             implementation,
             owner,
             locked,
+            ethers.parseEther('2100'),
             'Test',
             'TEST',
             tokenHolderAddresses,
@@ -608,6 +682,7 @@ describe('VotesERC20LockableV1', () => {
   });
 
   describe('Minting Tokens', () => {
+    const maxTotalSupply = ethers.parseEther('1');
     let proxy: VotesERC20LockableV1;
 
     describe('when token is locked', () => {
@@ -619,6 +694,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          maxTotalSupply,
           'Test',
           'TEST',
           [],
@@ -628,11 +704,18 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is owner', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).mint(owner.address, ethers.parseEther('1'));
+          await proxy.connect(owner).mint(owner.address, maxTotalSupply);
         });
 
         it('should mint tokens', async () => {
-          expect(await proxy.balanceOf(owner.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(owner.address)).to.equal(maxTotalSupply);
+        });
+
+        it('should revert when mint more than maxTotalSupply', async () => {
+          await expect(proxy.connect(owner).mint(owner.address, 1n)).to.be.revertedWithCustomError(
+            proxy,
+            'ExceedMaxTotalSupply',
+          );
         });
       });
 
@@ -646,7 +729,7 @@ describe('VotesERC20LockableV1', () => {
           expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
 
           await expect(
-            proxy.connect(tokenHolder).mint(tokenHolder.address, ethers.parseEther('1')),
+            proxy.connect(tokenHolder).mint(tokenHolder.address, maxTotalSupply),
           ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
         });
       });
@@ -669,6 +752,7 @@ describe('VotesERC20LockableV1', () => {
           implementation,
           owner,
           locked,
+          ethers.parseEther('2100'),
           'Test',
           'TEST',
           [],
@@ -711,6 +795,115 @@ describe('VotesERC20LockableV1', () => {
     });
   });
 
+  describe('Burning Tokens', () => {
+    let tokenHolderAddresses: string[];
+    let tokenHolderAmounts: bigint[];
+    let proxy: VotesERC20LockableV1;
+
+    beforeEach(async () => {
+      tokenHolderAddresses = [tokenHolder.address, owner.address];
+      tokenHolderAmounts = [ethers.parseEther('100'), ethers.parseEther('100')];
+    });
+
+    describe('when token is locked', () => {
+      const locked = true;
+
+      beforeEach(async () => {
+        proxy = await deployVotesERC20Lockable(
+          deployer,
+          implementation,
+          owner,
+          locked,
+          ethers.parseEther('2100'),
+          'Test',
+          'TEST',
+          tokenHolderAddresses,
+          tokenHolderAmounts,
+        );
+      });
+
+      describe('when caller is owner', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).burn(ethers.parseEther('1'));
+        });
+
+        it('should burn tokens', async () => {
+          expect(await proxy.balanceOf(owner.address)).to.equal(ethers.parseEther('99'));
+        });
+      });
+
+      describe('when caller is whitelisted', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(tokenHolder).burn(ethers.parseEther('1'));
+        });
+
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
+        });
+      });
+
+      describe('when caller is not owner or whitelisted', () => {
+        it('should not revert', async () => {
+          await proxy.connect(tokenHolder).burn(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
+        });
+      });
+    });
+
+    describe('when token is not locked', () => {
+      const locked = false;
+
+      beforeEach(async () => {
+        proxy = await deployVotesERC20Lockable(
+          deployer,
+          implementation,
+          owner,
+          locked,
+          ethers.parseEther('2100'),
+          'Test',
+          'TEST',
+          tokenHolderAddresses,
+          tokenHolderAmounts,
+        );
+      });
+
+      describe('when caller is owner', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).transfer(tokenRecipient.address, ethers.parseEther('1'));
+        });
+
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(owner.address)).to.equal(ethers.parseEther('99'));
+        });
+      });
+
+      describe('when caller is whitelisted', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(tokenHolder).transfer(tokenRecipient.address, ethers.parseEther('1'));
+        });
+
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
+        });
+      });
+
+      describe('when caller is not owner or whitelisted', () => {
+        beforeEach(async () => {
+          await proxy.connect(tokenHolder).transfer(tokenRecipient.address, ethers.parseEther('1'));
+        });
+
+        it('should transfer tokens', async () => {
+          expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
+        });
+      });
+    });
+  });
+
   describe('Version', () => {
     it('should return the correct version', async () => {
       const proxy = await deployVotesERC20Lockable(
@@ -718,22 +911,18 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test',
         'TEST',
         [],
         [],
       );
-      expect(await proxy.getVersion()).to.equal(1);
+      expect(await proxy.version()).to.equal(1);
     });
   });
 
   describe('ERC165', function () {
     let proxy: VotesERC20LockableV1;
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
-    let iLockableV1InterfaceId: string;
-    let iMintableV1InterfaceId: string;
-    let iERC20InterfaceId: string;
 
     beforeEach(async function () {
       proxy = await deployVotesERC20Lockable(
@@ -741,58 +930,53 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test',
         'TEST',
         [],
         [],
       );
-
-      // Dynamically calculate interface IDs
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-
-      const ILockableV1Interface = ILockableV1__factory.createInterface();
-      iLockableV1InterfaceId = calculateInterfaceId(ILockableV1Interface);
-
-      const IMintableV1Interface = IMintableV1__factory.createInterface();
-      iMintableV1InterfaceId = calculateInterfaceId(IMintableV1Interface);
-
-      const IERC20Interface = IERC20__factory.createInterface();
-      iERC20InterfaceId = calculateInterfaceId(IERC20Interface);
     });
 
     it('Should support IERC165 interface', async function () {
-      const supported = await proxy.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await proxy.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
+      ).to.be.true;
     });
 
     it('Should support IVersion interface', async function () {
-      const supported = await proxy.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await proxy.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
+      ).to.be.true;
     });
 
-    it('Should support ILockableV1 interface', async function () {
-      const supported = await proxy.supportsInterface(iLockableV1InterfaceId);
-      void expect(supported).to.be.true;
+    it('Should support IVotesERC20LockableV1 interface', async function () {
+      void expect(
+        await proxy.supportsInterface(
+          calculateInterfaceId(IVotesERC20LockableV1__factory.createInterface(), [
+            IVotesERC20V1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
     });
 
-    it('Should support IMintableV1 interface', async function () {
-      const supported = await proxy.supportsInterface(iMintableV1InterfaceId);
-      void expect(supported).to.be.true;
+    it('Should support IVotesERC20V1 interface', async function () {
+      void expect(
+        await proxy.supportsInterface(
+          calculateInterfaceId(IVotesERC20V1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IERC20 interface', async function () {
-      const supported = await proxy.supportsInterface(iERC20InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await proxy.supportsInterface(calculateInterfaceId(IERC20__factory.createInterface())),
+      ).to.be.true;
     });
 
     it('Should not support random interface', async function () {
       const randomInterfaceId = '0x12345678';
-      const supported = await proxy.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
+      void expect(await proxy.supportsInterface(randomInterfaceId)).to.be.false;
     });
   });
 
@@ -805,6 +989,7 @@ describe('VotesERC20LockableV1', () => {
         implementation,
         owner,
         false,
+        ethers.parseEther('2100'),
         'Test Voting Token',
         'TVT',
         [],
