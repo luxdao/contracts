@@ -5,6 +5,8 @@ import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IERC165__factory,
+  IERC4337VoterSupportV1__factory,
+  ISmartAccountValidationV1__factory,
   IStrategyBaseV1__factory,
   IStrategyV1__factory,
   IVersion__factory,
@@ -836,6 +838,22 @@ describe('StrategyV1', () => {
           calculateInterfaceId(IStrategyV1__factory.createInterface(), [
             IStrategyBaseV1__factory.createInterface(),
           ]),
+        ),
+      ).to.be.true;
+    });
+
+    it('Should support IERC4337VoterSupportV1 interface', async () => {
+      void expect(
+        await strategy.supportsInterface(
+          calculateInterfaceId(IERC4337VoterSupportV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('Should support ISmartAccountValidationV1 interface', async () => {
+      void expect(
+        await strategy.supportsInterface(
+          calculateInterfaceId(ISmartAccountValidationV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
