@@ -9,7 +9,6 @@ interface IVotesERC20LockableV1 is IVotesERC20V1 {
     event MaxTotalSupplyUpdated(uint256 newMaxTotalSupply);
 
     error IsLocked();
-    error CannotSwitchLockState(bool newLockState);
     error ExceedMaxTotalSupply();
     error InvalidMaxTotalSupply();
 
