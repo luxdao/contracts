@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
 import {IERC20FreezeVotingV1} from "../../interfaces/decent/deployables/IERC20FreezeVotingV1.sol";
-import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
 contract ERC20FreezeVotingV1 is

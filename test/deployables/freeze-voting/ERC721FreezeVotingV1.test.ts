@@ -16,7 +16,6 @@ import {
   MockERC721VotingStrategy__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 // Helper function for deploying ERC721FreezeVotingV1 proxy instances using ERC1967Proxy
 async function deployERC721FreezeVotingProxy(
@@ -64,7 +63,6 @@ describe('ERC721FreezeVotingV1', () => {
   let voter2: SignerWithAddress;
   let voter3: SignerWithAddress;
   let nonVoter: SignerWithAddress;
-  let nonOwner: SignerWithAddress;
 
   // contracts
   let masterCopy: string;
@@ -92,7 +90,7 @@ describe('ERC721FreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, voter1, voter2, voter3, nonVoter, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3, nonVoter] = await ethers.getSigners();
 
     // Deploy NFT collections
     nftCollection1 = await new MockERC721__factory(proxyDeployer).deploy();
@@ -402,70 +400,6 @@ describe('ERC721FreezeVotingV1', () => {
     });
   });
 
-  describe('Parameter Updates', () => {
-    it('should allow owner to update freezeVotesThreshold', async () => {
-      const newThreshold = 5;
-
-      await expect(freezeVoting.connect(owner).updateFreezeVotesThreshold(newThreshold))
-        .to.emit(freezeVoting, 'FreezeVotesThresholdUpdated')
-        .withArgs(newThreshold);
-
-      expect(await freezeVoting.freezeVotesThreshold()).to.equal(newThreshold);
-    });
-
-    it('should allow owner to update freezeProposalPeriod', async () => {
-      const newPeriod = 15;
-
-      await expect(freezeVoting.connect(owner).updateFreezeProposalPeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezeProposalPeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezeProposalPeriod()).to.equal(newPeriod);
-    });
-
-    it('should allow owner to update freezePeriod', async () => {
-      const newPeriod = 20;
-
-      await expect(freezeVoting.connect(owner).updateFreezePeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezePeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezePeriod()).to.equal(newPeriod);
-    });
-
-    it('should not allow non-owner to update freezeVotesThreshold', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezeVotesThreshold(5),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezeProposalPeriod', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezeProposalPeriod(15),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezePeriod', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezePeriod(20),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should affect freeze status when threshold is updated', async () => {
-      // Cast votes to meet the threshold of 3
-      await freezeVoting.connect(voter3).castFreezeVote(voter3TokenAddresses, voter3TokenIds);
-
-      // DAO should be frozen
-      void expect(await freezeVoting.isFrozen()).to.be.true;
-
-      // Increase threshold to 4
-      await freezeVoting.connect(owner).updateFreezeVotesThreshold(4);
-
-      // Should no longer be frozen as 3 < 4
-      void expect(await freezeVoting.isFrozen()).to.be.false;
-    });
-  });
-
   describe('Token Has Voted Tracking', () => {
     it('should correctly track if a token has been used to vote', async () => {
       const createdTimestamp = 0; // Initial state
@@ -575,18 +509,6 @@ describe('ERC721FreezeVotingV1', () => {
 
     it('should not support a random interface', async () => {
       void expect(await freezeVoting.supportsInterface('0x12345678')).to.be.false;
-    });
-  });
-
-  describe('UUPS Upgradeability', function () {
-    runUUPSUpgradeabilityTests({
-      getContract: () => freezeVoting,
-      createNewImplementation: async () => {
-        const newImplementation = await new ERC721FreezeVotingV1__factory(owner).deploy();
-        return newImplementation;
-      },
-      owner: () => owner,
-      nonOwner: () => nonOwner,
     });
   });
 });

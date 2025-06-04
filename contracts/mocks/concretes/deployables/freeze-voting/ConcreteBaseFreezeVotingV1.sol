@@ -3,36 +3,19 @@ pragma solidity ^0.8.30;
 
 import {BaseFreezeVotingV1} from "../../../../deployables/freeze-voting/BaseFreezeVotingV1.sol";
 
-/**
- * A minimal concrete implementation of BaseFreezeVotingV1 for testing.
- */
 contract ConcreteBaseFreezeVotingV1 is BaseFreezeVotingV1 {
-    /**
-     * Initialize function, will be triggered when a new instance is deployed.
-     *
-     * @param _owner The owner of the contract
-     * @param _freezeVotesThreshold The number of votes required to activate a freeze
-     * @param _freezeProposalPeriod The number of blocks a freeze proposal has to succeed
-     * @param _freezePeriod The number of blocks a freeze lasts
-     */
     function initialize(
-        address _owner,
-        uint256 _freezeVotesThreshold,
-        uint32 _freezeProposalPeriod,
-        uint32 _freezePeriod
+        address owner_,
+        uint256 freezeVotesThreshold_,
+        uint32 freezeProposalPeriod_,
+        uint32 freezePeriod_
     ) public initializer {
-        __Ownable_init(_owner);
-        __UUPSUpgradeable_init();
-        _updateFreezeVotesThreshold(_freezeVotesThreshold);
-        _updateFreezeProposalPeriod(_freezeProposalPeriod);
-        _updateFreezePeriod(_freezePeriod);
+        __Ownable_init(owner_);
+        _freezeVotesThreshold = freezeVotesThreshold_;
+        _freezeProposalPeriod = freezeProposalPeriod_;
+        _freezePeriod = freezePeriod_;
     }
 
-    /**
-     * Implements the abstract castFreezeVote function.
-     *
-     * Each call counts as one vote by default, or as many votes as set by setMockVotePower.
-     */
     function castFreezeVote() external {
         // If no freeze proposal exists yet, create one
         if (_freezeProposalCreated == 0) {
