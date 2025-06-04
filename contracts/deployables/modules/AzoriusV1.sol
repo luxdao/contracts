@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBaseV1.sol";
+import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IAzoriusV1, Enum} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../Version.sol";
@@ -50,7 +50,7 @@ contract AzoriusV1 is
     uint32 internal _timelockPeriod;
     uint32 internal _executionPeriod;
     mapping(uint256 => Proposal) internal _proposals;
-    IStrategyBaseV1 internal _strategy;
+    IStrategyV1 internal _strategy;
 
     constructor() {
         _disableInitializers();
@@ -277,7 +277,7 @@ contract AzoriusV1 is
     ) public view virtual override returns (ProposalState) {
         if (_proposalId >= _totalProposalCount) revert InvalidProposal();
         Proposal memory _proposal = _proposals[_proposalId];
-        IStrategyBaseV1 strategy_ = IStrategyBaseV1(_proposal.strategy);
+        IStrategyV1 strategy_ = IStrategyV1(_proposal.strategy);
 
         (, uint48 votingEndTimestamp) = strategy_.getVotingTimestamps(
             _proposalId
@@ -377,7 +377,7 @@ contract AzoriusV1 is
 
     function _updateStrategy(address strategy_) internal virtual {
         if (strategy_ == address(0)) revert InvalidStrategy();
-        _strategy = IStrategyBaseV1(strategy_);
+        _strategy = IStrategyV1(strategy_);
         emit StrategyUpdated(strategy_);
     }
 

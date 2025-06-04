@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IStrategyBaseV1} from "../interfaces/decent/deployables/IStrategyBaseV1.sol";
+import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
 
-contract MockVotingStrategy is IStrategyBaseV1 {
+contract MockVotingStrategy is IStrategyV1 {
     struct TimestampPoints {
         uint48 startTimestamp;
         uint48 endTimestamp;
@@ -100,4 +100,55 @@ contract MockVotingStrategy is IStrategyBaseV1 {
     ) external {
         _isProposerAdapter[proposerAdapter_] = isProposerAdapter_;
     }
+
+    function initialize(
+        address proposalInitializer_,
+        uint32 votingPeriod_,
+        uint256 quorumThreshold_,
+        uint256 basisNumerator_,
+        address[] memory votingAdapters_,
+        address[] memory proposerAdapters_,
+        address lightAccountFactory_
+    ) external override {}
+
+    function proposalInitializer() external view override returns (address) {}
+
+    function votingPeriod() external view override returns (uint32) {}
+
+    function quorumThreshold() external view override returns (uint256) {}
+
+    function basisNumerator() external view override returns (uint256) {}
+
+    function proposalVotingDetails(
+        uint32 proposalId
+    ) external view override returns (ProposalVotingDetails memory) {}
+
+    function votingAdapters()
+        external
+        view
+        override
+        returns (address[] memory)
+    {}
+
+    function proposerAdapters()
+        external
+        view
+        override
+        returns (address[] memory)
+    {}
+
+    function isQuorumMet(
+        uint32 _proposalId
+    ) external view override returns (bool) {}
+
+    function isBasisMet(
+        uint32 _proposalId
+    ) external view override returns (bool) {}
+
+    function vote(
+        uint32 _proposalId,
+        uint8 _voteType,
+        address[] calldata _votingAdaptersToUse,
+        bytes[] calldata _votingAdapterVoteData
+    ) external override {}
 }

@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {IHatsProposerAdapterV1} from "../../../interfaces/decent/deployables/IHatsProposerAdapterV1.sol";
 import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
-import {IProposerAdapterBaseV1} from "../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IHats} from "../../../interfaces/hats/IHats.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../../Version.sol";
@@ -71,7 +70,6 @@ contract HatsProposerAdapterV1 is
         return
             interfaceId == type(IHatsProposerAdapterV1).interfaceId ||
             interfaceId == type(IProposerAdapterV1).interfaceId ||
-            interfaceId == type(IProposerAdapterBaseV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }

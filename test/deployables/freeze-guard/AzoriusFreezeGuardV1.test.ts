@@ -6,8 +6,8 @@ import {
   AzoriusFreezeGuardV1__factory,
   ERC1967Proxy__factory,
   IAzoriusFreezeGuardV1__factory,
+  IBaseFreezeGuardV1__factory,
   IERC165__factory,
-  IFreezeGuardBaseV1__factory,
   IGuard__factory,
   IVersion__factory,
   MockFreezeVoting,
@@ -207,12 +207,6 @@ describe('AzoriusFreezeGuardV1', () => {
   });
 
   describe('ERC165', function () {
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
-    let iAzoriusFreezeGuardV1InterfaceId: string;
-    let iFreezeGuardBaseV1InterfaceId: string;
-    let iGuardInterfaceId: string;
-
     beforeEach(async function () {
       azoriusFreezeGuard = await deployAzoriusFreezeGuardProxy(
         proxyDeployer,
@@ -220,60 +214,55 @@ describe('AzoriusFreezeGuardV1', () => {
         owner,
         await mockFreezeVoting.getAddress(),
       );
-
-      // Dynamically calculate interface IDs
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-
-      const IAzoriusFreezeGuardV1Interface = IAzoriusFreezeGuardV1__factory.createInterface();
-      iAzoriusFreezeGuardV1InterfaceId = calculateInterfaceId(IAzoriusFreezeGuardV1Interface, [
-        IFreezeGuardBaseV1__factory.createInterface(),
-        IGuard__factory.createInterface(),
-      ]);
-
-      const IFreezeGuardBaseV1Interface = IFreezeGuardBaseV1__factory.createInterface();
-      iFreezeGuardBaseV1InterfaceId = calculateInterfaceId(IFreezeGuardBaseV1Interface, [
-        IGuard__factory.createInterface(),
-      ]);
-
-      const IGuardInterface = IGuard__factory.createInterface();
-      iGuardInterfaceId = calculateInterfaceId(IGuardInterface);
     });
 
     it('Should support IERC165 interface', async function () {
-      const supported = await azoriusFreezeGuard.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await azoriusFreezeGuard.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IVersion interface', async function () {
-      const supported = await azoriusFreezeGuard.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await azoriusFreezeGuard.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IAzoriusFreezeGuardV1 interface', async function () {
-      const supported = await azoriusFreezeGuard.supportsInterface(
-        iAzoriusFreezeGuardV1InterfaceId,
-      );
-      void expect(supported).to.be.true;
+      void expect(
+        await azoriusFreezeGuard.supportsInterface(
+          calculateInterfaceId(IAzoriusFreezeGuardV1__factory.createInterface(), [
+            IBaseFreezeGuardV1__factory.createInterface(),
+            IGuard__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
     });
 
-    it('Should support IFreezeGuardBaseV1 interface', async function () {
-      const supported = await azoriusFreezeGuard.supportsInterface(iFreezeGuardBaseV1InterfaceId);
-      void expect(supported).to.be.true;
+    it('Should support IBaseFreezeGuardV1 interface', async function () {
+      void expect(
+        await azoriusFreezeGuard.supportsInterface(
+          calculateInterfaceId(IBaseFreezeGuardV1__factory.createInterface(), [
+            IGuard__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IGuard interface', async function () {
-      const supported = await azoriusFreezeGuard.supportsInterface(iGuardInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await azoriusFreezeGuard.supportsInterface(
+          calculateInterfaceId(IGuard__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      const supported = await azoriusFreezeGuard.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
+      void expect(await azoriusFreezeGuard.supportsInterface('0x12345678')).to.be.false;
     });
   });
 

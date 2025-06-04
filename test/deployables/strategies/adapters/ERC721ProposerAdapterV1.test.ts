@@ -7,7 +7,6 @@ import {
   ERC721ProposerAdapterV1__factory,
   IERC165__factory,
   IERC721ProposerAdapterV1__factory,
-  IProposerAdapterBaseV1__factory,
   IProposerAdapterV1__factory,
   IVersion__factory,
   MockERC721,
@@ -136,7 +135,6 @@ describe('ERC721ProposerAdapterV1', () => {
         await adapter.supportsInterface(
           calculateInterfaceId(IERC721ProposerAdapterV1__factory.createInterface(), [
             IProposerAdapterV1__factory.createInterface(),
-            IProposerAdapterBaseV1__factory.createInterface(),
           ]),
         ),
       ).to.be.true;
@@ -145,17 +143,7 @@ describe('ERC721ProposerAdapterV1', () => {
     it('should support IProposerAdapterV1', async () => {
       void expect(
         await adapter.supportsInterface(
-          calculateInterfaceId(IProposerAdapterV1__factory.createInterface(), [
-            IProposerAdapterBaseV1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IProposerAdapterBaseV1', async () => {
-      void expect(
-        await adapter.supportsInterface(
-          calculateInterfaceId(IProposerAdapterBaseV1__factory.createInterface()),
+          calculateInterfaceId(IProposerAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });

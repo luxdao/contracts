@@ -9,7 +9,6 @@ import {
   IERC165__factory,
   IERC20VotingAdapterV1__factory,
   IVersion__factory,
-  IVotingAdapterBaseV1__factory,
   IVotingAdapterV1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
@@ -435,7 +434,6 @@ describe('ERC20VotingAdapterV1', () => {
       void expect(
         await erc20Adapter.supportsInterface(
           calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface(), [
-            IVotingAdapterBaseV1__factory.createInterface(),
             IVotingAdapterV1__factory.createInterface(),
           ]),
         ),
@@ -445,17 +443,7 @@ describe('ERC20VotingAdapterV1', () => {
     it('should support IVotingAdapterV1', async () => {
       void expect(
         await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterV1__factory.createInterface(), [
-            IVotingAdapterBaseV1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IVotingAdapterBaseV1', async () => {
-      void expect(
-        await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterBaseV1__factory.createInterface()),
+          calculateInterfaceId(IVotingAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
