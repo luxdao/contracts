@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
 import {IFunctionValidator} from "../../interfaces/decent/deployables/IFunctionValidator.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {BasePaymasterV1} from "./BasePaymasterV1.sol";
 import {SmartAccountValidationV1} from "./SmartAccountValidationV1.sol";
 import {Version} from "../Version.sol";
@@ -13,6 +14,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 contract DecentPaymasterV1 is
     IDecentPaymasterV1,
@@ -20,7 +22,8 @@ contract DecentPaymasterV1 is
     BasePaymasterV1,
     SmartAccountValidationV1,
     Ownable2StepUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    ERC165
 {
     uint16 private constant VERSION = 1;
 
@@ -51,7 +54,7 @@ contract DecentPaymasterV1 is
         if (validator == address(0)) revert InvalidValidator();
 
         if (
-            !IFunctionValidator(validator).supportsInterface(
+            !IERC165(validator).supportsInterface(
                 type(IFunctionValidator).interfaceId
             )
         ) {
@@ -132,6 +135,7 @@ contract DecentPaymasterV1 is
             interfaceId == type(IDecentPaymasterV1).interfaceId ||
             interfaceId == type(ISmartAccountValidationV1).interfaceId ||
             interfaceId == type(IPaymaster).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 

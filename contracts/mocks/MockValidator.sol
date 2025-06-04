@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {IFunctionValidator} from "../interfaces/decent/deployables/IFunctionValidator.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 contract MockValidator is IFunctionValidator, ERC165 {
     bool private shouldValidate;
@@ -24,7 +23,7 @@ contract MockValidator is IFunctionValidator, ERC165 {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, IFunctionValidator) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IFunctionValidator).interfaceId ||
             super.supportsInterface(interfaceId);

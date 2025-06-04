@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../Version.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,13 +10,15 @@ import {ERC20VotesUpgradeable, VotesUpgradeable} from "@openzeppelin/contracts-u
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {IVotesERC20StakedV1} from "../../interfaces/decent/deployables/IVotesERC20StakedV1.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract VotesERC20StakedV1 is
     IVotesERC20StakedV1,
     Version,
     ERC20VotesUpgradeable,
     UUPSUpgradeable,
-    Ownable2StepUpgradeable
+    Ownable2StepUpgradeable,
+    ERC165
 {
     using SafeERC20 for IERC20;
 
@@ -390,6 +393,7 @@ contract VotesERC20StakedV1 is
             interfaceId == type(IVotesERC20StakedV1).interfaceId ||
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(IVotes).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
