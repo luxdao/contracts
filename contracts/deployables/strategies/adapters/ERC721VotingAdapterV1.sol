@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {IERC721VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC721VotingAdapterV1.sol";
 import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
 import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -211,11 +212,12 @@ contract ERC721VotingAdapterV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC721VotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

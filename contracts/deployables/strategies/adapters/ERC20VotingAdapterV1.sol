@@ -6,6 +6,7 @@ import {IStrategyBaseV1} from "../../../interfaces/decent/deployables/IStrategyB
 import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
 import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {ClockMode} from "../../../interfaces/decent/ClockMode.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../../Version.sol";
 import {ClockModeLib} from "../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
@@ -105,11 +106,12 @@ contract ERC20VotingAdapterV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC20VotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

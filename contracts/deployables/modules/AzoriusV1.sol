@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {Version} from "../Version.sol";
 import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBaseV1.sol";
 import {IAzoriusV1, Enum} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract AzoriusV1 is
     IAzoriusV1,
     GuardableModule,
     Ownable2StepUpgradeable,
     Version,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    ERC165
 {
     uint16 private constant VERSION = 1;
     /**
@@ -387,6 +390,7 @@ contract AzoriusV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IAzoriusV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 

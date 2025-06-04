@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IFunctionValidator} from "../../../interfaces/decent/deployables/IFunctionValidator.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -134,15 +135,10 @@ contract LinearERC721VotingV1ValidatorV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    )
-        public
-        view
-        virtual
-        override(ERC165, Version, IFunctionValidator)
-        returns (bool)
-    {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IFunctionValidator).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
