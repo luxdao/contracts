@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {IERC721ProposerAdapterV1} from "../../../interfaces/decent/deployables/IERC721ProposerAdapterV1.sol";
 import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
-import {IProposerAdapterBaseV1} from "../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -64,7 +63,6 @@ contract ERC721ProposerAdapterV1 is
         return
             interfaceId == type(IERC721ProposerAdapterV1).interfaceId ||
             interfaceId == type(IProposerAdapterV1).interfaceId ||
-            interfaceId == type(IProposerAdapterBaseV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }

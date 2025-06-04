@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {IERC20ProposerAdapterV1} from "../../../interfaces/decent/deployables/IERC20ProposerAdapterV1.sol";
 import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
-import {IProposerAdapterBaseV1} from "../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -64,7 +63,6 @@ contract ERC20ProposerAdapterV1 is
         return
             interfaceId == type(IERC20ProposerAdapterV1).interfaceId ||
             interfaceId == type(IProposerAdapterV1).interfaceId ||
-            interfaceId == type(IProposerAdapterBaseV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }

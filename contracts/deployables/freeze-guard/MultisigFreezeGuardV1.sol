@@ -3,9 +3,9 @@ pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMultisigFreezeGuardV1.sol";
+import {IBaseFreezeGuardV1} from "../../interfaces/decent/deployables/IBaseFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
-import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {Version} from "../Version.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
@@ -192,7 +192,7 @@ contract MultisigFreezeGuardV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IMultisigFreezeGuardV1).interfaceId ||
-            interfaceId == type(IFreezeGuardBaseV1).interfaceId ||
+            interfaceId == type(IBaseFreezeGuardV1).interfaceId ||
             interfaceId == type(IGuard).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
