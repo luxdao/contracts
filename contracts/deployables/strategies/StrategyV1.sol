@@ -7,6 +7,7 @@ import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingA
 import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IERC4337VoterSupportV1} from "../../interfaces/decent/deployables/IERC4337VoterSupportV1.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
@@ -16,7 +17,8 @@ contract StrategyV1 is
     IStrategyV1,
     Initializable,
     ERC4337VoterSupportV1,
-    Version
+    Version,
+    ERC165
 {
     uint16 public constant VERSION = 1;
 
@@ -346,6 +348,7 @@ contract StrategyV1 is
             interfaceId == type(IStrategyBaseV1).interfaceId ||
             interfaceId == type(IERC4337VoterSupportV1).interfaceId ||
             interfaceId == type(ISmartAccountValidationV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

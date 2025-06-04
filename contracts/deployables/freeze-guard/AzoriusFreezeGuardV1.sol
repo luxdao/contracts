@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Version} from "../Version.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IAzoriusFreezeGuardV1} from "../../interfaces/decent/deployables/IAzoriusFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
@@ -70,11 +71,12 @@ contract AzoriusFreezeGuardV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IAzoriusFreezeGuardV1).interfaceId ||
             interfaceId == type(IFreezeGuardBaseV1).interfaceId ||
             interfaceId == type(IGuard).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

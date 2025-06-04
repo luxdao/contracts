@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {Version} from "../Version.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMultisigFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
+import {Version} from "../Version.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -188,11 +189,12 @@ contract MultisigFreezeGuardV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IMultisigFreezeGuardV1).interfaceId ||
             interfaceId == type(IFreezeGuardBaseV1).interfaceId ||
             interfaceId == type(IGuard).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

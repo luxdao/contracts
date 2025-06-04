@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IERC20FreezeVotingV1} from "../../interfaces/decent/deployables/IERC20FreezeVotingV1.sol";
+import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
-import {IERC20FreezeVotingV1} from "../../interfaces/decent/deployables/IERC20FreezeVotingV1.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract ERC20FreezeVotingV1 is
     IERC20FreezeVotingV1,
     BaseFreezeVotingV1,
-    Version
+    Version,
+    ERC165
 {
     uint16 private constant VERSION = 1;
 
@@ -85,9 +89,11 @@ contract ERC20FreezeVotingV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseFreezeVotingV1, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC20FreezeVotingV1).interfaceId ||
+            interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

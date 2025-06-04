@@ -6,10 +6,7 @@ import {
   ConcreteBaseFreezeVotingV1,
   ConcreteBaseFreezeVotingV1__factory,
   ERC1967Proxy__factory,
-  IBaseFreezeVotingV1__factory,
-  IERC165__factory,
 } from '../../../typechain-types';
-import { calculateInterfaceId } from '../../helpers/utils';
 
 // Helper function for deploying ConcreteBaseFreezeVoting instances using ERC1967Proxy
 async function deployConcreteBaseFreezeVotingProxy(
@@ -318,27 +315,6 @@ describe('BaseFreezeVotingV1', () => {
       // Check that user has voted on the new proposal
       void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
         .true;
-    });
-  });
-
-  describe('ERC165', function () {
-    it('Should support IERC165 interface', async function () {
-      const supported = await freezeVoting.supportsInterface(
-        calculateInterfaceId(IERC165__factory.createInterface()),
-      );
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IBaseFreezeVotingV1 interface', async function () {
-      void expect(
-        await freezeVoting.supportsInterface(
-          calculateInterfaceId(IBaseFreezeVotingV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      void expect(await freezeVoting.supportsInterface('0x12345678')).to.be.false;
     });
   });
 });
