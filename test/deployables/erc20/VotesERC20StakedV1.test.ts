@@ -852,4 +852,105 @@ describe('VotesERC20StakedV1', () => {
       ).to.deep.equal([ethers.parseEther('40')]);
     });
   });
+
+  describe.only('Claiming', function () {
+    beforeEach(async function () {
+      votesERC20Staked = await deployVotesERC20StakedProxy(
+        proxyDeployer,
+        masterCopy,
+        owner,
+        'Test Staking Contract',
+        'TSC',
+        await stakedToken.getAddress(),
+        604800n,
+        [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), nativeAssetAddress],
+      );
+
+      // Mint 10 staked tokens to alice
+      await stakedToken.mint(alice.address, ethers.parseEther('10'));
+
+      // Mint 30 staked tokens to bob
+      await stakedToken.mint(bob.address, ethers.parseEther('30'));
+
+      // Alice approves the staking contract to spend her tokens
+      await stakedToken
+        .connect(alice)
+        .approve(await votesERC20Staked.getAddress(), ethers.parseEther('10'));
+
+      // Bob approves the staking contract to spend his tokens
+      await stakedToken
+        .connect(bob)
+        .approve(await votesERC20Staked.getAddress(), ethers.parseEther('30'));
+    });
+
+    it('should return claimable rewards for all tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+      await votesERC20Staked.connect(bob).stake(ethers.parseEther('30'));
+
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('40'));
+      await ethers.provider.send('eth_sendTransaction', [
+        {
+          to: await votesERC20Staked.getAddress(),
+          value: ethers.toBeHex(ethers.parseEther('60')),
+        },
+      ]);
+      
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Alice => 25% of available rewards
+      // Bob => 75% of available rewards
+
+      expect(await votesERC20Staked['claimableRewards(address)'](alice.address)).to.deep.equal([
+        ethers.parseEther('5'),
+        ethers.parseEther('10'),
+        ethers.parseEther('15'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](bob.address)).to.deep.equal([
+        ethers.parseEther('15'),
+        ethers.parseEther('30'),
+        ethers.parseEther('45'),
+      ]);
+    });
+
+    it('should return claimable rewards for specified tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+      await votesERC20Staked.connect(bob).stake(ethers.parseEther('30'));
+
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('40'));
+      await ethers.provider.send('eth_sendTransaction', [
+        {
+          to: await votesERC20Staked.getAddress(),
+          value: ethers.toBeHex(ethers.parseEther('60')),
+        },
+      ]);
+
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Alice => 25% of available rewards
+      // Bob => 75% of available rewards
+
+      expect(await votesERC20Staked['claimableRewards(address,address[])'](alice.address, [
+        await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(),
+      ]),
+      ).to.deep.equal([ethers.parseEther('5'), ethers.parseEther('10')]);
+
+      expect(await votesERC20Staked['claimableRewards(address,address[])'](alice.address, [
+        nativeAssetAddress,
+      ]),
+      ).to.deep.equal([ethers.parseEther('15')]);
+      
+      expect(await votesERC20Staked['claimableRewards(address,address[])'](bob.address, [
+        await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(),
+      ]),
+      ).to.deep.equal([ethers.parseEther('15'), ethers.parseEther('30')]);
+
+      expect(await votesERC20Staked['claimableRewards(address,address[])'](bob.address, [
+        nativeAssetAddress,
+      ]),
+      ).to.deep.equal([ethers.parseEther('45')]);
+    });
+  });
 });
