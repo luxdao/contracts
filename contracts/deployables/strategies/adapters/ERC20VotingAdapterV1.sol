@@ -2,9 +2,8 @@
 pragma solidity ^0.8.30;
 
 import {IERC20VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC20VotingAdapterV1.sol";
-import {IStrategyBaseV1} from "../../../interfaces/decent/deployables/IStrategyBaseV1.sol";
+import {IStrategyV1} from "../../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
-import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {ClockMode} from "../../../interfaces/decent/ClockMode.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../../Version.sol";
@@ -22,7 +21,7 @@ contract ERC20VotingAdapterV1 is
     uint16 public constant VERSION = 1;
 
     IVotes internal _token;
-    IStrategyBaseV1 internal _strategy;
+    IStrategyV1 internal _strategy;
     uint256 internal _weightPerToken;
     ClockMode internal _tokenClockMode;
     mapping(uint32 => mapping(address => bool))
@@ -38,7 +37,7 @@ contract ERC20VotingAdapterV1 is
         uint256 weightPerToken_
     ) external virtual override initializer {
         _token = IVotes(token_);
-        _strategy = IStrategyBaseV1(strategy_);
+        _strategy = IStrategyV1(strategy_);
         _weightPerToken = weightPerToken_;
         _tokenClockMode = ClockModeLib.getClockMode(token_);
     }
@@ -110,7 +109,6 @@ contract ERC20VotingAdapterV1 is
         return
             interfaceId == type(IERC20VotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterV1).interfaceId ||
-            interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }

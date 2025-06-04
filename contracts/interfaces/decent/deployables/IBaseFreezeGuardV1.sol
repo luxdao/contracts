@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 
-interface IFreezeGuardBaseV1 is IGuard {
+interface IBaseFreezeGuardV1 is IGuard {
     error DAOFrozen();
 
     function freezeVoting() external view returns (address);
