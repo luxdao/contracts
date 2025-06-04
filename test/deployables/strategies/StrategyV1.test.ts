@@ -265,6 +265,60 @@ describe('StrategyV1', () => {
     });
   });
 
+  describe('isVotingAdapter', () => {
+    it('should return true for a configured voting adapter', async () => {
+      const configuredAdapter = defaultInitialVotingAdapters[0];
+      void expect(await strategy.isVotingAdapter(configuredAdapter)).to.be.true;
+    });
+
+    it('should return false for an unconfigured address', async () => {
+      void expect(await strategy.isVotingAdapter(nonOwner.address)).to.be.false;
+    });
+
+    it('should return false for a configured proposer adapter that is not a voting adapter', async () => {
+      const proposerOnlyAdapter = await new MockProposerAdapter__factory(deployer).deploy();
+      await proposerOnlyAdapter.waitForDeployment();
+      const testStrategy = await deployStrategyProxy(
+        proposerInitializer.address,
+        DEFAULT_VOTING_PERIOD,
+        DEFAULT_QUORUM_THRESHOLD,
+        DEFAULT_BASIS_NUMERATOR,
+        defaultInitialVotingAdapters, // mockAdapter1
+        [await proposerOnlyAdapter.getAddress()],
+        lightAccountFactoryMockAddress,
+      );
+      void expect(await testStrategy.isVotingAdapter(await proposerOnlyAdapter.getAddress())).to.be
+        .false;
+    });
+  });
+
+  describe('isProposerAdapter', () => {
+    it('should return true for a configured proposer adapter', async () => {
+      const configuredAdapter = defaultInitialProposerAdapters[0];
+      void expect(await strategy.isProposerAdapter(configuredAdapter)).to.be.true;
+    });
+
+    it('should return false for an unconfigured address', async () => {
+      void expect(await strategy.isProposerAdapter(nonOwner.address)).to.be.false;
+    });
+
+    it('should return false for a configured voting adapter that is not a proposer adapter', async () => {
+      const votingOnlyAdapter = await new MockVotingAdapter__factory(deployer).deploy();
+      await votingOnlyAdapter.waitForDeployment();
+      const testStrategy = await deployStrategyProxy(
+        proposerInitializer.address,
+        DEFAULT_VOTING_PERIOD,
+        DEFAULT_QUORUM_THRESHOLD,
+        DEFAULT_BASIS_NUMERATOR,
+        [await votingOnlyAdapter.getAddress()],
+        defaultInitialProposerAdapters, // mockProposerAdapter1
+        lightAccountFactoryMockAddress,
+      );
+      void expect(await testStrategy.isProposerAdapter(await votingOnlyAdapter.getAddress())).to.be
+        .false;
+    });
+  });
+
   describe('initializeProposal', () => {
     let defaultProposalId: number;
 
