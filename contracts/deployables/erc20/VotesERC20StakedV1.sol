@@ -386,6 +386,8 @@ contract VotesERC20StakedV1 is
         uint256 thisBalance;
         if (_token == NATIVE_ASSET) {
             thisBalance = address(this).balance;
+        } else if (_token == address(_stakedToken)) {
+            thisBalance = IERC20(_token).balanceOf(address(this)) - _totalStaked;
         } else {
             thisBalance = IERC20(_token).balanceOf(address(this));
         }
