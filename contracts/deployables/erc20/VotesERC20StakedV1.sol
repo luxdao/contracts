@@ -147,7 +147,7 @@ contract VotesERC20StakedV1 is
     ) external virtual override {
         for (uint256 i = 0; i < _tokens.length; ) {
             if (!_rewardsTokenDatas[_tokens[i]].enabled)
-                revert InvalidRewardsToken();
+                revert InvalidRewardsToken(_tokens[i]);
 
             _claimRewards(_recipient, _tokens[i]);
 
@@ -465,7 +465,7 @@ contract VotesERC20StakedV1 is
         claimableRewards_ = new uint256[](_tokens.length);
         for (uint256 i = 0; i < _tokens.length; ) {
             if (!_rewardsTokenDatas[_tokens[i]].enabled)
-                revert InvalidRewardsToken();
+                revert InvalidRewardsToken(_tokens[i]);
 
             claimableRewards_[i] = _claimableRewards(_staker, _tokens[i]);
 
