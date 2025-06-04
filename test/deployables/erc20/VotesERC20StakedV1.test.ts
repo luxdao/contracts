@@ -45,6 +45,21 @@ async function deployVotesERC20StakedProxy(
   return VotesERC20StakedV1__factory.connect(await proxy.getAddress(), owner);
 }
 
+// Helper function to get net ETH received from a transaction (including gas spent)
+async function getNetEthReceived(tx: Promise<any>, recipient: SignerWithAddress): Promise<bigint> {
+  const balanceBefore = await ethers.provider.getBalance(recipient.address);
+  const txResponse = await tx;
+  const receipt = await txResponse.wait();
+  const balanceAfter = await ethers.provider.getBalance(recipient.address);
+  const gasSpent = BigInt(receipt!.gasUsed) * BigInt(receipt!.gasPrice);
+  console.log('balanceBefore', ethers.formatEther(balanceBefore));
+  console.log('balanceAfter', ethers.formatEther(balanceAfter));
+  console.log('gasSpent', ethers.formatEther(gasSpent));
+  console.log('raw difference', ethers.formatEther(balanceAfter - balanceBefore));
+  console.log('final result', ethers.formatEther((balanceAfter - balanceBefore) + gasSpent));
+  return (balanceAfter - balanceBefore) + gasSpent;
+}
+
 describe('VotesERC20StakedV1', () => {
   // signers
   let proxyDeployer: SignerWithAddress;
@@ -951,6 +966,51 @@ describe('VotesERC20StakedV1', () => {
         nativeAssetAddress,
       ]),
       ).to.deep.equal([ethers.parseEther('45')]);
+    });
+
+    it('should allow stakers to claim rewards for all tokens', async function () {
+      await votesERC20Staked.connect(alice).stake(ethers.parseEther('10'));
+      await votesERC20Staked.connect(bob).stake(ethers.parseEther('30'));
+
+      await rewardsTokenA.mint(await votesERC20Staked.getAddress(), ethers.parseEther('20'));
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('40'));
+      await ethers.provider.send('eth_sendTransaction', [
+        {
+          to: await votesERC20Staked.getAddress(),
+          value: ethers.toBeHex(ethers.parseEther('60')),
+        },
+      ]);
+
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Alice => 25% of available rewards
+      // Bob => 75% of available rewards
+
+      expect(await rewardsTokenA.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
+      expect(await rewardsTokenB.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
+      // expect(await ethers.provider.getBalance(alice.address)).to.equal(ethers.parseEther('0'));
+
+      const aliceNetEthReceived = await getNetEthReceived(
+        votesERC20Staked.connect(alice)['claimRewards(address)'](alice.address),
+        alice
+      );
+
+      console.log('aliceNetEthReceived', ethers.formatEther(aliceNetEthReceived));
+
+      // const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
+      // await votesERC20Staked.connect(alice)['claimRewards(address)'](alice.address);
+      // const aliceBalanceAfter = await ethers.provider.getBalance(alice.address);
+
+      // console.log('aliceBalanceBefore', aliceBalanceBefore);
+      // console.log('aliceBalanceAfter', aliceBalanceAfter);
+
+      // const aliceNetEthReceived = ethers.formatEther(aliceBalanceAfter - aliceBalanceBefore);
+      // console.log('aliceNetEthReceived', aliceNetEthReceived);
+
+      expect(await rewardsTokenA.balanceOf(alice.address)).to.equal(ethers.parseEther('5'));
+      expect(await rewardsTokenB.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
+
+      expect(aliceNetEthReceived).to.equal(ethers.parseEther('15'));
     });
   });
 });
