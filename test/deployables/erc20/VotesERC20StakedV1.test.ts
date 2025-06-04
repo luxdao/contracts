@@ -45,19 +45,62 @@ async function deployVotesERC20StakedProxy(
   return VotesERC20StakedV1__factory.connect(await proxy.getAddress(), owner);
 }
 
-// Helper function to get net ETH received from a transaction (including gas spent)
-async function getNetEthReceived(tx: Promise<any>, recipient: SignerWithAddress): Promise<bigint> {
-  const balanceBefore = await ethers.provider.getBalance(recipient.address);
-  const txResponse = await tx;
+
+
+interface TokenTransfer {
+  recipient: string;
+  token: string; // address or 'native' for ETH
+  expectedAmount: bigint;
+  isPositive: boolean; // true for receiving, false for sending
+}
+
+// Helper function to check multiple token transfers
+async function checkTokenTransfers(
+  tx: () => Promise<any>,
+  signer: SignerWithAddress,
+  transfers: TokenTransfer[]
+): Promise<void> {
+  // Get initial balances
+  const initialBalances = await Promise.all(
+    transfers.map((t) => {
+      if (t.token === 'native') {
+        return ethers.provider.getBalance(t.recipient);
+      } else {
+        return ethers.getContractAt('IERC20', t.token).then(token => token.balanceOf(t.recipient));
+      }
+    })
+  );
+
+  // Execute transaction
+  const txResponse = await tx();
   const receipt = await txResponse.wait();
-  const balanceAfter = await ethers.provider.getBalance(recipient.address);
   const gasSpent = BigInt(receipt!.gasUsed) * BigInt(receipt!.gasPrice);
-  console.log('balanceBefore', ethers.formatEther(balanceBefore));
-  console.log('balanceAfter', ethers.formatEther(balanceAfter));
-  console.log('gasSpent', ethers.formatEther(gasSpent));
-  console.log('raw difference', ethers.formatEther(balanceAfter - balanceBefore));
-  console.log('final result', ethers.formatEther((balanceAfter - balanceBefore) + gasSpent));
-  return (balanceAfter - balanceBefore) + gasSpent;
+
+  // Get final balances and check changes
+  for (let i = 0; i < transfers.length; i++) {
+    const transfer = transfers[i];
+    let finalBalance: bigint;
+    
+    if (transfer.token === 'native') {
+      finalBalance = await ethers.provider.getBalance(transfer.recipient);
+    } else {
+      const token = await ethers.getContractAt('IERC20', transfer.token);
+      finalBalance = await token.balanceOf(transfer.recipient);
+    }
+
+    const balanceChange = finalBalance - initialBalances[i];
+    const expectedChange = transfer.isPositive ? transfer.expectedAmount : -transfer.expectedAmount;
+
+    // For native token, add gas spent if this is the signer
+    const actualChange = transfer.token === 'native' && transfer.recipient === signer.address
+      ? balanceChange + gasSpent
+      : balanceChange;
+
+    expect(actualChange).to.equal(
+      expectedChange,
+      `Token ${transfer.token} transfer check failed for ${transfer.recipient}`
+    );
+  }
 }
 
 describe('VotesERC20StakedV1', () => {
@@ -988,29 +1031,40 @@ describe('VotesERC20StakedV1', () => {
 
       expect(await rewardsTokenA.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
       expect(await rewardsTokenB.balanceOf(alice.address)).to.equal(ethers.parseEther('0'));
-      // expect(await ethers.provider.getBalance(alice.address)).to.equal(ethers.parseEther('0'));
 
-      const aliceNetEthReceived = await getNetEthReceived(
-        votesERC20Staked.connect(alice)['claimRewards(address)'](alice.address),
-        alice
+      const rewardsTokenAAddress = await rewardsTokenA.getAddress();
+      const rewardsTokenBAddress = await rewardsTokenB.getAddress();
+      
+      const tx = () => votesERC20Staked.connect(alice)['claimRewards(address)'](alice.address);
+      
+      // Check all token transfers
+      await checkTokenTransfers(
+        tx,
+        alice,
+        [
+          {
+            recipient: alice.address,
+            token: rewardsTokenAAddress,
+            expectedAmount: ethers.parseEther('5'),
+            isPositive: true
+          },
+          {
+            recipient: alice.address,
+            token: rewardsTokenBAddress,
+            expectedAmount: ethers.parseEther('10'),
+            isPositive: true
+          },
+          {
+            recipient: alice.address,
+            token: 'native',
+            expectedAmount: ethers.parseEther('15'),
+            isPositive: true
+          }
+        ]
       );
-
-      console.log('aliceNetEthReceived', ethers.formatEther(aliceNetEthReceived));
-
-      // const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
-      // await votesERC20Staked.connect(alice)['claimRewards(address)'](alice.address);
-      // const aliceBalanceAfter = await ethers.provider.getBalance(alice.address);
-
-      // console.log('aliceBalanceBefore', aliceBalanceBefore);
-      // console.log('aliceBalanceAfter', aliceBalanceAfter);
-
-      // const aliceNetEthReceived = ethers.formatEther(aliceBalanceAfter - aliceBalanceBefore);
-      // console.log('aliceNetEthReceived', aliceNetEthReceived);
 
       expect(await rewardsTokenA.balanceOf(alice.address)).to.equal(ethers.parseEther('5'));
       expect(await rewardsTokenB.balanceOf(alice.address)).to.equal(ethers.parseEther('10'));
-
-      expect(aliceNetEthReceived).to.equal(ethers.parseEther('15'));
     });
   });
 });
