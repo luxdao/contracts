@@ -2,16 +2,16 @@
 pragma solidity ^0.8.30;
 
 import {IERC721VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC721VotingAdapterV1.sol";
-import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
+import {IBaseVotingAdapterV1} from "../../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
+import {BaseVotingAdapterV1} from "./BaseVotingAdapterV1.sol";
 import {Version} from "../../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract ERC721VotingAdapterV1 is
     IERC721VotingAdapterV1,
-    Initializable,
+    BaseVotingAdapterV1,
     ERC165,
     Version
 {
@@ -27,8 +27,10 @@ contract ERC721VotingAdapterV1 is
 
     function initialize(
         address token_,
+        address strategy_,
         uint256 weightPerToken_
     ) external virtual override initializer {
+        __BaseVotingAdapterV1_init(strategy_);
         _token = IERC721(token_);
         _weightPerToken = weightPerToken_;
     }
@@ -183,7 +185,7 @@ contract ERC721VotingAdapterV1 is
         address _voter,
         uint32 _proposalId,
         bytes calldata _adapterVoteData
-    ) external virtual override returns (uint256 weightCasted) {
+    ) external virtual override onlyStrategy returns (uint256 weightCasted) {
         uint256[] memory tokenIds = _decodeTokenIds(_adapterVoteData);
         if (tokenIds.length == 0) {
             revert NoTokenIdsPassed();
@@ -214,7 +216,7 @@ contract ERC721VotingAdapterV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC721VotingAdapterV1).interfaceId ||
-            interfaceId == type(IVotingAdapterV1).interfaceId ||
+            interfaceId == type(IBaseVotingAdapterV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }

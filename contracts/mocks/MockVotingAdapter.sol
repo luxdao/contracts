@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IVotingAdapterV1} from "../interfaces/decent/deployables/IVotingAdapterV1.sol";
+import {IBaseVotingAdapterV1} from "../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 
-contract MockVotingAdapter is IVotingAdapterV1 {
+contract MockVotingAdapter is IBaseVotingAdapterV1 {
     mapping(address => uint256) public weightsToReturn;
     mapping(address => mapping(uint32 => mapping(bytes32 => uint256)))
         public recordedVotesWeight;
@@ -52,4 +52,6 @@ contract MockVotingAdapter is IVotingAdapterV1 {
         uint32 _proposalId,
         bytes calldata _votingAdapterVoteData
     ) external view override returns (uint256 weight) {}
+
+    function strategy() external view override returns (address) {}
 }
