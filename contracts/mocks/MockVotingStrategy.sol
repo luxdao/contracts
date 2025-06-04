@@ -13,6 +13,8 @@ contract MockVotingStrategy is IStrategyBaseV1 {
     mapping(uint32 => bool) private _isPassed;
     mapping(uint32 => TimestampPoints) private _proposalTimestamps;
     mapping(uint32 => uint32) public mockVotingStartBlock;
+    mapping(address => bool) private _isVotingAdapter;
+    mapping(address => bool) private _isProposerAdapter;
 
     constructor(address _proposer) {
         proposer = _proposer;
@@ -49,6 +51,18 @@ contract MockVotingStrategy is IStrategyBaseV1 {
         return mockVotingStartBlock[_proposalId];
     }
 
+    function isVotingAdapter(
+        address votingAdapter_
+    ) external view override returns (bool) {
+        return _isVotingAdapter[votingAdapter_];
+    }
+
+    function isProposerAdapter(
+        address proposerAdapter_
+    ) external view override returns (bool) {
+        return _isProposerAdapter[proposerAdapter_];
+    }
+
     // mock setters
 
     function setIsPassed(uint32 proposalId, bool passed) external {
@@ -71,5 +85,19 @@ contract MockVotingStrategy is IStrategyBaseV1 {
         uint32 startBlock
     ) external {
         mockVotingStartBlock[proposalId] = startBlock;
+    }
+
+    function setVotingAdapter(
+        address votingAdapter_,
+        bool isVotingAdapter_
+    ) external {
+        _isVotingAdapter[votingAdapter_] = isVotingAdapter_;
+    }
+
+    function setProposerAdapter(
+        address proposerAdapter_,
+        bool isProposerAdapter_
+    ) external {
+        _isProposerAdapter[proposerAdapter_] = isProposerAdapter_;
     }
 }
