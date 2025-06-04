@@ -3,10 +3,11 @@ pragma solidity ^0.8.30;
 
 import {IHatsElectionsEligibility} from "../../interfaces/hats/modules/IHatsElectionsEligibility.sol";
 import {IDecentAutonomousAdminV1} from "../../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version {
+contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version, ERC165 {
     uint16 private constant VERSION = 1;
 
     function triggerStartNextTerm(
@@ -36,6 +37,7 @@ contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version {
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IDecentAutonomousAdminV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

@@ -5,9 +5,10 @@ import {IHatsProposerAdapterV1} from "../../../interfaces/decent/deployables/IHa
 import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
 import {IProposerAdapterBaseV1} from "../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IHats} from "../../../interfaces/hats/IHats.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../../Version.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Version} from "../../Version.sol";
 
 contract HatsProposerAdapterV1 is
     IHatsProposerAdapterV1,
@@ -66,11 +67,12 @@ contract HatsProposerAdapterV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IHatsProposerAdapterV1).interfaceId ||
             interfaceId == type(IProposerAdapterV1).interfaceId ||
             interfaceId == type(IProposerAdapterBaseV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

@@ -3,12 +3,10 @@ pragma solidity ^0.8.30;
 
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 abstract contract BaseFreezeVotingV1 is
     IBaseFreezeVotingV1,
-    Ownable2StepUpgradeable,
-    ERC165
+    Ownable2StepUpgradeable
 {
     uint48 internal _freezeProposalCreated;
     uint32 internal _freezeProposalPeriod;
@@ -93,13 +91,5 @@ abstract contract BaseFreezeVotingV1 is
     function unfreeze() external virtual override onlyOwner {
         _freezeProposalCreated = 0;
         _freezeProposalVoteCount = 0;
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
-            super.supportsInterface(interfaceId);
     }
 }
