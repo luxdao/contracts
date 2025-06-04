@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {Version} from "../Version.sol";
 import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
-import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -116,7 +115,7 @@ contract VotesERC20V1 is
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(IERC20Permit).interfaceId ||
             interfaceId == type(IVotes).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
+            Version.supportsInterface(interfaceId) ||
             super.supportsInterface(interfaceId);
     }
 }
