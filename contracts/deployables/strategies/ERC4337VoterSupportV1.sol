@@ -38,12 +38,4 @@ abstract contract ERC4337VoterSupportV1 is
     ) external view virtual override returns (bool) {
         return _votingPeriodEnded[_proposalId];
     }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId == type(IERC4337VoterSupportV1).interfaceId ||
-            super.supportsInterface(interfaceId);
-    }
 }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
 import {IFunctionValidator} from "../../interfaces/decent/deployables/IFunctionValidator.sol";
+import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {BasePaymasterV1} from "./BasePaymasterV1.sol";
 import {SmartAccountValidationV1} from "./SmartAccountValidationV1.sol";
 import {Version} from "../Version.sol";
@@ -126,15 +127,10 @@ contract DecentPaymasterV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    )
-        public
-        view
-        virtual
-        override(SmartAccountValidationV1, Version)
-        returns (bool)
-    {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IDecentPaymasterV1).interfaceId ||
+            interfaceId == type(ISmartAccountValidationV1).interfaceId ||
             interfaceId == type(IPaymaster).interfaceId ||
             super.supportsInterface(interfaceId);
     }
