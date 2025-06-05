@@ -2,6 +2,11 @@
 pragma solidity ^0.8.30;
 
 interface IVotesERC20StakedV1 {
+    struct Metadata {
+        string name;
+        string symbol;
+    }
+
     struct StakerData {
         uint256 stakedAmount;
         uint256 lastStakeTimestamp;
@@ -34,15 +39,14 @@ interface IVotesERC20StakedV1 {
     error MinimumStakingPeriod();
 
     function initialize(
-        string memory name,
-        string memory symbol,
+        Metadata calldata metadata,
         address owner,
         address _stakedToken,
         uint256 _minimumStakingPeriod,
-        address[] memory _rewardsTokens
+        address[] calldata _rewardsTokens
     ) external;
 
-    function addRewardsTokens(address[] memory rewardsTokens_) external;
+    function addRewardsTokens(address[] calldata rewardsTokens_) external;
 
     function updateMinimumStakingPeriod(
         uint256 newMinimumStakingPeriod
@@ -54,7 +58,7 @@ interface IVotesERC20StakedV1 {
 
     function distributeRewards() external;
 
-    function distributeRewards(address[] memory _tokens) external;
+    function distributeRewards(address[] calldata _tokens) external;
 
     function clock() external view returns (uint48);
 
@@ -82,7 +86,7 @@ interface IVotesERC20StakedV1 {
     function distributableRewards() external view returns (uint256[] memory);
 
     function distributableRewards(
-        address[] memory rewardsTokens_
+        address[] calldata rewardsTokens_
     ) external view returns (uint256[] memory);
 
     function stakerData(

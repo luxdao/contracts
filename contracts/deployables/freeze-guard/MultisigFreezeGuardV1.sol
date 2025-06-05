@@ -83,7 +83,7 @@ contract MultisigFreezeGuardV1 is
         uint256 gasPrice,
         address gasToken,
         address payable refundReceiver,
-        bytes memory signatures,
+        bytes calldata signatures,
         uint256 nonce
     ) external virtual override {
         bytes32 signaturesHash = keccak256(signatures);
