@@ -135,10 +135,10 @@ contract VotesERC20StakedV1 is
 
     function claimRewards(address _recipient) external virtual override {
         for (uint256 i = 0; i < _rewardsTokens.length; ) {
-            _claimRewards(msg.sender,_recipient, _rewardsTokens[i]);
+            _claimRewards(msg.sender, _recipient, _rewardsTokens[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
@@ -154,7 +154,7 @@ contract VotesERC20StakedV1 is
             _claimRewards(msg.sender, _recipient, _tokens[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
@@ -175,7 +175,11 @@ contract VotesERC20StakedV1 is
         revert NonTransferable();
     }
 
-    function _claimRewards(address _claimer, address _recipient, address _token) internal {
+    function _claimRewards(
+        address _claimer,
+        address _recipient,
+        address _token
+    ) internal {
         uint256 amountToClaim = _claimableRewards(_claimer, _token);
 
         RewardsTokenData storage token = _rewardsTokenDatas[_token];
@@ -453,7 +457,7 @@ contract VotesERC20StakedV1 is
             );
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
@@ -476,7 +480,7 @@ contract VotesERC20StakedV1 is
             claimableRewards_[i] = _claimableRewards(_staker, _tokens[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
     }
