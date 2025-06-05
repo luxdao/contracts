@@ -42,7 +42,7 @@ interface IMultisigFreezeGuardV1 is IBaseFreezeGuardV1 {
         uint256 _gasPrice,
         address _gasToken,
         address payable _refundReceiver,
-        bytes memory _signatures,
+        bytes calldata _signatures,
         uint256 _nonce
     ) external;
 

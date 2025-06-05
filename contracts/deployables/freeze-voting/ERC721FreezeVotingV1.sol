@@ -56,8 +56,8 @@ contract ERC721FreezeVotingV1 is
     }
 
     function castFreezeVote(
-        address[] memory _tokenAddresses,
-        uint256[] memory _tokenIds
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds
     ) external virtual override {
         if (_tokenAddresses.length != _tokenIds.length) revert UnequalArrays();
 
@@ -80,8 +80,8 @@ contract ERC721FreezeVotingV1 is
     }
 
     function _getVotesAndUpdateHasVoted(
-        address[] memory _tokenAddresses,
-        uint256[] memory _tokenIds,
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds,
         address _voter
     ) internal virtual returns (uint256) {
         uint256 votes = 0;

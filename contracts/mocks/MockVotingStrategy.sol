@@ -23,8 +23,8 @@ contract MockVotingStrategy is IStrategyV1 {
 
     function initializeProposal(
         uint32 _proposalId,
-        bytes32[] memory _txHashes,
-        bytes memory _data
+        bytes32[] calldata _txHashes,
+        bytes calldata _data
     ) external override {}
 
     function isPassed(uint32 proposalId) external view override returns (bool) {
@@ -34,7 +34,7 @@ contract MockVotingStrategy is IStrategyV1 {
     function isProposer(
         address _address,
         address,
-        bytes memory
+        bytes calldata
     ) external view override returns (bool) {
         return _address == proposer;
     }
@@ -107,8 +107,8 @@ contract MockVotingStrategy is IStrategyV1 {
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
-        address[] memory votingAdapters_,
-        address[] memory proposerAdapters_,
+        address[] calldata votingAdapters_,
+        address[] calldata proposerAdapters_,
         address lightAccountFactory_
     ) external override {}
 

@@ -28,13 +28,18 @@ async function deployVotesERC20StakedProxy(
   minimumStakingPeriod: bigint,
   rewardsTokens: string[],
 ): Promise<VotesERC20StakedV1> {
+  const metadata = {
+    name,
+    symbol,
+  };
+
   // Create initialization data with function selector
   const fullInitData =
     VotesERC20StakedV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['string', 'string', 'address', 'address', 'uint256', 'address[]'],
-        [name, symbol, owner.address, stakedToken, minimumStakingPeriod, rewardsTokens],
+        ['tuple(string name, string symbol)', 'address', 'address', 'uint256', 'address[]'],
+        [metadata, owner.address, stakedToken, minimumStakingPeriod, rewardsTokens],
       )
       .slice(2);
 
@@ -123,8 +128,7 @@ describe('VotesERC20StakedV1', () => {
 
       await expect(
         votesERC20Staked.initialize(
-          'New Name',
-          'NEW',
+          { name: 'New Name', symbol: 'NEW' },
           owner.address,
           await stakedToken.getAddress(),
           604800n,
@@ -142,8 +146,7 @@ describe('VotesERC20StakedV1', () => {
 
       await expect(
         implementationContract.initialize(
-          'New Name',
-          'NEW',
+          { name: 'New Name', symbol: 'NEW' },
           owner.address,
           await stakedToken.getAddress(),
           604800n,

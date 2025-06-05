@@ -2,7 +2,8 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IAzoriusV1, Enum} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
+import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
+import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../Version.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
@@ -169,12 +170,7 @@ contract AzoriusV1 is
         bytes32[] memory txHashes = new bytes32[](_transactions.length);
         uint256 transactionsLength = _transactions.length;
         for (uint256 i; i < transactionsLength; ) {
-            txHashes[i] = getTxHash(
-                _transactions[i].to,
-                _transactions[i].value,
-                _transactions[i].data,
-                _transactions[i].operation
-            );
+            txHashes[i] = getTxHash(_transactions[i]);
             unchecked {
                 ++i;
             }
@@ -204,31 +200,17 @@ contract AzoriusV1 is
 
     function executeProposal(
         uint32 _proposalId,
-        address[] memory _targets,
-        uint256[] memory _values,
-        bytes[] memory _data,
-        Enum.Operation[] memory _operations
+        Transaction[] calldata _transactions
     ) external virtual override {
-        if (_targets.length == 0) revert InvalidTxs();
+        if (_transactions.length == 0) revert InvalidTxs();
         if (
-            _targets.length != _values.length ||
-            _targets.length != _data.length ||
-            _targets.length != _operations.length
-        ) revert InvalidArrayLengths();
-        if (
-            _proposals[_proposalId].executionCounter + _targets.length >
+            _proposals[_proposalId].executionCounter + _transactions.length >
             _proposals[_proposalId].txHashes.length
         ) revert InvalidTxs();
-        uint256 targetsLength = _targets.length;
-        bytes32[] memory txHashes = new bytes32[](targetsLength);
-        for (uint256 i; i < targetsLength; ) {
-            txHashes[i] = _executeProposalTx(
-                _proposalId,
-                _targets[i],
-                _values[i],
-                _data[i],
-                _operations[i]
-            );
+        uint256 transactionsLength = _transactions.length;
+        bytes32[] memory txHashes = new bytes32[](transactionsLength);
+        for (uint256 i; i < transactionsLength; ) {
+            txHashes[i] = _executeProposalTx(_proposalId, _transactions[i]);
             unchecked {
                 ++i;
             }
@@ -306,10 +288,7 @@ contract AzoriusV1 is
     }
 
     function generateTxHashData(
-        address _to,
-        uint256 _value,
-        bytes memory _data,
-        Enum.Operation _operation,
+        Transaction calldata _transaction,
         uint256 _nonce
     ) public view virtual override returns (bytes memory) {
         uint256 chainId = block.chainid;
@@ -319,10 +298,10 @@ contract AzoriusV1 is
         bytes32 transactionHash = keccak256(
             abi.encode(
                 TRANSACTION_TYPEHASH,
-                _to,
-                _value,
-                keccak256(_data),
-                _operation,
+                _transaction.to,
+                _transaction.value,
+                keccak256(_transaction.data),
+                _transaction.operation,
                 _nonce
             )
         );
@@ -336,24 +315,18 @@ contract AzoriusV1 is
     }
 
     function getTxHash(
-        address _to,
-        uint256 _value,
-        bytes memory _data,
-        Enum.Operation _operation
+        Transaction calldata _transaction
     ) public view virtual override returns (bytes32) {
-        return keccak256(generateTxHashData(_to, _value, _data, _operation, 0));
+        return keccak256(generateTxHashData(_transaction, 0));
     }
 
     function _executeProposalTx(
         uint32 _proposalId,
-        address _target,
-        uint256 _value,
-        bytes memory _data,
-        Enum.Operation _operation
+        Transaction calldata _transaction
     ) internal virtual returns (bytes32 txHash) {
         if (proposalState(_proposalId) != ProposalState.EXECUTABLE)
             revert ProposalNotExecutable();
-        txHash = getTxHash(_target, _value, _data, _operation);
+        txHash = getTxHash(_transaction);
         if (
             _proposals[_proposalId].txHashes[
                 _proposals[_proposalId].executionCounter
@@ -362,7 +335,14 @@ contract AzoriusV1 is
 
         _proposals[_proposalId].executionCounter++;
 
-        if (!exec(_target, _value, _data, _operation)) revert TxFailed();
+        if (
+            !exec(
+                _transaction.to,
+                _transaction.value,
+                _transaction.data,
+                _transaction.operation
+            )
+        ) revert TxFailed();
     }
 
     function _updateTimelockPeriod(uint32 timelockPeriod_) internal virtual {

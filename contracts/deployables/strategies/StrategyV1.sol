@@ -49,8 +49,8 @@ contract StrategyV1 is
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
-        address[] memory votingAdapters_,
-        address[] memory proposerAdapters_,
+        address[] calldata votingAdapters_,
+        address[] calldata proposerAdapters_,
         address lightAccountFactory_
     ) public virtual override initializer {
         if (votingAdapters_.length == 0) {
@@ -150,8 +150,8 @@ contract StrategyV1 is
 
     function initializeProposal(
         uint32 proposalId,
-        bytes32[] memory,
-        bytes memory
+        bytes32[] calldata,
+        bytes calldata
     ) external virtual override onlyProposalInitializer {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             proposalId
