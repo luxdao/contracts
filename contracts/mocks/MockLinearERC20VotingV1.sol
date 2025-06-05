@@ -72,8 +72,12 @@ contract MockLinearERC20VotingV1 {
         }
 
         // Add new checkpoints one by one
-        for (uint32 i = 0; i < checkpointsData.length; i++) {
+        for (uint32 i = 0; i < checkpointsData.length; ) {
             _checkpoints[account].push(checkpointsData[i]);
+
+            unchecked {
+                ++i;
+            }
         }
 
         // Update the checkpoint count

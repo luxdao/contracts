@@ -74,11 +74,17 @@ contract StrategyV1 is
         _votingAdapters = votingAdapters_;
         _proposerAdapters = proposerAdapters_;
 
-        for (uint256 i = 0; i < votingAdapters_.length; i++) {
+        for (uint256 i = 0; i < votingAdapters_.length; ) {
             _isVotingAdapter[votingAdapters_[i]] = true;
+            unchecked {
+                ++i;
+            }
         }
-        for (uint256 i = 0; i < proposerAdapters_.length; i++) {
+        for (uint256 i = 0; i < proposerAdapters_.length; ) {
             _isProposerAdapter[proposerAdapters_[i]] = true;
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -194,7 +200,7 @@ contract StrategyV1 is
 
         uint256 totalWeightForThisVoteTransaction = 0;
 
-        for (uint256 i = 0; i < _votingAdaptersToUse.length; i++) {
+        for (uint256 i = 0; i < _votingAdaptersToUse.length; ) {
             address votingAdapter = _votingAdaptersToUse[i];
 
             if (!_isVotingAdapter[votingAdapter]) {
@@ -204,6 +210,10 @@ contract StrategyV1 is
             totalWeightForThisVoteTransaction += IBaseVotingAdapterV1(
                 votingAdapter
             ).recordVote(resolvedVoter, _proposalId, _votingAdapterVoteData[i]);
+
+            unchecked {
+                ++i;
+            }
         }
 
         if (totalWeightForThisVoteTransaction == 0) revert NoVotingWeight();

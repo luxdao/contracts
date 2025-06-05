@@ -152,7 +152,7 @@ contract MockVotingStrategy is IStrategyV1 {
         address[] calldata _votingAdaptersToUse,
         bytes[] calldata _votingAdapterVoteData
     ) external virtual override {
-        for (uint256 i = 0; i < _votingAdaptersToUse.length; i++) {
+        for (uint256 i = 0; i < _votingAdaptersToUse.length; ) {
             address adapterAddress = _votingAdaptersToUse[i];
             bytes calldata adapterData = _votingAdapterVoteData[i];
 
@@ -161,6 +161,10 @@ contract MockVotingStrategy is IStrategyV1 {
                 _proposalId,
                 adapterData
             );
+
+            unchecked {
+                ++i;
+            }
         }
     }
 }

@@ -31,8 +31,12 @@ contract HatsProposerAdapterV1 is
     ) public virtual override initializer {
         _hatsContract = IHats(hatsContract_);
         _whitelistedHatIds = whitelistedHatIds_;
-        for (uint256 i = 0; i < whitelistedHatIds_.length; i++) {
+        for (uint256 i = 0; i < whitelistedHatIds_.length; ) {
             _hatIdToIsWhitelisted[whitelistedHatIds_[i]] = true;
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
