@@ -9,11 +9,11 @@ abstract contract BaseFreezeVotingV1 is
     Ownable2StepUpgradeable
 {
     uint48 internal _freezeProposalCreated;
+    uint256 internal _freezeProposalVoteCount;
     uint32 internal _freezeProposalPeriod;
     uint32 internal _freezePeriod;
     uint256 internal _freezeVotesThreshold;
-    uint256 internal _freezeProposalVoteCount;
-    mapping(address => mapping(uint48 => bool)) internal _userHasFreezeVoted;
+    uint48 internal _freezeActivated;
 
     constructor() {
         _disableInitializers();
@@ -41,6 +41,26 @@ abstract contract BaseFreezeVotingV1 is
         return _freezeProposalCreated;
     }
 
+    function freezeProposalVoteCount()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        return _freezeProposalVoteCount;
+    }
+
+    function freezeProposalPeriod()
+        external
+        view
+        virtual
+        override
+        returns (uint32)
+    {
+        return _freezeProposalPeriod;
+    }
+
     function freezePeriod() external view virtual override returns (uint32) {
         return _freezePeriod;
     }
@@ -55,41 +75,40 @@ abstract contract BaseFreezeVotingV1 is
         return _freezeVotesThreshold;
     }
 
-    function freezeProposalPeriod()
-        external
-        view
-        virtual
-        override
-        returns (uint32)
-    {
-        return _freezeProposalPeriod;
-    }
-
-    function freezeProposalVoteCount()
-        external
-        view
-        virtual
-        override
-        returns (uint256)
-    {
-        return _freezeProposalVoteCount;
-    }
-
-    function userHasFreezeVoted(
-        address user,
-        uint48 proposalId
-    ) external view virtual override returns (bool) {
-        return _userHasFreezeVoted[user][proposalId];
+    function freezeActivated() external view virtual override returns (uint48) {
+        return _freezeActivated;
     }
 
     function isFrozen() external view virtual override returns (bool) {
         return
             _freezeProposalVoteCount >= _freezeVotesThreshold &&
-            block.timestamp < _freezeProposalCreated + _freezePeriod;
+            block.timestamp < _freezeActivated + _freezePeriod;
     }
 
-    function unfreeze() external virtual override onlyOwner {
+    function initializeFreezeVote() internal virtual {
+        _freezeProposalCreated = uint48(block.timestamp);
+        _freezeProposalVoteCount = 0;
+        _freezeActivated = 0;
+    }
+
+    function recordFreezeVote(
+        address voter,
+        uint256 weightCasted
+    ) internal virtual {
+        if (weightCasted == 0) revert NoVotes();
+
+        _freezeProposalVoteCount += weightCasted;
+
+        if (_freezeProposalVoteCount >= _freezeVotesThreshold) {
+            _freezeActivated = uint48(block.timestamp);
+        }
+
+        emit FreezeVoteCast(voter, weightCasted);
+    }
+
+    function unfreeze() public virtual override onlyOwner {
         _freezeProposalCreated = 0;
         _freezeProposalVoteCount = 0;
+        _freezeActivated = 0;
     }
 }

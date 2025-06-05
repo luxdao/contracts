@@ -14,4 +14,20 @@ interface IERC20VotingAdapterV1 {
     function token() external view returns (address);
 
     function weightPerToken() external view returns (uint256);
+
+    function getFreezeVoteWeight(
+        address voter,
+        uint48 freezeProposalSnapshotAndId
+    ) external view returns (uint256 weight);
+
+    function hasCastedVoteForProposal(
+        uint32 proposalId,
+        address voter
+    ) external view returns (bool);
+
+    function hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        address voter
+    ) external view returns (bool);
 }
