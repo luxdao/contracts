@@ -2,26 +2,24 @@
 pragma solidity ^0.8.30;
 
 import {IERC20VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC20VotingAdapterV1.sol";
-import {IStrategyV1} from "../../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
+import {IBaseVotingAdapterV1} from "../../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 import {ClockMode} from "../../../interfaces/decent/ClockMode.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
+import {BaseVotingAdapterV1} from "./BaseVotingAdapterV1.sol";
 import {Version} from "../../Version.sol";
 import {ClockModeLib} from "../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract ERC20VotingAdapterV1 is
     IERC20VotingAdapterV1,
-    Initializable,
+    BaseVotingAdapterV1,
     ERC165,
     Version
 {
     uint16 public constant VERSION = 1;
 
     IVotes internal _token;
-    IStrategyV1 internal _strategy;
     uint256 internal _weightPerToken;
     ClockMode internal _tokenClockMode;
     mapping(uint32 => mapping(address => bool))
@@ -36,18 +34,14 @@ contract ERC20VotingAdapterV1 is
         address strategy_,
         uint256 weightPerToken_
     ) external virtual override initializer {
+        __BaseVotingAdapterV1_init(strategy_);
         _token = IVotes(token_);
-        _strategy = IStrategyV1(strategy_);
         _weightPerToken = weightPerToken_;
         _tokenClockMode = ClockModeLib.getClockMode(token_);
     }
 
     function token() external view virtual override returns (address) {
         return address(_token);
-    }
-
-    function strategy() external view virtual override returns (address) {
-        return address(_strategy);
     }
 
     function weightPerToken() external view virtual override returns (uint256) {
@@ -88,7 +82,7 @@ contract ERC20VotingAdapterV1 is
         address _voter,
         uint32 _proposalId,
         bytes calldata
-    ) external virtual override returns (uint256 weightCasted) {
+    ) external virtual override onlyStrategy returns (uint256 weightCasted) {
         if (_hasCastedVoteForProposal[_proposalId][_voter]) {
             revert AlreadyVoted();
         }
@@ -108,7 +102,7 @@ contract ERC20VotingAdapterV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC20VotingAdapterV1).interfaceId ||
-            interfaceId == type(IVotingAdapterV1).interfaceId ||
+            interfaceId == type(IBaseVotingAdapterV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
