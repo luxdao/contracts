@@ -2,16 +2,16 @@
 pragma solidity ^0.8.30;
 
 import {IERC721VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC721VotingAdapterV1.sol";
-import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
-import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
+import {IBaseVotingAdapterV1} from "../../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
+import {BaseVotingAdapterV1} from "./BaseVotingAdapterV1.sol";
 import {Version} from "../../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract ERC721VotingAdapterV1 is
     IERC721VotingAdapterV1,
-    Initializable,
+    BaseVotingAdapterV1,
     ERC165,
     Version
 {
@@ -27,8 +27,10 @@ contract ERC721VotingAdapterV1 is
 
     function initialize(
         address token_,
+        address strategy_,
         uint256 weightPerToken_
     ) external virtual override initializer {
+        __BaseVotingAdapterV1_init(strategy_);
         _token = IERC721(token_);
         _weightPerToken = weightPerToken_;
     }
@@ -60,17 +62,25 @@ contract ERC721VotingAdapterV1 is
         uniqueTokenIds = new uint256[](tokenIds.length);
         uint256 uniqueCount = 0;
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             bool isDuplicate = false;
-            for (uint256 j = 0; j < uniqueCount; j++) {
+            for (uint256 j = 0; j < uniqueCount; ) {
                 if (uniqueTokenIds[j] == tokenIds[i]) {
                     isDuplicate = true;
                     break;
+                }
+
+                unchecked {
+                    ++j;
                 }
             }
             if (!isDuplicate) {
                 uniqueTokenIds[uniqueCount] = tokenIds[i];
                 uniqueCount++;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
@@ -86,10 +96,14 @@ contract ERC721VotingAdapterV1 is
         ownedTokenIds = new uint256[](tokenIds.length);
         uint256 ownedTokenCount = 0;
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             if (_token.ownerOf(tokenIds[i]) == voter) {
                 ownedTokenIds[ownedTokenCount] = tokenIds[i];
                 ownedTokenCount++;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
@@ -105,10 +119,14 @@ contract ERC721VotingAdapterV1 is
         unusedTokenIds = new uint256[](tokenIds.length);
         uint256 unusedTokenCount = 0;
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             if (!_tokenIdUsedForVote[proposalId][tokenIds[i]]) {
                 unusedTokenIds[unusedTokenCount] = tokenIds[i];
                 unusedTokenCount++;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
@@ -183,13 +201,13 @@ contract ERC721VotingAdapterV1 is
         address _voter,
         uint32 _proposalId,
         bytes calldata _adapterVoteData
-    ) external virtual override returns (uint256 weightCasted) {
+    ) external virtual override onlyStrategy returns (uint256 weightCasted) {
         uint256[] memory tokenIds = _decodeTokenIds(_adapterVoteData);
         if (tokenIds.length == 0) {
             revert NoTokenIdsPassed();
         }
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             uint256 tokenId = tokenIds[i];
             if (_token.ownerOf(tokenId) != _voter) {
                 revert TokenIdNotOwnedByVoter(tokenId);
@@ -198,6 +216,10 @@ contract ERC721VotingAdapterV1 is
                 revert TokenIdAlreadyUsedForVote(tokenId);
             }
             _tokenIdUsedForVote[_proposalId][tokenId] = true;
+
+            unchecked {
+                ++i;
+            }
         }
 
         weightCasted = tokenIds.length * _weightPerToken;
@@ -211,11 +233,11 @@ contract ERC721VotingAdapterV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC721VotingAdapterV1).interfaceId ||
-            interfaceId == type(IVotingAdapterV1).interfaceId ||
-            interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
+            interfaceId == type(IBaseVotingAdapterV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

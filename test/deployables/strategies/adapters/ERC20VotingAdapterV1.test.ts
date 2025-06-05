@@ -6,11 +6,10 @@ import {
   ERC1967Proxy__factory,
   ERC20VotingAdapterV1,
   ERC20VotingAdapterV1__factory,
+  IBaseVotingAdapterV1__factory,
   IERC165__factory,
   IERC20VotingAdapterV1__factory,
   IVersion__factory,
-  IVotingAdapterBaseV1__factory,
-  IVotingAdapterV1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
   MockVotingStrategy,
@@ -172,6 +171,7 @@ describe('ERC20VotingAdapterV1', () => {
         customWeightPerToken || DEFAULT_WEIGHT_PER_TOKEN,
       );
       adapter = deployedAdapter;
+      await mockStrategy.setVotingAdapter(await adapter.getAddress(), true);
     }
 
     describe('Timestamp Mode', () => {
@@ -260,7 +260,12 @@ describe('ERC20VotingAdapterV1', () => {
         votingStartTimestamp,
         ethers.parseUnits('10', 18),
       );
-      await adapter.connect(user1Signer).recordVote(user1Signer.address, proposalId, mockExtraData);
+      await mockStrategy.connect(user1Signer).vote(
+        proposalId,
+        0, // voteType
+        [await adapter.getAddress()],
+        [mockExtraData],
+      );
       const weight = await adapter.weightOf(user1Signer.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
     });
@@ -299,6 +304,7 @@ describe('ERC20VotingAdapterV1', () => {
         customWeightPerToken || DEFAULT_WEIGHT_PER_TOKEN,
       );
       adapter = deployedAdapter;
+      await strategy.setVotingAdapter(await adapter.getAddress(), true);
     }
 
     it('should record vote, return casted weight, set flag, and emit VoteRecorded event', async () => {
@@ -317,12 +323,14 @@ describe('ERC20VotingAdapterV1', () => {
 
       const expectedWeightCasted = expectedRawVotes * DEFAULT_WEIGHT_PER_TOKEN;
 
-      const weightCastedStatically = await adapter
-        .connect(voter)
-        .recordVote.staticCall(voter.address, proposalId, mockExtraData);
-      expect(weightCastedStatically).to.equal(expectedWeightCasted);
-
-      await expect(adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData))
+      await expect(
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
+      )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(voter.address, proposalId, expectedWeightCasted, expectedEventAdapterVoteData);
 
@@ -347,12 +355,14 @@ describe('ERC20VotingAdapterV1', () => {
 
       const expectedWeightCasted = expectedRawVotes * customWeight;
 
-      const weightCastedStatically = await adapter
-        .connect(voter)
-        .recordVote.staticCall(voter.address, proposalId, mockExtraData);
-      expect(weightCastedStatically).to.equal(expectedWeightCasted);
-
-      await expect(adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData))
+      await expect(
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
+      )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(voter.address, proposalId, expectedWeightCasted, expectedEventAdapterVoteData);
     });
@@ -366,9 +376,19 @@ describe('ERC20VotingAdapterV1', () => {
         votingStartTimestamp,
         votingStartTimestamp + 1000,
       );
-      await adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData);
+      await strategy.connect(voter).vote(
+        proposalId,
+        0, // voteType
+        [await adapter.getAddress()],
+        [mockExtraData],
+      );
       await expect(
-        adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
       ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
     });
 
@@ -381,7 +401,12 @@ describe('ERC20VotingAdapterV1', () => {
         votingStartTimestamp,
         votingStartTimestamp + 1000,
       );
-      await adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData);
+      await strategy.connect(voter).vote(
+        proposalId,
+        0, // voteType
+        [await adapter.getAddress()],
+        [mockExtraData],
+      );
       const weight = await adapter.weightOf(voter.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
     });
@@ -390,7 +415,12 @@ describe('ERC20VotingAdapterV1', () => {
       await setupAdapterForRecordVote(0);
       await strategy.setVotingTimestamps(proposalId, 0, 1000);
       await expect(
-        adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotReadyForSnapshot');
     });
 
@@ -398,7 +428,12 @@ describe('ERC20VotingAdapterV1', () => {
       await setupAdapterForRecordVote(1);
       await strategy.setVotingStartBlock(proposalId, 0);
       await expect(
-        adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotReadyForSnapshot');
     });
   });
@@ -434,28 +469,15 @@ describe('ERC20VotingAdapterV1', () => {
     it('should support IERC20VotingAdapterV1', async () => {
       void expect(
         await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface(), [
-            IVotingAdapterBaseV1__factory.createInterface(),
-            IVotingAdapterV1__factory.createInterface(),
-          ]),
+          calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
 
-    it('should support IVotingAdapterV1', async () => {
+    it('should support IBaseVotingAdapterV1', async () => {
       void expect(
         await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterV1__factory.createInterface(), [
-            IVotingAdapterBaseV1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IVotingAdapterBaseV1', async () => {
-      void expect(
-        await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterBaseV1__factory.createInterface()),
+          calculateInterfaceId(IBaseVotingAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });

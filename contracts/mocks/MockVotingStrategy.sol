@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IStrategyBaseV1} from "../interfaces/decent/deployables/IStrategyBaseV1.sol";
+import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
+import {IBaseVotingAdapterV1} from "../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 
-contract MockVotingStrategy is IStrategyBaseV1 {
+contract MockVotingStrategy is IStrategyV1 {
     struct TimestampPoints {
         uint48 startTimestamp;
         uint48 endTimestamp;
@@ -22,8 +23,8 @@ contract MockVotingStrategy is IStrategyBaseV1 {
 
     function initializeProposal(
         uint32 _proposalId,
-        bytes32[] memory _txHashes,
-        bytes memory _data
+        bytes32[] calldata _txHashes,
+        bytes calldata _data
     ) external override {}
 
     function isPassed(uint32 proposalId) external view override returns (bool) {
@@ -33,7 +34,7 @@ contract MockVotingStrategy is IStrategyBaseV1 {
     function isProposer(
         address _address,
         address,
-        bytes memory
+        bytes calldata
     ) external view override returns (bool) {
         return _address == proposer;
     }
@@ -99,5 +100,71 @@ contract MockVotingStrategy is IStrategyBaseV1 {
         bool isProposerAdapter_
     ) external {
         _isProposerAdapter[proposerAdapter_] = isProposerAdapter_;
+    }
+
+    function initialize(
+        address proposalInitializer_,
+        uint32 votingPeriod_,
+        uint256 quorumThreshold_,
+        uint256 basisNumerator_,
+        address[] calldata votingAdapters_,
+        address[] calldata proposerAdapters_,
+        address lightAccountFactory_
+    ) external override {}
+
+    function proposalInitializer() external view override returns (address) {}
+
+    function votingPeriod() external view override returns (uint32) {}
+
+    function quorumThreshold() external view override returns (uint256) {}
+
+    function basisNumerator() external view override returns (uint256) {}
+
+    function proposalVotingDetails(
+        uint32 proposalId
+    ) external view override returns (ProposalVotingDetails memory) {}
+
+    function votingAdapters()
+        external
+        view
+        override
+        returns (address[] memory)
+    {}
+
+    function proposerAdapters()
+        external
+        view
+        override
+        returns (address[] memory)
+    {}
+
+    function isQuorumMet(
+        uint32 _proposalId
+    ) external view override returns (bool) {}
+
+    function isBasisMet(
+        uint32 _proposalId
+    ) external view override returns (bool) {}
+
+    function vote(
+        uint32 _proposalId,
+        uint8 /*_voteType*/,
+        address[] calldata _votingAdaptersToUse,
+        bytes[] calldata _votingAdapterVoteData
+    ) external virtual override {
+        for (uint256 i = 0; i < _votingAdaptersToUse.length; ) {
+            address adapterAddress = _votingAdaptersToUse[i];
+            bytes calldata adapterData = _votingAdapterVoteData[i];
+
+            IBaseVotingAdapterV1(adapterAddress).recordVote(
+                msg.sender,
+                _proposalId,
+                adapterData
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@ import {IProposerAdapterV1} from "./IProposerAdapterV1.sol";
 interface IHatsProposerAdapterV1 is IProposerAdapterV1 {
     function initialize(
         address hatsContractAddress,
-        uint256[] memory whitelistedHats
+        uint256[] calldata whitelistedHats
     ) external;
 
     function hatsContract() external view returns (address);

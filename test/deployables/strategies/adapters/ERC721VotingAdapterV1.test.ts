@@ -6,11 +6,10 @@ import {
   ERC1967Proxy__factory,
   ERC721VotingAdapterV1,
   ERC721VotingAdapterV1__factory,
+  IBaseVotingAdapterV1__factory,
   IERC165__factory,
   IERC721VotingAdapterV1__factory,
   IVersion__factory,
-  IVotingAdapterBaseV1__factory,
-  IVotingAdapterV1__factory,
   MockERC721,
   MockERC721__factory,
 } from '../../../../typechain-types';
@@ -20,11 +19,12 @@ async function deployERC721AdapterProxy(
   proxyDeployer: SignerWithAddress,
   implementationAddress: string,
   tokenAddress: string,
+  strategyAddress: string,
   weightPerNft: bigint,
 ): Promise<{ adapter: ERC721VotingAdapterV1 }> {
   const initData = ERC721VotingAdapterV1__factory.createInterface().encodeFunctionData(
     'initialize',
-    [tokenAddress, weightPerNft],
+    [tokenAddress, strategyAddress, weightPerNft],
   );
   const proxyContractFactory = new ERC1967Proxy__factory(proxyDeployer);
   const proxy = await proxyContractFactory.deploy(implementationAddress, initData);
@@ -55,7 +55,7 @@ describe('ERC721VotingAdapterV1', () => {
   }
 
   async function deployMocksAndSignersERC721Fixture() {
-    const [deployer, user1, user2] = await ethers.getSigners();
+    const [deployer, user1, user2, strategySigner] = await ethers.getSigners();
 
     const mockNftFactory = new MockERC721__factory(deployer);
     const mockNft = await mockNftFactory.deploy();
@@ -97,6 +97,8 @@ describe('ERC721VotingAdapterV1', () => {
       mockNft,
       user1TokenIds,
       user2TokenIds,
+      strategyAddress: strategySigner.address,
+      strategySigner,
     };
   }
 
@@ -106,14 +108,17 @@ describe('ERC721VotingAdapterV1', () => {
 
   describe('Initialization', () => {
     it('should initialize correctly', async () => {
-      const { mockNft, deployer: fixtureDeployer } = await loadFixture(
-        deployMocksAndSignersERC721Fixture,
-      );
+      const {
+        mockNft,
+        deployer: fixtureDeployer,
+        strategyAddress,
+      } = await loadFixture(deployMocksAndSignersERC721Fixture);
 
       const { adapter: erc721Adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        strategyAddress,
         DEFAULT_WEIGHT_PER_NFT,
       );
 
@@ -122,56 +127,72 @@ describe('ERC721VotingAdapterV1', () => {
     });
 
     it('should not allow reinitialization', async () => {
-      const { mockNft, deployer: fixtureDeployer } = await loadFixture(
-        deployMocksAndSignersERC721Fixture,
-      );
+      const {
+        mockNft,
+        deployer: fixtureDeployer,
+        strategyAddress,
+      } = await loadFixture(deployMocksAndSignersERC721Fixture);
       const { adapter: erc721Adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        strategyAddress,
         DEFAULT_WEIGHT_PER_NFT,
       );
       await expect(
-        erc721Adapter.initialize(await mockNft.getAddress(), DEFAULT_WEIGHT_PER_NFT),
+        erc721Adapter.initialize(
+          await mockNft.getAddress(),
+          strategyAddress,
+          DEFAULT_WEIGHT_PER_NFT,
+        ),
       ).to.be.revertedWithCustomError(erc721Adapter, 'InvalidInitialization');
     });
 
     it('Should have initialization disabled in the implementation contract', async function () {
-      const { mockNft, deployer: fixtureDeployer } = await loadFixture(
-        deployMocksAndSignersERC721Fixture,
-      );
+      const {
+        mockNft,
+        deployer: fixtureDeployer,
+        strategyAddress,
+      } = await loadFixture(deployMocksAndSignersERC721Fixture);
       const implementationContract = ERC721VotingAdapterV1__factory.connect(
         erc721AdapterImplementationAddressG,
         fixtureDeployer,
       );
       await expect(
-        implementationContract.initialize(await mockNft.getAddress(), DEFAULT_WEIGHT_PER_NFT),
+        implementationContract.initialize(
+          await mockNft.getAddress(),
+          strategyAddress,
+          DEFAULT_WEIGHT_PER_NFT,
+        ),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
   });
 
   describe('weightOf', () => {
     let adapter: ERC721VotingAdapterV1;
-    let mockNft: MockERC721; // Explicitly type mockNft here
+    let mockNft: MockERC721;
     let user1: SignerWithAddress;
     let user1TokenIds: bigint[];
     let user2TokenIds: bigint[];
     let deployer: SignerWithAddress;
+    let strategySigner: SignerWithAddress;
 
     const proposalId = 1;
 
     beforeEach(async () => {
       const fixture = await loadFixture(deployMocksAndSignersERC721Fixture);
-      mockNft = fixture.mockNft; // mockNft is now correctly typed
+      mockNft = fixture.mockNft;
       user1 = fixture.user1Signer;
       user1TokenIds = fixture.user1TokenIds;
       user2TokenIds = fixture.user2TokenIds;
       deployer = fixture.deployer;
+      strategySigner = fixture.strategySigner;
 
       const { adapter: deployedAdapter } = await deployERC721AdapterProxy(
         deployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        fixture.strategyAddress,
         DEFAULT_WEIGHT_PER_NFT,
       );
       adapter = deployedAdapter;
@@ -199,12 +220,13 @@ describe('ERC721VotingAdapterV1', () => {
 
     it('should return 0 weight for token IDs already used in the proposal', async () => {
       const tokenToUse = user1TokenIds[0];
-      // First, use the token in a vote (recordVote will mark it as used)
       const initialAdapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
         ['uint256[]'],
         [[tokenToUse]],
       );
-      await adapter.connect(user1).recordVote(user1.address, proposalId, initialAdapterVoteData);
+      await adapter
+        .connect(strategySigner)
+        .recordVote(user1.address, proposalId, initialAdapterVoteData);
 
       // Then, try to get weightOf for the same token
       const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -249,9 +271,10 @@ describe('ERC721VotingAdapterV1', () => {
     it('should correctly apply weightPerNft > 1', async () => {
       const customWeightPerNft = 3n;
       const { adapter: customAdapter } = await deployERC721AdapterProxy(
-        deployer, // from beforeEach
+        deployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        deployer.address,
         customWeightPerNft,
       );
 
@@ -272,6 +295,7 @@ describe('ERC721VotingAdapterV1', () => {
     let user1TokenIds: bigint[];
     let user2TokenIds: bigint[];
     let deployer: SignerWithAddress;
+    let strategySigner: SignerWithAddress;
 
     const proposalId = 1;
     const proposalId2 = 2; // For testing used tokens across different proposals
@@ -283,11 +307,13 @@ describe('ERC721VotingAdapterV1', () => {
       user1TokenIds = fixture.user1TokenIds; // User1 owns [0, 1, 2]
       user2TokenIds = fixture.user2TokenIds; // User2 owns [3, 4]
       deployer = fixture.deployer;
+      strategySigner = fixture.strategySigner;
 
       const { adapter: deployedAdapter } = await deployERC721AdapterProxy(
         deployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        fixture.strategyAddress,
         DEFAULT_WEIGHT_PER_NFT,
       );
       adapter = deployedAdapter;
@@ -328,12 +354,13 @@ describe('ERC721VotingAdapterV1', () => {
       const tokenToUseInitially = user1TokenIds[0];
       const anotherValidToken = user1TokenIds[1];
 
-      // Record vote for tokenToUseInitially for proposalId
       const initialAdapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
         ['uint256[]'],
         [[tokenToUseInitially]],
       );
-      await adapter.connect(user1).recordVote(user1.address, proposalId, initialAdapterVoteData);
+      await adapter
+        .connect(strategySigner)
+        .recordVote(user1.address, proposalId, initialAdapterVoteData);
 
       // Now, try to get weight for [tokenToUseInitially, anotherValidToken]
       const tokenIdsForWeightCheck = [tokenToUseInitially, anotherValidToken];
@@ -352,12 +379,13 @@ describe('ERC721VotingAdapterV1', () => {
 
     it('should correctly handle tokens used in a different proposal', async () => {
       const tokenToUse = user1TokenIds[0];
-      // Record vote for tokenToUse for proposalId2
       const initialAdapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
         ['uint256[]'],
         [[tokenToUse]],
       );
-      await adapter.connect(user1).recordVote(user1.address, proposalId2, initialAdapterVoteData);
+      await adapter
+        .connect(strategySigner)
+        .recordVote(user1.address, proposalId2, initialAdapterVoteData);
 
       // Get weight for the same token but for proposalId (different proposal)
       const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -420,6 +448,7 @@ describe('ERC721VotingAdapterV1', () => {
         deployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        deployer.address,
         customWeightPerToken,
       );
 
@@ -440,7 +469,7 @@ describe('ERC721VotingAdapterV1', () => {
     it('should return 0 weight and empty array for a mix of invalid (unowned, used) and non-existent tokens', async () => {
       const usedToken = user1TokenIds[0];
       await adapter
-        .connect(user1)
+        .connect(strategySigner)
         .recordVote(
           user1.address,
           proposalId,
@@ -474,6 +503,7 @@ describe('ERC721VotingAdapterV1', () => {
     let user1TokenIds: bigint[];
     let user2TokenIds: bigint[];
     let deployer: SignerWithAddress;
+    let strategySigner: SignerWithAddress;
 
     const proposalId = 1;
 
@@ -484,11 +514,13 @@ describe('ERC721VotingAdapterV1', () => {
       user1TokenIds = fixture.user1TokenIds;
       user2TokenIds = fixture.user2TokenIds;
       deployer = fixture.deployer;
+      strategySigner = fixture.strategySigner;
 
       const { adapter: deployedAdapter } = await deployERC721AdapterProxy(
         deployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        fixture.strategyAddress,
         DEFAULT_WEIGHT_PER_NFT,
       );
       adapter = deployedAdapter;
@@ -502,12 +534,9 @@ describe('ERC721VotingAdapterV1', () => {
       );
       const expectedWeight = BigInt(tokenIdsToVoteWith.length) * DEFAULT_WEIGHT_PER_NFT;
 
-      const weightCastedStatically = await adapter
-        .connect(user1)
-        .recordVote.staticCall(user1.address, proposalId, adapterVoteData);
-      expect(weightCastedStatically).to.equal(expectedWeight);
-
-      await expect(adapter.connect(user1).recordVote(user1.address, proposalId, adapterVoteData))
+      await expect(
+        adapter.connect(strategySigner).recordVote(user1.address, proposalId, adapterVoteData),
+      )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(user1.address, proposalId, expectedWeight, adapterVoteData);
 
@@ -527,19 +556,20 @@ describe('ERC721VotingAdapterV1', () => {
         [[tokenToUse]],
       );
       // First vote
-      await adapter.connect(user1).recordVote(user1.address, proposalId, voteDataSingle);
+      await adapter.connect(strategySigner).recordVote(user1.address, proposalId, voteDataSingle);
 
       // Attempt second vote with same token - should revert
-      await expect(adapter.connect(user1).recordVote(user1.address, proposalId, voteDataSingle))
+      await expect(
+        adapter.connect(strategySigner).recordVote(user1.address, proposalId, voteDataSingle),
+      )
         .to.be.revertedWithCustomError(adapter, 'TokenIdAlreadyUsedForVote')
         .withArgs(tokenToUse);
     });
 
     it('should not allow voting with no NFTs provided', async () => {
-      // Case 2: Empty token list - should revert
       const emptyVoteData = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[]]);
       await expect(
-        adapter.connect(user1).recordVote(user1.address, proposalId, emptyVoteData),
+        adapter.connect(strategySigner).recordVote(user1.address, proposalId, emptyVoteData),
       ).to.be.revertedWithCustomError(adapter, 'NoTokenIdsPassed');
     });
 
@@ -550,8 +580,13 @@ describe('ERC721VotingAdapterV1', () => {
         [tokenIdsNotOwnedByUser1],
       );
 
-      // Attempt to vote with unowned token - should revert
-      await expect(adapter.connect(user1).recordVote(user1.address, proposalId, adapterVoteData))
+      await expect(
+        adapter.connect(strategySigner).recordVote(
+          user1.address, // Voter is user1
+          proposalId,
+          adapterVoteData,
+        ),
+      )
         .to.be.revertedWithCustomError(adapter, 'TokenIdNotOwnedByVoter')
         .withArgs(tokenIdsNotOwnedByUser1[0]);
 
@@ -562,11 +597,10 @@ describe('ERC721VotingAdapterV1', () => {
     it('should correctly apply custom weightPerNft on recordVote and emit event', async () => {
       const customWeightPerNft = 3n;
 
-      // Load fresh instances FOR THIS TEST to ensure clean state for customAdapter deployment
       const {
         mockNft: localMockNft,
         user1Signer: localUser1,
-        deployer: localDeployer,
+        deployer: localProxyDeployer,
       } = await loadFixture(deployMocksAndSignersERC721Fixture);
 
       // Mint specific tokens for localUser1 on localMockNft
@@ -579,29 +613,26 @@ describe('ERC721VotingAdapterV1', () => {
       await localMockNft.mint(localUser1.address);
 
       const { adapter: customAdapter } = await deployERC721AdapterProxy(
-        localDeployer,
+        localProxyDeployer, // Proxy deployer
         erc721AdapterImplementationAddressG,
         await localMockNft.getAddress(),
+        localProxyDeployer.address, // Initialize customAdapter with localProxyDeployer as strategy
         customWeightPerNft,
       );
 
-      const tokenIdsToUseInVote = [localUser1TestTokenIds[0]]; // Use a token minted for localUser1 on localMockNft
+      const tokenIdsToUseInVote = [localUser1TestTokenIds[0]];
       const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
         ['uint256[]'],
         [tokenIdsToUseInVote],
       );
       const expectedWeight = BigInt(tokenIdsToUseInVote.length) * customWeightPerNft;
 
-      // localUser1 is the owner of tokenIdsToUseInVote on the localMockNft that customAdapter uses
-      const weightCastedStatically = await customAdapter
-        .connect(localUser1)
-        .recordVote.staticCall(localUser1.address, proposalId, adapterVoteData);
-      expect(weightCastedStatically).to.equal(expectedWeight);
-
       await expect(
-        customAdapter
-          .connect(localUser1)
-          .recordVote(localUser1.address, proposalId, adapterVoteData),
+        customAdapter.connect(localProxyDeployer).recordVote(
+          localUser1.address, // Actual voter
+          proposalId,
+          adapterVoteData,
+        ),
       )
         .to.emit(customAdapter, 'VoteRecorded')
         .withArgs(localUser1.address, proposalId, expectedWeight, adapterVoteData);
@@ -613,13 +644,16 @@ describe('ERC721VotingAdapterV1', () => {
 
   describe('version()', () => {
     it('should return the correct version', async () => {
-      const { mockNft, deployer: fixtureDeployer } = await loadFixture(
-        deployMocksAndSignersERC721Fixture,
-      );
+      const {
+        mockNft,
+        deployer: fixtureDeployer,
+        strategyAddress,
+      } = await loadFixture(deployMocksAndSignersERC721Fixture);
       const { adapter: erc721Adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        strategyAddress,
         DEFAULT_WEIGHT_PER_NFT,
       );
       expect(await erc721Adapter.version()).to.equal(1);
@@ -630,13 +664,16 @@ describe('ERC721VotingAdapterV1', () => {
     let erc721Adapter: ERC721VotingAdapterV1;
 
     beforeEach(async () => {
-      const { mockNft, deployer: fixtureDeployer } = await loadFixture(
-        deployMocksAndSignersERC721Fixture,
-      );
+      const {
+        mockNft,
+        deployer: fixtureDeployer,
+        strategyAddress,
+      } = await loadFixture(deployMocksAndSignersERC721Fixture);
       const { adapter } = await deployERC721AdapterProxy(
         fixtureDeployer,
         erc721AdapterImplementationAddressG,
         await mockNft.getAddress(),
+        strategyAddress,
         DEFAULT_WEIGHT_PER_NFT,
       );
       erc721Adapter = adapter;
@@ -645,28 +682,15 @@ describe('ERC721VotingAdapterV1', () => {
     it('should support IERC721VotingAdapterV1', async () => {
       void expect(
         await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IERC721VotingAdapterV1__factory.createInterface(), [
-            IVotingAdapterBaseV1__factory.createInterface(),
-            IVotingAdapterV1__factory.createInterface(),
-          ]),
+          calculateInterfaceId(IERC721VotingAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
 
-    it('should support IVotingAdapterV1', async () => {
+    it('should support IBaseVotingAdapterV1', async () => {
       void expect(
         await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterV1__factory.createInterface(), [
-            IVotingAdapterBaseV1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IVotingAdapterBaseV1', async () => {
-      void expect(
-        await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterBaseV1__factory.createInterface()),
+          calculateInterfaceId(IBaseVotingAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
