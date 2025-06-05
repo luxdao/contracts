@@ -6,7 +6,7 @@ import {Transaction} from "../Module.sol";
 interface IAzoriusV1 {
     event ProposalCreated(
         address strategy,
-        uint256 proposalId,
+        uint32 proposalId,
         address proposer,
         Transaction[] transactions,
         string metadata
