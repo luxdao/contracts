@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract MockEntryPoint is IEntryPoint, IERC165 {
+contract MockEntryPoint is IEntryPoint, ERC165 {
     mapping(address => uint256) public balances;
     mapping(address => uint256) public stakes;
     mapping(address => uint256) public unstakeDelaySecs;
@@ -105,10 +105,10 @@ contract MockEntryPoint is IEntryPoint, IERC165 {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) external pure returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IEntryPoint).interfaceId ||
-            interfaceId == type(IERC165).interfaceId;
+            super.supportsInterface(interfaceId);
     }
 
     receive() external payable {

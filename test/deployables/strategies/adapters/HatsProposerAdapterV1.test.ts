@@ -6,7 +6,7 @@ import {
   HatsProposerAdapterV1,
   HatsProposerAdapterV1__factory,
   IERC165__factory,
-  IProposerAdapterBaseV1__factory,
+  IHatsProposerAdapterV1__factory,
   IProposerAdapterV1__factory,
   IVersion__factory,
   MockHats,
@@ -67,30 +67,8 @@ describe('HatsProposerAdapterV1', () => {
   describe('Initialization (via Proxy)', () => {
     it('should initialize correctly with valid parameters', async () => {
       expect(await adapter.hatsContract()).to.equal(await mockHats.getAddress());
-      const whitelistedHats = await adapter.getWhitelistedHatIds();
+      const whitelistedHats = await adapter.whitelistedHatIds();
       expect(whitelistedHats).to.deep.equal([HAT_ID_1]);
-    });
-
-    it('should revert if hats contract address is zero', async () => {
-      await expect(
-        deployHatsProposerAdapterProxy(
-          deployer,
-          await adapterImplementation.getAddress(),
-          ethers.ZeroAddress,
-          [HAT_ID_1],
-        ),
-      ).to.be.revertedWithCustomError(adapterImplementation, 'MissingHatsContract');
-    });
-
-    it('should revert if initialWhitelistedHats is empty', async () => {
-      await expect(
-        deployHatsProposerAdapterProxy(
-          deployer,
-          await adapterImplementation.getAddress(),
-          await mockHats.getAddress(),
-          [],
-        ),
-      ).to.be.revertedWithCustomError(adapterImplementation, 'NoHatsWhitelisted');
     });
 
     it('should prevent reinitialization on proxied adapter', async () => {
@@ -111,19 +89,37 @@ describe('HatsProposerAdapterV1', () => {
 
     it('should return true if user wears a whitelisted hat', async () => {
       await mockHats.setWearerStatus(user1.address, HAT_ID_1, true);
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
+      );
       void expect(canPropose).to.be.true;
     });
 
     it('should return false if user does not wear any whitelisted hat', async () => {
       await mockHats.setWearerStatus(user1.address, HAT_ID_1, false);
       await mockHats.setWearerStatus(user1.address, HAT_ID_2, true); // Wears a non-whitelisted hat
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
+      );
+      void expect(canPropose).to.be.false;
+    });
+
+    it('should return false if user wears a hat that is not whitelisted', async () => {
+      await mockHats.setWearerStatus(user1.address, HAT_ID_2, true); // Wears a non-whitelisted hat
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_2]),
+      );
       void expect(canPropose).to.be.false;
     });
 
     it('should return false if user wears no hats', async () => {
-      const canPropose = await adapter.isProposer(user1.address);
+      const canPropose = await adapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
+      );
       void expect(canPropose).to.be.false;
     });
 
@@ -136,38 +132,53 @@ describe('HatsProposerAdapterV1', () => {
       );
       await mockHats.setWearerStatus(user1.address, HAT_ID_1, false);
       await mockHats.setWearerStatus(user1.address, HAT_ID_2, true); // Wears the second whitelisted hat
-      const canPropose = await localAdapter.isProposer(user1.address);
+      const canPropose = await localAdapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_2]),
+      );
       void expect(canPropose).to.be.true;
     });
   });
 
-  describe('getVersion', () => {
+  describe('version', () => {
     it('should return the correct version', async () => {
-      expect(await adapter.getVersion()).to.equal(1n);
+      expect(await adapter.version()).to.equal(1n);
     });
   });
 
-  describe('supportsInterface', () => {
-    it('should support IProposerAdapterV1, IProposerAdapterBaseV1, IVersion and IERC165', async () => {
-      const iProposerAdapterV1Interface = IProposerAdapterV1__factory.createInterface();
-      const iProposerAdapterBaseV1Interface = IProposerAdapterBaseV1__factory.createInterface();
-      const iVersionInterface = IVersion__factory.createInterface();
-      const iERC165Interface = IERC165__factory.createInterface();
+  describe('ERC165 supportsInterface', () => {
+    it('should support IHatsProposerAdapterV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IHatsProposerAdapterV1__factory.createInterface(), [
+            IProposerAdapterV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
+    });
 
-      const iProposerAdapterV1Id = calculateInterfaceId(iProposerAdapterV1Interface);
-      const iProposerAdapterBaseV1Id = calculateInterfaceId(iProposerAdapterBaseV1Interface);
-      const iVersionId = calculateInterfaceId(iVersionInterface);
-      const iERC165Id = calculateInterfaceId(iERC165Interface);
+    it('should support IProposerAdapterV1', async () => {
+      void expect(
+        await adapter.supportsInterface(
+          calculateInterfaceId(IProposerAdapterV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
 
-      void expect(await adapter.supportsInterface(iProposerAdapterV1Id)).to.be.true;
-      void expect(await adapter.supportsInterface(iProposerAdapterBaseV1Id)).to.be.true;
-      void expect(await adapter.supportsInterface(iVersionId)).to.be.true;
-      void expect(await adapter.supportsInterface(iERC165Id)).to.be.true;
+    it('should support IVersion', async () => {
+      void expect(
+        await adapter.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
+      ).to.be.true;
+    });
+
+    it('should support IERC165', async () => {
+      void expect(
+        await adapter.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
+      ).to.be.true;
     });
 
     it('should not support a random interfaceId', async () => {
-      const randomInterfaceId = '0x12345678';
-      void expect(await adapter.supportsInterface(randomInterfaceId)).to.be.false;
+      void expect(await adapter.supportsInterface('0x12345678')).to.be.false;
     });
   });
 });

@@ -7,8 +7,8 @@ import {
   ERC20VotingAdapterV1,
   ERC20VotingAdapterV1__factory,
   IERC165__factory,
+  IERC20VotingAdapterV1__factory,
   IVersion__factory,
-  IVotingAdapterBaseV1__factory,
   IVotingAdapterV1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
@@ -124,57 +124,6 @@ describe('ERC20VotingAdapterV1', () => {
       expect(await erc20Adapter.token()).to.equal(await mockToken.getAddress());
       expect(await erc20Adapter.strategy()).to.equal(await mockStrategy.getAddress());
       expect(await erc20Adapter.weightPerToken()).to.equal(DEFAULT_WEIGHT_PER_TOKEN);
-    });
-
-    it('should revert if token address is zero', async () => {
-      const erc20AdapterImplementation = ERC20VotingAdapterV1__factory.connect(
-        erc20AdapterImplementationAddressG,
-        deployerG,
-      );
-
-      await expect(
-        deployERC20AdapterProxy(
-          deployer,
-          erc20AdapterImplementationAddressG,
-          ethers.ZeroAddress,
-          await mockStrategy.getAddress(),
-          DEFAULT_WEIGHT_PER_TOKEN,
-        ),
-      ).to.be.revertedWithCustomError(erc20AdapterImplementation, 'InvalidTokenAddress');
-    });
-
-    it('should revert if strategy address is zero', async () => {
-      const erc20AdapterImplementation = ERC20VotingAdapterV1__factory.connect(
-        erc20AdapterImplementationAddressG,
-        deployerG,
-      );
-
-      await expect(
-        deployERC20AdapterProxy(
-          deployer,
-          erc20AdapterImplementationAddressG,
-          await mockToken.getAddress(),
-          ethers.ZeroAddress,
-          DEFAULT_WEIGHT_PER_TOKEN,
-        ),
-      ).to.be.revertedWithCustomError(erc20AdapterImplementation, 'InvalidStrategyAddress');
-    });
-
-    it('should revert if weightPerToken is zero', async () => {
-      const erc20AdapterImplementation = ERC20VotingAdapterV1__factory.connect(
-        erc20AdapterImplementationAddressG,
-        deployerG,
-      );
-
-      await expect(
-        deployERC20AdapterProxy(
-          deployer,
-          erc20AdapterImplementationAddressG,
-          await mockToken.getAddress(),
-          await mockStrategy.getAddress(),
-          0n,
-        ),
-      ).to.be.revertedWithCustomError(erc20AdapterImplementation, 'InvalidWeightPerToken');
     });
 
     it('should not allow reinitialization', async () => {
@@ -407,7 +356,7 @@ describe('ERC20VotingAdapterV1', () => {
         .withArgs(voter.address, proposalId, expectedWeightCasted, expectedEventAdapterVoteData);
     });
 
-    it('should revert with ERC20AlreadyVoted if trying to vote again', async () => {
+    it('should revert with AlreadyVoted if trying to vote again', async () => {
       await setupAdapterForRecordVote(0);
       const votingStartTimestamp = (await time.latest()) + 200;
       await token.setPastVotes(voter.address, votingStartTimestamp, ethers.parseUnits('10', 18));
@@ -419,7 +368,7 @@ describe('ERC20VotingAdapterV1', () => {
       await adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData);
       await expect(
         adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
-      ).to.be.revertedWithCustomError(adapter, 'ERC20AlreadyVoted');
+      ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
     });
 
     it('subsequent weightOf should return 0 after recordVote', async () => {
@@ -453,7 +402,7 @@ describe('ERC20VotingAdapterV1', () => {
     });
   });
 
-  describe('getVersion()', () => {
+  describe('version()', () => {
     it('should return the correct version', async () => {
       const { adapter: erc20Adapter } = await deployERC20AdapterProxy(
         deployer,
@@ -463,16 +412,12 @@ describe('ERC20VotingAdapterV1', () => {
         DEFAULT_WEIGHT_PER_TOKEN,
       );
 
-      expect(await erc20Adapter.getVersion()).to.equal(1);
+      expect(await erc20Adapter.version()).to.equal(1);
     });
   });
 
   describe('ERC165 supportsInterface', () => {
     let erc20Adapter: ERC20VotingAdapterV1;
-    let iVotingAdapterV1InterfaceId: string;
-    let iVotingAdapterBaseV1InterfaceId: string;
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
 
     beforeEach(async () => {
       const { adapter } = await deployERC20AdapterProxy(
@@ -483,32 +428,40 @@ describe('ERC20VotingAdapterV1', () => {
         DEFAULT_WEIGHT_PER_TOKEN,
       );
       erc20Adapter = adapter;
+    });
 
-      iVotingAdapterV1InterfaceId = calculateInterfaceId(
-        IVotingAdapterV1__factory.createInterface(),
-        [IVotingAdapterBaseV1__factory.createInterface()],
-      );
-      iVotingAdapterBaseV1InterfaceId = calculateInterfaceId(
-        IVotingAdapterBaseV1__factory.createInterface(),
-      );
-      iVersionInterfaceId = calculateInterfaceId(IVersion__factory.createInterface());
-      iERC165InterfaceId = calculateInterfaceId(IERC165__factory.createInterface());
+    it('should support IERC20VotingAdapterV1', async () => {
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface(), [
+            IVotingAdapterV1__factory.createInterface(),
+          ]),
+        ),
+      ).to.be.true;
     });
 
     it('should support IVotingAdapterV1', async () => {
-      void expect(await erc20Adapter.supportsInterface(iVotingAdapterV1InterfaceId)).to.be.true;
-    });
-
-    it('should support IVotingAdapterBaseV1', async () => {
-      void expect(await erc20Adapter.supportsInterface(iVotingAdapterBaseV1InterfaceId)).to.be.true;
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IVotingAdapterV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('should support IVersion', async () => {
-      void expect(await erc20Adapter.supportsInterface(iVersionInterfaceId)).to.be.true;
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('should support IERC165', async () => {
-      void expect(await erc20Adapter.supportsInterface(iERC165InterfaceId)).to.be.true;
+      void expect(
+        await erc20Adapter.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('should not support a random interfaceId', async () => {

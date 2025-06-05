@@ -209,7 +209,7 @@ describe('VotesERC20V1', () => {
     });
 
     it('should return the correct version number', async () => {
-      expect(await votesERC20.getVersion()).to.equal(1);
+      expect(await votesERC20.version()).to.equal(1);
     });
   });
 
