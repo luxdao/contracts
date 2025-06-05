@@ -606,8 +606,8 @@ describe('AzoriusV1', () => {
           );
 
         // Get hashes directly
-        const hash1 = await azorius.getTxHash(tx1.to, tx1.value, tx1.data, tx1.operation);
-        const hash2 = await azorius.getTxHash(tx2.to, tx2.value, tx2.data, tx2.operation);
+        const hash1 = await azorius.getTxHash(tx1);
+        const hash2 = await azorius.getTxHash(tx2);
 
         // Verify proposal tx hashes match
         expect(await azorius.getProposalTxHash(0, 0)).to.equal(hash1);
@@ -643,12 +643,7 @@ describe('AzoriusV1', () => {
           );
         const proposalId = 0;
 
-        const expectedTxHash = await azorius.getTxHash(
-          proposalTx.to,
-          proposalTx.value,
-          proposalTx.data,
-          proposalTx.operation,
-        );
+        const expectedTxHash = await azorius.getTxHash(proposalTx);
 
         const [strategy, txHashes, timelock, execution, counter] =
           await azorius.getProposal(proposalId);
@@ -724,13 +719,7 @@ describe('AzoriusV1', () => {
         await time.increaseTo(targetExecutionTimestamp);
 
         // Execute only the first transaction
-        await azorius.executeProposal(
-          proposalId,
-          [tx1.to],
-          [tx1.value],
-          [tx1.data],
-          [tx1.operation],
-        );
+        await azorius.executeProposal(proposalId, [tx1]);
 
         const [, , , , counter] = await azorius.getProposal(proposalId);
         expect(counter).to.equal(1); // Execution counter should be 1
@@ -820,13 +809,7 @@ describe('AzoriusV1', () => {
         await avatar.enableModule(await azorius.getAddress());
 
         // Execute proposal
-        await azorius.executeProposal(
-          proposalId,
-          [proposalTx.to],
-          [proposalTx.value],
-          [proposalTx.data],
-          [proposalTx.operation],
-        );
+        await azorius.executeProposal(proposalId, [proposalTx]);
 
         // Verify token transfer
         expect(await mockToken.balanceOf(user.address)).to.equal(100);
@@ -838,13 +821,7 @@ describe('AzoriusV1', () => {
         await mockStrategy.setIsPassed(proposalId, true);
 
         await expect(
-          azorius.executeProposal(
-            proposalId,
-            [proposalTx.to],
-            [proposalTx.value],
-            [proposalTx.data],
-            [proposalTx.operation],
-          ),
+          azorius.executeProposal(proposalId, [proposalTx]),
         ).to.be.revertedWithCustomError(azorius, 'ProposalNotExecutable');
       });
 
@@ -857,13 +834,7 @@ describe('AzoriusV1', () => {
         await time.increase(TIMELOCK_PERIOD + EXECUTION_PERIOD + 1);
 
         await expect(
-          azorius.executeProposal(
-            proposalId,
-            [proposalTx.to],
-            [proposalTx.value],
-            [proposalTx.data],
-            [proposalTx.operation],
-          ),
+          azorius.executeProposal(proposalId, [proposalTx]),
         ).to.be.revertedWithCustomError(azorius, 'ProposalNotExecutable');
       });
 
@@ -1021,7 +992,7 @@ describe('AzoriusV1', () => {
 
         it('should allow partial execution of proposal transactions', async () => {
           // Execute only the first transaction
-          await azorius.executeProposal(0, [tx1.to], [tx1.value], [tx1.data], [tx1.operation]);
+          await azorius.executeProposal(0, [tx1]);
 
           // Verify first transaction was executed
           expect(await mockToken.balanceOf(user.address)).to.equal(100);
@@ -1033,10 +1004,10 @@ describe('AzoriusV1', () => {
 
         it('should allow execution of remaining transactions after partial execution', async () => {
           // Execute first transaction
-          await azorius.executeProposal(0, [tx1.to], [tx1.value], [tx1.data], [tx1.operation]);
+          await azorius.executeProposal(0, [tx1]);
 
           // Execute the second transaction
-          await azorius.executeProposal(0, [tx2.to], [tx2.value], [tx2.data], [tx2.operation]);
+          await azorius.executeProposal(0, [tx2]);
 
           // Verify second transaction was executed (balance should now be 300)
           expect(await mockToken.balanceOf(user.address)).to.equal(300);
@@ -1048,19 +1019,6 @@ describe('AzoriusV1', () => {
           // Verify proposal state is now EXECUTED
           expect(await azorius.proposalState(0)).to.equal(3); // EXECUTED
         });
-      });
-
-      it('should revert on invalid array lengths', async () => {
-        // Try to execute with mismatched array lengths
-        await expect(
-          azorius.executeProposal(
-            0,
-            [tx1.to],
-            [], // Empty value array
-            [tx1.data],
-            [tx1.operation],
-          ),
-        ).to.be.revertedWithCustomError(azorius, 'InvalidArrayLengths');
       });
 
       it('should revert on execution counter overflow', async () => {
@@ -1091,18 +1049,13 @@ describe('AzoriusV1', () => {
         expect(await azorius.proposalState(1)).to.equal(2); // EXECUTABLE
 
         // First execute all transactions
-        await azorius.executeProposal(
-          1,
-          [tx1.to, tx2.to],
-          [tx1.value, tx2.value],
-          [tx1.data, tx2.data],
-          [tx1.operation, tx2.operation],
-        );
+        await azorius.executeProposal(1, [tx1, tx2]);
 
         // Try to execute more transactions than exist
-        await expect(
-          azorius.executeProposal(1, [tx1.to], [tx1.value], [tx1.data], [tx1.operation]),
-        ).to.be.revertedWithCustomError(azorius, 'InvalidTxs');
+        await expect(azorius.executeProposal(1, [tx1])).to.be.revertedWithCustomError(
+          azorius,
+          'InvalidTxs',
+        );
       });
 
       describe('executeProposal Specific Reverts', () => {
@@ -1154,9 +1107,10 @@ describe('AzoriusV1', () => {
         });
 
         it('should revert with InvalidTxs if targets array is empty', async () => {
-          await expect(
-            azorius.executeProposal(proposalId, [], [], [], []),
-          ).to.be.revertedWithCustomError(azorius, 'InvalidTxs');
+          await expect(azorius.executeProposal(proposalId, [])).to.be.revertedWithCustomError(
+            azorius,
+            'InvalidTxs',
+          );
         });
 
         it('should revert with InvalidTxHash if provided tx details do not match stored hash', async () => {
@@ -1164,14 +1118,14 @@ describe('AzoriusV1', () => {
             user.address,
             999, // Different amount means different data, thus different hash
           ]);
+          const invalidTx = {
+            to: validTx.to,
+            value: validTx.value,
+            data: invalidTxData,
+            operation: validTx.operation,
+          };
           await expect(
-            azorius.executeProposal(
-              proposalId,
-              [validTx.to],
-              [validTx.value],
-              [invalidTxData], // Using different data
-              [validTx.operation],
-            ),
+            azorius.executeProposal(proposalId, [invalidTx]),
           ).to.be.revertedWithCustomError(azorius, 'InvalidTxHash');
         });
       });
@@ -1186,7 +1140,7 @@ describe('AzoriusV1', () => {
           operation: 0,
         };
 
-        const txHash = await azorius.getTxHash(tx.to, tx.value, tx.data, tx.operation);
+        const txHash = await azorius.getTxHash(tx);
 
         expect(txHash).to.be.properHex(64); // 32 bytes (64 chars) + 0x prefix
       });
@@ -1206,8 +1160,8 @@ describe('AzoriusV1', () => {
           operation: 0,
         };
 
-        const txHash1 = await azorius.getTxHash(tx1.to, tx1.value, tx1.data, tx1.operation);
-        const txHash2 = await azorius.getTxHash(tx2.to, tx2.value, tx2.data, tx2.operation);
+        const txHash1 = await azorius.getTxHash(tx1);
+        const txHash2 = await azorius.getTxHash(tx2);
 
         expect(txHash1).to.not.equal(txHash2);
       });
@@ -1219,8 +1173,8 @@ describe('AzoriusV1', () => {
         value: bigint;
         data: string;
         operation: number;
-        nonce: bigint;
       };
+      let nonce: bigint;
 
       beforeEach(async () => {
         // Re-deploy Azorius and mocks if they are not available in this scope
@@ -1231,18 +1185,12 @@ describe('AzoriusV1', () => {
           value: 0n,
           data: mockToken.interface.encodeFunctionData('transfer', [user.address, 100]),
           operation: 0, // Call
-          nonce: 0n,
         };
+        nonce = 0n;
       });
 
       it('should generate a non-empty bytes string', async () => {
-        const hashData = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          txParams.data,
-          txParams.operation,
-          txParams.nonce,
-        );
+        const hashData = await azorius.generateTxHashData(txParams, nonce);
         expect(hashData).to.be.a('string');
         expect(hashData).to.not.equal('0x');
         void expect(ethers.isHexString(hashData)).to.be.true;
@@ -1250,95 +1198,47 @@ describe('AzoriusV1', () => {
 
       it('should produce different hash data for different nonces', async () => {
         const hashData1 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          txParams.data,
-          txParams.operation,
+          txParams,
           0n, // Nonce 0
         );
         const hashData2 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          txParams.data,
-          txParams.operation,
+          txParams,
           1n, // Nonce 1
         );
         expect(hashData1).to.not.equal(hashData2);
       });
 
       it('should produce different hash data for different to addresses', async () => {
-        const hashData1 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          txParams.data,
-          txParams.operation,
-          txParams.nonce,
-        );
-        const hashData2 = await azorius.generateTxHashData(
-          owner.address, // Different 'to'
-          txParams.value,
-          txParams.data,
-          txParams.operation,
-          txParams.nonce,
-        );
+        const hashData1 = await azorius.generateTxHashData(txParams, nonce);
+
+        txParams.to = owner.address; // Different 'to'
+        const hashData2 = await azorius.generateTxHashData(txParams, nonce);
         expect(hashData1).to.not.equal(hashData2);
       });
 
       it('should produce different hash data for different values', async () => {
-        const hashData1 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value, // Original value (e.g., 0)
-          txParams.data,
-          txParams.operation,
-          txParams.nonce,
-        );
-        const hashData2 = await azorius.generateTxHashData(
-          txParams.to,
-          1n, // Different value
-          txParams.data,
-          txParams.operation,
-          txParams.nonce,
-        );
+        const hashData1 = await azorius.generateTxHashData(txParams, nonce);
+        txParams.value = 1n; // Different value
+        const hashData2 = await azorius.generateTxHashData(txParams, nonce);
         expect(hashData1).to.not.equal(hashData2);
       });
 
       it('should produce different hash data for different data', async () => {
-        const hashData1 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          txParams.data, // Original data
-          txParams.operation,
-          txParams.nonce,
-        );
+        const hashData1 = await azorius.generateTxHashData(txParams, nonce);
+        txParams.data = mockToken.interface.encodeFunctionData('transfer', [user.address, 200]); // Different data
         const differentData = mockToken.interface.encodeFunctionData('transfer', [
           user.address,
           200,
         ]);
-        const hashData2 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          differentData, // Different data
-          txParams.operation,
-          txParams.nonce,
-        );
+        txParams.data = differentData;
+        const hashData2 = await azorius.generateTxHashData(txParams, nonce);
         expect(hashData1).to.not.equal(hashData2);
       });
 
       it('should produce different hash data for different operations', async () => {
-        const hashData1 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          txParams.data,
-          0, // Operation Call
-          txParams.nonce,
-        );
-        const hashData2 = await azorius.generateTxHashData(
-          txParams.to,
-          txParams.value,
-          txParams.data,
-          1, // Operation DelegateCall
-          txParams.nonce,
-        );
+        const hashData1 = await azorius.generateTxHashData(txParams, nonce);
+        txParams.operation = 1; // Different operation
+        const hashData2 = await azorius.generateTxHashData(txParams, nonce);
         expect(hashData1).to.not.equal(hashData2);
       });
     });

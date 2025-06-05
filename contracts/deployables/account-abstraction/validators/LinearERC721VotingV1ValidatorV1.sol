@@ -12,8 +12,8 @@ interface ILinearERC721VotingV1 {
     function vote(
         uint32 proposalId,
         uint8 voteType,
-        address[] memory tokenAddresses,
-        uint256[] memory tokenIds
+        address[] calldata tokenAddresses,
+        uint256[] calldata tokenIds
     ) external;
 
     function hasVoted(

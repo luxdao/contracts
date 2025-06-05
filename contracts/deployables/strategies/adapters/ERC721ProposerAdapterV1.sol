@@ -48,7 +48,7 @@ contract ERC721ProposerAdapterV1 is
 
     function isProposer(
         address _proposer,
-        bytes memory
+        bytes calldata
     ) external view virtual override returns (bool) {
         return _token.balanceOf(_proposer) >= _proposerThreshold;
     }

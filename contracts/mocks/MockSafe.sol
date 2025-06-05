@@ -58,8 +58,8 @@ contract MockSafe is ISafe {
 
     function checkSignatures(
         bytes32 txHash,
-        bytes memory,
-        bytes memory signatures
+        bytes calldata,
+        bytes calldata signatures
     ) external view {
         if (_shouldRevertOnCheckSignatures[txHash]) {
             revert("Invalid signatures");
