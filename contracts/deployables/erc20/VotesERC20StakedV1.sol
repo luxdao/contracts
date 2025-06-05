@@ -42,14 +42,13 @@ contract VotesERC20StakedV1 is
     receive() external payable {}
 
     function initialize(
-        string memory name_,
-        string memory symbol_,
+        Metadata calldata metadata_,
         address owner_,
         address stakedToken_,
         uint256 minimumStakingPeriod_,
-        address[] memory rewardsTokens_
+        address[] calldata rewardsTokens_
     ) public virtual override initializer {
-        __ERC20_init(name_, symbol_);
+        __ERC20_init(metadata_.name, metadata_.symbol);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
@@ -59,7 +58,7 @@ contract VotesERC20StakedV1 is
     }
 
     function addRewardsTokens(
-        address[] memory rewardsTokens_
+        address[] calldata rewardsTokens_
     ) external virtual override onlyOwner {
         _addRewardsTokens(rewardsTokens_);
     }
@@ -118,7 +117,7 @@ contract VotesERC20StakedV1 is
     }
 
     function distributeRewards(
-        address[] memory _tokens
+        address[] calldata _tokens
     ) external virtual override {
         if (_totalStaked == 0) revert ZeroStaked();
 
@@ -151,7 +150,7 @@ contract VotesERC20StakedV1 is
         emit RewardsDistributed(_token, amountToDistribute, newRewardsRate);
     }
 
-    function _addRewardsTokens(address[] memory rewardsTokens_) internal {
+    function _addRewardsTokens(address[] calldata rewardsTokens_) internal {
         for (uint256 i = 0; i < rewardsTokens_.length; ) {
             if (_rewardsTokenDatas[rewardsTokens_[i]].enabled)
                 revert DuplicateRewardsToken();
@@ -313,7 +312,7 @@ contract VotesERC20StakedV1 is
     }
 
     function distributableRewards(
-        address[] memory rewardsTokens_
+        address[] calldata rewardsTokens_
     ) external view virtual override returns (uint256[] memory) {
         uint256[] memory distributableRewards_ = new uint256[](
             rewardsTokens_.length

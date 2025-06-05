@@ -32,13 +32,12 @@ contract VotesERC20V1 is
     }
 
     function initialize(
-        string memory name,
-        string memory symbol,
-        Allocation[] memory allocations,
+        Metadata calldata metadata,
+        Allocation[] calldata allocations,
         address owner
     ) public virtual override initializer {
-        __ERC20_init(name, symbol);
-        __ERC20Permit_init(name);
+        __ERC20_init(metadata.name, metadata.symbol);
+        __ERC20Permit_init(metadata.name);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
