@@ -135,7 +135,7 @@ contract VotesERC20StakedV1 is
 
     function claimRewards(address _recipient) external virtual override {
         for (uint256 i = 0; i < _rewardsTokens.length; ) {
-            _claimRewards(_recipient, _rewardsTokens[i]);
+            _claimRewards(msg.sender,_recipient, _rewardsTokens[i]);
 
             unchecked {
                 i++;
@@ -151,7 +151,7 @@ contract VotesERC20StakedV1 is
             if (!_rewardsTokenDatas[_tokens[i]].enabled)
                 revert InvalidRewardsToken(_tokens[i]);
 
-            _claimRewards(_recipient, _tokens[i]);
+            _claimRewards(msg.sender, _recipient, _tokens[i]);
 
             unchecked {
                 i++;
@@ -175,13 +175,13 @@ contract VotesERC20StakedV1 is
         revert NonTransferable();
     }
 
-    function _claimRewards(address _recipient, address _token) internal {
-        uint256 amountToClaim = _claimableRewards(msg.sender, _token);
+    function _claimRewards(address _claimer, address _recipient, address _token) internal {
+        uint256 amountToClaim = _claimableRewards(_claimer, _token);
 
         RewardsTokenData storage token = _rewardsTokenDatas[_token];
 
-        token.stakerAccumulatedRewards[msg.sender] = 0;
-        token.stakerRewardsRates[msg.sender] = token.rewardsRate;
+        token.stakerAccumulatedRewards[_claimer] = 0;
+        token.stakerRewardsRates[_claimer] = token.rewardsRate;
 
         if (amountToClaim == 0) return;
 
@@ -193,7 +193,7 @@ contract VotesERC20StakedV1 is
             IERC20(_token).safeTransfer(_recipient, amountToClaim);
         }
 
-        emit RewardsClaimed(msg.sender, _token, _recipient, amountToClaim);
+        emit RewardsClaimed(_claimer, _token, _recipient, amountToClaim);
     }
 
     function _distributeRewards(address _token) internal {
