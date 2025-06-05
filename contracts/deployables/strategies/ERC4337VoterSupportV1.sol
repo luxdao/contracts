@@ -16,7 +16,7 @@ abstract contract ERC4337VoterSupportV1 is
 
     function __ERC4337VoterSupportV1_init(
         address _lightAccountFactory
-    ) internal initializer {
+    ) internal onlyInitializing {
         __SmartAccountValidationV1_init(_lightAccountFactory);
     }
 
@@ -37,13 +37,5 @@ abstract contract ERC4337VoterSupportV1 is
         uint32 _proposalId
     ) external view virtual override returns (bool) {
         return _votingPeriodEnded[_proposalId];
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId == type(IERC4337VoterSupportV1).interfaceId ||
-            super.supportsInterface(interfaceId);
     }
 }

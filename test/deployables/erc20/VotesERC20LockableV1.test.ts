@@ -4,6 +4,7 @@ import type { ContractTransactionResponse } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
+  IAccessControl__factory,
   IERC165__factory,
   IERC20__factory,
   IVersion__factory,
@@ -174,12 +175,9 @@ describe('VotesERC20LockableV1', () => {
         });
       });
 
-      describe('Trying to lock should fail', () => {
-        it('should revert', async () => {
-          await expect(proxy.connect(owner).lock(true)).to.be.revertedWithCustomError(
-            proxy,
-            'CannotSwitchLockState(bool true)',
-          );
+      describe('Trying to lock (despite being locked) should succeed', () => {
+        it('should succeed', async () => {
+          await expect(proxy.connect(owner).lock(true)).to.not.be.reverted;
         });
       });
     });
@@ -227,12 +225,9 @@ describe('VotesERC20LockableV1', () => {
         });
       });
 
-      describe('Trying to unlock should fail', () => {
-        it('should revert', async () => {
-          await expect(proxy.connect(owner).lock(false)).to.be.revertedWithCustomError(
-            proxy,
-            'CannotSwitchLockState(bool false)',
-          );
+      describe('Trying to unlock (despite being unlocked) should succeed', () => {
+        it('should succeed', async () => {
+          await expect(proxy.connect(owner).lock(false)).to.not.be.reverted;
         });
       });
     });
@@ -836,7 +831,7 @@ describe('VotesERC20LockableV1', () => {
         [],
         [],
       );
-      expect(await proxy.getVersion()).to.equal(1);
+      expect(await proxy.version()).to.equal(1);
     });
   });
 
@@ -890,6 +885,14 @@ describe('VotesERC20LockableV1', () => {
     it('Should support IERC20 interface', async function () {
       void expect(
         await proxy.supportsInterface(calculateInterfaceId(IERC20__factory.createInterface())),
+      ).to.be.true;
+    });
+
+    it('Should support IAccessControl interface', async function () {
+      void expect(
+        await proxy.supportsInterface(
+          calculateInterfaceId(IAccessControl__factory.createInterface()),
+        ),
       ).to.be.true;
     });
 
