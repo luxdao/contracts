@@ -1110,7 +1110,7 @@ describe('VotesERC20StakedV1', () => {
             .connect(bob)
             [
               'claimRewards(address,address[])'
-            ](bob.address, [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress()]),
+            ](bob.address, [await rewardsTokenA.getAddress()]),
         bob,
         [
           {
@@ -1121,7 +1121,7 @@ describe('VotesERC20StakedV1', () => {
           {
             addressToCheck: bob.address,
             token: await rewardsTokenB.getAddress(),
-            expectedBalanceDelta: ethers.parseEther('30'),
+            expectedBalanceDelta: ethers.parseEther('0'),
           },
           {
             addressToCheck: bob.address,
@@ -1136,7 +1136,7 @@ describe('VotesERC20StakedV1', () => {
         async () =>
           votesERC20Staked
             .connect(bob)
-            ['claimRewards(address,address[])'](bob.address, [nativeAssetAddress]),
+            ['claimRewards(address,address[])'](bob.address, [await rewardsTokenB.getAddress(),nativeAssetAddress]),
         bob,
         [
           {
@@ -1147,7 +1147,7 @@ describe('VotesERC20StakedV1', () => {
           {
             addressToCheck: bob.address,
             token: await rewardsTokenB.getAddress(),
-            expectedBalanceDelta: ethers.parseEther('0'),
+            expectedBalanceDelta: ethers.parseEther('30'),
           },
           {
             addressToCheck: bob.address,
