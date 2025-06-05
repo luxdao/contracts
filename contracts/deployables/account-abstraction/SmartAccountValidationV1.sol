@@ -6,11 +6,9 @@ import {ILightAccountFactory} from "../../interfaces/light-account/ILightAccount
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 abstract contract SmartAccountValidationV1 is
     ISmartAccountValidationV1,
-    ERC165,
     Initializable
 {
     ILightAccountFactory internal _lightAccountFactory;
@@ -21,7 +19,7 @@ abstract contract SmartAccountValidationV1 is
 
     function __SmartAccountValidationV1_init(
         address lightAccountFactory_
-    ) internal initializer {
+    ) internal onlyInitializing {
         _lightAccountFactory = ILightAccountFactory(lightAccountFactory_);
     }
 
@@ -111,13 +109,5 @@ abstract contract SmartAccountValidationV1 is
         }
 
         return (lightAccountOwner, target, bytes4(innerCallData));
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId == type(ISmartAccountValidationV1).interfaceId ||
-            super.supportsInterface(interfaceId);
     }
 }

@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {Version} from "../Version.sol";
-import {IStrategyBaseV1} from "../../interfaces/decent/deployables/IStrategyBaseV1.sol";
+import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IAzoriusV1, Enum} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract AzoriusV1 is
     IAzoriusV1,
     GuardableModule,
     Ownable2StepUpgradeable,
     Version,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    ERC165
 {
     uint16 private constant VERSION = 1;
     /**
@@ -47,7 +50,7 @@ contract AzoriusV1 is
     uint32 internal _timelockPeriod;
     uint32 internal _executionPeriod;
     mapping(uint256 => Proposal) internal _proposals;
-    IStrategyBaseV1 internal _strategy;
+    IStrategyV1 internal _strategy;
 
     constructor() {
         _disableInitializers();
@@ -71,7 +74,7 @@ contract AzoriusV1 is
         _updateTimelockPeriod(timelockPeriod_);
         _updateExecutionPeriod(executionPeriod_);
 
-        OwnableUpgradeable.transferOwnership(owner_);
+        _transferOwnership(owner_);
     }
 
     function setUp(
@@ -151,9 +154,17 @@ contract AzoriusV1 is
     function submitProposal(
         Transaction[] calldata _transactions,
         string calldata _metadata,
-        bytes memory _data
+        address _proposerAdapter,
+        bytes calldata _proposerAdapterData,
+        bytes calldata _proposalInitializerData
     ) external virtual override {
-        if (!_strategy.isProposer(msg.sender)) revert InvalidProposer();
+        if (
+            !_strategy.isProposer(
+                msg.sender,
+                _proposerAdapter,
+                _proposerAdapterData
+            )
+        ) revert InvalidProposer();
 
         bytes32[] memory txHashes = new bytes32[](_transactions.length);
         uint256 transactionsLength = _transactions.length;
@@ -174,7 +185,11 @@ contract AzoriusV1 is
         _proposals[_totalProposalCount].timelockPeriod = _timelockPeriod;
         _proposals[_totalProposalCount].executionPeriod = _executionPeriod;
 
-        _strategy.initializeProposal(_totalProposalCount, txHashes, _data);
+        _strategy.initializeProposal(
+            _totalProposalCount,
+            txHashes,
+            _proposalInitializerData
+        );
 
         emit ProposalCreated(
             address(_strategy),
@@ -262,7 +277,7 @@ contract AzoriusV1 is
     ) public view virtual override returns (ProposalState) {
         if (_proposalId >= _totalProposalCount) revert InvalidProposal();
         Proposal memory _proposal = _proposals[_proposalId];
-        IStrategyBaseV1 strategy_ = IStrategyBaseV1(_proposal.strategy);
+        IStrategyV1 strategy_ = IStrategyV1(_proposal.strategy);
 
         (, uint48 votingEndTimestamp) = strategy_.getVotingTimestamps(
             _proposalId
@@ -362,11 +377,11 @@ contract AzoriusV1 is
 
     function _updateStrategy(address strategy_) internal virtual {
         if (strategy_ == address(0)) revert InvalidStrategy();
-        _strategy = IStrategyBaseV1(strategy_);
+        _strategy = IStrategyV1(strategy_);
         emit StrategyUpdated(strategy_);
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
@@ -375,6 +390,7 @@ contract AzoriusV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IAzoriusV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 

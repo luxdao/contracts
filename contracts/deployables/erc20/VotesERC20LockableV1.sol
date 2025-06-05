@@ -5,9 +5,16 @@ import {IVotesERC20LockableV1} from "../../interfaces/decent/deployables/IVotesE
 import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {VotesERC20V1} from "./VotesERC20V1.sol";
 import {Version} from "../Version.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
+contract VotesERC20LockableV1 is
+    IVotesERC20LockableV1,
+    ERC165Upgradeable,
+    AccessControlUpgradeable,
+    VotesERC20V1
+{
     uint16 private constant VERSION = 1;
 
     bool internal _locked;
@@ -43,6 +50,9 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         Allocation[] memory allocations_
     ) public virtual override initializer {
         super.initialize(name_, symbol_, allocations_, owner_);
+        __ERC165_init();
+        __AccessControl_init();
+
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
         _grantRole(MINTER_ROLE, owner_);
         // owner can always transfer
@@ -64,9 +74,6 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     }
 
     function lock(bool locked_) external virtual override onlyOwner {
-        if (locked_ == _locked) {
-            revert CannotSwitchLockState(locked_);
-        }
         _locked = locked_;
         emit Locked(_locked);
     }
@@ -77,11 +84,8 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         if (newMaxTotalSupply < totalSupply()) {
             revert InvalidMaxTotalSupply();
         }
-        uint256 currentlyMaxTotalSupply = _maxTotalSupply;
         _maxTotalSupply = newMaxTotalSupply;
-        if (currentlyMaxTotalSupply != newMaxTotalSupply) {
-            emit MaxTotalSupplyUpdated(newMaxTotalSupply);
-        }
+        emit MaxTotalSupplyUpdated(newMaxTotalSupply);
     }
 
     function mint(
@@ -96,7 +100,7 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     }
 
     function burn(uint256 amount) external virtual override {
-        _burn(_msgSender(), amount);
+        _burn(msg.sender, amount);
     }
 
     function _update(
@@ -107,15 +111,22 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
         super._update(from, to, amount);
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(ERC165Upgradeable, AccessControlUpgradeable, VotesERC20V1)
+        returns (bool)
+    {
         return
             interfaceId == type(IVotesERC20LockableV1).interfaceId ||
+            interfaceId == type(IAccessControl).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 

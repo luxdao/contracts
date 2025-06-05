@@ -6,11 +6,7 @@ import {
   ConcreteBaseFreezeVotingV1,
   ConcreteBaseFreezeVotingV1__factory,
   ERC1967Proxy__factory,
-  IBaseFreezeVotingV1__factory,
-  IERC165__factory,
 } from '../../../typechain-types';
-import { calculateInterfaceId } from '../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 // Helper function for deploying ConcreteBaseFreezeVoting instances using ERC1967Proxy
 async function deployConcreteBaseFreezeVotingProxy(
@@ -45,7 +41,6 @@ describe('BaseFreezeVotingV1', () => {
   let voter1: SignerWithAddress;
   let voter2: SignerWithAddress;
   let voter3: SignerWithAddress;
-  let nonOwner: SignerWithAddress;
 
   // contracts
   let masterCopy: string;
@@ -58,7 +53,7 @@ describe('BaseFreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, voter1, voter2, voter3, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3] = await ethers.getSigners();
 
     // Deploy implementation
     const implementation = await new ConcreteBaseFreezeVotingV1__factory(proxyDeployer).deploy();
@@ -278,72 +273,6 @@ describe('BaseFreezeVotingV1', () => {
     });
   });
 
-  describe('Parameter Updates', () => {
-    it('should allow owner to update freezeVotesThreshold', async () => {
-      const newThreshold = 5;
-
-      await expect(freezeVoting.connect(owner).updateFreezeVotesThreshold(newThreshold))
-        .to.emit(freezeVoting, 'FreezeVotesThresholdUpdated')
-        .withArgs(newThreshold);
-
-      expect(await freezeVoting.freezeVotesThreshold()).to.equal(newThreshold);
-    });
-
-    it('should allow owner to update freezeProposalPeriod', async () => {
-      const newPeriod = 15;
-
-      await expect(freezeVoting.connect(owner).updateFreezeProposalPeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezeProposalPeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezeProposalPeriod()).to.equal(newPeriod);
-    });
-
-    it('should allow owner to update freezePeriod', async () => {
-      const newPeriod = 20;
-
-      await expect(freezeVoting.connect(owner).updateFreezePeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezePeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezePeriod()).to.equal(newPeriod);
-    });
-
-    it('should not allow non-owner to update freezeVotesThreshold', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezeVotesThreshold(5),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezeProposalPeriod', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezeProposalPeriod(15),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezePeriod', async () => {
-      await expect(
-        freezeVoting.connect(voter1).updateFreezePeriod(20),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should affect freeze status when threshold is updated', async () => {
-      // Cast votes but below the new threshold we'll set
-      await freezeVoting.connect(voter1).castFreezeVote();
-      await freezeVoting.connect(voter2).castFreezeVote();
-      await freezeVoting.connect(voter3).castFreezeVote();
-
-      // Should be frozen with the default threshold of 3
-      void expect(await freezeVoting.isFrozen()).to.be.true;
-
-      // Increase threshold to 4
-      await freezeVoting.connect(owner).updateFreezeVotesThreshold(4);
-
-      // Should no longer be frozen as we're below the new threshold
-      void expect(await freezeVoting.isFrozen()).to.be.false;
-    });
-  });
-
   describe('User Has Voted Tracking', () => {
     it('should correctly track if a user has voted on a proposal', async () => {
       // Initial state - user has not voted
@@ -386,50 +315,6 @@ describe('BaseFreezeVotingV1', () => {
       // Check that user has voted on the new proposal
       void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
         .true;
-    });
-  });
-
-  describe('ERC165', function () {
-    let iBaseFreezeVotingV1InterfaceId: string;
-    let iERC165InterfaceId: string;
-
-    beforeEach(async function () {
-      // Dynamically calculate interface IDs
-      const IBaseFreezeVotingV1Interface = IBaseFreezeVotingV1__factory.createInterface();
-      iBaseFreezeVotingV1InterfaceId = calculateInterfaceId(IBaseFreezeVotingV1Interface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-    });
-
-    it('Should support IERC165 interface', async function () {
-      // Cast the freezeVoting instance to any type to bypass TypeScript checking
-      // since we know the actual contract implements supportsInterface
-      const supported = await freezeVoting.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IBaseFreezeVotingV1 interface', async function () {
-      const supported = await freezeVoting.supportsInterface(iBaseFreezeVotingV1InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      const supported = await freezeVoting.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
-    });
-  });
-
-  describe('UUPS Upgradeability', function () {
-    runUUPSUpgradeabilityTests({
-      getContract: () => freezeVoting,
-      createNewImplementation: async () => {
-        const newImplementation = await new ConcreteBaseFreezeVotingV1__factory(owner).deploy();
-        return newImplementation;
-      },
-      owner: () => owner,
-      nonOwner: () => nonOwner,
     });
   });
 });
