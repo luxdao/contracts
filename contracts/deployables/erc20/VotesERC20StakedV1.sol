@@ -249,6 +249,19 @@ contract VotesERC20StakedV1 is
         }
     }
 
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {
+        // Authorization is handled by the onlyOwner modifier
+    }
+
+    function _updateMinimumStakingPeriod(
+        uint256 newMinimumStakingPeriod
+    ) internal {
+        _minimumStakingPeriod = newMinimumStakingPeriod;
+        emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
+    }
+
     function clock()
         public
         view
@@ -266,19 +279,6 @@ contract VotesERC20StakedV1 is
         returns (string memory)
     {
         return "mode=timestamp";
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {
-        // Authorization is handled by the onlyOwner modifier
-    }
-
-    function _updateMinimumStakingPeriod(
-        uint256 newMinimumStakingPeriod
-    ) internal {
-        _minimumStakingPeriod = newMinimumStakingPeriod;
-        emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
     }
 
     function version() public view virtual override returns (uint16) {
