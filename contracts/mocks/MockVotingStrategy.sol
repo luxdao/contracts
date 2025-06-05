@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
+import {IBaseVotingAdapterV1} from "../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 
 contract MockVotingStrategy is IStrategyV1 {
     struct TimestampPoints {
@@ -147,8 +148,19 @@ contract MockVotingStrategy is IStrategyV1 {
 
     function vote(
         uint32 _proposalId,
-        uint8 _voteType,
+        uint8 /*_voteType*/,
         address[] calldata _votingAdaptersToUse,
         bytes[] calldata _votingAdapterVoteData
-    ) external override {}
+    ) external virtual override {
+        for (uint256 i = 0; i < _votingAdaptersToUse.length; i++) {
+            address adapterAddress = _votingAdaptersToUse[i];
+            bytes calldata adapterData = _votingAdapterVoteData[i];
+
+            IBaseVotingAdapterV1(adapterAddress).recordVote(
+                msg.sender,
+                _proposalId,
+                adapterData
+            );
+        }
+    }
 }
