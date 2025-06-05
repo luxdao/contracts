@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IFunctionValidator} from "../../../interfaces/decent/deployables/IFunctionValidator.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -108,7 +109,7 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
         // Iterate backwards through checkpoints to find the relevant one for startTimestamp.
         // This is potentially more efficient than binary search if startTimestamp is recent.
         uint256 votingWeight = 0;
-        for (uint256 i = numCheckpoints; i > 0; i--) {
+        for (uint256 i = numCheckpoints; i > 0; ) {
             // Checkpoint indices are 0-based, loop index 'i' is 1-based count.
             Checkpoint208 memory checkpoint = governanceToken.checkpoints(
                 lightAccountOwner,
@@ -127,6 +128,10 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
             if (checkpoint.key <= startTimestamp) {
                 votingWeight = checkpoint.value;
                 break; // Exit loop once the correct checkpoint is found
+            }
+
+            unchecked {
+                --i;
             }
         }
         // If the loop completes without finding a checkpoint where fromTimestamp <= startTimestamp,
@@ -149,15 +154,10 @@ contract LinearERC20VotingV1ValidatorV1 is IFunctionValidator, ERC165, Version {
 
     function supportsInterface(
         bytes4 interfaceId
-    )
-        public
-        view
-        virtual
-        override(ERC165, Version, IFunctionValidator)
-        returns (bool)
-    {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IFunctionValidator).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

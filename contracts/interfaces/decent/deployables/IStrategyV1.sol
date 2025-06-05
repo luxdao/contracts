@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IStrategyBaseV1} from "./IStrategyBaseV1.sol";
-
-interface IStrategyV1 is IStrategyBaseV1 {
+interface IStrategyV1 {
     struct ProposalVotingDetails {
         uint48 votingStartTimestamp;
         uint48 votingEndTimestamp;
@@ -32,6 +30,7 @@ interface IStrategyV1 is IStrategyBaseV1 {
         uint32 votingStartBlock
     );
 
+    error InvalidProposerAdapter(address _proposerAdapter);
     error NoVotingAdapters();
     error NoProposerAdapters();
     error InvalidBasisNumerator();
@@ -48,10 +47,40 @@ interface IStrategyV1 is IStrategyBaseV1 {
         uint32 votingPeriod,
         uint256 quorumThreshold,
         uint256 basisNumerator,
-        address[] memory votingAdapters,
-        address[] memory proposerAdapters,
+        address[] calldata votingAdapters,
+        address[] calldata proposerAdapters,
         address lightAccountFactory
     ) external;
+
+    function isProposer(
+        address address_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_
+    ) external view returns (bool);
+
+    function initializeProposal(
+        uint32 proposalId_,
+        bytes32[] calldata txHashes_,
+        bytes calldata proposalInitializerData_
+    ) external;
+
+    function isPassed(uint32 proposalId_) external view returns (bool);
+
+    function getVotingTimestamps(
+        uint32 proposalId_
+    ) external view returns (uint48 startTime, uint48 endTime);
+
+    function getVotingStartBlock(
+        uint32 proposalId_
+    ) external view returns (uint32 votingStartBlock);
+
+    function isVotingAdapter(
+        address votingAdapter_
+    ) external view returns (bool);
+
+    function isProposerAdapter(
+        address proposerAdapter_
+    ) external view returns (bool);
 
     function proposalInitializer() external view returns (address);
 

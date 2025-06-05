@@ -2,15 +2,19 @@
 pragma solidity ^0.8.30;
 
 interface IVotesERC20V1 {
+    struct Metadata {
+        string name;
+        string symbol;
+    }
+
     struct Allocation {
         address to;
         uint256 amount;
     }
 
     function initialize(
-        string memory _name,
-        string memory _symbol,
-        Allocation[] memory _allocations,
+        Metadata calldata _metadata,
+        Allocation[] calldata _allocations,
         address owner
     ) external;
 

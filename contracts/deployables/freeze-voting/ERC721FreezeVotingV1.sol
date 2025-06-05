@@ -3,14 +3,18 @@ pragma solidity ^0.8.30;
 
 import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
 import {IERC721FreezeVotingV1} from "../../interfaces/decent/deployables/IERC721FreezeVotingV1.sol";
+import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract ERC721FreezeVotingV1 is
     IERC721FreezeVotingV1,
     BaseFreezeVotingV1,
-    Version
+    Version,
+    ERC165
 {
     uint16 private constant VERSION = 1;
 
@@ -52,8 +56,8 @@ contract ERC721FreezeVotingV1 is
     }
 
     function castFreezeVote(
-        address[] memory _tokenAddresses,
-        uint256[] memory _tokenIds
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds
     ) external virtual override {
         if (_tokenAddresses.length != _tokenIds.length) revert UnequalArrays();
 
@@ -76,23 +80,29 @@ contract ERC721FreezeVotingV1 is
     }
 
     function _getVotesAndUpdateHasVoted(
-        address[] memory _tokenAddresses,
-        uint256[] memory _tokenIds,
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds,
         address _voter
     ) internal virtual returns (uint256) {
         uint256 votes = 0;
 
-        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+        for (uint256 i = 0; i < _tokenAddresses.length; ) {
             address tokenAddress = _tokenAddresses[i];
             uint256 tokenId = _tokenIds[i];
 
             if (_voter != IERC721(tokenAddress).ownerOf(tokenId)) {
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
             if (
                 _idHasFreezeVoted[_freezeProposalCreated][tokenAddress][tokenId]
             ) {
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
@@ -101,6 +111,10 @@ contract ERC721FreezeVotingV1 is
             _idHasFreezeVoted[_freezeProposalCreated][tokenAddress][
                 tokenId
             ] = true;
+
+            unchecked {
+                ++i;
+            }
         }
 
         return votes;
@@ -112,9 +126,11 @@ contract ERC721FreezeVotingV1 is
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseFreezeVotingV1, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC721FreezeVotingV1).interfaceId ||
+            interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {Version} from "../Version.sol";
 import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../Version.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -21,7 +22,8 @@ contract VotesERC20V1 is
     ERC20VotesUpgradeable,
     ERC20PermitUpgradeable,
     UUPSUpgradeable,
-    Ownable2StepUpgradeable
+    Ownable2StepUpgradeable,
+    ERC165
 {
     uint16 private constant VERSION = 1;
 
@@ -30,13 +32,12 @@ contract VotesERC20V1 is
     }
 
     function initialize(
-        string memory name,
-        string memory symbol,
-        Allocation[] memory allocations,
+        Metadata calldata metadata,
+        Allocation[] calldata allocations,
         address owner
     ) public virtual override initializer {
-        __ERC20_init(name, symbol);
-        __ERC20Permit_init(name);
+        __ERC20_init(metadata.name, metadata.symbol);
+        __ERC20Permit_init(metadata.name);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner);
@@ -106,6 +107,7 @@ contract VotesERC20V1 is
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(IERC20Permit).interfaceId ||
             interfaceId == type(IVotes).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

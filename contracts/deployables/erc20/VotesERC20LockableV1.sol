@@ -33,14 +33,13 @@ contract VotesERC20LockableV1 is IVotesERC20LockableV1, VotesERC20V1 {
     }
 
     function initialize(
+        Metadata calldata metadata_,
+        Allocation[] calldata allocations_,
         address owner_,
         bool locked_,
-        uint256 maxTotalSupply_,
-        string memory name_,
-        string memory symbol_,
-        Allocation[] memory allocations_
+        uint256 maxTotalSupply_
     ) public virtual override initializer {
-        super.initialize(name_, symbol_, allocations_, owner_);
+        super.initialize(metadata_, allocations_, owner_);
         _locked = locked_;
         _maxTotalSupply = maxTotalSupply_;
     }

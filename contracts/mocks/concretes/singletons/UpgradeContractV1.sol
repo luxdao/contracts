@@ -22,7 +22,7 @@ contract UpgradeContractV1 is UUPSUpgradeable, OwnableUpgradeable {
      * @param _owner Address that will own the proxy and be able to upgrade it
      */
     function initialize(
-        string memory _name,
+        string calldata _name,
         address _owner
     ) public virtual initializer {
         __UUPSUpgradeable_init();
