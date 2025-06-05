@@ -94,7 +94,7 @@ contract LinearERC721VotingV1ValidatorV1 is
 
         // Validate each token in the arrays
         uint256 totalWeight = 0;
-        for (uint256 i = 0; i < tokenAddresses.length; i++) {
+        for (uint256 i = 0; i < tokenAddresses.length; ) {
             address tokenAddress = tokenAddresses[i];
             uint256 tokenId = tokenIds[i];
 
@@ -117,6 +117,10 @@ contract LinearERC721VotingV1ValidatorV1 is
             // Check if voter owns the token
             if (IERC721(tokenAddress).ownerOf(tokenId) != lightAccountOwner) {
                 return false;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
