@@ -193,26 +193,16 @@ contract StrategyV1 is
         }
 
         uint256 totalWeightForThisVoteTransaction = 0;
-        uint256 numConfiguredAdapters = _votingAdapters.length;
 
         for (uint256 i = 0; i < _votingAdaptersToUse.length; i++) {
-            bool isValidAndConfiguredAdapter = false;
-            uint256 configuredAdapterIndex = 0;
+            address votingAdapter = _votingAdaptersToUse[i];
 
-            for (uint256 j = 0; j < numConfiguredAdapters; j++) {
-                if (_votingAdapters[j] == _votingAdaptersToUse[i]) {
-                    isValidAndConfiguredAdapter = true;
-                    configuredAdapterIndex = j;
-                    break;
-                }
-            }
-
-            if (!isValidAndConfiguredAdapter) {
+            if (!_isVotingAdapter[votingAdapter]) {
                 revert InvalidVotingAdapter();
             }
 
             totalWeightForThisVoteTransaction += IBaseVotingAdapterV1(
-                _votingAdapters[configuredAdapterIndex]
+                votingAdapter
             ).recordVote(resolvedVoter, _proposalId, _votingAdapterVoteData[i]);
         }
 
@@ -290,15 +280,7 @@ contract StrategyV1 is
         address proposerAdapter_,
         bytes calldata proposerAdapterData_
     ) external view virtual override returns (bool) {
-        bool foundAdapter = false;
-        for (uint256 i = 0; i < _proposerAdapters.length; i++) {
-            if (_proposerAdapters[i] == proposerAdapter_) {
-                foundAdapter = true;
-                break;
-            }
-        }
-
-        if (!foundAdapter) {
+        if (!_isProposerAdapter[proposerAdapter_]) {
             revert InvalidProposerAdapter(proposerAdapter_);
         }
 
