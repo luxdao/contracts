@@ -62,17 +62,25 @@ contract ERC721VotingAdapterV1 is
         uniqueTokenIds = new uint256[](tokenIds.length);
         uint256 uniqueCount = 0;
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             bool isDuplicate = false;
-            for (uint256 j = 0; j < uniqueCount; j++) {
+            for (uint256 j = 0; j < uniqueCount; ) {
                 if (uniqueTokenIds[j] == tokenIds[i]) {
                     isDuplicate = true;
                     break;
+                }
+
+                unchecked {
+                    ++j;
                 }
             }
             if (!isDuplicate) {
                 uniqueTokenIds[uniqueCount] = tokenIds[i];
                 uniqueCount++;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
@@ -88,10 +96,14 @@ contract ERC721VotingAdapterV1 is
         ownedTokenIds = new uint256[](tokenIds.length);
         uint256 ownedTokenCount = 0;
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             if (_token.ownerOf(tokenIds[i]) == voter) {
                 ownedTokenIds[ownedTokenCount] = tokenIds[i];
                 ownedTokenCount++;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
@@ -107,10 +119,14 @@ contract ERC721VotingAdapterV1 is
         unusedTokenIds = new uint256[](tokenIds.length);
         uint256 unusedTokenCount = 0;
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             if (!_tokenIdUsedForVote[proposalId][tokenIds[i]]) {
                 unusedTokenIds[unusedTokenCount] = tokenIds[i];
                 unusedTokenCount++;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
@@ -191,7 +207,7 @@ contract ERC721VotingAdapterV1 is
             revert NoTokenIdsPassed();
         }
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             uint256 tokenId = tokenIds[i];
             if (_token.ownerOf(tokenId) != _voter) {
                 revert TokenIdNotOwnedByVoter(tokenId);
@@ -200,6 +216,10 @@ contract ERC721VotingAdapterV1 is
                 revert TokenIdAlreadyUsedForVote(tokenId);
             }
             _tokenIdUsedForVote[_proposalId][tokenId] = true;
+
+            unchecked {
+                ++i;
+            }
         }
 
         weightCasted = tokenIds.length * _weightPerToken;
