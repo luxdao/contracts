@@ -1108,9 +1108,7 @@ describe('VotesERC20StakedV1', () => {
         async () =>
           votesERC20Staked
             .connect(bob)
-            [
-              'claimRewards(address,address[])'
-            ](bob.address, [await rewardsTokenA.getAddress()]),
+            ['claimRewards(address,address[])'](bob.address, [await rewardsTokenA.getAddress()]),
         bob,
         [
           {
@@ -1136,7 +1134,9 @@ describe('VotesERC20StakedV1', () => {
         async () =>
           votesERC20Staked
             .connect(bob)
-            ['claimRewards(address,address[])'](bob.address, [await rewardsTokenB.getAddress(),nativeAssetAddress]),
+            [
+              'claimRewards(address,address[])'
+            ](bob.address, [await rewardsTokenB.getAddress(), nativeAssetAddress]),
         bob,
         [
           {
