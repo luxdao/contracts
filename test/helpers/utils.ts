@@ -72,17 +72,19 @@ export interface TokenTransfer {
 export async function executeTxAndCheckBalanceDeltas(
   tx: () => Promise<any>,
   signer: SignerWithAddress,
-  transfers: TokenTransfer[]
+  transfers: TokenTransfer[],
 ): Promise<void> {
   // Get initial balances
   const initialBalances = await Promise.all(
-    transfers.map((t) => {
+    transfers.map(t => {
       if (t.token === 'native') {
         return ethers.provider.getBalance(t.addressToCheck);
       } else {
-        return ethers.getContractAt('IERC20', t.token).then(token => token.balanceOf(t.addressToCheck));
+        return ethers
+          .getContractAt('IERC20', t.token)
+          .then(token => token.balanceOf(t.addressToCheck));
       }
-    })
+    }),
   );
 
   // Execute transaction
@@ -93,8 +95,8 @@ export async function executeTxAndCheckBalanceDeltas(
   // Get final balances and check changes
   for (let i = 0; i < transfers.length; i++) {
     const transfer = transfers[i];
-    let finalBalance: bigint; 
-    
+    let finalBalance: bigint;
+
     if (transfer.token === 'native') {
       finalBalance = await ethers.provider.getBalance(transfer.addressToCheck);
     } else {
@@ -105,13 +107,14 @@ export async function executeTxAndCheckBalanceDeltas(
     const balanceChange = finalBalance - initialBalances[i];
 
     // For native token, add gas spent if this is the signer
-    const actualChange = transfer.token === 'native' && transfer.addressToCheck === signer.address
-      ? balanceChange + gasSpent
-      : balanceChange;
+    const actualChange =
+      transfer.token === 'native' && transfer.addressToCheck === signer.address
+        ? balanceChange + gasSpent
+        : balanceChange;
 
     expect(actualChange).to.equal(
       transfer.expectedBalanceDelta,
-      `Token ${transfer.token} transfer check failed for ${transfer.addressToCheck}`
+      `Token ${transfer.token} transfer check failed for ${transfer.addressToCheck}`,
     );
   }
 }
