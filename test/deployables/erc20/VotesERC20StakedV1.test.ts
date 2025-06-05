@@ -1187,6 +1187,13 @@ describe('VotesERC20StakedV1', () => {
       await votesERC20Staked.connect(bob).stake(ethers.parseEther('30'));
       let bobLastStakeTimestamp = await time.latest();
 
+      // Staked amounts
+      // Staker  |  Staked amount  |  Staked percentage
+      // Alice   |  10             |  25%
+      // Bob     |  30             |  75%
+      // Carol   |  0              |  0%
+      // Total   |  40          
+
       expect(await votesERC20Staked.totalStaked()).to.equal(ethers.parseEther('40'));
       expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
         ethers.parseEther('10'),
@@ -1200,12 +1207,6 @@ describe('VotesERC20StakedV1', () => {
         ethers.parseEther('0'),
         0n
       ]);
-
-      // Staker  |  Staked amount  |  Staked percentage
-      // Alice   |  10             |  25%
-      // Bob     |  30             |  75%
-      // Carol   |  0              |  0%
-      // Total   |  40          
 
       await stakedToken.mint(await votesERC20Staked.getAddress(), ethers.parseEther('100'));
       expect(await votesERC20Staked['distributableRewards()']()).to.deep.equal([
@@ -1355,7 +1356,252 @@ describe('VotesERC20StakedV1', () => {
         ethers.parseEther('20'),
         BigInt(bobLastStakeTimestamp)
       ]);
+      expect(await votesERC20Staked.stakerData(carol.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        0n
+      ]);
 
+      // Distribute 200 staked tokens as rewards
+      await stakedToken.mint(await votesERC20Staked.getAddress(), ethers.parseEther('200'));
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Expected claimable rewards
+      //        | stakedToken | rewardsTokenB | nativeAsset
+      // Alice  | 125         | 0             | 0
+      // Bob    | 100         | 0             | 0
+      // Carol  | 0           | 0             | 0
+
+      expect(await votesERC20Staked['claimableRewards(address)'](alice.address)).to.deep.equal([
+        ethers.parseEther('125'),
+        ethers.parseEther('0'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](bob.address)).to.deep.equal([
+        ethers.parseEther('100'),
+        ethers.parseEther('0'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](carol.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        ethers.parseEther('0'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked.rewardsTokenData(await stakedToken.getAddress())).to.deep.equal([
+        ethers.parseEther('7.5'), // reward rate = 2.5 + (200 distributed / 40 total staked) = 7.5
+        ethers.parseEther('300'), // 300 distributed
+        ethers.parseEther('75'), // 75 claimed
+      ]);
+
+      // carol stakes 40 tokens
+      await executeTxAndCheckBalanceDeltas(
+        () => votesERC20Staked.connect(carol).stake(ethers.parseEther('40')),
+        carol,
+        [
+          {
+            addressToCheck: carol.address,
+            token: await stakedToken.getAddress(),
+            expectedBalanceDelta: -ethers.parseEther('40'),
+          },
+          {
+            addressToCheck: carol.address,
+            token: await votesERC20Staked.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('40'),
+          }
+        ]
+      );
+      let carolLastStakeTimestamp = await time.latest();
+
+      // Staker  |  Staked amount  |  Staked percentage
+      // Alice   |  20             |  25%
+      // Bob     |  20             |  25%
+      // Carol   |  40              | 50%
+      // Total   |  80         
+
+      expect(await votesERC20Staked.totalStaked()).to.equal(ethers.parseEther('80'));
+      expect(await votesERC20Staked.stakerData(alice.address)).to.deep.equal([
+        ethers.parseEther('20'),
+        BigInt(aliceLastStakeTimestamp)
+      ]);
+      expect(await votesERC20Staked.stakerData(bob.address)).to.deep.equal([
+        ethers.parseEther('20'),
+        BigInt(bobLastStakeTimestamp)
+      ]);
+      expect(await votesERC20Staked.stakerData(carol.address)).to.deep.equal([
+        ethers.parseEther('40'),
+        BigInt(carolLastStakeTimestamp)
+      ]);
+
+      // Distribute 50 rewards token B as rewards
+      await rewardsTokenB.mint(await votesERC20Staked.getAddress(), ethers.parseEther('50'));
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Expected claimable rewards
+      //        | stakedToken | rewardsTokenB | nativeAsset
+      // Alice  | 125         | 12.5          | 0
+      // Bob    | 100         | 12.5          | 0
+      // Carol  | 0           | 25            | 0
+
+      expect(await votesERC20Staked['claimableRewards(address)'](alice.address)).to.deep.equal([
+        ethers.parseEther('125'),
+        ethers.parseEther('12.5'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](bob.address)).to.deep.equal([
+        ethers.parseEther('100'),
+        ethers.parseEther('12.5'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](carol.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        ethers.parseEther('25'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked.rewardsTokenData(await rewardsTokenB.getAddress())).to.deep.equal([
+        ethers.parseEther('0.625'), // reward rate = (50 distributed / 80 total staked) = 0.625
+        ethers.parseEther('50'), // 50 distributed
+        ethers.parseEther('0'), // 0 claimed
+      ]);
+
+      // Carol stakes 20 more tokens
+      await executeTxAndCheckBalanceDeltas(
+        () => votesERC20Staked.connect(carol).stake(ethers.parseEther('20')),
+        carol,
+        [
+          {
+            addressToCheck: carol.address,
+            token: await stakedToken.getAddress(),
+            expectedBalanceDelta: -ethers.parseEther('20'),
+          },
+          {
+            addressToCheck: carol.address,
+            token: await votesERC20Staked.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('20'),
+          }
+        ]
+      );
+      carolLastStakeTimestamp = await time.latest();
+      
+      // Staker  |  Staked amount  |  Staked percentage
+      // Alice   |  20             |  20%
+      // Bob     |  20             |  20%
+      // Carol   |  60              | 60%
+      // Total   |  100    
+
+
+      // Bob claims rewards for staked token
+      await executeTxAndCheckBalanceDeltas(
+        async () => votesERC20Staked.connect(bob)['claimRewards(address,address[])'](bob.address,[await stakedToken.getAddress()]),
+        bob,
+        [
+          {
+            addressToCheck: bob.address,
+            token: await stakedToken.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('100'),
+          },
+          {
+            addressToCheck: await votesERC20Staked.getAddress(),
+            token: await stakedToken.getAddress(),
+            expectedBalanceDelta: -ethers.parseEther('100'),
+          }
+        ]
+      );
+      // Expected claimable rewards
+      //        | stakedToken | rewardsTokenB | nativeAsset
+      // Alice  | 125         | 12.5          | 0
+      // Bob    | 0           | 12.5          | 0
+      // Carol  | 0           | 25            | 0
+
+      expect(await votesERC20Staked['claimableRewards(address)'](alice.address)).to.deep.equal([
+        ethers.parseEther('125'),
+        ethers.parseEther('12.5'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](bob.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        ethers.parseEther('12.5'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](carol.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        ethers.parseEther('25'),
+        ethers.parseEther('0'),
+      ]);
+
+      expect(await votesERC20Staked.rewardsTokenData(await stakedToken.getAddress())).to.deep.equal([
+        ethers.parseEther('7.5'), // hasn't changed since last check
+        ethers.parseEther('300'), // 300 distributed
+        ethers.parseEther('175'), // 175 claimed
+      ]);
+
+      // Distribute 400 native assets as rewards
+      await ethers.provider.send('eth_sendTransaction', [
+        {
+          to: await votesERC20Staked.getAddress(),
+          value: ethers.toBeHex(ethers.parseEther('400')),
+        },
+      ]);
+      await votesERC20Staked.connect(rewardsDistributor)['distributeRewards()']();
+
+      // Expected claimable rewards
+      //        | stakedToken | rewardsTokenB | nativeAsset
+      // Alice  | 125         | 12.5          | 80
+      // Bob    | 0           | 12.5          | 80
+      // Carol  | 0           | 25            | 240
+
+      expect(await votesERC20Staked['claimableRewards(address)'](alice.address)).to.deep.equal([
+        ethers.parseEther('125'),
+        ethers.parseEther('12.5'),
+        ethers.parseEther('80'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](bob.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        ethers.parseEther('12.5'),
+        ethers.parseEther('80'),
+      ]);
+
+      expect(await votesERC20Staked['claimableRewards(address)'](carol.address)).to.deep.equal([
+        ethers.parseEther('0'),
+        ethers.parseEther('25'),
+        ethers.parseEther('240'),
+      ]);
+
+      expect(await votesERC20Staked.rewardsTokenData(nativeAssetAddress)).to.deep.equal([
+        ethers.parseEther('4'), // reward rate = 400 distributed / 100 total staked
+        ethers.parseEther('400'), // 400 distributed
+        ethers.parseEther('0'), // 0 claimed
+      ]);
+
+      // Bob claims all rewards
+      await executeTxAndCheckBalanceDeltas(
+        async () => votesERC20Staked.connect(bob)['claimRewards(address,address[])'](bob.address,[await stakedToken.getAddress(),await rewardsTokenB.getAddress(),nativeAssetAddress]),
+        bob,
+        [
+          {
+            addressToCheck: bob.address,
+            token: await stakedToken.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('0'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: await rewardsTokenB.getAddress(),
+            expectedBalanceDelta: ethers.parseEther('12.5'),
+          },
+          {
+            addressToCheck: bob.address,
+            token: nativeAssetAddress,
+            expectedBalanceDelta: ethers.parseEther('80'),
+          }
+        ]
+      );
     });
   });
 });
