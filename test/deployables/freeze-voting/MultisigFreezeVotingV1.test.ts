@@ -14,7 +14,6 @@ import {
   MultisigFreezeVotingV1__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
 
 // Helper function for deploying MultisigFreezeVotingV1 proxy instances using ERC1967Proxy
 async function deployMultisigFreezeVotingProxy(
@@ -56,7 +55,7 @@ describe('MultisigFreezeVotingV1', () => {
   let safeOwner1: SignerWithAddress;
   let safeOwner2: SignerWithAddress;
   let nonSafeOwner: SignerWithAddress;
-  let nonOwner: SignerWithAddress;
+
   // contracts
   let masterCopy: string;
   let freezeVoting: MultisigFreezeVotingV1;
@@ -69,8 +68,7 @@ describe('MultisigFreezeVotingV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, safeOwner1, safeOwner2, nonSafeOwner, nonOwner] =
-      await ethers.getSigners();
+    [proxyDeployer, owner, safeOwner1, safeOwner2, nonSafeOwner] = await ethers.getSigners();
 
     // Deploy mock Safe
     mockSafe = await new MockSafe__factory(proxyDeployer).deploy();
@@ -360,79 +358,6 @@ describe('MultisigFreezeVotingV1', () => {
     });
   });
 
-  describe('Parameter Updates', () => {
-    it('should allow owner to update freezeVotesThreshold', async () => {
-      const newThreshold = 3;
-
-      await expect(freezeVoting.connect(owner).updateFreezeVotesThreshold(newThreshold))
-        .to.emit(freezeVoting, 'FreezeVotesThresholdUpdated')
-        .withArgs(newThreshold);
-
-      expect(await freezeVoting.freezeVotesThreshold()).to.equal(newThreshold);
-    });
-
-    it('should allow owner to update freezeProposalPeriod', async () => {
-      const newPeriod = 15;
-
-      await expect(freezeVoting.connect(owner).updateFreezeProposalPeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezeProposalPeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezeProposalPeriod()).to.equal(newPeriod);
-    });
-
-    it('should allow owner to update freezePeriod', async () => {
-      const newPeriod = 20;
-
-      await expect(freezeVoting.connect(owner).updateFreezePeriod(newPeriod))
-        .to.emit(freezeVoting, 'FreezePeriodUpdated')
-        .withArgs(newPeriod);
-
-      expect(await freezeVoting.freezePeriod()).to.equal(newPeriod);
-    });
-
-    it('should not allow non-owner to update freezeVotesThreshold', async () => {
-      await expect(
-        freezeVoting.connect(nonSafeOwner).updateFreezeVotesThreshold(3),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezeProposalPeriod', async () => {
-      await expect(
-        freezeVoting.connect(nonSafeOwner).updateFreezeProposalPeriod(15),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should not allow non-owner to update freezePeriod', async () => {
-      await expect(
-        freezeVoting.connect(nonSafeOwner).updateFreezePeriod(20),
-      ).to.be.revertedWithCustomError(freezeVoting, 'OwnableUnauthorizedAccount');
-    });
-
-    it('should affect freeze status when threshold is updated', async () => {
-      // Set first Safe owner
-      await mockSafe.setOwner(safeOwner1.address);
-
-      // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
-
-      // Change Safe owner for second vote
-      await mockSafe.setOwner(safeOwner2.address);
-
-      // Second vote to reach threshold
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
-
-      // DAO should be frozen with threshold of 2 and 2 votes
-      void expect(await freezeVoting.isFrozen()).to.be.true;
-
-      // Increase threshold to 3
-      await freezeVoting.connect(owner).updateFreezeVotesThreshold(3);
-
-      // Should no longer be frozen as 2 < 3
-      void expect(await freezeVoting.isFrozen()).to.be.false;
-    });
-  });
-
   describe('User Has Voted Tracking', () => {
     it('should correctly track if a user has voted on a proposal', async () => {
       // Set Safe owner
@@ -486,7 +411,7 @@ describe('MultisigFreezeVotingV1', () => {
 
   describe('Version', () => {
     it('should return the correct version number', async () => {
-      expect(await freezeVoting.getVersion()).to.equal(1);
+      expect(await freezeVoting.version()).to.equal(1);
     });
   });
 
@@ -527,18 +452,6 @@ describe('MultisigFreezeVotingV1', () => {
 
     it('should not support a random interface', async () => {
       void expect(await freezeVoting.supportsInterface('0x12345678')).to.be.false;
-    });
-  });
-
-  describe('UUPS Upgradeability', function () {
-    runUUPSUpgradeabilityTests({
-      getContract: () => freezeVoting,
-      createNewImplementation: async () => {
-        const newImplementation = await new MultisigFreezeVotingV1__factory(owner).deploy();
-        return newImplementation;
-      },
-      owner: () => owner,
-      nonOwner: () => nonOwner,
     });
   });
 });

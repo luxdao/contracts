@@ -1,56 +1,57 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IERC20VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC20VotingAdapterV1.sol";
+import {IStrategyV1} from "../../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVotingAdapterV1} from "../../../interfaces/decent/deployables/IVotingAdapterV1.sol";
-import {IVotingAdapterBaseV1} from "../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
-import {IStrategyBaseV1} from "../../../interfaces/decent/deployables/IStrategyBaseV1.sol";
 import {ClockMode} from "../../../interfaces/decent/ClockMode.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../../Version.sol";
 import {ClockModeLib} from "../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract ERC20VotingAdapterV1 is
-    IVotingAdapterV1,
+    IERC20VotingAdapterV1,
     Initializable,
     ERC165,
     Version
 {
-    IVotes public token;
-    IStrategyBaseV1 public strategy;
-    uint256 public weightPerToken;
-    ClockMode internal tokenClockMode;
-
-    mapping(uint32 => mapping(address => bool))
-        internal _hasCastedVoteForProposal;
-
     uint16 public constant VERSION = 1;
 
-    error InvalidTokenAddress();
-    error InvalidStrategyAddress();
-    error ProposalNotReadyForSnapshot();
-    error ERC20AlreadyVoted();
-    error InvalidWeightPerToken();
+    IVotes internal _token;
+    IStrategyV1 internal _strategy;
+    uint256 internal _weightPerToken;
+    ClockMode internal _tokenClockMode;
+    mapping(uint32 => mapping(address => bool))
+        internal _hasCastedVoteForProposal;
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address _token,
-        address _strategy,
-        uint256 _weightPerToken
-    ) external virtual initializer {
-        if (_token == address(0)) revert InvalidTokenAddress();
-        if (_strategy == address(0)) revert InvalidStrategyAddress();
+        address token_,
+        address strategy_,
+        uint256 weightPerToken_
+    ) external virtual override initializer {
+        _token = IVotes(token_);
+        _strategy = IStrategyV1(strategy_);
+        _weightPerToken = weightPerToken_;
+        _tokenClockMode = ClockModeLib.getClockMode(token_);
+    }
 
-        if (_weightPerToken == 0) revert InvalidWeightPerToken();
-        weightPerToken = _weightPerToken;
+    function token() external view virtual override returns (address) {
+        return address(_token);
+    }
 
-        token = IVotes(_token);
-        strategy = IStrategyBaseV1(_strategy);
-        tokenClockMode = ClockModeLib.getClockMode(_token);
+    function strategy() external view virtual override returns (address) {
+        return address(_strategy);
+    }
+
+    function weightPerToken() external view virtual override returns (uint256) {
+        return _weightPerToken;
     }
 
     function _getVoteWeightDetails(
@@ -58,18 +59,18 @@ contract ERC20VotingAdapterV1 is
         uint32 _proposalId
     ) internal view virtual returns (uint256 weight) {
         uint256 rawVotes;
-        if (tokenClockMode == ClockMode.Timestamp) {
-            (uint48 startTimestamp, ) = strategy.getVotingTimestamps(
+        if (_tokenClockMode == ClockMode.Timestamp) {
+            (uint48 startTimestamp, ) = _strategy.getVotingTimestamps(
                 _proposalId
             );
             if (startTimestamp == 0) revert ProposalNotReadyForSnapshot();
-            rawVotes = token.getPastVotes(_voter, startTimestamp);
+            rawVotes = _token.getPastVotes(_voter, startTimestamp);
         } else {
-            uint32 startBlock = strategy.getVotingStartBlock(_proposalId);
+            uint32 startBlock = _strategy.getVotingStartBlock(_proposalId);
             if (startBlock == 0) revert ProposalNotReadyForSnapshot();
-            rawVotes = token.getPastVotes(_voter, startBlock);
+            rawVotes = _token.getPastVotes(_voter, startBlock);
         }
-        weight = rawVotes * weightPerToken;
+        weight = rawVotes * _weightPerToken;
     }
 
     function weightOf(
@@ -89,7 +90,7 @@ contract ERC20VotingAdapterV1 is
         bytes calldata
     ) external virtual override returns (uint256 weightCasted) {
         if (_hasCastedVoteForProposal[_proposalId][_voter]) {
-            revert ERC20AlreadyVoted();
+            revert AlreadyVoted();
         }
         _hasCastedVoteForProposal[_proposalId][_voter] = true;
 
@@ -98,16 +99,17 @@ contract ERC20VotingAdapterV1 is
         emit VoteRecorded(_voter, _proposalId, weightCasted, bytes(""));
     }
 
-    function getVersion() public pure virtual override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
+            interfaceId == type(IERC20VotingAdapterV1).interfaceId ||
             interfaceId == type(IVotingAdapterV1).interfaceId ||
-            interfaceId == type(IVotingAdapterBaseV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

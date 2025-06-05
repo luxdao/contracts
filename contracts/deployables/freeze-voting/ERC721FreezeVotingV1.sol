@@ -3,14 +3,18 @@ pragma solidity ^0.8.30;
 
 import {IERC721VotingStrategyV1} from "../../interfaces/decent/deployables/IERC721VotingStrategyV1.sol";
 import {IERC721FreezeVotingV1} from "../../interfaces/decent/deployables/IERC721FreezeVotingV1.sol";
+import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract ERC721FreezeVotingV1 is
     IERC721FreezeVotingV1,
     BaseFreezeVotingV1,
-    Version
+    Version,
+    ERC165
 {
     uint16 private constant VERSION = 1;
 
@@ -106,15 +110,17 @@ contract ERC721FreezeVotingV1 is
         return votes;
     }
 
-    function getVersion() public view virtual override returns (uint16) {
+    function version() public view virtual override returns (uint16) {
         return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(BaseFreezeVotingV1, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC721FreezeVotingV1).interfaceId ||
+            interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

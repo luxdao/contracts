@@ -1,80 +1,76 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IHatsProposerAdapterV1} from "../../../interfaces/decent/deployables/IHatsProposerAdapterV1.sol";
 import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
-import {IProposerAdapterBaseV1} from "../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IHats} from "../../../interfaces/hats/IHats.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
+import {Version} from "../../Version.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Version} from "../../Version.sol";
 
 contract HatsProposerAdapterV1 is
-    IProposerAdapterV1,
+    IHatsProposerAdapterV1,
     Initializable,
     ERC165,
     Version
 {
-    IHats public hatsContract;
-    uint256[] private whitelistedHatIds;
+    IHats internal _hatsContract;
+    uint256[] internal _whitelistedHatIds;
+    mapping(uint256 => bool) internal _hatIdToIsWhitelisted;
 
     uint16 public constant VERSION = 1;
-
-    error MissingHatsContract();
-    error NoHatsWhitelisted();
-    error HatAlreadyWhitelisted();
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
-        address _hatsContractAddress,
-        uint256[] memory _whitelistedHats
-    ) public virtual initializer {
-        if (_hatsContractAddress == address(0)) revert MissingHatsContract();
-        hatsContract = IHats(_hatsContractAddress);
-
-        if (_whitelistedHats.length == 0) revert NoHatsWhitelisted();
-        for (uint256 i = 0; i < _whitelistedHats.length; i++) {
-            uint256 _hatId = _whitelistedHats[i];
-            for (uint256 j = 0; j < whitelistedHatIds.length; j++) {
-                if (whitelistedHatIds[j] == _hatId)
-                    revert HatAlreadyWhitelisted();
-            }
-            whitelistedHatIds.push(_hatId);
+        address hatsContract_,
+        uint256[] memory whitelistedHatIds_
+    ) public virtual override initializer {
+        _hatsContract = IHats(hatsContract_);
+        _whitelistedHatIds = whitelistedHatIds_;
+        for (uint256 i = 0; i < whitelistedHatIds_.length; i++) {
+            _hatIdToIsWhitelisted[whitelistedHatIds_[i]] = true;
         }
     }
 
-    function getWhitelistedHatIds()
+    function hatsContract() external view virtual override returns (address) {
+        return address(_hatsContract);
+    }
+
+    function whitelistedHatIds()
         public
         view
         virtual
+        override
         returns (uint256[] memory)
     {
-        return whitelistedHatIds;
+        return _whitelistedHatIds;
     }
 
     function isProposer(
-        address _proposer
+        address _proposer,
+        bytes memory _data
     ) public view virtual override returns (bool) {
-        for (uint256 i = 0; i < whitelistedHatIds.length; i++) {
-            if (hatsContract.isWearerOfHat(_proposer, whitelistedHatIds[i])) {
-                return true;
-            }
-        }
-        return false;
+        uint256 hatId = abi.decode(_data, (uint256));
+        return
+            _hatIdToIsWhitelisted[hatId] &&
+            _hatsContract.isWearerOfHat(_proposer, hatId);
     }
 
-    function getVersion() public pure virtual override returns (uint16) {
+    function version() public pure virtual override returns (uint16) {
         return VERSION;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, Version) returns (bool) {
+    ) public view virtual override returns (bool) {
         return
+            interfaceId == type(IHatsProposerAdapterV1).interfaceId ||
             interfaceId == type(IProposerAdapterV1).interfaceId ||
-            interfaceId == type(IProposerAdapterBaseV1).interfaceId ||
+            interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }
