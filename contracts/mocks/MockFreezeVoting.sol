@@ -45,8 +45,5 @@ contract MockFreezeVoting is IBaseFreezeVotingV1 {
         returns (uint256)
     {}
 
-    function userHasFreezeVoted(
-        address user,
-        uint48 proposalId
-    ) external view override returns (bool) {}
+    function freezeActivated() external view override returns (uint48) {}
 }

@@ -26,5 +26,22 @@ contract ConcreteBaseVotingAdapterV1 is BaseVotingAdapterV1 {
         address /*_voter*/,
         uint32 /*_proposalId*/,
         bytes calldata /*_votingAdapterVoteData*/
-    ) external view virtual override returns (uint256 weight) {}
+    ) external view virtual override returns (uint256 weight) {
+        return 456; // Dummy weight
+    }
+
+    function recordFreezeVote(
+        address, // voter
+        uint48, // freezeProposalSnapshotAndId
+        bytes calldata // adapterVoteData
+    )
+        external
+        virtual
+        override
+        onlyAuthorizedFreezeVoter
+        returns (uint256 weightCasted)
+    {
+        emit FreezeVoteRecorded(msg.sender, 0, 789, bytes("")); // Dummy emission
+        return 789; // Dummy weight for freeze vote
+    }
 }

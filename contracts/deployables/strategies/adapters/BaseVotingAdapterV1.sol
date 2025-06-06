@@ -13,6 +13,13 @@ abstract contract BaseVotingAdapterV1 is IBaseVotingAdapterV1, Initializable {
         _;
     }
 
+    modifier onlyAuthorizedFreezeVoter() {
+        if (!IStrategyV1(_strategy).isAuthorizedFreezeVoter(msg.sender)) {
+            revert UnauthorizedFreezeVoter(msg.sender);
+        }
+        _;
+    }
+
     constructor() {
         _disableInitializers();
     }
@@ -26,16 +33,4 @@ abstract contract BaseVotingAdapterV1 is IBaseVotingAdapterV1, Initializable {
     function strategy() external view virtual override returns (address) {
         return address(_strategy);
     }
-
-    function recordVote(
-        address _voter,
-        uint32 _proposalId,
-        bytes calldata _votingAdapterVoteData
-    ) external virtual override returns (uint256 weightCasted);
-
-    function weightOf(
-        address _voter,
-        uint32 _proposalId,
-        bytes calldata _votingAdapterVoteData
-    ) external view virtual override returns (uint256 weight);
 }

@@ -23,9 +23,7 @@ contract MockLightAccount is ILightAccount {
         address target,
         uint256 value,
         bytes calldata data
-    ) external override {
-        // Empty implementation - we only need this for generating calldata or other tests
-    }
+    ) external override {}
 
     // New function to interact with StrategyV1
     function callStrategyVote(
@@ -38,5 +36,22 @@ contract MockLightAccount is ILightAccount {
         // msg.sender here is the EOA calling MockLightAccount (e.g., relayer)
         // When strategy.vote is called, msg.sender from StrategyV1's perspective will be address(this)
         strategy.vote(proposalId, voteType, adaptersToUse, adapterVoteData);
+    }
+
+    // Function specifically for freeze voting tests via smart account
+    function executeFreezeVote(
+        address targetFreezeVoting,
+        bytes calldata callDataForFreezeVote
+    ) external {
+        (bool success, ) = targetFreezeVoting.call(callDataForFreezeVote);
+        if (!success) {
+            // Bubble up the revert reason from the low-level call
+            assembly {
+                let ptr := mload(0x40)
+                let size := returndatasize()
+                returndatacopy(ptr, 0, size)
+                revert(ptr, size)
+            }
+        }
     }
 }
