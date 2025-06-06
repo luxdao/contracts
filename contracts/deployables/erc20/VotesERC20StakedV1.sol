@@ -147,17 +147,17 @@ contract VotesERC20StakedV1 is
         address _recipient,
         address[] memory _tokens
     ) external virtual override {
-        for (uint256 i = 0; i < _tokens.length; ) {  
-            address token = _tokens[i];  
-            if (!_rewardsTokenDatas[token].enabled)  
-                revert InvalidRewardsToken(token);  
+        for (uint256 i = 0; i < _tokens.length; ) {
+            address token = _tokens[i];
+            if (!_rewardsTokenDatas[token].enabled)
+                revert InvalidRewardsToken(token);
 
-            _claimRewards(msg.sender, _recipient, token);  
+            _claimRewards(msg.sender, _recipient, token);
 
-            unchecked {  
-                ++i;  
-            }  
-        }  
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     function transfer(address, uint256) public virtual override returns (bool) {
