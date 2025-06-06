@@ -122,10 +122,11 @@ contract VotesERC20StakedV1 is
         if (_totalStaked == 0) revert ZeroStaked();
 
         for (uint256 i = 0; i < _tokens.length; ) {
-            if (!_rewardsTokenDatas[_tokens[i]].enabled)
-                revert InvalidRewardsToken(_tokens[i]);
+            address token = _tokens[i];
+            if (!_rewardsTokenDatas[token].enabled)
+                revert InvalidRewardsToken(token);
 
-            _distributeRewards(_tokens[i]);
+            _distributeRewards(token);
 
             unchecked {
                 ++i;
@@ -371,10 +372,11 @@ contract VotesERC20StakedV1 is
         );
 
         for (uint256 i = 0; i < rewardsTokens_.length; ) {
-            if (!_rewardsTokenDatas[rewardsTokens_[i]].enabled)
-                revert InvalidRewardsToken(rewardsTokens_[i]);
+            address token = rewardsTokens_[i];
+            if (!_rewardsTokenDatas[token].enabled)
+                revert InvalidRewardsToken(token);
 
-            distributableRewards_[i] = _distributableRewards(rewardsTokens_[i]);
+            distributableRewards_[i] = _distributableRewards(token);
 
             unchecked {
                 ++i;
