@@ -31,7 +31,7 @@ contract MinimalUpgradeableContract is UUPSUpgradeable, OwnableUpgradeable {
      * @param _largeData A potentially large string to test initialization gas limits
      */
     function initializeWithLargeData(
-        string memory _largeData
+        string calldata _largeData
     ) public initializer {
         __UUPSUpgradeable_init();
         __Ownable_init(msg.sender);

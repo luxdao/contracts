@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {Transaction} from "../Module.sol";
 
 interface IAzoriusV1 {
     event ProposalCreated(
@@ -23,14 +23,6 @@ interface IAzoriusV1 {
     error InvalidTxHash();
     error TxFailed();
     error InvalidTxs();
-    error InvalidArrayLengths();
-
-    struct Transaction {
-        address to;
-        uint256 value;
-        bytes data;
-        Enum.Operation operation;
-    }
 
     struct Proposal {
         uint32 executionCounter;
@@ -86,10 +78,7 @@ interface IAzoriusV1 {
 
     function executeProposal(
         uint32 _proposalId,
-        address[] memory _targets,
-        uint256[] memory _values,
-        bytes[] memory _data,
-        Enum.Operation[] memory _operations
+        Transaction[] calldata _transactions
     ) external;
 
     function proposalState(
@@ -97,18 +86,12 @@ interface IAzoriusV1 {
     ) external view returns (ProposalState);
 
     function generateTxHashData(
-        address _to,
-        uint256 _value,
-        bytes memory _data,
-        Enum.Operation _operation,
+        Transaction calldata _transaction,
         uint256 _nonce
     ) external view returns (bytes memory);
 
     function getTxHash(
-        address _to,
-        uint256 _value,
-        bytes memory _data,
-        Enum.Operation _operation
+        Transaction calldata _transaction
     ) external view returns (bytes32);
 
     function getProposalTxHash(
