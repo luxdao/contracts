@@ -131,4 +131,93 @@ describe('BaseVotingAdapterV1', () => {
       ).to.be.revertedWithCustomError(adapter, 'NotStrategy');
     });
   });
+
+  describe('onlyAuthorizedFreezeVoter modifier', () => {
+    let adapter: ConcreteBaseVotingAdapterV1;
+    let authorizedCaller: SignerWithAddress;
+    let unauthorizedCaller: SignerWithAddress;
+    const dummyVoterAddress = ethers.Wallet.createRandom().address;
+    const dummySnapshotAndId = 12345;
+    const dummyAdapterVoteData = ethers.ZeroHash;
+
+    beforeEach(async () => {
+      // Deploy a new adapter instance for each test, initialized with the global mockStrategyContract
+      adapter = await deployAdapterProxy(await mockStrategyContract.getAddress());
+
+      // Setup distinct signers for testing authorization
+      // deployer, eoaStrategySigner, nonStrategySigner are already globally available from the outer describe.
+      // Let's use eoaStrategySigner as the one we might authorize, and nonStrategySigner as unauthorized.
+      authorizedCaller = eoaStrategySigner;
+      unauthorizedCaller = nonStrategySigner;
+    });
+
+    it('should revert if recordFreezeVote is called by an unauthorized EOA', async () => {
+      // Ensure unauthorizedCaller is indeed not authorized
+      await mockStrategyContract.removeAuthorizedFreezeVoter(unauthorizedCaller.address);
+
+      await expect(
+        adapter
+          .connect(unauthorizedCaller)
+          .recordFreezeVote(dummyVoterAddress, dummySnapshotAndId, dummyAdapterVoteData),
+      )
+        .to.be.revertedWithCustomError(adapter, 'UnauthorizedFreezeVoter')
+        .withArgs(unauthorizedCaller.address);
+    });
+
+    it('should allow recordFreezeVote to be called by an authorized EOA', async () => {
+      await mockStrategyContract.addAuthorizedFreezeVoter(authorizedCaller.address);
+
+      await expect(
+        adapter
+          .connect(authorizedCaller)
+          .recordFreezeVote(dummyVoterAddress, dummySnapshotAndId, dummyAdapterVoteData),
+      ).to.emit(adapter, 'FreezeVoteRecorded'); // Check for event from Concrete implementation
+    });
+
+    it('should revert if an EOA was authorized then de-authorized', async () => {
+      await mockStrategyContract.addAuthorizedFreezeVoter(authorizedCaller.address);
+      // Call once successfully (optional, but good check)
+      await expect(
+        adapter
+          .connect(authorizedCaller)
+          .recordFreezeVote(dummyVoterAddress, dummySnapshotAndId, dummyAdapterVoteData),
+      ).to.emit(adapter, 'FreezeVoteRecorded');
+
+      await mockStrategyContract.removeAuthorizedFreezeVoter(authorizedCaller.address);
+
+      await expect(
+        adapter
+          .connect(authorizedCaller)
+          .recordFreezeVote(dummyVoterAddress, dummySnapshotAndId, dummyAdapterVoteData),
+      )
+        .to.be.revertedWithCustomError(adapter, 'UnauthorizedFreezeVoter')
+        .withArgs(authorizedCaller.address);
+    });
+
+    it('should allow multiple authorized callers, and restrict unauthorized ones', async () => {
+      const anotherAuthorizedCaller = deployer; // Using deployer as another distinct authorized caller
+      await mockStrategyContract.addAuthorizedFreezeVoter(authorizedCaller.address);
+      await mockStrategyContract.addAuthorizedFreezeVoter(anotherAuthorizedCaller.address);
+      await mockStrategyContract.removeAuthorizedFreezeVoter(unauthorizedCaller.address);
+
+      await expect(
+        adapter
+          .connect(authorizedCaller)
+          .recordFreezeVote(dummyVoterAddress, dummySnapshotAndId, dummyAdapterVoteData),
+      ).to.emit(adapter, 'FreezeVoteRecorded');
+      await expect(
+        adapter
+          .connect(anotherAuthorizedCaller)
+          .recordFreezeVote(dummyVoterAddress, dummySnapshotAndId, dummyAdapterVoteData),
+      ).to.emit(adapter, 'FreezeVoteRecorded');
+
+      await expect(
+        adapter
+          .connect(unauthorizedCaller)
+          .recordFreezeVote(dummyVoterAddress, dummySnapshotAndId, dummyAdapterVoteData),
+      )
+        .to.be.revertedWithCustomError(adapter, 'UnauthorizedFreezeVoter')
+        .withArgs(unauthorizedCaller.address);
+    });
+  });
 });

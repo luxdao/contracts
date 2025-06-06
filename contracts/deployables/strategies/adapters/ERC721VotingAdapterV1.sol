@@ -20,6 +20,8 @@ contract ERC721VotingAdapterV1 is
     IERC721 internal _token;
     uint256 internal _weightPerToken;
     mapping(uint32 => mapping(uint256 => bool)) internal _tokenIdUsedForVote;
+    mapping(address => mapping(uint48 => mapping(uint256 => bool)))
+        internal _tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract;
 
     constructor() {
         _disableInitializers();
@@ -48,6 +50,143 @@ contract ERC721VotingAdapterV1 is
         uint256 tokenId
     ) external view virtual override returns (bool) {
         return _tokenIdUsedForVote[proposalId][tokenId];
+    }
+
+    function _getUnusedFreezeTokenIds(
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        uint256[] memory tokenIds
+    ) internal view returns (uint256[] memory unusedFreezeTokenIds) {
+        unusedFreezeTokenIds = new uint256[](tokenIds.length);
+        uint256 unusedTokenCount = 0;
+
+        for (uint256 i = 0; i < tokenIds.length; ) {
+            if (
+                !_tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract[
+                    freezeVoteContract
+                ][freezeProposalSnapshotAndId][tokenIds[i]]
+            ) {
+                unusedFreezeTokenIds[unusedTokenCount] = tokenIds[i];
+                unusedTokenCount++;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        assembly {
+            mstore(unusedFreezeTokenIds, unusedTokenCount)
+        }
+    }
+
+    function _getValidFreezeTokenIds(
+        address voter,
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        bytes calldata adapterVoteData
+    ) internal view returns (uint256 weight, uint256[] memory validTokenIds) {
+        uint256[] memory allTokenIds = _decodeTokenIds(adapterVoteData);
+        if (allTokenIds.length == 0) {
+            return (0, new uint256[](0));
+        }
+
+        uint256[] memory uniqueTokenIds = _getUniqueTokenIds(allTokenIds);
+        if (uniqueTokenIds.length == 0) {
+            return (0, new uint256[](0));
+        }
+
+        uint256[] memory ownedTokenIds = _getOwnedTokenIds(
+            voter,
+            uniqueTokenIds
+        );
+        if (ownedTokenIds.length == 0) {
+            return (0, new uint256[](0));
+        }
+
+        validTokenIds = _getUnusedFreezeTokenIds(
+            freezeVoteContract,
+            freezeProposalSnapshotAndId,
+            ownedTokenIds
+        );
+        if (validTokenIds.length == 0) {
+            return (0, new uint256[](0));
+        }
+
+        weight = validTokenIds.length * _weightPerToken;
+    }
+
+    function getFreezeVoteWeight(
+        address voter,
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        bytes calldata adapterVoteData
+    ) external view virtual override returns (uint256 weight) {
+        (weight, ) = _getValidFreezeTokenIds(
+            voter,
+            freezeVoteContract,
+            freezeProposalSnapshotAndId,
+            adapterVoteData
+        );
+    }
+
+    function tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract(
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        uint256 tokenId
+    ) external view virtual override returns (bool) {
+        return
+            _tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract[
+                freezeVoteContract
+            ][freezeProposalSnapshotAndId][tokenId];
+    }
+
+    function recordFreezeVote(
+        address voter,
+        uint48 freezeProposalSnapshotAndId,
+        bytes calldata adapterVoteData
+    )
+        external
+        virtual
+        override
+        onlyAuthorizedFreezeVoter
+        returns (uint256 weightCasted)
+    {
+        uint256[] memory tokenIds = _decodeTokenIds(adapterVoteData);
+        if (tokenIds.length == 0) {
+            revert NoTokenIdsPassed();
+        }
+
+        uint256 currentWeightCasted = 0;
+        for (uint256 i = 0; i < tokenIds.length; ) {
+            uint256 tokenId = tokenIds[i];
+            if (_token.ownerOf(tokenId) != voter) {
+                revert TokenIdNotOwnedByVoter(tokenId);
+            }
+            if (
+                _tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract[
+                    msg.sender
+                ][freezeProposalSnapshotAndId][tokenId]
+            ) {
+                revert TokenIdAlreadyUsedForVote(tokenId);
+            }
+            _tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract[msg.sender][
+                freezeProposalSnapshotAndId
+            ][tokenId] = true;
+            currentWeightCasted += _weightPerToken;
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (currentWeightCasted == 0) {
+            revert NoFreezeVotingWeight();
+        }
+        weightCasted = currentWeightCasted;
+        emit FreezeVoteRecorded(
+            voter,
+            freezeProposalSnapshotAndId,
+            weightCasted,
+            adapterVoteData
+        );
     }
 
     function _decodeTokenIds(

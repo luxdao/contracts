@@ -26,4 +26,17 @@ interface IERC721VotingAdapterV1 {
         uint32 _proposalId,
         bytes calldata _adapterVoteData
     ) external view returns (uint256 weight, uint256[] memory unusedTokenIds);
+
+    function getFreezeVoteWeight(
+        address voter,
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        bytes calldata adapterVoteData
+    ) external view returns (uint256 weight);
+
+    function tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract(
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        uint256 tokenId
+    ) external view returns (bool);
 }
