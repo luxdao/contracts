@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
+import {IBaseVotingAdapterV1} from "../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 
 contract MockVotingStrategy is IStrategyV1 {
     struct TimestampPoints {
@@ -22,8 +23,8 @@ contract MockVotingStrategy is IStrategyV1 {
 
     function initializeProposal(
         uint32 _proposalId,
-        bytes32[] memory _txHashes,
-        bytes memory _data
+        bytes32[] calldata _txHashes,
+        bytes calldata _data
     ) external override {}
 
     function isPassed(uint32 proposalId) external view override returns (bool) {
@@ -33,7 +34,7 @@ contract MockVotingStrategy is IStrategyV1 {
     function isProposer(
         address _address,
         address,
-        bytes memory
+        bytes calldata
     ) external view override returns (bool) {
         return _address == proposer;
     }
@@ -106,8 +107,8 @@ contract MockVotingStrategy is IStrategyV1 {
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
-        address[] memory votingAdapters_,
-        address[] memory proposerAdapters_,
+        address[] calldata votingAdapters_,
+        address[] calldata proposerAdapters_,
         address lightAccountFactory_
     ) external override {}
 
@@ -147,8 +148,23 @@ contract MockVotingStrategy is IStrategyV1 {
 
     function vote(
         uint32 _proposalId,
-        uint8 _voteType,
+        uint8 /*_voteType*/,
         address[] calldata _votingAdaptersToUse,
         bytes[] calldata _votingAdapterVoteData
-    ) external override {}
+    ) external virtual override {
+        for (uint256 i = 0; i < _votingAdaptersToUse.length; ) {
+            address adapterAddress = _votingAdaptersToUse[i];
+            bytes calldata adapterData = _votingAdapterVoteData[i];
+
+            IBaseVotingAdapterV1(adapterAddress).recordVote(
+                msg.sender,
+                _proposalId,
+                adapterData
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
 }

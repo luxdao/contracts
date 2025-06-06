@@ -13,7 +13,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract ProxyFactory is IProxyFactory {
     function deployProxy(
         address implementation,
-        bytes memory initData,
+        bytes calldata initData,
         bytes32 salt
     ) public returns (address proxy) {
         // Validate the implementation address
@@ -41,7 +41,7 @@ contract ProxyFactory is IProxyFactory {
 
     function predictProxyAddress(
         address implementation,
-        bytes memory initData,
+        bytes calldata initData,
         bytes32 salt,
         address deployer
     ) public view returns (address) {

@@ -47,8 +47,8 @@ interface IStrategyV1 {
         uint32 votingPeriod,
         uint256 quorumThreshold,
         uint256 basisNumerator,
-        address[] memory votingAdapters,
-        address[] memory proposerAdapters,
+        address[] calldata votingAdapters,
+        address[] calldata proposerAdapters,
         address lightAccountFactory
     ) external;
 
@@ -60,8 +60,8 @@ interface IStrategyV1 {
 
     function initializeProposal(
         uint32 proposalId_,
-        bytes32[] memory txHashes_,
-        bytes memory proposalInitializerData_
+        bytes32[] calldata txHashes_,
+        bytes calldata proposalInitializerData_
     ) external;
 
     function isPassed(uint32 proposalId_) external view returns (bool);

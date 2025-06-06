@@ -16,8 +16,8 @@ interface IERC721FreezeVotingV1 is IBaseFreezeVotingV1 {
     ) external;
 
     function castFreezeVote(
-        address[] memory tokenAddresses,
-        uint256[] memory tokenIds
+        address[] calldata tokenAddresses,
+        uint256[] calldata tokenIds
     ) external;
 
     function strategy() external view returns (address);

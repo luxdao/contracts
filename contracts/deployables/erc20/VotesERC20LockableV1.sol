@@ -40,14 +40,13 @@ contract VotesERC20LockableV1 is
     }
 
     function initialize(
+        Metadata calldata metadata_,
+        Allocation[] calldata allocations_,
         address owner_,
         bool locked_,
-        uint256 maxTotalSupply_,
-        string memory name_,
-        string memory symbol_,
-        Allocation[] memory allocations_
+        uint256 maxTotalSupply_
     ) public virtual override initializer {
-        super.initialize(name_, symbol_, allocations_, owner_);
+        super.initialize(metadata_, allocations_, owner_);
         __ERC165_init();
         __AccessControl_init();
 

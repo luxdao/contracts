@@ -56,8 +56,8 @@ contract ERC721FreezeVotingV1 is
     }
 
     function castFreezeVote(
-        address[] memory _tokenAddresses,
-        uint256[] memory _tokenIds
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds
     ) external virtual override {
         if (_tokenAddresses.length != _tokenIds.length) revert UnequalArrays();
 
@@ -80,23 +80,29 @@ contract ERC721FreezeVotingV1 is
     }
 
     function _getVotesAndUpdateHasVoted(
-        address[] memory _tokenAddresses,
-        uint256[] memory _tokenIds,
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds,
         address _voter
     ) internal virtual returns (uint256) {
         uint256 votes = 0;
 
-        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+        for (uint256 i = 0; i < _tokenAddresses.length; ) {
             address tokenAddress = _tokenAddresses[i];
             uint256 tokenId = _tokenIds[i];
 
             if (_voter != IERC721(tokenAddress).ownerOf(tokenId)) {
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
             if (
                 _idHasFreezeVoted[_freezeProposalCreated][tokenAddress][tokenId]
             ) {
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
@@ -105,6 +111,10 @@ contract ERC721FreezeVotingV1 is
             _idHasFreezeVoted[_freezeProposalCreated][tokenAddress][
                 tokenId
             ] = true;
+
+            unchecked {
+                ++i;
+            }
         }
 
         return votes;
