@@ -6,12 +6,12 @@ import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.s
 import {VotesERC20V1} from "./VotesERC20V1.sol";
 import {Version} from "../Version.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
-import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 contract VotesERC20LockableV1 is
     IVotesERC20LockableV1,
-    ERC165Upgradeable,
+    ERC165,
     AccessControlUpgradeable,
     VotesERC20V1
 {
@@ -117,7 +117,7 @@ contract VotesERC20LockableV1 is
         public
         view
         virtual
-        override(ERC165Upgradeable, AccessControlUpgradeable, VotesERC20V1)
+        override(ERC165, AccessControlUpgradeable, VotesERC20V1)
         returns (bool)
     {
         return
