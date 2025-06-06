@@ -47,7 +47,6 @@ contract VotesERC20LockableV1 is
         uint256 maxTotalSupply_
     ) public virtual override initializer {
         super.initialize(metadata_, allocations_, owner_);
-        __ERC165_init();
         __AccessControl_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
