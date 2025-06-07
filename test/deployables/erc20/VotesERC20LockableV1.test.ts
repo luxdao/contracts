@@ -68,7 +68,8 @@ describe('VotesERC20LockableV1', () => {
   let tokenHolder: SignerWithAddress;
   let tokenRecipient: SignerWithAddress;
   let spender: SignerWithAddress;
-  const TRANSFER_ROLE = ethers.id('TRANSFER_ROLE');
+  const TRANSFER_FROM_ROLE = ethers.id('TRANSFER_FROM_ROLE');
+  const TRANSFER_TO_ROLE = ethers.id('TRANSFER_TO_ROLE');
   const MINTER_ROLE = ethers.id('MINTER_ROLE');
 
   beforeEach(async () => {
@@ -345,7 +346,21 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when caller is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+            await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
+            await proxy
+              .connect(tokenHolder)
+              .transfer(tokenRecipient.address, ethers.parseEther('1'));
+          });
+
+          it('should transfer tokens', async () => {
+            expect(await proxy.balanceOf(tokenRecipient.address)).to.equal(ethers.parseEther('1'));
+            expect(await proxy.balanceOf(tokenHolder.address)).to.equal(ethers.parseEther('99'));
+          });
+        });
+
+        describe('when recipient is whitelisted', () => {
+          beforeEach(async () => {
+            await proxy.connect(owner).grantRole(TRANSFER_TO_ROLE, tokenRecipient.address);
             await proxy
               .connect(tokenHolder)
               .transfer(tokenRecipient.address, ethers.parseEther('1'));
@@ -396,7 +411,7 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when caller is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+            await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
             await proxy
               .connect(tokenHolder)
               .transfer(tokenRecipient.address, ethers.parseEther('1'));
@@ -465,7 +480,7 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when token holder is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+            await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
             await proxy.connect(tokenHolder).approve(spender.address, ethers.parseEther('10'));
             await proxy
               .connect(spender)
@@ -538,7 +553,7 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when token holder is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+            await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
             await proxy.connect(tokenHolder).approve(spender.address, ethers.parseEther('10'));
             await proxy
               .connect(spender)
@@ -646,11 +661,11 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller has the transfer role', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+          await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
         });
 
         it('should revert', async () => {
-          expect(await proxy.hasRole(TRANSFER_ROLE, tokenHolder.address)).to.equal(true);
+          expect(await proxy.hasRole(TRANSFER_FROM_ROLE, tokenHolder.address)).to.equal(true);
 
           await expect(
             proxy.connect(tokenHolder).mint(tokenHolder.address, maxTotalSupply),
@@ -697,11 +712,11 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+          await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
         });
 
         it('should revert', async () => {
-          expect(await proxy.hasRole(TRANSFER_ROLE, tokenHolder.address)).to.equal(true);
+          expect(await proxy.hasRole(TRANSFER_FROM_ROLE, tokenHolder.address)).to.equal(true);
 
           await expect(
             proxy.connect(tokenHolder).mint(tokenHolder.address, ethers.parseEther('1')),
@@ -758,7 +773,7 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+          await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
           await proxy.connect(tokenHolder).burn(ethers.parseEther('1'));
         });
 
@@ -805,7 +820,7 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
+          await proxy.connect(owner).grantRole(TRANSFER_FROM_ROLE, tokenHolder.address);
           await proxy.connect(tokenHolder).transfer(tokenRecipient.address, ethers.parseEther('1'));
         });
 
