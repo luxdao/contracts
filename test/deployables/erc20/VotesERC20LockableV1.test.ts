@@ -180,7 +180,7 @@ describe('VotesERC20LockableV1', () => {
         it('should revert', async () => {
           await expect(proxy.connect(nonOwner).lock(false)).to.be.revertedWithCustomError(
             proxy,
-            'OwnableUnauthorizedAccount',
+            'AccessControlUnauthorizedAccount',
           );
         });
       });
@@ -230,7 +230,7 @@ describe('VotesERC20LockableV1', () => {
         it('should revert', async () => {
           await expect(proxy.connect(nonOwner).lock(true)).to.be.revertedWithCustomError(
             proxy,
-            'OwnableUnauthorizedAccount',
+            'AccessControlUnauthorizedAccount',
           );
         });
       });
@@ -298,7 +298,7 @@ describe('VotesERC20LockableV1', () => {
       it('should revert', async () => {
         await expect(
           proxy.connect(nonOwner).setMaxTotalSupply(newMaxTotalSupply),
-        ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        ).to.be.revertedWithCustomError(proxy, 'AccessControlUnauthorizedAccount');
       });
     });
   });

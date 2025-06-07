@@ -51,10 +51,13 @@ contract VotesERC20LockableV1 is
 
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
         _grantRole(MINTER_ROLE, owner_);
+
         // owner can always transfer
         _grantRole(TRANSFER_ROLE, owner_);
+
         // can always mint when locked
         _grantRole(TRANSFER_ROLE, address(0));
+
         _locked = locked_;
         _maxTotalSupply = maxTotalSupply_;
     }
@@ -67,14 +70,16 @@ contract VotesERC20LockableV1 is
         return _maxTotalSupply;
     }
 
-    function lock(bool locked_) external virtual override onlyOwner {
+    function lock(
+        bool locked_
+    ) external virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
         _locked = locked_;
         emit Locked(_locked);
     }
 
     function setMaxTotalSupply(
         uint256 newMaxTotalSupply_
-    ) external virtual override onlyOwner {
+    ) external virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newMaxTotalSupply_ < totalSupply()) {
             revert InvalidMaxTotalSupply();
         }
