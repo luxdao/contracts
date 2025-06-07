@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IVotingAdapterV1} from "../../interfaces/decent/deployables/IVotingAdapterV1.sol";
+import {IBaseVotingAdapterV1} from "../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 import {IProposerAdapterV1} from "../../interfaces/decent/deployables/IProposerAdapterV1.sol";
 import {IERC4337VoterSupportV1} from "../../interfaces/decent/deployables/IERC4337VoterSupportV1.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
@@ -23,7 +23,7 @@ contract StrategyV1 is
 
     uint256 public constant BASIS_DENOMINATOR = 1_000_000;
 
-    address internal _proposalInitializer;
+    address internal _strategyAdmin;
     uint32 internal _votingPeriod;
     uint256 internal _quorumThreshold;
     uint256 internal _basisNumerator;
@@ -34,9 +34,11 @@ contract StrategyV1 is
     mapping(address => bool) internal _isVotingAdapter;
     mapping(address => bool) internal _isProposerAdapter;
 
-    modifier onlyProposalInitializer() {
-        if (msg.sender != _proposalInitializer)
-            revert InvalidProposalInitializer();
+    mapping(address => bool) internal _authorizedFreezeVotersMapping;
+    address[] internal _authorizedFreezeVotersArray;
+
+    modifier onlyStrategyAdmin() {
+        if (msg.sender != _strategyAdmin) revert InvalidStrategyAdmin();
         _;
     }
 
@@ -45,12 +47,12 @@ contract StrategyV1 is
     }
 
     function initialize(
-        address proposalInitializer_,
+        address strategyAdmin_,
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
-        address[] memory votingAdapters_,
-        address[] memory proposerAdapters_,
+        address[] calldata votingAdapters_,
+        address[] calldata proposerAdapters_,
         address lightAccountFactory_
     ) public virtual override initializer {
         if (votingAdapters_.length == 0) {
@@ -67,29 +69,29 @@ contract StrategyV1 is
         ) revert InvalidBasisNumerator();
 
         __ERC4337VoterSupportV1_init(lightAccountFactory_);
-        _proposalInitializer = proposalInitializer_;
+        _strategyAdmin = strategyAdmin_;
         _votingPeriod = votingPeriod_;
         _quorumThreshold = quorumThreshold_;
         _basisNumerator = basisNumerator_;
         _votingAdapters = votingAdapters_;
         _proposerAdapters = proposerAdapters_;
 
-        for (uint256 i = 0; i < votingAdapters_.length; i++) {
+        for (uint256 i = 0; i < votingAdapters_.length; ) {
             _isVotingAdapter[votingAdapters_[i]] = true;
+            unchecked {
+                ++i;
+            }
         }
-        for (uint256 i = 0; i < proposerAdapters_.length; i++) {
+        for (uint256 i = 0; i < proposerAdapters_.length; ) {
             _isProposerAdapter[proposerAdapters_[i]] = true;
+            unchecked {
+                ++i;
+            }
         }
     }
 
-    function proposalInitializer()
-        external
-        view
-        virtual
-        override
-        returns (address)
-    {
-        return _proposalInitializer;
+    function strategyAdmin() external view virtual override returns (address) {
+        return _strategyAdmin;
     }
 
     function votingPeriod() external view virtual override returns (uint32) {
@@ -150,9 +152,9 @@ contract StrategyV1 is
 
     function initializeProposal(
         uint32 proposalId,
-        bytes32[] memory,
-        bytes memory
-    ) external virtual override onlyProposalInitializer {
+        bytes32[] calldata,
+        bytes calldata
+    ) external virtual override onlyStrategyAdmin {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             proposalId
         ];
@@ -193,27 +195,21 @@ contract StrategyV1 is
         }
 
         uint256 totalWeightForThisVoteTransaction = 0;
-        uint256 numConfiguredAdapters = _votingAdapters.length;
 
-        for (uint256 i = 0; i < _votingAdaptersToUse.length; i++) {
-            bool isValidAndConfiguredAdapter = false;
-            uint256 configuredAdapterIndex = 0;
+        for (uint256 i = 0; i < _votingAdaptersToUse.length; ) {
+            address votingAdapter = _votingAdaptersToUse[i];
 
-            for (uint256 j = 0; j < numConfiguredAdapters; j++) {
-                if (_votingAdapters[j] == _votingAdaptersToUse[i]) {
-                    isValidAndConfiguredAdapter = true;
-                    configuredAdapterIndex = j;
-                    break;
-                }
-            }
-
-            if (!isValidAndConfiguredAdapter) {
+            if (!_isVotingAdapter[votingAdapter]) {
                 revert InvalidVotingAdapter();
             }
 
-            totalWeightForThisVoteTransaction += IVotingAdapterV1(
-                _votingAdapters[configuredAdapterIndex]
+            totalWeightForThisVoteTransaction += IBaseVotingAdapterV1(
+                votingAdapter
             ).recordVote(resolvedVoter, _proposalId, _votingAdapterVoteData[i]);
+
+            unchecked {
+                ++i;
+            }
         }
 
         if (totalWeightForThisVoteTransaction == 0) revert NoVotingWeight();
@@ -290,15 +286,7 @@ contract StrategyV1 is
         address proposerAdapter_,
         bytes calldata proposerAdapterData_
     ) external view virtual override returns (bool) {
-        bool foundAdapter = false;
-        for (uint256 i = 0; i < _proposerAdapters.length; i++) {
-            if (_proposerAdapters[i] == proposerAdapter_) {
-                foundAdapter = true;
-                break;
-            }
-        }
-
-        if (!foundAdapter) {
+        if (!_isProposerAdapter[proposerAdapter_]) {
             revert InvalidProposerAdapter(proposerAdapter_);
         }
 
@@ -333,6 +321,57 @@ contract StrategyV1 is
         ];
         if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
         return details.votingStartBlock;
+    }
+
+    function addAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external virtual override onlyStrategyAdmin {
+        if (freezeVoterContract == address(0)) revert InvalidAddress();
+        if (!_authorizedFreezeVotersMapping[freezeVoterContract]) {
+            _authorizedFreezeVotersArray.push(freezeVoterContract);
+        }
+        _authorizedFreezeVotersMapping[freezeVoterContract] = true;
+        emit FreezeVoterAuthorizationChanged(freezeVoterContract, true);
+    }
+
+    function removeAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external virtual override onlyStrategyAdmin {
+        if (freezeVoterContract == address(0)) revert InvalidAddress();
+        if (_authorizedFreezeVotersMapping[freezeVoterContract]) {
+            for (uint256 i = 0; i < _authorizedFreezeVotersArray.length; ) {
+                if (_authorizedFreezeVotersArray[i] == freezeVoterContract) {
+                    _authorizedFreezeVotersArray[
+                        i
+                    ] = _authorizedFreezeVotersArray[
+                        _authorizedFreezeVotersArray.length - 1
+                    ];
+                    _authorizedFreezeVotersArray.pop();
+                    break;
+                }
+                unchecked {
+                    ++i;
+                }
+            }
+        }
+        _authorizedFreezeVotersMapping[freezeVoterContract] = false;
+        emit FreezeVoterAuthorizationChanged(freezeVoterContract, false);
+    }
+
+    function isAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external view virtual override returns (bool) {
+        return _authorizedFreezeVotersMapping[freezeVoterContract];
+    }
+
+    function authorizedFreezeVoters()
+        external
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _authorizedFreezeVotersArray;
     }
 
     function version() public view virtual override returns (uint16) {

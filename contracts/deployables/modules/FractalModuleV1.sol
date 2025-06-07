@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IFractalModuleV1} from "../../interfaces/decent/deployables/IFractalModuleV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {Transaction} from "../../interfaces/decent/Module.sol";
 import {Version} from "../Version.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -53,12 +54,16 @@ contract FractalModuleV1 is
     ) internal virtual override onlyOwner {}
 
     function execTx(
-        address _target,
-        uint256 _value,
-        bytes memory _data,
-        Enum.Operation _operation
+        Transaction calldata _transaction
     ) public virtual override onlyOwner {
-        if (!exec(_target, _value, _data, _operation)) revert TxFailed();
+        if (
+            !exec(
+                _transaction.to,
+                _transaction.value,
+                _transaction.data,
+                _transaction.operation
+            )
+        ) revert TxFailed();
     }
 
     function version() public view virtual override returns (uint16) {

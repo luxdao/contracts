@@ -8,7 +8,7 @@ contract MockProposerAdapter is IProposerAdapterV1 {
 
     function isProposer(
         address _proposer,
-        bytes memory
+        bytes calldata
     ) external view override returns (bool) {
         return _isProposer[_proposer];
     }

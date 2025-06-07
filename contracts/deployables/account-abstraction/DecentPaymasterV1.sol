@@ -37,7 +37,7 @@ contract DecentPaymasterV1 is
         address owner_,
         address entryPoint_,
         address lightAccountFactory_
-    ) public virtual override initializer {
+    ) external virtual override initializer {
         __BasePaymasterV1_init(owner_, IEntryPoint(entryPoint_));
         __SmartAccountValidationV1_init(lightAccountFactory_);
     }

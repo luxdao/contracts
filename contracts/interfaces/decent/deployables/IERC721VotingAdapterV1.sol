@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IVotingAdapterV1} from "./IVotingAdapterV1.sol";
-
-interface IERC721VotingAdapterV1 is IVotingAdapterV1 {
+interface IERC721VotingAdapterV1 {
     error NoTokenIdsPassed();
     error TokenIdAlreadyUsedForVote(uint256 tokenId);
     error TokenIdNotOwnedByVoter(uint256 tokenId);
 
-    function initialize(address token, uint256 weightPerToken) external;
+    function initialize(
+        address token,
+        address strategy,
+        uint256 weightPerToken
+    ) external;
 
     function token() external view returns (address);
 
@@ -24,4 +26,17 @@ interface IERC721VotingAdapterV1 is IVotingAdapterV1 {
         uint32 _proposalId,
         bytes calldata _adapterVoteData
     ) external view returns (uint256 weight, uint256[] memory unusedTokenIds);
+
+    function getFreezeVoteWeight(
+        address voter,
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        bytes calldata adapterVoteData
+    ) external view returns (uint256 weight);
+
+    function tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract(
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        uint256 tokenId
+    ) external view returns (bool);
 }

@@ -17,3 +17,5 @@ index.ts
 # solidity-coverage files
 /coverage
 /coverage.json
+
+.cursorrules

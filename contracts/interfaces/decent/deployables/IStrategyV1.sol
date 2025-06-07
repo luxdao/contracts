@@ -29,26 +29,31 @@ interface IStrategyV1 {
         uint48 votingEndTimestamp,
         uint32 votingStartBlock
     );
+    event FreezeVoterAuthorizationChanged(
+        address indexed freezeVoterContract,
+        bool isAuthorized
+    );
 
     error InvalidProposerAdapter(address _proposerAdapter);
     error NoVotingAdapters();
     error NoProposerAdapters();
     error InvalidBasisNumerator();
-    error InvalidProposalInitializer();
+    error InvalidStrategyAdmin();
     error ProposalNotFoundOrNotActive();
     error NoVotingWeight();
     error InvalidVoteType();
     error ProposalNotInitialized();
     error MismatchedInputs();
     error InvalidVotingAdapter();
+    error InvalidAddress();
 
     function initialize(
-        address proposalInitializer,
+        address strategyAdmin,
         uint32 votingPeriod,
         uint256 quorumThreshold,
         uint256 basisNumerator,
-        address[] memory votingAdapters,
-        address[] memory proposerAdapters,
+        address[] calldata votingAdapters,
+        address[] calldata proposerAdapters,
         address lightAccountFactory
     ) external;
 
@@ -60,8 +65,8 @@ interface IStrategyV1 {
 
     function initializeProposal(
         uint32 proposalId_,
-        bytes32[] memory txHashes_,
-        bytes memory proposalInitializerData_
+        bytes32[] calldata txHashes_,
+        bytes calldata proposalInitializerData_
     ) external;
 
     function isPassed(uint32 proposalId_) external view returns (bool);
@@ -82,7 +87,7 @@ interface IStrategyV1 {
         address proposerAdapter_
     ) external view returns (bool);
 
-    function proposalInitializer() external view returns (address);
+    function strategyAdmin() external view returns (address);
 
     function votingPeriod() external view returns (uint32);
 
@@ -108,4 +113,14 @@ interface IStrategyV1 {
         address[] calldata _votingAdaptersToUse,
         bytes[] calldata _votingAdapterVoteData
     ) external;
+
+    function addAuthorizedFreezeVoter(address freezeVoterContract) external;
+
+    function removeAuthorizedFreezeVoter(address freezeVoterContract) external;
+
+    function isAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external view returns (bool);
+
+    function authorizedFreezeVoters() external view returns (address[] memory);
 }

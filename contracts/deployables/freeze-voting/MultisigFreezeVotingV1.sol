@@ -7,17 +7,21 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
+import {ERC4337VoterSupportV1} from "../strategies/ERC4337VoterSupportV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract MultisigFreezeVotingV1 is
     IMultisigFreezeVotingV1,
     BaseFreezeVotingV1,
+    ERC4337VoterSupportV1,
     Version,
     ERC165
 {
     uint16 private constant VERSION = 1;
 
     ISafe internal _parentSafe;
+    mapping(uint48 freezeProposalCreated => mapping(address voter => bool))
+        internal _userHasFreezeVoted;
 
     constructor() {
         _disableInitializers();
@@ -28,7 +32,8 @@ contract MultisigFreezeVotingV1 is
         uint256 freezeVotesThreshold_,
         uint32 freezeProposalPeriod_,
         uint32 freezePeriod_,
-        address parentSafe_
+        address parentSafe_,
+        address lightAccountFactory_
     ) public virtual override initializer {
         __BaseFreezeVotingV1_init(
             owner_,
@@ -36,6 +41,7 @@ contract MultisigFreezeVotingV1 is
             freezePeriod_,
             freezeVotesThreshold_
         );
+        __ERC4337VoterSupportV1_init(lightAccountFactory_);
         _parentSafe = ISafe(parentSafe_);
     }
 
@@ -43,22 +49,40 @@ contract MultisigFreezeVotingV1 is
         return address(_parentSafe);
     }
 
+    function userHasFreezeVoted(
+        uint48 freezeProposalCreated,
+        address voter
+    ) external view virtual override returns (bool) {
+        return _userHasFreezeVoted[freezeProposalCreated][voter];
+    }
+
     function castFreezeVote() external virtual override {
-        if (!_parentSafe.isOwner(msg.sender)) revert NotOwner();
+        address resolvedVoter = voter(msg.sender);
 
         if (block.timestamp > _freezeProposalCreated + _freezeProposalPeriod) {
-            _freezeProposalCreated = uint48(block.timestamp);
-            _freezeProposalVoteCount = 1;
-            emit FreezeProposalCreated(msg.sender);
-        } else {
-            if (_userHasFreezeVoted[msg.sender][_freezeProposalCreated]) {
-                revert AlreadyVoted();
-            }
-            _freezeProposalVoteCount++;
+            initializeFreezeVote();
+            emit FreezeProposalCreated(resolvedVoter);
         }
 
-        _userHasFreezeVoted[msg.sender][_freezeProposalCreated] = true;
-        emit FreezeVoteCast(msg.sender, 1);
+        recordFreezeVote(
+            resolvedVoter,
+            _getVotesAndUpdateHasVoted(resolvedVoter)
+        );
+    }
+
+    function _getVotesAndUpdateHasVoted(
+        address voter
+    ) internal virtual returns (uint256 userVotes) {
+        if (!_parentSafe.isOwner(voter)) {
+            return 0;
+        }
+
+        if (_userHasFreezeVoted[_freezeProposalCreated][voter]) {
+            return 0;
+        }
+
+        userVotes = 1;
+        _userHasFreezeVoted[_freezeProposalCreated][voter] = true;
     }
 
     function version() public view virtual override returns (uint16) {

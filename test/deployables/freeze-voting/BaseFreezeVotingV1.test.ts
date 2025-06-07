@@ -114,9 +114,7 @@ describe('BaseFreezeVotingV1', () => {
 
       // First vote creates the proposal
       await expect(freezeVoting.connect(voter1).castFreezeVote())
-        .to.emit(freezeVoting, 'FreezeProposalCreated')
-        .withArgs(voter1.address)
-        .and.to.emit(freezeVoting, 'FreezeVoteCast')
+        .to.emit(freezeVoting, 'FreezeVoteCast')
         .withArgs(voter1.address, 1);
 
       // Check state after first vote
@@ -137,20 +135,6 @@ describe('BaseFreezeVotingV1', () => {
       // Third vote
       await freezeVoting.connect(voter3).castFreezeVote();
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(3);
-    });
-
-    it('should prevent duplicate votes from the same user', async () => {
-      // First vote
-      await freezeVoting.connect(voter1).castFreezeVote();
-      expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
-
-      // Attempting to vote again should fail
-      await expect(freezeVoting.connect(voter1).castFreezeVote()).to.be.revertedWith(
-        'Already voted',
-      );
-
-      // Vote count should remain unchanged
-      expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
     });
 
     it('should reject votes after proposal period expiry', async () => {
@@ -225,6 +209,7 @@ describe('BaseFreezeVotingV1', () => {
       // Check that state was reset
       expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(0);
+      expect(await freezeVoting.freezeActivated()).to.equal(0);
     });
 
     it('should not allow non-owner to unfreeze', async () => {
@@ -273,48 +258,108 @@ describe('BaseFreezeVotingV1', () => {
     });
   });
 
-  describe('User Has Voted Tracking', () => {
-    it('should correctly track if a user has voted on a proposal', async () => {
-      // Initial state - user has not voted
-      const createdTimestamp = await freezeVoting.freezeProposalCreated();
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdTimestamp)).to.be
-        .false;
-
-      // User votes
-      await freezeVoting.connect(voter1).castFreezeVote();
-
-      // Updated state - user has voted
-      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
-        .true;
+  describe('Freeze Activation', () => {
+    it('should return 0 for freezeActivated initially', async () => {
+      expect(await freezeVoting.freezeActivated()).to.equal(0);
     });
 
-    it('should reset user voting status when unfreeze is called', async () => {
-      // User votes
+    it('should return 0 for freezeActivated before threshold is reached', async () => {
+      // Cast votes below threshold
       await freezeVoting.connect(voter1).castFreezeVote();
+      await freezeVoting.connect(voter2).castFreezeVote();
 
-      // Get the created timestamp
-      const createdTimestamp = await freezeVoting.freezeProposalCreated();
+      // freezeActivated should still be 0
+      expect(await freezeVoting.freezeActivated()).to.equal(0);
+    });
 
-      // Check that user has voted
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, createdTimestamp)).to.be
-        .true;
+    it('should set freezeActivated when threshold is reached', async () => {
+      // Cast votes to reach threshold
+      await freezeVoting.connect(voter1).castFreezeVote();
+      await freezeVoting.connect(voter2).castFreezeVote();
 
-      // Owner unfreezes
+      // Get timestamp before the final vote
+      const beforeTimestamp = await time.latest();
+
+      // Cast the threshold-reaching vote
+      await freezeVoting.connect(voter3).castFreezeVote();
+
+      // freezeActivated should be set to current timestamp
+      const afterTimestamp = await time.latest();
+      const freezeActivated = await freezeVoting.freezeActivated();
+
+      expect(freezeActivated).to.be.gte(beforeTimestamp);
+      expect(freezeActivated).to.be.lte(afterTimestamp);
+    });
+
+    it('should reset freezeActivated when manually unfrozen', async () => {
+      // Cast enough votes to meet threshold
+      await freezeVoting.connect(voter1).castFreezeVote();
+      await freezeVoting.connect(voter2).castFreezeVote();
+      await freezeVoting.connect(voter3).castFreezeVote();
+
+      // Verify freeze is activated
+      expect(await freezeVoting.freezeActivated()).to.not.equal(0);
+
+      // Owner unfreezes manually
       await freezeVoting.connect(owner).unfreeze();
 
-      // The created timestamp is now 0, so the voting status should be reset
-      expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
+      // freezeActivated should be reset to 0
+      expect(await freezeVoting.freezeActivated()).to.equal(0);
+    });
 
-      // User should be able to vote again on a new proposal
+    it('should use freezeActivated timestamp for freeze period calculation', async () => {
+      // Cast enough votes to meet threshold
       await freezeVoting.connect(voter1).castFreezeVote();
+      await freezeVoting.connect(voter2).castFreezeVote();
+      await freezeVoting.connect(voter3).castFreezeVote();
 
-      // Get the new created timestamp
-      const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
+      // Should be frozen immediately after threshold is reached
+      void expect(await freezeVoting.isFrozen()).to.be.true;
 
-      // Check that user has voted on the new proposal
-      void expect(await freezeVoting.userHasFreezeVoted(voter1.address, newCreatedTimestamp)).to.be
-        .true;
+      // Get the freeze activation timestamp
+      const freezeActivated = await freezeVoting.freezeActivated();
+
+      // Advance time to just before freeze period expires
+      await time.increaseTo(Number(freezeActivated) + FREEZE_PERIOD - 1);
+
+      // Should still be frozen
+      void expect(await freezeVoting.isFrozen()).to.be.true;
+
+      // Advance time to exactly when freeze period expires
+      await time.increaseTo(Number(freezeActivated) + FREEZE_PERIOD);
+
+      // Should no longer be frozen at the exact expiry time
+      void expect(await freezeVoting.isFrozen()).to.be.false;
+
+      // Advance time past freeze period
+      await time.increaseTo(Number(freezeActivated) + FREEZE_PERIOD + 1);
+
+      // Should no longer be frozen
+      void expect(await freezeVoting.isFrozen()).to.be.false;
+    });
+
+    it('should handle multiple freeze activation cycles correctly', async () => {
+      // First freeze cycle
+      await freezeVoting.connect(voter1).castFreezeVote();
+      await freezeVoting.connect(voter2).castFreezeVote();
+      await freezeVoting.connect(voter3).castFreezeVote();
+
+      const firstFreezeActivated = await freezeVoting.freezeActivated();
+      expect(firstFreezeActivated).to.not.equal(0);
+
+      // Manually unfreeze
+      await freezeVoting.connect(owner).unfreeze();
+      expect(await freezeVoting.freezeActivated()).to.equal(0);
+
+      // Second freeze cycle
+      await time.increase(1); // Ensure different timestamp
+      await freezeVoting.connect(voter1).castFreezeVote();
+      await freezeVoting.connect(voter2).castFreezeVote();
+      await freezeVoting.connect(voter3).castFreezeVote();
+
+      const secondFreezeActivated = await freezeVoting.freezeActivated();
+      expect(secondFreezeActivated).to.not.equal(0);
+      expect(secondFreezeActivated).to.be.gt(firstFreezeActivated);
     });
   });
 });

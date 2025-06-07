@@ -32,14 +32,25 @@ async function deployVotesERC20Lockable(
     amount: allocationAmounts[index],
   }));
 
+  const metadata = {
+    name,
+    symbol,
+  };
+
   const fullInitData =
     VotesERC20LockableV1__factory.createInterface().getFunction(
-      'initialize(address,bool,uint256,string,string,(address,uint256)[])',
+      'initialize((string,string),(address,uint256)[],address,bool,uint256)',
     ).selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
-        ['address', 'bool', 'uint256', 'string', 'string', 'tuple(address to, uint256 amount)[]'],
-        [owner.address, locked, maxTotalSupply, name, symbol, allocations],
+        [
+          'tuple(string name, string symbol)',
+          'tuple(address to, uint256 amount)[]',
+          'address',
+          'bool',
+          'uint256',
+        ],
+        [metadata, allocations, owner.address, locked, maxTotalSupply],
       )
       .slice(2);
 
@@ -119,13 +130,12 @@ describe('VotesERC20LockableV1', () => {
 
       it('should revert if initializer is called after deployment', async () => {
         await expect(
-          proxy['initialize(address,bool,uint256,string,string,(address,uint256)[])'](
+          proxy['initialize((string,string),(address,uint256)[],address,bool,uint256)'](
+            { name: 'Test', symbol: 'TEST' },
+            [],
             owner.address,
             false,
             ethers.parseEther('2100'),
-            'Test',
-            'TEST',
-            [],
           ),
         ).to.be.revertedWithCustomError(proxy, 'InvalidInitialization');
       });
@@ -171,7 +181,7 @@ describe('VotesERC20LockableV1', () => {
         it('should revert', async () => {
           await expect(proxy.connect(nonOwner).lock(false)).to.be.revertedWithCustomError(
             proxy,
-            'OwnableUnauthorizedAccount',
+            'AccessControlUnauthorizedAccount',
           );
         });
       });
@@ -221,7 +231,7 @@ describe('VotesERC20LockableV1', () => {
         it('should revert', async () => {
           await expect(proxy.connect(nonOwner).lock(true)).to.be.revertedWithCustomError(
             proxy,
-            'OwnableUnauthorizedAccount',
+            'AccessControlUnauthorizedAccount',
           );
         });
       });
@@ -289,7 +299,7 @@ describe('VotesERC20LockableV1', () => {
       it('should revert', async () => {
         await expect(
           proxy.connect(nonOwner).setMaxTotalSupply(newMaxTotalSupply),
-        ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        ).to.be.revertedWithCustomError(proxy, 'AccessControlUnauthorizedAccount');
       });
     });
   });

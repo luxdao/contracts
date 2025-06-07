@@ -6,10 +6,10 @@ import {
   ERC1967Proxy__factory,
   ERC20VotingAdapterV1,
   ERC20VotingAdapterV1__factory,
+  IBaseVotingAdapterV1__factory,
   IERC165__factory,
   IERC20VotingAdapterV1__factory,
   IVersion__factory,
-  IVotingAdapterV1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
   MockVotingStrategy,
@@ -171,6 +171,7 @@ describe('ERC20VotingAdapterV1', () => {
         customWeightPerToken || DEFAULT_WEIGHT_PER_TOKEN,
       );
       adapter = deployedAdapter;
+      await mockStrategy.setVotingAdapter(await adapter.getAddress(), true);
     }
 
     describe('Timestamp Mode', () => {
@@ -259,7 +260,12 @@ describe('ERC20VotingAdapterV1', () => {
         votingStartTimestamp,
         ethers.parseUnits('10', 18),
       );
-      await adapter.connect(user1Signer).recordVote(user1Signer.address, proposalId, mockExtraData);
+      await mockStrategy.connect(user1Signer).vote(
+        proposalId,
+        0, // voteType
+        [await adapter.getAddress()],
+        [mockExtraData],
+      );
       const weight = await adapter.weightOf(user1Signer.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
     });
@@ -298,6 +304,7 @@ describe('ERC20VotingAdapterV1', () => {
         customWeightPerToken || DEFAULT_WEIGHT_PER_TOKEN,
       );
       adapter = deployedAdapter;
+      await strategy.setVotingAdapter(await adapter.getAddress(), true);
     }
 
     it('should record vote, return casted weight, set flag, and emit VoteRecorded event', async () => {
@@ -316,12 +323,14 @@ describe('ERC20VotingAdapterV1', () => {
 
       const expectedWeightCasted = expectedRawVotes * DEFAULT_WEIGHT_PER_TOKEN;
 
-      const weightCastedStatically = await adapter
-        .connect(voter)
-        .recordVote.staticCall(voter.address, proposalId, mockExtraData);
-      expect(weightCastedStatically).to.equal(expectedWeightCasted);
-
-      await expect(adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData))
+      await expect(
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
+      )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(voter.address, proposalId, expectedWeightCasted, expectedEventAdapterVoteData);
 
@@ -346,12 +355,14 @@ describe('ERC20VotingAdapterV1', () => {
 
       const expectedWeightCasted = expectedRawVotes * customWeight;
 
-      const weightCastedStatically = await adapter
-        .connect(voter)
-        .recordVote.staticCall(voter.address, proposalId, mockExtraData);
-      expect(weightCastedStatically).to.equal(expectedWeightCasted);
-
-      await expect(adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData))
+      await expect(
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
+      )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(voter.address, proposalId, expectedWeightCasted, expectedEventAdapterVoteData);
     });
@@ -365,9 +376,19 @@ describe('ERC20VotingAdapterV1', () => {
         votingStartTimestamp,
         votingStartTimestamp + 1000,
       );
-      await adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData);
+      await strategy.connect(voter).vote(
+        proposalId,
+        0, // voteType
+        [await adapter.getAddress()],
+        [mockExtraData],
+      );
       await expect(
-        adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
       ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
     });
 
@@ -380,7 +401,12 @@ describe('ERC20VotingAdapterV1', () => {
         votingStartTimestamp,
         votingStartTimestamp + 1000,
       );
-      await adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData);
+      await strategy.connect(voter).vote(
+        proposalId,
+        0, // voteType
+        [await adapter.getAddress()],
+        [mockExtraData],
+      );
       const weight = await adapter.weightOf(voter.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
     });
@@ -389,7 +415,12 @@ describe('ERC20VotingAdapterV1', () => {
       await setupAdapterForRecordVote(0);
       await strategy.setVotingTimestamps(proposalId, 0, 1000);
       await expect(
-        adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotReadyForSnapshot');
     });
 
@@ -397,7 +428,12 @@ describe('ERC20VotingAdapterV1', () => {
       await setupAdapterForRecordVote(1);
       await strategy.setVotingStartBlock(proposalId, 0);
       await expect(
-        adapter.connect(voter).recordVote(voter.address, proposalId, mockExtraData),
+        strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [mockExtraData],
+        ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotReadyForSnapshot');
     });
   });
@@ -413,6 +449,184 @@ describe('ERC20VotingAdapterV1', () => {
       );
 
       expect(await erc20Adapter.version()).to.equal(1);
+    });
+  });
+
+  describe('State Getters', () => {
+    let adapter: ERC20VotingAdapterV1;
+    let token: MockERC20Votes;
+    let strategy: MockVotingStrategy;
+    let voter: SignerWithAddress;
+    const proposalId = 1;
+    const freezeProposalSnapshotAndId = Math.floor(Date.now() / 1000) - 100;
+    const ZERO_EXTRA_DATA = '0x';
+
+    beforeEach(async () => {
+      const mocks = await loadFixture(deployMocksAndSignersFixture);
+      voter = mocks.user1Signer;
+      token = mocks.mockToken;
+      strategy = mocks.mockStrategy;
+
+      const { adapter: deployedAdapter } = await deployERC20AdapterProxy(
+        mocks.deployer,
+        erc20AdapterImplementationAddressG,
+        await token.getAddress(),
+        await strategy.getAddress(),
+        DEFAULT_WEIGHT_PER_TOKEN,
+      );
+      adapter = deployedAdapter;
+      await strategy.setVotingAdapter(await adapter.getAddress(), true);
+    });
+
+    describe('hasCastedVoteForProposal', () => {
+      it('should return false initially', async () => {
+        const hasVoted = await adapter.hasCastedVoteForProposal(proposalId, voter.address);
+        void expect(hasVoted).to.be.false;
+      });
+
+      it('should return true after recording a vote', async () => {
+        const votingStartTimestamp = (await time.latest()) + 200;
+        await token.setPastVotes(voter.address, votingStartTimestamp, ethers.parseUnits('10', 18));
+        await strategy.setVotingTimestamps(
+          proposalId,
+          votingStartTimestamp,
+          votingStartTimestamp + 1000,
+        );
+
+        // Record a vote
+        await strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [ZERO_EXTRA_DATA],
+        );
+
+        // Check the state
+        const hasVoted = await adapter.hasCastedVoteForProposal(proposalId, voter.address);
+        void expect(hasVoted).to.be.true;
+      });
+
+      it('should only mark the specific proposalId/voter combination as voted', async () => {
+        const anotherProposalId = 2;
+        const anotherVoter = (await ethers.getSigners())[3];
+
+        const votingStartTimestamp = (await time.latest()) + 200;
+        await token.setPastVotes(voter.address, votingStartTimestamp, ethers.parseUnits('10', 18));
+        await strategy.setVotingTimestamps(
+          proposalId,
+          votingStartTimestamp,
+          votingStartTimestamp + 1000,
+        );
+        await strategy.setVotingTimestamps(
+          anotherProposalId,
+          votingStartTimestamp,
+          votingStartTimestamp + 1000,
+        );
+
+        // Record a vote for proposalId/voter
+        await strategy.connect(voter).vote(
+          proposalId,
+          0, // voteType
+          [await adapter.getAddress()],
+          [ZERO_EXTRA_DATA],
+        );
+
+        // Check states
+        void expect(await adapter.hasCastedVoteForProposal(proposalId, voter.address)).to.be.true;
+        void expect(await adapter.hasCastedVoteForProposal(anotherProposalId, voter.address)).to.be
+          .false;
+        void expect(await adapter.hasCastedVoteForProposal(proposalId, anotherVoter.address)).to.be
+          .false;
+      });
+    });
+
+    describe('hasCastedVotePerFreezeVoteProposalsPerFreezeVoteContract', () => {
+      let freezeVoteContract: SignerWithAddress;
+      let anotherFreezeVoteContract: SignerWithAddress;
+
+      beforeEach(async () => {
+        const signers = await ethers.getSigners();
+        freezeVoteContract = signers[4];
+        anotherFreezeVoteContract = signers[5];
+
+        // Set up the authorization
+        await strategy.addAuthorizedFreezeVoter(freezeVoteContract.address);
+        await token.setPastVotes(
+          voter.address,
+          freezeProposalSnapshotAndId,
+          ethers.parseUnits('10', 18),
+        );
+      });
+
+      it('should return false initially', async () => {
+        const hasVoted = await adapter.hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+          freezeVoteContract.address,
+          freezeProposalSnapshotAndId,
+          voter.address,
+        );
+        void expect(hasVoted).to.be.false;
+      });
+
+      it('should return true after recording a freeze vote', async () => {
+        // Record a freeze vote
+        await adapter
+          .connect(freezeVoteContract)
+          .recordFreezeVote(voter.address, freezeProposalSnapshotAndId, ZERO_EXTRA_DATA);
+
+        // Check the state
+        const hasVoted = await adapter.hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+          freezeVoteContract.address,
+          freezeProposalSnapshotAndId,
+          voter.address,
+        );
+        void expect(hasVoted).to.be.true;
+      });
+
+      it('should only mark the specific contract/proposalId/voter combination as voted', async () => {
+        const anotherSnapshotId = freezeProposalSnapshotAndId + 1000;
+        const anotherVoter = (await ethers.getSigners())[3];
+
+        await token.setPastVotes(voter.address, anotherSnapshotId, ethers.parseUnits('10', 18));
+        await strategy.addAuthorizedFreezeVoter(anotherFreezeVoteContract.address);
+
+        // Record a vote
+        await adapter
+          .connect(freezeVoteContract)
+          .recordFreezeVote(voter.address, freezeProposalSnapshotAndId, ZERO_EXTRA_DATA);
+
+        // Check states - same voter, different params
+        void expect(
+          await adapter.hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+            freezeVoteContract.address,
+            freezeProposalSnapshotAndId,
+            voter.address,
+          ),
+        ).to.be.true;
+
+        void expect(
+          await adapter.hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+            anotherFreezeVoteContract.address,
+            freezeProposalSnapshotAndId,
+            voter.address,
+          ),
+        ).to.be.false;
+
+        void expect(
+          await adapter.hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+            freezeVoteContract.address,
+            anotherSnapshotId,
+            voter.address,
+          ),
+        ).to.be.false;
+
+        void expect(
+          await adapter.hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+            freezeVoteContract.address,
+            freezeProposalSnapshotAndId,
+            anotherVoter.address,
+          ),
+        ).to.be.false;
+      });
     });
   });
 
@@ -433,17 +647,15 @@ describe('ERC20VotingAdapterV1', () => {
     it('should support IERC20VotingAdapterV1', async () => {
       void expect(
         await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface(), [
-            IVotingAdapterV1__factory.createInterface(),
-          ]),
+          calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
 
-    it('should support IVotingAdapterV1', async () => {
+    it('should support IBaseVotingAdapterV1', async () => {
       void expect(
         await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterV1__factory.createInterface()),
+          calculateInterfaceId(IBaseVotingAdapterV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
@@ -466,6 +678,257 @@ describe('ERC20VotingAdapterV1', () => {
 
     it('should not support a random interfaceId', async () => {
       void expect(await erc20Adapter.supportsInterface('0x12345678')).to.be.false;
+    });
+  });
+
+  // New Test Suite for Freeze Voting
+  describe('Freeze Voting', () => {
+    let adapter: ERC20VotingAdapterV1;
+    let token: MockERC20Votes;
+    let strategy: MockVotingStrategy;
+    let deployerSigner: SignerWithAddress;
+    let voter1: SignerWithAddress;
+    let authorizedCaller: SignerWithAddress;
+    let unauthorizedCaller: SignerWithAddress;
+
+    const PROPOSAL_SNAPSHOT_AND_ID_1 = Math.floor(Date.now() / 1000) - 100; // Example timestamp
+    const PROPOSAL_SNAPSHOT_AND_ID_2 = PROPOSAL_SNAPSHOT_AND_ID_1 + 5000;
+    const DEFAULT_VOTES = ethers.parseUnits('100', 18);
+    const ZERO_EXTRA_DATA = '0x';
+
+    beforeEach(async () => {
+      const mocks = await loadFixture(deployMocksAndSignersFixture);
+      deployerSigner = mocks.deployer;
+      voter1 = mocks.user1Signer;
+      authorizedCaller = mocks.user2Signer; // Using user2 as a designated authorized caller for tests
+      token = mocks.mockToken;
+      strategy = mocks.mockStrategy;
+
+      // Get another signer for unauthorized calls
+      const signers = await ethers.getSigners();
+      unauthorizedCaller = signers[0]; // Fallback to deployer if user2 was also fallback above
+
+      const { adapter: deployedAdapter } = await deployERC20AdapterProxy(
+        deployerSigner,
+        erc20AdapterImplementationAddressG, // from global fixture
+        await token.getAddress(),
+        await strategy.getAddress(),
+        DEFAULT_WEIGHT_PER_TOKEN,
+      );
+      adapter = deployedAdapter;
+      await strategy.setVotingAdapter(await adapter.getAddress(), true); // Important for mock strategy
+    });
+
+    describe('getFreezeVoteWeight', () => {
+      it('should return correct weight based on past votes at the given snapshot timestamp', async () => {
+        await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES);
+        const weight = await adapter
+          .connect(authorizedCaller)
+          .getFreezeVoteWeight(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1);
+        expect(weight).to.equal(DEFAULT_VOTES * DEFAULT_WEIGHT_PER_TOKEN);
+      });
+
+      it('should return 0 if voter has no votes at the snapshot timestamp', async () => {
+        await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, 0n);
+        const weight = await adapter
+          .connect(authorizedCaller)
+          .getFreezeVoteWeight(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1);
+        expect(weight).to.equal(0n);
+      });
+
+      it('should correctly apply custom weightPerToken', async () => {
+        const customWeightPerToken = 5n;
+        const { adapter: customAdapter } = await deployERC20AdapterProxy(
+          deployerSigner,
+          erc20AdapterImplementationAddressG,
+          await token.getAddress(),
+          await strategy.getAddress(),
+          customWeightPerToken,
+        );
+        await strategy.setVotingAdapter(await customAdapter.getAddress(), true);
+        await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES);
+
+        const weight = await customAdapter
+          .connect(authorizedCaller)
+          .getFreezeVoteWeight(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1);
+        expect(weight).to.equal(DEFAULT_VOTES * customWeightPerToken);
+      });
+
+      it('should not alter any freeze voting state', async () => {
+        await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES);
+        await adapter
+          .connect(authorizedCaller)
+          .getFreezeVoteWeight(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1);
+
+        // Now try to record a vote, it should succeed if state wasn't altered by getFreezeVoteWeight
+        await strategy.addAuthorizedFreezeVoter(authorizedCaller.address);
+        await expect(
+          adapter
+            .connect(authorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA),
+        )
+          .to.emit(adapter, 'FreezeVoteRecorded')
+          .withArgs(
+            voter1.address,
+            PROPOSAL_SNAPSHOT_AND_ID_1,
+            DEFAULT_VOTES * DEFAULT_WEIGHT_PER_TOKEN,
+            ZERO_EXTRA_DATA,
+          );
+      });
+    });
+
+    describe('recordFreezeVote', () => {
+      it('should revert with UnauthorizedFreezeVoter if caller is not authorized by the strategy', async () => {
+        await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES);
+        await expect(
+          adapter
+            .connect(unauthorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA),
+        )
+          .to.be.revertedWithCustomError(adapter, 'UnauthorizedFreezeVoter')
+          .withArgs(unauthorizedCaller.address);
+      });
+
+      it('should record vote, return casted weight, and emit FreezeVoteRecorded on success if caller is authorized', async () => {
+        await strategy.addAuthorizedFreezeVoter(authorizedCaller.address);
+        await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES);
+
+        const expectedWeightCasted = DEFAULT_VOTES * DEFAULT_WEIGHT_PER_TOKEN;
+
+        const tx = adapter
+          .connect(authorizedCaller)
+          .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA);
+
+        await expect(tx)
+          .to.emit(adapter, 'FreezeVoteRecorded')
+          .withArgs(
+            voter1.address,
+            PROPOSAL_SNAPSHOT_AND_ID_1,
+            expectedWeightCasted,
+            ZERO_EXTRA_DATA,
+          );
+
+        // Check returned value (Hardhat Chai Matchers V5 syntax for return value needs a bit more setup or direct call)
+        // For simplicity, we can check the event args which already confirm weightCasted.
+        // Alternatively, for a direct check of return value:
+        // const callResult = await adapter.connect(authorizedCaller).recordFreezeVote.staticCall(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA);
+        // expect(callResult).to.equal(expectedWeightCasted);
+        // And then execute the actual transaction for event and state change checks.
+        // For now, relying on event emission for weightCasted verification is common.
+
+        // Verify state change: subsequent call for weightOf for this specific freeze context should indicate voted (hard to check directly without getter)
+        // So, we test by trying to vote again, which should fail.
+        await expect(
+          adapter
+            .connect(authorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA),
+        ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
+      });
+
+      it('should revert with NoFreezeVotingWeight if calculated weight is 0', async () => {
+        await strategy.addAuthorizedFreezeVoter(authorizedCaller.address);
+        await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, 0n); // Voter has 0 votes
+
+        await expect(
+          adapter
+            .connect(authorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA),
+        ).to.be.revertedWithCustomError(adapter, 'NoFreezeVotingWeight');
+      });
+
+      describe('Duplicate Vote Prevention', () => {
+        beforeEach(async () => {
+          // Ensure authorizedCaller is authorized for these tests
+          await strategy.addAuthorizedFreezeVoter(authorizedCaller.address);
+          // Ensure voter1 has some votes for the initial successful vote
+          await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES);
+          await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_2, DEFAULT_VOTES);
+        });
+
+        it('should revert with AlreadyVoted if same voter, caller, and snapshotAndId try to vote again', async () => {
+          // First vote
+          await adapter
+            .connect(authorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA);
+          // Second attempt with same params
+          await expect(
+            adapter
+              .connect(authorizedCaller)
+              .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA),
+          ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
+        });
+
+        it('should allow same voter to vote if snapshotAndId is different (new freeze proposal)', async () => {
+          // Vote for first proposal ID
+          await adapter
+            .connect(authorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA);
+          // Vote for second proposal ID (different snapshotAndId)
+          await expect(
+            adapter
+              .connect(authorizedCaller)
+              .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_2, ZERO_EXTRA_DATA),
+          )
+            .to.emit(adapter, 'FreezeVoteRecorded')
+            .withArgs(
+              voter1.address,
+              PROPOSAL_SNAPSHOT_AND_ID_2,
+              DEFAULT_VOTES * DEFAULT_WEIGHT_PER_TOKEN,
+              ZERO_EXTRA_DATA,
+            );
+        });
+
+        it('should allow same voter and snapshotAndId if caller is different (different child DAO)', async () => {
+          const [, , , , otherAuthorizedCaller] = await ethers.getSigners(); // Get a new signer
+          await strategy.addAuthorizedFreezeVoter(otherAuthorizedCaller.address);
+          await token.setPastVotes(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES); // Ensure votes for this context too
+
+          // Vote from first authorized caller
+          await adapter
+            .connect(authorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA);
+
+          // Vote from second authorized caller for the same voter and snapshotAndId
+          await expect(
+            adapter
+              .connect(otherAuthorizedCaller)
+              .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA),
+          )
+            .to.emit(adapter, 'FreezeVoteRecorded')
+            .withArgs(
+              voter1.address,
+              PROPOSAL_SNAPSHOT_AND_ID_1,
+              DEFAULT_VOTES * DEFAULT_WEIGHT_PER_TOKEN,
+              ZERO_EXTRA_DATA,
+            );
+        });
+
+        it('should allow different voter for same caller and snapshotAndId', async () => {
+          const [, , voter2] = await ethers.getSigners();
+          await token.mint(voter2.address, DEFAULT_VOTES);
+          await token.connect(voter2).delegate(voter2.address);
+          await token.setPastVotes(voter2.address, PROPOSAL_SNAPSHOT_AND_ID_1, DEFAULT_VOTES);
+
+          // Vote from voter1
+          await adapter
+            .connect(authorizedCaller)
+            .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA);
+
+          // Vote from voter2
+          await expect(
+            adapter
+              .connect(authorizedCaller)
+              .recordFreezeVote(voter2.address, PROPOSAL_SNAPSHOT_AND_ID_1, ZERO_EXTRA_DATA),
+          )
+            .to.emit(adapter, 'FreezeVoteRecorded')
+            .withArgs(
+              voter2.address,
+              PROPOSAL_SNAPSHOT_AND_ID_1,
+              DEFAULT_VOTES * DEFAULT_WEIGHT_PER_TOKEN,
+              ZERO_EXTRA_DATA,
+            );
+        });
+      });
     });
   });
 });
