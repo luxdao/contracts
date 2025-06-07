@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IVotingAdapterV1} from "./IVotingAdapterV1.sol";
-
-interface IERC20VotingAdapterV1 is IVotingAdapterV1 {
+interface IERC20VotingAdapterV1 {
     error ProposalNotReadyForSnapshot();
     error AlreadyVoted();
 
@@ -13,9 +11,23 @@ interface IERC20VotingAdapterV1 is IVotingAdapterV1 {
         uint256 weightPerToken
     ) external;
 
-    function strategy() external view returns (address);
-
     function token() external view returns (address);
 
     function weightPerToken() external view returns (uint256);
+
+    function getFreezeVoteWeight(
+        address voter,
+        uint48 freezeProposalSnapshotAndId
+    ) external view returns (uint256 weight);
+
+    function hasCastedVoteForProposal(
+        uint32 proposalId,
+        address voter
+    ) external view returns (bool);
+
+    function hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
+        address freezeVoteContract,
+        uint48 freezeProposalSnapshotAndId,
+        address voter
+    ) external view returns (bool);
 }

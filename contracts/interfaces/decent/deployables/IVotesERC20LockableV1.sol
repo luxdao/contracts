@@ -12,23 +12,22 @@ interface IVotesERC20LockableV1 is IVotesERC20V1 {
     error InvalidMaxTotalSupply();
 
     function initialize(
+        Metadata calldata metadata_,
+        Allocation[] calldata allocations_,
         address owner_,
         bool locked_,
-        uint256 maxTotalSupply_,
-        string memory name_,
-        string memory symbol_,
-        Allocation[] memory allocations_
+        uint256 maxTotalSupply_
     ) external;
 
-    function lock(bool _locked) external;
+    function lock(bool locked_) external;
 
     function locked() external view returns (bool);
 
-    function mint(address to, uint256 amount) external;
+    function mint(address to_, uint256 amount_) external;
 
     function maxTotalSupply() external view returns (uint256);
 
-    function setMaxTotalSupply(uint256 newMaxTotalSupply) external;
+    function setMaxTotalSupply(uint256 newMaxTotalSupply_) external;
 
-    function burn(uint256 amount) external;
+    function burn(uint256 amount_) external;
 }

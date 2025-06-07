@@ -24,9 +24,9 @@ contract VotesERC20StakedV1 is
 
     uint16 private constant VERSION = 1;
     IERC20 internal _stakedToken;
-    address private constant NATIVE_ASSET =
+    address internal constant NATIVE_ASSET =
         0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    uint256 private constant PRECISION = 10 ** 18;
+    uint256 internal constant PRECISION = 10 ** 18;
     uint256 internal _minimumStakingPeriod;
     uint256 internal _totalStaked;
 
@@ -42,14 +42,13 @@ contract VotesERC20StakedV1 is
     receive() external payable {}
 
     function initialize(
-        string memory name_,
-        string memory symbol_,
+        Metadata calldata metadata_,
         address owner_,
         address stakedToken_,
         uint256 minimumStakingPeriod_,
-        address[] memory rewardsTokens_
+        address[] calldata rewardsTokens_
     ) public virtual override initializer {
-        __ERC20_init(name_, symbol_);
+        __ERC20_init(metadata_.name, metadata_.symbol);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
@@ -59,7 +58,7 @@ contract VotesERC20StakedV1 is
     }
 
     function addRewardsTokens(
-        address[] memory rewardsTokens_
+        address[] calldata rewardsTokens_
     ) external virtual override onlyOwner {
         _addRewardsTokens(rewardsTokens_);
     }
@@ -118,20 +117,89 @@ contract VotesERC20StakedV1 is
     }
 
     function distributeRewards(
-        address[] memory _tokens
+        address[] calldata _tokens
     ) external virtual override {
         if (_totalStaked == 0) revert ZeroStaked();
 
         for (uint256 i = 0; i < _tokens.length; ) {
-            if (!_rewardsTokenDatas[_tokens[i]].enabled)
-                revert InvalidRewardsToken(_tokens[i]);
+            address token = _tokens[i];
+            if (!_rewardsTokenDatas[token].enabled)
+                revert InvalidRewardsToken(token);
 
-            _distributeRewards(_tokens[i]);
+            _distributeRewards(token);
 
             unchecked {
                 ++i;
             }
         }
+    }
+
+    function claimRewards(address _recipient) external virtual override {
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            _claimRewards(msg.sender, _recipient, _rewardsTokens[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function claimRewards(
+        address _recipient,
+        address[] memory _tokens
+    ) external virtual override {
+        for (uint256 i = 0; i < _tokens.length; ) {
+            address token = _tokens[i];
+            if (!_rewardsTokenDatas[token].enabled)
+                revert InvalidRewardsToken(token);
+
+            _claimRewards(msg.sender, _recipient, token);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function transfer(address, uint256) public virtual override returns (bool) {
+        revert NonTransferable();
+    }
+
+    function transferFrom(
+        address,
+        address,
+        uint256
+    ) public virtual override returns (bool) {
+        revert NonTransferable();
+    }
+
+    function approve(address, uint256) public virtual override returns (bool) {
+        revert NonTransferable();
+    }
+
+    function _claimRewards(
+        address _claimer,
+        address _recipient,
+        address _token
+    ) internal {
+        uint256 amountToClaim = _claimableRewards(_claimer, _token);
+
+        RewardsTokenData storage token = _rewardsTokenDatas[_token];
+
+        token.stakerAccumulatedRewards[_claimer] = 0;
+        token.stakerRewardsRates[_claimer] = token.rewardsRate;
+
+        if (amountToClaim == 0) return;
+
+        token.rewardsClaimed += amountToClaim;
+        if (_token == NATIVE_ASSET) {
+            (bool success, ) = _recipient.call{value: amountToClaim}("");
+            if (!success) revert TransferFailed();
+        } else {
+            IERC20(_token).safeTransfer(_recipient, amountToClaim);
+        }
+
+        emit RewardsClaimed(_claimer, _token, _recipient, amountToClaim);
     }
 
     function _distributeRewards(address _token) internal {
@@ -151,7 +219,7 @@ contract VotesERC20StakedV1 is
         emit RewardsDistributed(_token, amountToDistribute, newRewardsRate);
     }
 
-    function _addRewardsTokens(address[] memory rewardsTokens_) internal {
+    function _addRewardsTokens(address[] calldata rewardsTokens_) internal {
         for (uint256 i = 0; i < rewardsTokens_.length; ) {
             if (_rewardsTokenDatas[rewardsTokens_[i]].enabled)
                 revert DuplicateRewardsToken();
@@ -187,20 +255,17 @@ contract VotesERC20StakedV1 is
         }
     }
 
-    function transfer(address, uint256) public virtual override returns (bool) {
-        revert NonTransferable();
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {
+        // Authorization is handled by the onlyOwner modifier
     }
 
-    function transferFrom(
-        address,
-        address,
-        uint256
-    ) public virtual override returns (bool) {
-        revert NonTransferable();
-    }
-
-    function approve(address, uint256) public virtual override returns (bool) {
-        revert NonTransferable();
+    function _updateMinimumStakingPeriod(
+        uint256 newMinimumStakingPeriod
+    ) internal {
+        _minimumStakingPeriod = newMinimumStakingPeriod;
+        emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
     }
 
     function clock()
@@ -220,19 +285,6 @@ contract VotesERC20StakedV1 is
         returns (string memory)
     {
         return "mode=timestamp";
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal virtual override onlyOwner {
-        // Authorization is handled by the onlyOwner modifier
-    }
-
-    function _updateMinimumStakingPeriod(
-        uint256 newMinimumStakingPeriod
-    ) internal {
-        _minimumStakingPeriod = newMinimumStakingPeriod;
-        emit MinimumStakingPeriodUpdated(newMinimumStakingPeriod);
     }
 
     function version() public view virtual override returns (uint16) {
@@ -313,17 +365,18 @@ contract VotesERC20StakedV1 is
     }
 
     function distributableRewards(
-        address[] memory rewardsTokens_
+        address[] calldata rewardsTokens_
     ) external view virtual override returns (uint256[] memory) {
         uint256[] memory distributableRewards_ = new uint256[](
             rewardsTokens_.length
         );
 
         for (uint256 i = 0; i < rewardsTokens_.length; ) {
-            if (!_rewardsTokenDatas[rewardsTokens_[i]].enabled)
-                revert InvalidRewardsToken(rewardsTokens_[i]);
+            address token = rewardsTokens_[i];
+            if (!_rewardsTokenDatas[token].enabled)
+                revert InvalidRewardsToken(token);
 
-            distributableRewards_[i] = _distributableRewards(rewardsTokens_[i]);
+            distributableRewards_[i] = _distributableRewards(token);
 
             unchecked {
                 ++i;
@@ -342,6 +395,10 @@ contract VotesERC20StakedV1 is
         uint256 thisBalance;
         if (_token == NATIVE_ASSET) {
             thisBalance = address(this).balance;
+        } else if (_token == address(_stakedToken)) {
+            thisBalance =
+                IERC20(_token).balanceOf(address(this)) -
+                _totalStaked;
         } else {
             thisBalance = IERC20(_token).balanceOf(address(this));
         }
@@ -384,6 +441,65 @@ contract VotesERC20StakedV1 is
             _rewardsTokenDatas[token].stakerRewardsRates[staker],
             _rewardsTokenDatas[token].stakerAccumulatedRewards[staker]
         );
+    }
+
+    function claimableRewards(
+        address _staker
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256[] memory claimableRewards_)
+    {
+        claimableRewards_ = new uint256[](_rewardsTokens.length);
+        for (uint256 i = 0; i < _rewardsTokens.length; ) {
+            claimableRewards_[i] = _claimableRewards(
+                _staker,
+                _rewardsTokens[i]
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function claimableRewards(
+        address _staker,
+        address[] memory _tokens
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256[] memory claimableRewards_)
+    {
+        claimableRewards_ = new uint256[](_tokens.length);
+        for (uint256 i = 0; i < _tokens.length; ) {
+            address token = _tokens[i];
+            if (!_rewardsTokenDatas[token].enabled)
+                revert InvalidRewardsToken(token);
+
+            claimableRewards_[i] = _claimableRewards(_staker, token);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function _claimableRewards(
+        address _staker,
+        address _token
+    ) internal view returns (uint256 claimableRewards_) {
+        RewardsTokenData storage token = _rewardsTokenDatas[_token];
+
+        claimableRewards_ =
+            token.stakerAccumulatedRewards[_staker] +
+            ((_stakerData[_staker].stakedAmount *
+                (token.rewardsRate - token.stakerRewardsRates[_staker])) /
+                PRECISION);
     }
 
     function supportsInterface(
