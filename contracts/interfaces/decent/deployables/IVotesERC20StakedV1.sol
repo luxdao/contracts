@@ -30,6 +30,12 @@ interface IVotesERC20StakedV1 {
         uint256 amount,
         uint256 newRate
     );
+    event RewardsClaimed(
+        address indexed staker,
+        address indexed token,
+        address indexed recipient,
+        uint256 amount
+    );
     error NonTransferable();
     error ZeroStake();
     error ZeroUnstake();
@@ -37,6 +43,7 @@ interface IVotesERC20StakedV1 {
     error InvalidRewardsToken(address token);
     error DuplicateRewardsToken();
     error MinimumStakingPeriod();
+    error TransferFailed();
 
     function initialize(
         Metadata calldata metadata,
@@ -59,6 +66,13 @@ interface IVotesERC20StakedV1 {
     function distributeRewards() external;
 
     function distributeRewards(address[] calldata _tokens) external;
+
+    function claimRewards(address _recipient) external;
+
+    function claimRewards(
+        address _recipient,
+        address[] memory _tokens
+    ) external;
 
     function clock() external view returns (uint48);
 
@@ -97,4 +111,13 @@ interface IVotesERC20StakedV1 {
         address token,
         address staker
     ) external view returns (uint256 rewardRate, uint256 accumulatedRewards);
+
+    function claimableRewards(
+        address _staker
+    ) external view returns (uint256[] memory _claimableRewards);
+
+    function claimableRewards(
+        address _staker,
+        address[] memory _tokens
+    ) external view returns (uint256[] memory _claimableRewards);
 }

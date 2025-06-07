@@ -3,168 +3,276 @@ pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
 import {IBaseVotingAdapterV1} from "../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
+import {ERC4337VoterSupportV1} from "../deployables/strategies/ERC4337VoterSupportV1.sol";
 
-contract MockVotingStrategy is IStrategyV1 {
+contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
     struct TimestampPoints {
         uint48 startTimestamp;
         uint48 endTimestamp;
     }
 
-    address public proposer;
-    mapping(uint32 => bool) private _isPassed;
-    mapping(uint32 => TimestampPoints) private _proposalTimestamps;
-    mapping(uint32 => uint32) public mockVotingStartBlock;
-    mapping(address => bool) private _isVotingAdapter;
-    mapping(address => bool) private _isProposerAdapter;
+    address public mockStrategyAdmin;
+    mapping(uint32 => ProposalVotingDetails) public proposalVotingDetailsMap;
+    mapping(uint32 => uint48) public votingStartTimestampsMap;
+    mapping(uint32 => uint48) public votingEndTimestampsMap;
+    mapping(uint32 => uint32) public votingStartBlocksMap;
+    mapping(address => bool) internal _isVotingAdapterMap;
+    mapping(address => bool) internal _isProposerAdapterMap;
 
-    constructor(address _proposer) {
-        proposer = _proposer;
-    }
+    mapping(address => bool) internal _authorizedFreezeVotersMapping;
+    address[] internal _authorizedFreezeVotersArray;
 
-    function initializeProposal(
-        uint32 _proposalId,
-        bytes32[] calldata _txHashes,
-        bytes calldata _data
-    ) external override {}
+    mapping(uint32 => bool) internal _mockIsPassedMap;
 
-    function isPassed(uint32 proposalId) external view override returns (bool) {
-        return _isPassed[proposalId];
-    }
+    uint32 internal _mockVotingPeriod;
+    uint256 internal _mockQuorumThreshold;
+    uint256 internal _mockBasisNumerator;
+    address[] internal _mockVotingAdapters;
+    address[] internal _mockProposerAdapters;
 
-    function isProposer(
-        address _address,
-        address,
-        bytes calldata
-    ) external view override returns (bool) {
-        return _address == proposer;
-    }
-
-    function getVotingTimestamps(
-        uint32 proposalId
-    ) external view override returns (uint48, uint48) {
-        TimestampPoints memory timestamps = _proposalTimestamps[proposalId];
-        return (timestamps.startTimestamp, timestamps.endTimestamp);
-    }
-
-    function getVotingStartBlock(
-        uint32 _proposalId
-    ) external view override returns (uint32 votingStartBlock) {
-        return mockVotingStartBlock[_proposalId];
-    }
-
-    function isVotingAdapter(
-        address votingAdapter_
-    ) external view override returns (bool) {
-        return _isVotingAdapter[votingAdapter_];
-    }
-
-    function isProposerAdapter(
-        address proposerAdapter_
-    ) external view override returns (bool) {
-        return _isProposerAdapter[proposerAdapter_];
-    }
-
-    // mock setters
-
-    function setIsPassed(uint32 proposalId, bool passed) external {
-        _isPassed[proposalId] = passed;
-    }
-
-    function setVotingTimestamps(
-        uint32 proposalId,
-        uint48 startTimestamp,
-        uint48 endTimestamp
-    ) external {
-        _proposalTimestamps[proposalId] = TimestampPoints(
-            startTimestamp,
-            endTimestamp
-        );
-    }
-
-    function setVotingStartBlock(
-        uint32 proposalId,
-        uint32 startBlock
-    ) external {
-        mockVotingStartBlock[proposalId] = startBlock;
-    }
-
-    function setVotingAdapter(
-        address votingAdapter_,
-        bool isVotingAdapter_
-    ) external {
-        _isVotingAdapter[votingAdapter_] = isVotingAdapter_;
-    }
-
-    function setProposerAdapter(
-        address proposerAdapter_,
-        bool isProposerAdapter_
-    ) external {
-        _isProposerAdapter[proposerAdapter_] = isProposerAdapter_;
+    constructor(address _mockStrategyAdmin) {
+        mockStrategyAdmin = _mockStrategyAdmin;
     }
 
     function initialize(
-        address proposalInitializer_,
+        address strategyAdmin_,
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
         address[] calldata votingAdapters_,
         address[] calldata proposerAdapters_,
         address lightAccountFactory_
-    ) external override {}
+    ) external override {
+        mockStrategyAdmin = strategyAdmin_;
+        _mockVotingPeriod = votingPeriod_;
+        _mockQuorumThreshold = quorumThreshold_;
+        _mockBasisNumerator = basisNumerator_;
+        _mockVotingAdapters = votingAdapters_;
+        _mockProposerAdapters = proposerAdapters_;
+        for (uint i = 0; i < votingAdapters_.length; i++) {
+            _isVotingAdapterMap[votingAdapters_[i]] = true;
+        }
+        for (uint i = 0; i < proposerAdapters_.length; i++) {
+            _isProposerAdapterMap[proposerAdapters_[i]] = true;
+        }
+        __ERC4337VoterSupportV1_init(lightAccountFactory_);
+    }
 
-    function proposalInitializer() external view override returns (address) {}
+    function strategyAdmin() external view override returns (address) {
+        return mockStrategyAdmin;
+    }
 
-    function votingPeriod() external view override returns (uint32) {}
+    function votingPeriod() external view override returns (uint32) {
+        return _mockVotingPeriod;
+    }
 
-    function quorumThreshold() external view override returns (uint256) {}
+    function quorumThreshold() external view override returns (uint256) {
+        return _mockQuorumThreshold;
+    }
 
-    function basisNumerator() external view override returns (uint256) {}
+    function basisNumerator() external view override returns (uint256) {
+        return _mockBasisNumerator;
+    }
 
     function proposalVotingDetails(
         uint32 proposalId
-    ) external view override returns (ProposalVotingDetails memory) {}
+    ) external view override returns (ProposalVotingDetails memory) {
+        return proposalVotingDetailsMap[proposalId];
+    }
 
     function votingAdapters()
         external
         view
         override
         returns (address[] memory)
-    {}
+    {
+        return _mockVotingAdapters;
+    }
 
     function proposerAdapters()
         external
         view
         override
         returns (address[] memory)
-    {}
+    {
+        return _mockProposerAdapters;
+    }
 
-    function isQuorumMet(
-        uint32 _proposalId
-    ) external view override returns (bool) {}
+    function isVotingAdapter(address va) external view override returns (bool) {
+        return _isVotingAdapterMap[va];
+    }
 
-    function isBasisMet(
-        uint32 _proposalId
-    ) external view override returns (bool) {}
+    function isProposerAdapter(
+        address pa
+    ) external view override returns (bool) {
+        return _isProposerAdapterMap[pa];
+    }
+
+    function setVotingAdapter(address adapter, bool isAdapter) external {
+        _isVotingAdapterMap[adapter] = isAdapter;
+    }
+
+    function setVotingTimestamps(
+        uint32 proposalId,
+        uint48 startTime,
+        uint48 endTime
+    ) external {
+        votingStartTimestampsMap[proposalId] = startTime;
+        votingEndTimestampsMap[proposalId] = endTime;
+        proposalVotingDetailsMap[proposalId].votingStartTimestamp = startTime;
+        proposalVotingDetailsMap[proposalId].votingEndTimestamp = endTime;
+    }
+
+    function setVotingStartBlock(
+        uint32 proposalId,
+        uint32 startBlock
+    ) external {
+        votingStartBlocksMap[proposalId] = startBlock;
+        proposalVotingDetailsMap[proposalId].votingStartBlock = startBlock;
+    }
+
+    function getVotingTimestamps(
+        uint32 proposalId
+    ) external view override returns (uint48 startTime, uint48 endTime) {
+        return (
+            votingStartTimestampsMap[proposalId],
+            votingEndTimestampsMap[proposalId]
+        );
+    }
+
+    function getVotingStartBlock(
+        uint32 proposalId
+    ) external view override returns (uint32 votingStartBlock) {
+        return votingStartBlocksMap[proposalId];
+    }
+
+    function initializeProposal(
+        uint32 proposalId,
+        bytes32[] calldata,
+        bytes calldata
+    ) external virtual override {
+        ProposalVotingDetails storage proposal = proposalVotingDetailsMap[
+            proposalId
+        ];
+        proposal.votingStartTimestamp = uint48(block.timestamp);
+        proposal.votingEndTimestamp = uint48(
+            block.timestamp + _mockVotingPeriod
+        );
+        proposal.votingStartBlock = uint32(block.number);
+        emit ProposalInitialized(
+            proposalId,
+            proposal.votingStartTimestamp,
+            proposal.votingEndTimestamp,
+            proposal.votingStartBlock
+        );
+    }
 
     function vote(
         uint32 _proposalId,
-        uint8 /*_voteType*/,
+        uint8 _voteType,
         address[] calldata _votingAdaptersToUse,
         bytes[] calldata _votingAdapterVoteData
     ) external virtual override {
-        for (uint256 i = 0; i < _votingAdaptersToUse.length; ) {
-            address adapterAddress = _votingAdaptersToUse[i];
-            bytes calldata adapterData = _votingAdapterVoteData[i];
-
-            IBaseVotingAdapterV1(adapterAddress).recordVote(
-                msg.sender,
-                _proposalId,
-                adapterData
-            );
-
-            unchecked {
-                ++i;
-            }
+        address resolvedVoter = voter(msg.sender);
+        ProposalVotingDetails storage proposal = proposalVotingDetailsMap[
+            _proposalId
+        ];
+        uint256 totalWeight = 0;
+        for (uint i = 0; i < _votingAdaptersToUse.length; i++) {
+            totalWeight += IBaseVotingAdapterV1(_votingAdaptersToUse[i])
+                .recordVote(
+                    resolvedVoter,
+                    _proposalId,
+                    _votingAdapterVoteData[i]
+                );
         }
+        if (_voteType == uint8(VoteType.YES)) proposal.yesVotes += totalWeight;
+        else if (_voteType == uint8(VoteType.NO))
+            proposal.noVotes += totalWeight;
+        else if (_voteType == uint8(VoteType.ABSTAIN))
+            proposal.abstainVotes += totalWeight;
+        emit Voted(
+            resolvedVoter,
+            _proposalId,
+            VoteType(_voteType),
+            totalWeight
+        );
+    }
+
+    function isPassed(
+        uint32 _proposalId
+    ) external view override returns (bool) {
+        return _mockIsPassedMap[_proposalId];
+    }
+
+    function setIsPassed(uint32 proposalId, bool passed) external {
+        _mockIsPassedMap[proposalId] = passed;
+    }
+
+    function isQuorumMet(uint32) external pure override returns (bool) {
+        return true;
+    }
+
+    function isBasisMet(uint32) external pure override returns (bool) {
+        return true;
+    }
+
+    function isProposer(
+        address address_,
+        address,
+        bytes calldata
+    ) external view virtual override returns (bool) {
+        return address_ == mockStrategyAdmin;
+    }
+
+    function addAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external virtual override {
+        if (freezeVoterContract == address(0)) revert InvalidAddress();
+        if (!_authorizedFreezeVotersMapping[freezeVoterContract]) {
+            _authorizedFreezeVotersMapping[freezeVoterContract] = true;
+            _authorizedFreezeVotersArray.push(freezeVoterContract);
+            emit FreezeVoterAuthorizationChanged(freezeVoterContract, true);
+        }
+    }
+
+    function removeAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external virtual override {
+        if (freezeVoterContract == address(0)) revert InvalidAddress();
+        if (_authorizedFreezeVotersMapping[freezeVoterContract]) {
+            _authorizedFreezeVotersMapping[freezeVoterContract] = false;
+            for (uint256 i = 0; i < _authorizedFreezeVotersArray.length; ) {
+                if (_authorizedFreezeVotersArray[i] == freezeVoterContract) {
+                    _authorizedFreezeVotersArray[
+                        i
+                    ] = _authorizedFreezeVotersArray[
+                        _authorizedFreezeVotersArray.length - 1
+                    ];
+                    _authorizedFreezeVotersArray.pop();
+                    break;
+                }
+                unchecked {
+                    ++i;
+                }
+            }
+            emit FreezeVoterAuthorizationChanged(freezeVoterContract, false);
+        }
+    }
+
+    function isAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external view virtual override returns (bool) {
+        return _authorizedFreezeVotersMapping[freezeVoterContract];
+    }
+
+    function authorizedFreezeVoters()
+        external
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _authorizedFreezeVotersArray;
     }
 }

@@ -24,7 +24,7 @@ import { calculateInterfaceId } from '../../helpers/utils';
 describe('StrategyV1', () => {
   // Signers
   let deployer: SignerWithAddress;
-  let proposerInitializer: SignerWithAddress; // To simulate calls from proposer initializer
+  let strategyAdmin: SignerWithAddress;
   let nonOwner: SignerWithAddress;
   let user1: SignerWithAddress;
   let voter1: SignerWithAddress, voter2: SignerWithAddress, voter3: SignerWithAddress;
@@ -47,7 +47,7 @@ describe('StrategyV1', () => {
   let defaultInitialProposerAdapters: string[];
 
   async function deployStrategyProxy(
-    proposerInitializerAddress: string,
+    strategyAdminAddress: string,
     votingPeriod: number,
     quorumThreshold: bigint,
     basisNumerator: bigint,
@@ -56,7 +56,7 @@ describe('StrategyV1', () => {
     lightAccountFactoryAddress: string,
   ): Promise<StrategyV1> {
     const initializeCalldata = strategyImplementation.interface.encodeFunctionData('initialize', [
-      proposerInitializerAddress,
+      strategyAdminAddress,
       votingPeriod,
       quorumThreshold,
       basisNumerator,
@@ -72,7 +72,7 @@ describe('StrategyV1', () => {
   }
 
   beforeEach(async () => {
-    [deployer, proposerInitializer, nonOwner, user1, voter2, voter3] = await ethers.getSigners();
+    [deployer, strategyAdmin, nonOwner, user1, voter2, voter3] = await ethers.getSigners();
     voter1 = user1; // Alias for clarity in some tests
 
     strategyImplementation = await new StrategyV1__factory(deployer).deploy();
@@ -96,7 +96,7 @@ describe('StrategyV1', () => {
     defaultInitialProposerAdapters = [await mockProposerAdapter1.getAddress()];
 
     strategy = await deployStrategyProxy(
-      proposerInitializer.address,
+      strategyAdmin.address,
       DEFAULT_VOTING_PERIOD,
       DEFAULT_QUORUM_THRESHOLD,
       DEFAULT_BASIS_NUMERATOR,
@@ -108,7 +108,7 @@ describe('StrategyV1', () => {
 
   describe('Initialization', () => {
     it('should initialize with correct parameters', async () => {
-      const proposerInitializerAddress = proposerInitializer.address;
+      const strategyAdminAddress = strategyAdmin.address;
       const lightAccountFactoryAddress = lightAccountFactoryMockAddress;
       const initialVotingAdapters: string[] = [
         await mockAdapter1.getAddress(),
@@ -123,7 +123,7 @@ describe('StrategyV1', () => {
       const basisNumerator = DEFAULT_BASIS_NUMERATOR + 1n;
 
       const testStrategy = await deployStrategyProxy(
-        proposerInitializerAddress,
+        strategyAdminAddress,
         votingPeriod,
         quorumThreshold,
         basisNumerator,
@@ -132,7 +132,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryAddress,
       );
 
-      expect(await testStrategy.proposalInitializer()).to.equal(proposerInitializer);
+      expect(await testStrategy.strategyAdmin()).to.equal(strategyAdminAddress);
       expect(await testStrategy.votingPeriod()).to.equal(votingPeriod);
       expect(await testStrategy.quorumThreshold()).to.equal(quorumThreshold);
       expect(await testStrategy.basisNumerator()).to.equal(basisNumerator);
@@ -144,7 +144,7 @@ describe('StrategyV1', () => {
     it('should revert if basis numerator is invalid (too high) during initialization', async () => {
       await expect(
         deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           1_000_001n,
@@ -158,7 +158,7 @@ describe('StrategyV1', () => {
     it('should revert if basis numerator is invalid (too low, <50%) during initialization', async () => {
       await expect(
         deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           499_999n,
@@ -171,7 +171,7 @@ describe('StrategyV1', () => {
 
     it('should initialize correctly with zero quorum threshold', async () => {
       const testStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         0n, // Zero quorum threshold
         DEFAULT_BASIS_NUMERATOR,
@@ -184,7 +184,7 @@ describe('StrategyV1', () => {
 
     it('should initialize correctly with basis numerator at 50%', async () => {
       const testStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         500_000n, // 50% basis numerator
@@ -198,7 +198,7 @@ describe('StrategyV1', () => {
     it('should revert when initializing with basis numerator at 100% (1,000,000)', async () => {
       await expect(
         deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           1_000_000n, // 100% basis numerator - now invalid
@@ -212,7 +212,7 @@ describe('StrategyV1', () => {
     it('should initialize correctly with basis numerator at new maximum (BASIS_DENOMINATOR - 1)', async () => {
       const maxValidBasis = 1_000_000n - 1n; // BASIS_DENOMINATOR - 1
       const testStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         maxValidBasis,
@@ -226,7 +226,7 @@ describe('StrategyV1', () => {
     it('should revert if initialProposerAdapters is empty', async () => {
       await expect(
         deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           DEFAULT_BASIS_NUMERATOR,
@@ -240,7 +240,7 @@ describe('StrategyV1', () => {
     it('should revert if initialVotingAdapters is empty', async () => {
       await expect(
         deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           DEFAULT_BASIS_NUMERATOR,
@@ -278,7 +278,7 @@ describe('StrategyV1', () => {
       const proposerOnlyAdapter = await new MockProposerAdapter__factory(deployer).deploy();
       await proposerOnlyAdapter.waitForDeployment();
       const testStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -305,7 +305,7 @@ describe('StrategyV1', () => {
       const votingOnlyAdapter = await new MockVotingAdapter__factory(deployer).deploy();
       await votingOnlyAdapter.waitForDeployment();
       const testStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -325,22 +325,20 @@ describe('StrategyV1', () => {
       defaultProposalId = 1;
     });
 
-    it('should revert if called by a non-proposer initializer address', async () => {
+    it('should revert if called by a non-strategy admin address', async () => {
       await expect(
         strategy.connect(nonOwner).initializeProposal(defaultProposalId, [], ethers.ZeroHash),
-      ).to.be.revertedWithCustomError(strategy, 'InvalidProposalInitializer');
+      ).to.be.revertedWithCustomError(strategy, 'InvalidStrategyAdmin');
     });
 
-    it('should correctly initialize proposal details and emit event', async () => {
+    it('should correctly initialize proposal details and emit event when called by strategy admin', async () => {
       const blockBefore = await ethers.provider.getBlock('latest');
       if (!blockBefore) throw new Error('Failed to get latest block');
       const timestampBefore = blockBefore.timestamp;
       const blockNumberBefore = blockBefore.number;
 
       await expect(
-        strategy
-          .connect(proposerInitializer)
-          .initializeProposal(defaultProposalId, [], ethers.ZeroHash),
+        strategy.connect(strategyAdmin).initializeProposal(defaultProposalId, [], ethers.ZeroHash),
       )
         .to.emit(strategy, 'ProposalInitialized')
         .withArgs(
@@ -364,11 +362,11 @@ describe('StrategyV1', () => {
 
     it('should reset vote counts for a re-initialized proposal', async () => {
       await strategy
-        .connect(proposerInitializer)
+        .connect(strategyAdmin)
         .initializeProposal(defaultProposalId, [], ethers.ZeroHash);
 
       await strategy
-        .connect(proposerInitializer)
+        .connect(strategyAdmin)
         .initializeProposal(defaultProposalId, [], ethers.ZeroHash); // Re-initialize
 
       const proposalDetails = await strategy.proposalVotingDetails(defaultProposalId);
@@ -383,7 +381,7 @@ describe('StrategyV1', () => {
       const mockProposerAdapter1Address = await mockProposerAdapter1.getAddress();
       const mockProposerAdapter2Address = await mockProposerAdapter2.getAddress();
       const multiProposerStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -423,7 +421,7 @@ describe('StrategyV1', () => {
 
       const mockProposerAdapter2Address = await mockProposerAdapter2.getAddress();
       const multiProposerStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -463,9 +461,7 @@ describe('StrategyV1', () => {
 
     beforeEach(async () => {
       proposalId = 1;
-      await strategy
-        .connect(proposerInitializer)
-        .initializeProposal(proposalId, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(proposalId, [], ethers.ZeroHash);
     });
 
     it('should return correct timestamps and block after proposal initialization', async () => {
@@ -502,9 +498,7 @@ describe('StrategyV1', () => {
 
     beforeEach(async () => {
       proposalId = 1;
-      await strategy
-        .connect(proposerInitializer)
-        .initializeProposal(proposalId, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(proposalId, [], ethers.ZeroHash);
 
       adapter1Data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[1]]);
       adapter2Data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[2]]);
@@ -638,7 +632,7 @@ describe('StrategyV1', () => {
 
     it('should sum weights if multiple adapters are used in one vote call', async () => {
       const multiAdapterStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -647,7 +641,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await multiAdapterStrategy
-        .connect(proposerInitializer)
+        .connect(strategyAdmin)
         .initializeProposal(proposalId, [], ethers.ZeroHash);
 
       const weight1 = 60;
@@ -726,7 +720,7 @@ describe('StrategyV1', () => {
 
     it('should revert if any adapter call reverts in a multi-adapter vote (all-or-nothing)', async () => {
       const multiAdapterStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_BASIS_NUMERATOR,
@@ -735,7 +729,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await multiAdapterStrategy
-        .connect(proposerInitializer)
+        .connect(strategyAdmin)
         .initializeProposal(proposalId, [], ethers.ZeroHash);
 
       await mockAdapter1.setWeight(user1.address, 10);
@@ -778,9 +772,7 @@ describe('StrategyV1', () => {
   describe('isPassed', () => {
     const PROPOSAL_ID = 1;
     beforeEach(async () => {
-      await strategy
-        .connect(proposerInitializer)
-        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
     });
 
     it('should revert with ProposalNotInitialized if proposal was not initialized', async () => {
@@ -813,7 +805,7 @@ describe('StrategyV1', () => {
 
     it('should return false if quorum is met but basis is not, after voting period', async () => {
       const specificStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         50n, // quorumThreshold
         500_001n, // basisNumerator (yes > no)
@@ -822,7 +814,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await specificStrategy
-        .connect(proposerInitializer)
+        .connect(strategyAdmin)
         .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
       await mockAdapter1.setWeight(voter1.address, 50n);
@@ -847,7 +839,7 @@ describe('StrategyV1', () => {
 
     it('should return false if basis is met but quorum is not, after voting period', async () => {
       const specificStrategy = await deployStrategyProxy(
-        proposerInitializer.address,
+        strategyAdmin.address,
         DEFAULT_VOTING_PERIOD,
         100n, // quorumThreshold
         500_001n, // basisNumerator (yes > no)
@@ -856,7 +848,7 @@ describe('StrategyV1', () => {
         lightAccountFactoryMockAddress,
       );
       await specificStrategy
-        .connect(proposerInitializer)
+        .connect(strategyAdmin)
         .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
       await mockAdapter1.setWeight(voter1.address, 60n); // YES
@@ -929,9 +921,7 @@ describe('StrategyV1', () => {
     const PROPOSAL_ID = 1;
 
     beforeEach(async () => {
-      await strategy
-        .connect(proposerInitializer)
-        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
     });
 
     describe('isQuorumMet', () => {
@@ -945,7 +935,7 @@ describe('StrategyV1', () => {
       it('should return true if quorum is met exactly (yes + abstain == threshold)', async () => {
         const testQuorum = 100n;
         const qStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           testQuorum,
           DEFAULT_BASIS_NUMERATOR,
@@ -953,9 +943,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 40n);
@@ -971,7 +959,7 @@ describe('StrategyV1', () => {
       it('should return true if quorum is exceeded (yes + abstain > threshold)', async () => {
         const testQuorum = 100n;
         const qStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           testQuorum,
           DEFAULT_BASIS_NUMERATOR,
@@ -979,9 +967,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 41n); // Exceeds
@@ -997,7 +983,7 @@ describe('StrategyV1', () => {
       it('should return false if quorum is not met (yes + abstain < threshold)', async () => {
         const testQuorum = 100n;
         const qStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           testQuorum,
           DEFAULT_BASIS_NUMERATOR,
@@ -1005,9 +991,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 50n);
         await mockAdapter1.setWeight(voter2.address, 40n); // 90 total, < 100
@@ -1023,7 +1007,7 @@ describe('StrategyV1', () => {
 
       it('should return true if quorum threshold is 0, even with no votes contributing to quorum count', async () => {
         const qStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           0n /* quorum */,
           DEFAULT_BASIS_NUMERATOR,
@@ -1031,9 +1015,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 10n); // Only NO votes
         await qStrategy
@@ -1106,7 +1088,7 @@ describe('StrategyV1', () => {
 
       it('should return true if basisNumerator is 500,000 (50%) and yes > no', async () => {
         const bStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           500_000n /* basis */,
@@ -1114,9 +1096,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 101n);
         await mockAdapter1.setWeight(voter2.address, 100n);
@@ -1131,7 +1111,7 @@ describe('StrategyV1', () => {
 
       it('should return false if basisNumerator is 500,000 (50%) and yes == no', async () => {
         const bStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           500_000n /* basis */,
@@ -1139,9 +1119,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 100n);
@@ -1157,7 +1135,7 @@ describe('StrategyV1', () => {
       it('should return true if basisNumerator is max valid (DENOMINATOR - 1) and yes > 0, no == 0', async () => {
         const maxValidBasis = 1_000_000n - 1n;
         const bStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           maxValidBasis,
@@ -1165,9 +1143,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await bStrategy
@@ -1179,7 +1155,7 @@ describe('StrategyV1', () => {
       it('should return false if basisNumerator is max valid (DENOMINATOR - 1) and yes > 0, no > 0', async () => {
         const maxValidBasis = 1_000_000n - 1n;
         const bStrategy = await deployStrategyProxy(
-          proposerInitializer.address,
+          strategyAdmin.address,
           DEFAULT_VOTING_PERIOD,
           DEFAULT_QUORUM_THRESHOLD,
           maxValidBasis,
@@ -1187,9 +1163,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy
-          .connect(proposerInitializer)
-          .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 1n);
@@ -1201,6 +1175,196 @@ describe('StrategyV1', () => {
           .vote(PROPOSAL_ID, 0 /* NO */, [await mockAdapter1.getAddress()], [ethers.ZeroHash]);
 
         void expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.false;
+      });
+    });
+  });
+
+  describe('Freeze Voter Authorization Management', () => {
+    let freezeVoter1: SignerWithAddress;
+    let freezeVoter2: SignerWithAddress;
+
+    beforeEach(async () => {
+      // Additional signers for freeze voter contracts if needed, or use existing ones
+      // user1, voter2, voter3 are available from the outer scope
+      freezeVoter1 = user1; // Re-using user1 as a potential freeze voter contract address
+      freezeVoter2 = voter2; // Re-using voter2 as another
+      // Ensure strategy is freshly deployed for these tests if state from other tests could interfere
+      // The main beforeEach already deploys a fresh `strategy` instance.
+    });
+
+    describe('addAuthorizedFreezeVoter', () => {
+      it('should allow strategyAdmin to add a new freeze voter', async () => {
+        await expect(strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address))
+          .to.emit(strategy, 'FreezeVoterAuthorizationChanged')
+          .withArgs(freezeVoter1.address, true);
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+        expect(await strategy.authorizedFreezeVoters()).to.include(freezeVoter1.address);
+        expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(1);
+      });
+
+      it('should not duplicate an address in the array if added again, but emit event', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address); // First add
+        await expect(strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address)) // Second add
+          .to.emit(strategy, 'FreezeVoterAuthorizationChanged')
+          .withArgs(freezeVoter1.address, true);
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+        expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(1); // Length should still be 1
+      });
+
+      it('should allow adding multiple distinct freeze voters', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter2.address);
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter2.address)).to.be.true;
+        const votersArray = await strategy.authorizedFreezeVoters();
+        expect(votersArray).to.include(freezeVoter1.address);
+        expect(votersArray).to.include(freezeVoter2.address);
+        expect(votersArray).to.have.lengthOf(2);
+      });
+
+      it('should revert with InvalidAddress if adding address(0)', async () => {
+        await expect(
+          strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(ethers.ZeroAddress),
+        ).to.be.revertedWithCustomError(strategy, 'InvalidAddress');
+      });
+
+      it('should revert if called by non-strategyAdmin', async () => {
+        await expect(
+          strategy.connect(nonOwner).addAuthorizedFreezeVoter(freezeVoter1.address),
+        ).to.be.revertedWithCustomError(strategy, 'InvalidStrategyAdmin');
+      });
+    });
+
+    describe('removeAuthorizedFreezeVoter', () => {
+      it('should allow strategyAdmin to remove an authorized freeze voter', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(1);
+
+        await expect(
+          strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address),
+        )
+          .to.emit(strategy, 'FreezeVoterAuthorizationChanged')
+          .withArgs(freezeVoter1.address, false);
+
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+        expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(0);
+        expect(await strategy.authorizedFreezeVoters()).to.not.include(freezeVoter1.address);
+      });
+
+      it('should correctly remove one voter when multiple are present', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter2.address);
+        expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(2);
+
+        await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address);
+
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter2.address)).to.be.true;
+        const votersArray = await strategy.authorizedFreezeVoters();
+        expect(votersArray).to.have.lengthOf(1);
+        expect(votersArray).to.include(freezeVoter2.address);
+        expect(votersArray).to.not.include(freezeVoter1.address);
+      });
+
+      it('should emit event even if removing a non-authorized address', async () => {
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false; // Pre-condition
+        await expect(
+          strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address),
+        )
+          .to.emit(strategy, 'FreezeVoterAuthorizationChanged')
+          .withArgs(freezeVoter1.address, false);
+        expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(0);
+      });
+
+      it('should revert with InvalidAddress if removing address(0)', async () => {
+        await expect(
+          strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(ethers.ZeroAddress),
+        ).to.be.revertedWithCustomError(strategy, 'InvalidAddress');
+      });
+
+      it('should revert if called by non-strategyAdmin', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address); // Add one first
+        await expect(
+          strategy.connect(nonOwner).removeAuthorizedFreezeVoter(freezeVoter1.address),
+        ).to.be.revertedWithCustomError(strategy, 'InvalidStrategyAdmin');
+      });
+    });
+
+    describe('isAuthorizedFreezeVoter', () => {
+      it('should return true for an authorized address', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+      });
+
+      it('should return false for a non-authorized address', async () => {
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+      });
+
+      it('should return false for an address that was removed', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address);
+        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+      });
+
+      it('should return false for address(0)', async () => {
+        void expect(await strategy.isAuthorizedFreezeVoter(ethers.ZeroAddress)).to.be.false;
+      });
+    });
+
+    describe('authorizedFreezeVoters', () => {
+      it('should return an empty array initially', async () => {
+        expect(await strategy.authorizedFreezeVoters()).to.deep.equal([]);
+      });
+
+      it('should return an array with added addresses', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        expect(await strategy.authorizedFreezeVoters()).to.deep.equal([freezeVoter1.address]);
+
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter2.address);
+        // Order might not be guaranteed if add doesn't check for duplicates before push, but mapping does.
+        // The current addAuthorizedFreezeVoter implementation pushes only if not already in mapping.
+        expect(await strategy.authorizedFreezeVoters()).to.include.members([
+          freezeVoter1.address,
+          freezeVoter2.address,
+        ]);
+        expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(2);
+      });
+
+      it('should reflect removals in the array', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter2.address);
+        await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address);
+
+        const votersArray = await strategy.authorizedFreezeVoters();
+        expect(votersArray).to.deep.equal([freezeVoter2.address]); // Assumes swap and pop logic
+        expect(votersArray).to.have.lengthOf(1);
+      });
+
+      it('should return an empty array after all authorized voters are removed', async () => {
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address);
+        expect(await strategy.authorizedFreezeVoters()).to.deep.equal([]);
+      });
+
+      it('array order should be predictable with swap and pop removal', async () => {
+        const distinctAddress3 = nonOwner; // Using nonOwner as another distinct address for this test
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter2.address);
+        await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(distinctAddress3.address);
+        // Array is now [freezeVoter1, freezeVoter2, distinctAddress3]
+
+        // Remove freezeVoter2 (middle element)
+        await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter2.address);
+        // Expected: distinctAddress3 (last) swapped into freezeVoter2's spot, then pop. Array: [freezeVoter1, distinctAddress3]
+        expect(await strategy.authorizedFreezeVoters()).to.deep.equal([
+          freezeVoter1.address,
+          distinctAddress3.address,
+        ]);
+
+        // Remove freezeVoter1 (first element)
+        await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address);
+        // Expected: distinctAddress3 (last of [freezeVoter1, distinctAddress3]) swapped into freezeVoter1's spot. Array: [distinctAddress3]
+        expect(await strategy.authorizedFreezeVoters()).to.deep.equal([distinctAddress3.address]);
       });
     });
   });

@@ -438,16 +438,19 @@ describe('AzoriusV1', () => {
             ethers.ZeroHash,
           );
 
-        const receipt = await ethers.provider.getTransactionReceipt(tx.hash);
-        if (!receipt) throw new Error('Transaction failed');
+        const receipt = await tx.wait();
+        if (!receipt) throw new Error('Transaction failed to be mined');
+
+        const eventFragment = azorius.interface.getEvent('ProposalCreated');
+        const eventLog = receipt.logs?.find(log => log.topics[0] === eventFragment.topicHash);
+        if (!eventLog) throw new Error('ProposalCreated event not found in logs');
 
         const event = azorius.interface.decodeEventLog(
-          'ProposalCreated',
-          receipt.logs[0].data,
-          receipt.logs[0].topics,
+          eventFragment, // Use the fragment directly for more robustness
+          eventLog.data,
+          eventLog.topics as string[],
         );
 
-        // Check that the event emits the correct values
         expect(event.proposalId).to.equal(0n);
         expect(event.proposer).to.equal(proposer.address);
         expect(event.transactions[0].to).to.equal(proposalTx.to);
