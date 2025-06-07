@@ -27,12 +27,12 @@ contract VotesERC20LockableV1 is
         _disableInitializers();
     }
 
-    modifier isTransferable(address from, address to) {
+    modifier isTransferable(address from_, address to_) {
         if (
             _locked &&
             // overrides while locked
-            !hasRole(TRANSFER_ROLE, from) && // whitelisted addresses can always transfer
-            to != address(0) // can always burn when locked
+            !hasRole(TRANSFER_ROLE, from_) && // whitelisted addresses can always transfer
+            to_ != address(0) // can always burn when locked
         ) {
             revert IsLocked();
         }
@@ -63,7 +63,7 @@ contract VotesERC20LockableV1 is
         return _locked;
     }
 
-    function maxTotalSupply() external view override returns (uint256) {
+    function maxTotalSupply() external view virtual override returns (uint256) {
         return _maxTotalSupply;
     }
 
@@ -73,36 +73,36 @@ contract VotesERC20LockableV1 is
     }
 
     function setMaxTotalSupply(
-        uint256 newMaxTotalSupply
+        uint256 newMaxTotalSupply_
     ) external virtual override onlyOwner {
-        if (newMaxTotalSupply < totalSupply()) {
+        if (newMaxTotalSupply_ < totalSupply()) {
             revert InvalidMaxTotalSupply();
         }
-        _maxTotalSupply = newMaxTotalSupply;
-        emit MaxTotalSupplyUpdated(newMaxTotalSupply);
+        _maxTotalSupply = newMaxTotalSupply_;
+        emit MaxTotalSupplyUpdated(newMaxTotalSupply_);
     }
 
     function mint(
-        address to,
-        uint256 amount
+        address to_,
+        uint256 amount_
     ) external virtual override onlyRole(MINTER_ROLE) {
-        uint256 newTotalSupply = totalSupply() + amount;
+        uint256 newTotalSupply = totalSupply() + amount_;
         if (newTotalSupply > _maxTotalSupply) {
             revert ExceedMaxTotalSupply();
         }
-        _mint(to, amount);
+        _mint(to_, amount_);
     }
 
-    function burn(uint256 amount) external virtual override {
-        _burn(msg.sender, amount);
+    function burn(uint256 amount_) external virtual override {
+        _burn(msg.sender, amount_);
     }
 
     function _update(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override isTransferable(from, to) {
-        super._update(from, to, amount);
+        address from_,
+        address to_,
+        uint256 amount_
+    ) internal virtual override isTransferable(from_, to_) {
+        super._update(from_, to_, amount_);
     }
 
     function version() public view virtual override returns (uint16) {
@@ -110,7 +110,7 @@ contract VotesERC20LockableV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     )
         public
         view
@@ -119,9 +119,9 @@ contract VotesERC20LockableV1 is
         returns (bool)
     {
         return
-            interfaceId == type(IVotesERC20LockableV1).interfaceId ||
-            interfaceId == type(IAccessControl).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IVotesERC20LockableV1).interfaceId ||
+            interfaceId_ == type(IAccessControl).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 
     function CLOCK_MODE()
