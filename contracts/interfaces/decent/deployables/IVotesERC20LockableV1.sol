@@ -5,7 +5,6 @@ import {IVotesERC20V1} from "./IVotesERC20V1.sol";
 
 interface IVotesERC20LockableV1 is IVotesERC20V1 {
     event Locked(bool isLocked);
-    event Whitelisted(address indexed account, bool isWhitelisted);
     event MaxTotalSupplyUpdated(uint256 newMaxTotalSupply);
 
     error IsLocked();
@@ -20,19 +19,15 @@ interface IVotesERC20LockableV1 is IVotesERC20V1 {
         uint256 maxTotalSupply_
     ) external;
 
-    function lock(bool _locked) external;
+    function lock(bool locked_) external;
 
     function locked() external view returns (bool);
 
-    function whitelist(address account, bool isWhitelisted) external;
-
-    function whitelisted(address account) external view returns (bool);
-
-    function mint(address to, uint256 amount) external;
+    function mint(address to_, uint256 amount_) external;
 
     function maxTotalSupply() external view returns (uint256);
 
-    function setMaxTotalSupply(uint256 newMaxTotalSupply) external;
+    function setMaxTotalSupply(uint256 newMaxTotalSupply_) external;
 
-    function burn(uint256 amount) external;
+    function burn(uint256 amount_) external;
 }

@@ -4,6 +4,7 @@ import type { ContractTransactionResponse } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
+  IAccessControl__factory,
   IERC165__factory,
   IERC20__factory,
   IVersion__factory,
@@ -64,14 +65,14 @@ describe('VotesERC20LockableV1', () => {
   let deployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let nonOwner: SignerWithAddress;
-  let whitelistMember: SignerWithAddress;
   let tokenHolder: SignerWithAddress;
   let tokenRecipient: SignerWithAddress;
   let spender: SignerWithAddress;
+  const TRANSFER_ROLE = ethers.id('TRANSFER_ROLE');
+  const MINTER_ROLE = ethers.id('MINTER_ROLE');
 
   beforeEach(async () => {
-    [deployer, owner, nonOwner, whitelistMember, tokenHolder, tokenRecipient, spender] =
-      await ethers.getSigners();
+    [deployer, owner, nonOwner, tokenHolder, tokenRecipient, spender] = await ethers.getSigners();
 
     implementation = await new VotesERC20LockableV1__factory(owner).deploy();
   });
@@ -179,7 +180,7 @@ describe('VotesERC20LockableV1', () => {
         it('should revert', async () => {
           await expect(proxy.connect(nonOwner).lock(false)).to.be.revertedWithCustomError(
             proxy,
-            'OwnableUnauthorizedAccount',
+            'AccessControlUnauthorizedAccount',
           );
         });
       });
@@ -229,7 +230,7 @@ describe('VotesERC20LockableV1', () => {
         it('should revert', async () => {
           await expect(proxy.connect(nonOwner).lock(true)).to.be.revertedWithCustomError(
             proxy,
-            'OwnableUnauthorizedAccount',
+            'AccessControlUnauthorizedAccount',
           );
         });
       });
@@ -237,104 +238,6 @@ describe('VotesERC20LockableV1', () => {
       describe('Trying to unlock (despite being unlocked) should succeed', () => {
         it('should succeed', async () => {
           await expect(proxy.connect(owner).lock(false)).to.not.be.reverted;
-        });
-      });
-    });
-  });
-
-  describe('Whitelist function', () => {
-    let proxy: VotesERC20LockableV1;
-
-    beforeEach(async () => {
-      proxy = await deployVotesERC20Lockable(
-        deployer,
-        implementation,
-        owner,
-        false,
-        ethers.parseEther('2100'),
-        'Test',
-        'TEST',
-        [],
-        [],
-      );
-    });
-
-    describe('Adding to whitelist', () => {
-      describe('When caller is owner', () => {
-        let addTx: ContractTransactionResponse;
-
-        beforeEach(async () => {
-          addTx = await proxy.connect(owner).whitelist(whitelistMember.address, true);
-        });
-
-        it('should add to whitelist', async () => {
-          expect(await proxy.whitelisted(whitelistMember.address)).to.equal(true);
-        });
-
-        it('should emit an event', async () => {
-          await expect(addTx).to.emit(proxy, 'Whitelisted').withArgs(whitelistMember.address, true);
-        });
-
-        describe('When adding the same address again', () => {
-          beforeEach(async () => {
-            addTx = await proxy.connect(owner).whitelist(whitelistMember.address, true);
-          });
-
-          it('should emit an event again', async () => {
-            await expect(addTx)
-              .to.emit(proxy, 'Whitelisted')
-              .withArgs(whitelistMember.address, true);
-          });
-        });
-      });
-
-      describe('When caller is not owner', () => {
-        it('should revert', async () => {
-          await expect(
-            proxy.connect(nonOwner).whitelist(whitelistMember.address, true),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
-        });
-      });
-    });
-
-    describe('Removing from whitelist', () => {
-      beforeEach(async () => {
-        await proxy.connect(owner).whitelist(whitelistMember.address, true);
-      });
-
-      describe('When caller is owner', () => {
-        let removeTx: ContractTransactionResponse;
-
-        beforeEach(async () => {
-          removeTx = await proxy.connect(owner).whitelist(whitelistMember.address, false);
-        });
-
-        it('should remove from whitelist', async () => {
-          expect(await proxy.whitelisted(whitelistMember.address)).to.equal(false);
-        });
-
-        it('should emit an event', async () => {
-          expect(removeTx).to.emit(proxy, 'Whitelisted').withArgs(whitelistMember.address, false);
-        });
-
-        describe('When removing the same address again', () => {
-          beforeEach(async () => {
-            removeTx = await proxy.connect(owner).whitelist(whitelistMember.address, false);
-          });
-
-          it('should emit an event again', async () => {
-            await expect(removeTx)
-              .to.emit(proxy, 'Whitelisted')
-              .withArgs(whitelistMember.address, false);
-          });
-        });
-      });
-
-      describe('When caller is not owner', () => {
-        it('should revert', async () => {
-          await expect(
-            proxy.connect(nonOwner).whitelist(whitelistMember.address, false),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
         });
       });
     });
@@ -395,7 +298,7 @@ describe('VotesERC20LockableV1', () => {
       it('should revert', async () => {
         await expect(
           proxy.connect(nonOwner).setMaxTotalSupply(newMaxTotalSupply),
-        ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+        ).to.be.revertedWithCustomError(proxy, 'AccessControlUnauthorizedAccount');
       });
     });
   });
@@ -442,7 +345,7 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when caller is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).whitelist(tokenHolder.address, true);
+            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
             await proxy
               .connect(tokenHolder)
               .transfer(tokenRecipient.address, ethers.parseEther('1'));
@@ -493,7 +396,7 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when caller is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).whitelist(tokenHolder.address, true);
+            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
             await proxy
               .connect(tokenHolder)
               .transfer(tokenRecipient.address, ethers.parseEther('1'));
@@ -562,7 +465,7 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when token holder is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).whitelist(tokenHolder.address, true);
+            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
             await proxy.connect(tokenHolder).approve(spender.address, ethers.parseEther('10'));
             await proxy
               .connect(spender)
@@ -635,7 +538,7 @@ describe('VotesERC20LockableV1', () => {
 
         describe('when token holder is whitelisted', () => {
           beforeEach(async () => {
-            await proxy.connect(owner).whitelist(tokenHolder.address, true);
+            await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
             await proxy.connect(tokenHolder).approve(spender.address, ethers.parseEther('10'));
             await proxy
               .connect(spender)
@@ -729,26 +632,38 @@ describe('VotesERC20LockableV1', () => {
         });
       });
 
-      describe('when caller is whitelisted', () => {
+      describe('when caller is has the minter role', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(owner).grantRole(MINTER_ROLE, tokenHolder.address);
+          await proxy.connect(tokenHolder).mint(tokenHolder.address, maxTotalSupply);
+        });
+
+        it('should mint tokens', async () => {
+          expect(await proxy.hasRole(MINTER_ROLE, tokenHolder.address)).to.equal(true);
+          expect(await proxy.balanceOf(tokenHolder.address)).to.equal(maxTotalSupply);
+        });
+      });
+
+      describe('when caller has the transfer role', () => {
+        beforeEach(async () => {
+          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
         });
 
         it('should revert', async () => {
-          // revert shouldn't happen due to whitelist issues
-          expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
+          expect(await proxy.hasRole(TRANSFER_ROLE, tokenHolder.address)).to.equal(true);
 
           await expect(
             proxy.connect(tokenHolder).mint(tokenHolder.address, maxTotalSupply),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+          ).to.be.revertedWithCustomError(proxy, 'AccessControlUnauthorizedAccount');
         });
       });
 
       describe('when caller is not owner or whitelisted', () => {
         it('should revert', async () => {
+          expect(await proxy.hasRole(MINTER_ROLE, tokenHolder.address)).to.equal(false);
           await expect(
             proxy.connect(tokenHolder).mint(tokenHolder.address, ethers.parseEther('1')),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+          ).to.be.revertedWithCustomError(proxy, 'AccessControlUnauthorizedAccount');
         });
       });
     });
@@ -782,16 +697,15 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
         });
 
         it('should revert', async () => {
-          // revert shouldn't happen due to whitelist issues
-          expect(await proxy.whitelisted(tokenHolder.address)).to.equal(true);
+          expect(await proxy.hasRole(TRANSFER_ROLE, tokenHolder.address)).to.equal(true);
 
           await expect(
             proxy.connect(tokenHolder).mint(tokenHolder.address, ethers.parseEther('1')),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+          ).to.be.revertedWithCustomError(proxy, 'AccessControlUnauthorizedAccount');
         });
       });
 
@@ -799,7 +713,7 @@ describe('VotesERC20LockableV1', () => {
         it('should revert', async () => {
           await expect(
             proxy.connect(tokenHolder).mint(tokenHolder.address, ethers.parseEther('1')),
-          ).to.be.revertedWithCustomError(proxy, 'OwnableUnauthorizedAccount');
+          ).to.be.revertedWithCustomError(proxy, 'AccessControlUnauthorizedAccount');
         });
       });
     });
@@ -844,7 +758,7 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
           await proxy.connect(tokenHolder).burn(ethers.parseEther('1'));
         });
 
@@ -891,7 +805,7 @@ describe('VotesERC20LockableV1', () => {
 
       describe('when caller is whitelisted', () => {
         beforeEach(async () => {
-          await proxy.connect(owner).whitelist(tokenHolder.address, true);
+          await proxy.connect(owner).grantRole(TRANSFER_ROLE, tokenHolder.address);
           await proxy.connect(tokenHolder).transfer(tokenRecipient.address, ethers.parseEther('1'));
         });
 
@@ -981,6 +895,14 @@ describe('VotesERC20LockableV1', () => {
     it('Should support IERC20 interface', async function () {
       void expect(
         await proxy.supportsInterface(calculateInterfaceId(IERC20__factory.createInterface())),
+      ).to.be.true;
+    });
+
+    it('Should support IAccessControl interface', async function () {
+      void expect(
+        await proxy.supportsInterface(
+          calculateInterfaceId(IAccessControl__factory.createInterface()),
+        ),
       ).to.be.true;
     });
 
