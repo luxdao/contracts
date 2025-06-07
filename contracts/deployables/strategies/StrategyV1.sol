@@ -23,7 +23,7 @@ contract StrategyV1 is
 
     uint256 public constant BASIS_DENOMINATOR = 1_000_000;
 
-    address internal _proposalInitializer;
+    address internal _strategyAdmin;
     uint32 internal _votingPeriod;
     uint256 internal _quorumThreshold;
     uint256 internal _basisNumerator;
@@ -34,9 +34,11 @@ contract StrategyV1 is
     mapping(address => bool) internal _isVotingAdapter;
     mapping(address => bool) internal _isProposerAdapter;
 
-    modifier onlyProposalInitializer() {
-        if (msg.sender != _proposalInitializer)
-            revert InvalidProposalInitializer();
+    mapping(address => bool) internal _authorizedFreezeVotersMapping;
+    address[] internal _authorizedFreezeVotersArray;
+
+    modifier onlyStrategyAdmin() {
+        if (msg.sender != _strategyAdmin) revert InvalidStrategyAdmin();
         _;
     }
 
@@ -45,7 +47,7 @@ contract StrategyV1 is
     }
 
     function initialize(
-        address proposalInitializer_,
+        address strategyAdmin_,
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
@@ -67,7 +69,7 @@ contract StrategyV1 is
         ) revert InvalidBasisNumerator();
 
         __ERC4337VoterSupportV1_init(lightAccountFactory_);
-        _proposalInitializer = proposalInitializer_;
+        _strategyAdmin = strategyAdmin_;
         _votingPeriod = votingPeriod_;
         _quorumThreshold = quorumThreshold_;
         _basisNumerator = basisNumerator_;
@@ -88,14 +90,8 @@ contract StrategyV1 is
         }
     }
 
-    function proposalInitializer()
-        external
-        view
-        virtual
-        override
-        returns (address)
-    {
-        return _proposalInitializer;
+    function strategyAdmin() external view virtual override returns (address) {
+        return _strategyAdmin;
     }
 
     function votingPeriod() external view virtual override returns (uint32) {
@@ -158,7 +154,7 @@ contract StrategyV1 is
         uint32 proposalId,
         bytes32[] calldata,
         bytes calldata
-    ) external virtual override onlyProposalInitializer {
+    ) external virtual override onlyStrategyAdmin {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             proposalId
         ];
@@ -325,6 +321,57 @@ contract StrategyV1 is
         ];
         if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
         return details.votingStartBlock;
+    }
+
+    function addAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external virtual override onlyStrategyAdmin {
+        if (freezeVoterContract == address(0)) revert InvalidAddress();
+        if (!_authorizedFreezeVotersMapping[freezeVoterContract]) {
+            _authorizedFreezeVotersArray.push(freezeVoterContract);
+        }
+        _authorizedFreezeVotersMapping[freezeVoterContract] = true;
+        emit FreezeVoterAuthorizationChanged(freezeVoterContract, true);
+    }
+
+    function removeAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external virtual override onlyStrategyAdmin {
+        if (freezeVoterContract == address(0)) revert InvalidAddress();
+        if (_authorizedFreezeVotersMapping[freezeVoterContract]) {
+            for (uint256 i = 0; i < _authorizedFreezeVotersArray.length; ) {
+                if (_authorizedFreezeVotersArray[i] == freezeVoterContract) {
+                    _authorizedFreezeVotersArray[
+                        i
+                    ] = _authorizedFreezeVotersArray[
+                        _authorizedFreezeVotersArray.length - 1
+                    ];
+                    _authorizedFreezeVotersArray.pop();
+                    break;
+                }
+                unchecked {
+                    ++i;
+                }
+            }
+        }
+        _authorizedFreezeVotersMapping[freezeVoterContract] = false;
+        emit FreezeVoterAuthorizationChanged(freezeVoterContract, false);
+    }
+
+    function isAuthorizedFreezeVoter(
+        address freezeVoterContract
+    ) external view virtual override returns (bool) {
+        return _authorizedFreezeVotersMapping[freezeVoterContract];
+    }
+
+    function authorizedFreezeVoters()
+        external
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _authorizedFreezeVotersArray;
     }
 
     function version() public view virtual override returns (uint16) {
