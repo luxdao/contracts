@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
-import {IBaseFreezeGuardV1} from "./IBaseFreezeGuardV1.sol";
+import {IFreezeGuardBaseV1} from "./IFreezeGuardBaseV1.sol";
 
-interface IMultisigFreezeGuardV1 is IBaseFreezeGuardV1 {
+interface IFreezeGuardMultisigV1 is IFreezeGuardBaseV1 {
     event TransactionTimelocked(
         address indexed timelocker,
         bytes32 indexed transactionHash,
