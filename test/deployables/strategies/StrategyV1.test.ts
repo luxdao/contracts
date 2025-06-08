@@ -531,10 +531,7 @@ describe('StrategyV1', () => {
         },
       ]);
 
-      const currentBlockTimestamp = await time.latest();
-      await expect(tx)
-        .to.emit(strategy, 'VotingPeriodEnded')
-        .withArgs(proposalId, proposalDetails.votingEndTimestamp, currentBlockTimestamp);
+      await expect(tx).to.emit(strategy, 'VotingPeriodEnded').withArgs(proposalId);
 
       // Subsequent calls should revert
       await expect(
@@ -559,10 +556,7 @@ describe('StrategyV1', () => {
         },
       ]);
 
-      const blockTimestampAfterVote = await time.latest();
-      await expect(tx)
-        .to.emit(strategy, 'VotingPeriodEnded')
-        .withArgs(proposalId, proposalDetailsBefore.votingEndTimestamp, blockTimestampAfterVote);
+      await expect(tx).to.emit(strategy, 'VotingPeriodEnded').withArgs(proposalId);
 
       // Vote counts should not change as the vote is not processed
       const proposalDetailsAfter = await strategy.proposalVotingDetails(proposalId);
@@ -968,7 +962,7 @@ describe('StrategyV1', () => {
     });
 
     it('should initially return false for any proposal', async () => {
-      const result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      const result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
       void expect(result).to.be.false;
     });
 
@@ -976,13 +970,13 @@ describe('StrategyV1', () => {
       await time.increaseTo(
         (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
       );
-      const result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      const result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
       void expect(result).to.be.false;
     });
 
     it('should get set to true after casting a vote after voting period ends', async () => {
       // Initially false
-      let result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      let result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
       void expect(result).to.be.false;
 
       await time.increaseTo(
@@ -995,7 +989,7 @@ describe('StrategyV1', () => {
         },
       ]);
 
-      result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
       void expect(result).to.be.true;
     });
 
@@ -1009,12 +1003,12 @@ describe('StrategyV1', () => {
           adapterVoteData: ethers.ZeroHash,
         },
       ]);
-      void expect(await strategy.votingPeriodEnded(PROPOSAL_ID)).to.be.true;
+      void expect(await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID)).to.be.true;
 
       await time.increaseTo(
         (await strategy.proposalVotingDetails(PROPOSAL_ID_2)).votingEndTimestamp + 1n,
       );
-      void expect(await strategy.votingPeriodEnded(PROPOSAL_ID_2)).to.be.false;
+      void expect(await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID_2)).to.be.false;
     });
 
     it('should not emit VotingPeriodEnded event when casting a vote before voting period ends', async () => {
@@ -1041,11 +1035,7 @@ describe('StrategyV1', () => {
         ]),
       )
         .to.emit(strategy, 'VotingPeriodEnded')
-        .withArgs(
-          PROPOSAL_ID,
-          (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp,
-          await time.latest(),
-        );
+        .withArgs(PROPOSAL_ID);
     });
   });
 
