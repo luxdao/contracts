@@ -2,6 +2,8 @@
 pragma solidity ^0.8.30;
 
 interface IFunctionValidator {
+    // --- View Functions ---
+
     function validateOperation(
         address userOpSender_,
         address lightAccountOwner_,

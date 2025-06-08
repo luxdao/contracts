@@ -12,12 +12,12 @@ contract ConcreteSmartAccountValidation is SmartAccountValidationV1 {
     function validateSmartAccountPublic(
         address smartAccount
     ) public view returns (bool, address) {
-        return validateSmartAccount(smartAccount);
+        return _validateSmartAccount(smartAccount);
     }
 
     function validateUserOpPublic(
         PackedUserOperation calldata userOp
     ) public view returns (address, address, bytes memory) {
-        return validateUserOp(userOp);
+        return _validateUserOp(userOp);
     }
 }

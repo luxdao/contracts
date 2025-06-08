@@ -2,6 +2,22 @@
 pragma solidity ^0.8.30;
 
 interface IStrategyV1 {
+    // --- Errors ---
+
+    error InvalidProposerAdapter(address proposerAdapter);
+    error NoVotingAdapters();
+    error NoProposerAdapters();
+    error InvalidBasisNumerator();
+    error InvalidStrategyAdmin();
+    error ProposalNotActive();
+    error NoVotingWeight();
+    error InvalidVoteType();
+    error ProposalNotInitialized();
+    error InvalidVotingAdapter();
+    error InvalidAddress();
+
+    // --- Structs ---
+
     struct ProposalVotingDetails {
         uint48 votingStartTimestamp;
         uint48 votingEndTimestamp;
@@ -16,11 +32,15 @@ interface IStrategyV1 {
         bytes adapterVoteData;
     }
 
+    // --- Enums ---
+
     enum VoteType {
         NO,
         YES,
         ABSTAIN
     }
+
+    // --- Events ---
 
     event Voted(
         address indexed voter,
@@ -44,17 +64,7 @@ interface IStrategyV1 {
         uint48 currentTimestamp
     );
 
-    error InvalidProposerAdapter(address proposerAdapter);
-    error NoVotingAdapters();
-    error NoProposerAdapters();
-    error InvalidBasisNumerator();
-    error InvalidStrategyAdmin();
-    error ProposalNotActive();
-    error NoVotingWeight();
-    error InvalidVoteType();
-    error ProposalNotInitialized();
-    error InvalidVotingAdapter();
-    error InvalidAddress();
+    // --- Initializer Functions ---
 
     function initialize(
         address strategyAdmin_,
@@ -66,17 +76,13 @@ interface IStrategyV1 {
         address lightAccountFactory_
     ) external;
 
+    // --- View Functions ---
+
     function isProposer(
         address address_,
         address proposerAdapter_,
         bytes calldata proposerAdapterData_
     ) external view returns (bool isProposer);
-
-    function initializeProposal(
-        uint32 proposalId_,
-        bytes32[] calldata txHashes_,
-        bytes calldata proposalInitializerData_
-    ) external;
 
     function isPassed(uint32 proposalId_) external view returns (bool isPassed);
 
@@ -129,16 +135,6 @@ interface IStrategyV1 {
         uint32 proposalId_
     ) external view returns (bool isBasisMet);
 
-    function vote(
-        uint32 proposalId_,
-        uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData_
-    ) external;
-
-    function addAuthorizedFreezeVoter(address freezeVoterContract_) external;
-
-    function removeAuthorizedFreezeVoter(address freezeVoterContract_) external;
-
     function isAuthorizedFreezeVoter(
         address freezeVoterContract_
     ) external view returns (bool isAuthorizedFreezeVoter);
@@ -158,4 +154,22 @@ interface IStrategyV1 {
         uint8 voteType_,
         VotingAdapterVoteData[] calldata votingAdaptersData_
     ) external view returns (bool isValid);
+
+    // --- State-Changing Functions ---
+
+    function initializeProposal(
+        uint32 proposalId_,
+        bytes32[] calldata txHashes_,
+        bytes calldata proposalInitializerData_
+    ) external;
+
+    function vote(
+        uint32 proposalId_,
+        uint8 voteType_,
+        VotingAdapterVoteData[] calldata votingAdaptersData_
+    ) external;
+
+    function addAuthorizedFreezeVoter(address freezeVoterContract_) external;
+
+    function removeAuthorizedFreezeVoter(address freezeVoterContract_) external;
 }

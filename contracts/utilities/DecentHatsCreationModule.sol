@@ -1,44 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {DecentHatsModuleUtils} from "./DecentHatsModuleUtils.sol";
+import {IDecentHatsCreationModule} from "../interfaces/decent/utilities/IDecentHatsCreationModule.sol";
 import {IProxyFactory} from "../interfaces/decent/singletons/IProxyFactory.sol";
 import {IERC6551Registry} from "../interfaces/erc6551/IERC6551Registry.sol";
 import {IHats} from "../interfaces/hats/IHats.sol";
-import {IHatsModuleFactory} from "../interfaces/hats/IHatsModuleFactory.sol";
+import {DecentHatsModuleUtils} from "./DecentHatsModuleUtils.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IAvatar} from "@gnosis-guild/zodiac/contracts/interfaces/IAvatar.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract DecentHatsCreationModule is DecentHatsModuleUtils {
-    struct TopHatParams {
-        string details;
-        string imageURI;
-    }
+contract DecentHatsCreationModule is
+    IDecentHatsCreationModule,
+    DecentHatsModuleUtils
+{
+    // ======================================================================
+    // IDecentHatsCreationModule
+    // ======================================================================
 
-    struct AdminHatParams {
-        string details;
-        string imageURI;
-        bool isMutable;
-    }
+    // --- State-Changing Functions ---
 
-    struct CreateTreeParams {
-        IHats hatsProtocol;
-        IERC6551Registry erc6551Registry;
-        IHatsModuleFactory hatsModuleFactory;
-        IProxyFactory proxyFactory;
-        address keyValuePairs;
-        address decentAutonomousAdminImplementation;
-        address hatsAccountImplementation;
-        address hatsElectionsEligibilityImplementation;
-        TopHatParams topHat;
-        AdminHatParams adminHat;
-        HatParams[] hats;
-    }
-
-    /* /////////////////////////////////////////////////////////////////////////////
-                        EXTERNAL FUNCTIONS
-    ///////////////////////////////////////////////////////////////////////////// */
     /**
      * @notice For a safe without any roles previously created on it, this function should be called. It sets up the
      * top hat and admin hat, as well as any other hats and their streams that are provided, then transfers the top hat
@@ -61,7 +42,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
      */
     function createAndDeclareTree(
         CreateTreeParams calldata treeParams_
-    ) external {
+    ) public virtual override {
         // Create Top Hat
         (uint256 topHatId, address topHatAccount) = _processTopHat(
             treeParams_.hatsProtocol,
@@ -102,9 +83,9 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         );
     }
 
-    /* /////////////////////////////////////////////////////////////////////////////
-                        INTERNAL FUNCTIONS
-    ///////////////////////////////////////////////////////////////////////////// */
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
 
     function _processTopHat(
         IHats hatsProtocol_,
@@ -112,7 +93,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         address hatsAccountImplementation_,
         address keyValuePairs_,
         TopHatParams calldata topHat_
-    ) internal returns (uint256, address) {
+    ) internal virtual returns (uint256, address) {
         // Call lastTopHatId() and properly decode the response
         (bool success, bytes memory data) = address(hatsProtocol_).call(
             abi.encodeWithSignature("lastTopHatId()")
@@ -170,7 +151,7 @@ contract DecentHatsCreationModule is DecentHatsModuleUtils {
         IProxyFactory proxyFactory_,
         address decentAutonomousAdminImplementation_,
         AdminHatParams calldata adminHat_
-    ) internal returns (uint256) {
+    ) internal virtual returns (uint256) {
         // Create Admin Hat
         uint256 adminHatId = hatsProtocol_.getNextId(topHatId_);
         IAvatar(msg.sender).execTransactionFromModule(

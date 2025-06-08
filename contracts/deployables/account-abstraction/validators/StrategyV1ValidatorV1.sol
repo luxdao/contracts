@@ -7,14 +7,18 @@ import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract StrategyV1ValidatorV1 is IFunctionValidator, IVersion, ERC165 {
-    uint16 public constant VERSION = 1;
+    // ======================================================================
+    // IFunctionValidator
+    // ======================================================================
+
+    // --- View Functions ---
 
     function validateOperation(
         address,
         address lightAccountOwner_,
         address strategy_,
         bytes calldata callData_
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         // confirm here that the calldata selector is correct: `vote(uint32,uint8,(tuple(address,bytes))[])`
         if (bytes4(callData_) != IStrategyV1.vote.selector) {
             return false;
@@ -40,9 +44,21 @@ contract StrategyV1ValidatorV1 is IFunctionValidator, IVersion, ERC165 {
             );
     }
 
-    function version() external pure virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_

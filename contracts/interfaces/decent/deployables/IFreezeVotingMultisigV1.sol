@@ -2,7 +2,11 @@
 pragma solidity ^0.8.30;
 
 interface IFreezeVotingMultisigV1 {
+    // --- Events ---
+
     event FreezeProposalCreated(address indexed creator);
+
+    // --- Initializer Functions ---
 
     function initialize(
         address owner_,
@@ -13,12 +17,16 @@ interface IFreezeVotingMultisigV1 {
         address lightAccountFactory
     ) external;
 
-    function parentSafe() external view returns (address parentSafe);
+    // --- View Functions ---
 
-    function castFreezeVote() external;
+    function parentSafe() external view returns (address parentSafe);
 
     function accountHasFreezeVoted(
         uint48 freezeProposalCreated_,
         address account_
     ) external view returns (bool accountHasFreezeVoted);
+
+    // --- State-Changing Functions ---
+
+    function castFreezeVote() external;
 }
