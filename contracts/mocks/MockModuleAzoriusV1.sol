@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IAzoriusV1, Transaction} from "../interfaces/decent/deployables/IAzoriusV1.sol";
+import {IModuleAzoriusV1, Transaction} from "../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 
-contract MockAzoriusV1 is IAzoriusV1 {
+contract MockModuleAzoriusV1 is IModuleAzoriusV1 {
     address public currentStrategy;
     uint32 public currentTimelockPeriod;
     uint32 public currentExecutionPeriod;

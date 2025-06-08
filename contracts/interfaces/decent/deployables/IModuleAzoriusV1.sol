@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Transaction} from "../Module.sol";
 
-interface IAzoriusV1 {
+interface IModuleAzoriusV1 {
     event ProposalCreated(
         address strategy,
         uint32 proposalId,
