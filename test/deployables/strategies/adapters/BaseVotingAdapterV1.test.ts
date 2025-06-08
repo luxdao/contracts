@@ -116,8 +116,12 @@ describe('BaseVotingAdapterV1', () => {
         mockStrategyContract.connect(nonStrategySigner).vote(
           proposalId,
           0, // voteType (e.g., YES)
-          [await adapter.getAddress()], // Adapter to use
-          [adapterVoteData], // Data for that adapter
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: adapterVoteData,
+            },
+          ],
         ),
       ).to.not.be.reverted; // Primary check: the call succeeds
     });

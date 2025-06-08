@@ -11,6 +11,11 @@ interface IStrategyV1 {
         uint256 abstainVotes;
     }
 
+    struct VotingAdapterVoteData {
+        address votingAdapter;
+        bytes adapterVoteData;
+    }
+
     enum VoteType {
         NO,
         YES,
@@ -49,7 +54,6 @@ interface IStrategyV1 {
     error NoVotingWeight();
     error InvalidVoteType();
     error ProposalNotInitialized();
-    error MismatchedInputs();
     error InvalidVotingAdapter();
     error InvalidAddress();
 
@@ -116,8 +120,7 @@ interface IStrategyV1 {
     function vote(
         uint32 _proposalId,
         uint8 _voteType,
-        address[] calldata _votingAdaptersToUse,
-        bytes[] calldata _votingAdapterVoteData
+        VotingAdapterVoteData[] calldata votingAdaptersData
     ) external;
 
     function addAuthorizedFreezeVoter(address freezeVoterContract) external;
