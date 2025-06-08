@@ -26,13 +26,9 @@ contract ProxyFactory is IProxyFactory {
             "Implementation must be a contract"
         );
 
-        // Create a unique salt based on the sender and provided salt
-        // This prevents salt collisions between different callers
-        bytes32 uniqueSalt = keccak256(abi.encodePacked(msg.sender, salt_));
-
         // Deploy the proxy using CREATE2
         address proxy = address(
-            new ERC1967Proxy{salt: uniqueSalt}(implementation_, initData_)
+            new ERC1967Proxy{salt: salt_}(implementation_, initData_)
         );
 
         emit ProxyDeployed(proxy, implementation_);
@@ -42,8 +38,7 @@ contract ProxyFactory is IProxyFactory {
     function predictProxyAddress(
         address implementation_,
         bytes calldata initData_,
-        bytes32 salt_,
-        address deployer_
+        bytes32 salt_
     ) public view returns (address) {
         // Validate the implementation address
         require(
@@ -54,9 +49,6 @@ contract ProxyFactory is IProxyFactory {
             implementation_.code.length > 0,
             "Implementation must be a contract"
         );
-
-        // Create a unique salt based on the deployer and provided salt
-        bytes32 uniqueSalt = keccak256(abi.encodePacked(deployer_, salt_));
 
         // Calculate the proxy bytecode (implementation address + init data)
         bytes memory proxyConstructorData = abi.encode(
@@ -73,7 +65,7 @@ contract ProxyFactory is IProxyFactory {
             abi.encodePacked(
                 bytes1(0xff),
                 address(this),
-                uniqueSalt,
+                salt_,
                 keccak256(bytecode)
             )
         );

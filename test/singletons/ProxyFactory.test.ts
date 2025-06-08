@@ -17,7 +17,6 @@ import {
 // Helper function for deploying VotesERC20V1 instances using the ProxyFactory
 async function deployConcreteUpgradeableContract(
   proxyFactory: ProxyFactory,
-  proxyDeployer: SignerWithAddress,
   implementation: string,
   owner: SignerWithAddress,
   name: string,
@@ -41,7 +40,6 @@ async function deployConcreteUpgradeableContract(
     implementation,
     fullInitData,
     salt,
-    proxyDeployer,
   );
 
   // Create a contract instance at the predicted address
@@ -50,7 +48,6 @@ async function deployConcreteUpgradeableContract(
 
 describe('ProxyFactory', () => {
   let proxyDeployer: SignerWithAddress;
-  let secondDeployer: SignerWithAddress;
   let upgradeableContractOwner: SignerWithAddress;
   let nonOwner: SignerWithAddress;
   let upgradeableContract: UpgradeContractV1;
@@ -65,7 +62,7 @@ describe('ProxyFactory', () => {
   let failingImplementation: string;
 
   beforeEach(async () => {
-    [proxyDeployer, secondDeployer, upgradeableContractOwner, nonOwner] = await ethers.getSigners();
+    [proxyDeployer, upgradeableContractOwner, nonOwner] = await ethers.getSigners();
 
     // Deploy the factory first so we can use it in all tests
     proxyFactory = await new ProxyFactory__factory(proxyDeployer).deploy();
@@ -110,7 +107,6 @@ describe('ProxyFactory', () => {
       // Deploy initial proxy that other tests can reference
       const proxy = await deployConcreteUpgradeableContract(
         proxyFactory,
-        proxyDeployer,
         upgradeableMasterCopy,
         upgradeableContractOwner,
         NAME,
@@ -124,7 +120,6 @@ describe('ProxyFactory', () => {
       try {
         await deployConcreteUpgradeableContract(
           proxyFactory,
-          proxyDeployer,
           upgradeableMasterCopy,
           upgradeableContractOwner,
           NAME,
@@ -154,7 +149,6 @@ describe('ProxyFactory', () => {
         upgradeableMasterCopy,
         initData,
         saltHash,
-        proxyDeployer,
       );
 
       expect(secondProxyAddress.toLowerCase()).to.not.equal(
@@ -171,7 +165,6 @@ describe('ProxyFactory', () => {
       // Deploy with same name but different salt
       const differentSaltProxy = await deployConcreteUpgradeableContract(
         proxyFactory,
-        proxyDeployer,
         upgradeableMasterCopy,
         upgradeableContractOwner,
         NAME,
@@ -200,7 +193,6 @@ describe('ProxyFactory', () => {
         upgradeableMasterCopy,
         initData,
         saltHash,
-        proxyDeployer,
       );
 
       // Now actually deploy
@@ -232,7 +224,6 @@ describe('ProxyFactory', () => {
       // Deploy with different name but same salt
       const differentProxy = await deployConcreteUpgradeableContract(
         proxyFactory,
-        proxyDeployer,
         upgradeableMasterCopy,
         upgradeableContractOwner,
         'DifferentName',
@@ -254,7 +245,6 @@ describe('ProxyFactory', () => {
       // Deploy using the factory
       upgradeableContract = await deployConcreteUpgradeableContract(
         proxyFactory,
-        proxyDeployer,
         upgradeableMasterCopy,
         upgradeableContractOwner,
         name,
@@ -274,7 +264,6 @@ describe('ProxyFactory', () => {
       // First deploy the initial implementation proxy
       upgradeableContract = await deployConcreteUpgradeableContract(
         proxyFactory,
-        proxyDeployer,
         upgradeableMasterCopy,
         upgradeableContractOwner,
         name,
@@ -371,7 +360,6 @@ describe('ProxyFactory', () => {
         minimalImplementation,
         emptyInitData,
         salt,
-        proxyDeployer.address,
       );
 
       // Create a contract instance and verify initialization worked
@@ -402,7 +390,6 @@ describe('ProxyFactory', () => {
         minimalImplementation,
         largeInitData,
         salt,
-        proxyDeployer.address,
       );
 
       // Create a contract instance and verify initialization worked with large data
@@ -413,54 +400,6 @@ describe('ProxyFactory', () => {
 
       void expect(await minimalContract.isInitialized()).to.be.true;
       expect(await minimalContract.largeData()).to.equal(largeString);
-    });
-  });
-
-  describe('Multiple Deployer Tests', () => {
-    it('should allow different deployers to use the same salt but get different addresses', async () => {
-      const iface = MinimalUpgradeableContract__factory.createInterface();
-      const initData = iface.getFunction('initializeEmpty').selector;
-
-      // Use the same salt string for both deployers
-      const saltString = 'same-salt-different-deployers';
-      const salt = ethers.keccak256(ethers.toUtf8Bytes(saltString));
-
-      // First deployment with first deployer
-      await proxyFactory.deployProxy(minimalImplementation, initData, salt);
-
-      const predicted1 = await proxyFactory.predictProxyAddress(
-        minimalImplementation,
-        initData,
-        salt,
-        proxyDeployer.address,
-      );
-
-      // Second deployment with second deployer
-      await proxyFactory.connect(secondDeployer).deployProxy(minimalImplementation, initData, salt);
-
-      const predicted2 = await proxyFactory.predictProxyAddress(
-        minimalImplementation,
-        initData,
-        salt,
-        secondDeployer.address,
-      );
-
-      // The addresses should be different despite using the same salt
-      expect(predicted1).to.not.equal(predicted2);
-
-      // Create contract instances to verify both deployments worked
-      const contract1 = MinimalUpgradeableContract__factory.connect(
-        predicted1,
-        upgradeableContractOwner,
-      );
-
-      const contract2 = MinimalUpgradeableContract__factory.connect(
-        predicted2,
-        upgradeableContractOwner,
-      );
-
-      void expect(await contract1.isInitialized()).to.be.true;
-      void expect(await contract2.isInitialized()).to.be.true;
     });
   });
 
@@ -481,7 +420,6 @@ describe('ProxyFactory', () => {
         upgradeV1Implementation,
         initData,
         salt,
-        proxyDeployer.address,
       );
 
       // Create a contract instance
@@ -512,7 +450,6 @@ describe('ProxyFactory', () => {
         upgradeV1Implementation,
         initData,
         salt,
-        proxyDeployer.address,
       );
 
       // Create a contract instance
@@ -583,7 +520,6 @@ describe('ProxyFactory', () => {
         upgradeV1Implementation,
         initData,
         salt,
-        proxyDeployer.address,
       );
 
       // Get V1 instance
@@ -651,7 +587,6 @@ describe('ProxyFactory', () => {
         upgradeV1Implementation,
         initData,
         salt,
-        proxyDeployer.address,
       );
 
       // Upgrade to V3 directly (skipping V2)
@@ -716,7 +651,6 @@ describe('ProxyFactory', () => {
         upgradeV1Implementation,
         initData,
         salt,
-        proxyDeployer.address,
       );
 
       const contract = UpgradeContractV1__factory.connect(
