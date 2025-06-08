@@ -45,7 +45,7 @@ interface IStrategyV1 {
     error NoProposerAdapters();
     error InvalidBasisNumerator();
     error InvalidStrategyAdmin();
-    error ProposalNotFoundOrNotActive();
+    error ProposalNotActive();
     error NoVotingWeight();
     error InvalidVoteType();
     error ProposalNotInitialized();

@@ -518,18 +518,57 @@ describe('StrategyV1', () => {
         strategy
           .connect(user1)
           .vote(uninitializedProposalId, 1, [await mockAdapter1.getAddress()], [adapter1Data]),
-      ).to.be.revertedWithCustomError(strategy, 'ProposalNotFoundOrNotActive');
+      ).to.be.revertedWithCustomError(strategy, 'ProposalNotInitialized');
     });
 
     it('should revert if voting period has ended', async () => {
       const proposalDetails = await strategy.proposalVotingDetails(proposalId);
       await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
 
+      // First call after period ends should emit event and not revert immediately
+      const tx = await strategy
+        .connect(user1)
+        .vote(proposalId, 1, [await mockAdapter1.getAddress()], [adapter1Data]);
+
+      const currentBlockTimestamp = await time.latest();
+      await expect(tx)
+        .to.emit(strategy, 'VotingPeriodEnded')
+        .withArgs(proposalId, proposalDetails.votingEndTimestamp, currentBlockTimestamp);
+
+      // Subsequent calls should revert
       await expect(
         strategy
           .connect(user1)
           .vote(proposalId, 1, [await mockAdapter1.getAddress()], [adapter1Data]),
-      ).to.be.revertedWithCustomError(strategy, 'ProposalNotFoundOrNotActive');
+      ).to.be.revertedWithCustomError(strategy, 'ProposalNotActive');
+    });
+
+    it('should emit VotingPeriodEnded and allow no further action if vote called after period end', async () => {
+      const proposalDetailsBefore = await strategy.proposalVotingDetails(proposalId);
+      await time.increaseTo(proposalDetailsBefore.votingEndTimestamp + 1n);
+
+      // First call after voting period ends
+      const tx = await strategy
+        .connect(user1)
+        .vote(proposalId, 1 /* YES */, [await mockAdapter1.getAddress()], [adapter1Data]);
+
+      const blockTimestampAfterVote = await time.latest();
+      await expect(tx)
+        .to.emit(strategy, 'VotingPeriodEnded')
+        .withArgs(proposalId, proposalDetailsBefore.votingEndTimestamp, blockTimestampAfterVote);
+
+      // Vote counts should not change as the vote is not processed
+      const proposalDetailsAfter = await strategy.proposalVotingDetails(proposalId);
+      expect(proposalDetailsAfter.yesVotes).to.equal(proposalDetailsBefore.yesVotes);
+      expect(proposalDetailsAfter.noVotes).to.equal(proposalDetailsBefore.noVotes);
+      expect(proposalDetailsAfter.abstainVotes).to.equal(proposalDetailsBefore.abstainVotes);
+
+      // Further calls should revert
+      await expect(
+        strategy
+          .connect(user1)
+          .vote(proposalId, 1 /* YES */, [await mockAdapter1.getAddress()], [adapter1Data]),
+      ).to.be.revertedWithCustomError(strategy, 'ProposalNotActive');
     });
 
     it('should revert if total weight cast is zero (e.g., adapter.recordVote returns 0)', async () => {
@@ -865,6 +904,87 @@ describe('StrategyV1', () => {
       await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
 
       void expect(await specificStrategy.isPassed(PROPOSAL_ID)).to.be.false;
+    });
+  });
+
+  describe('voting period ended', () => {
+    const PROPOSAL_ID = 1;
+    const PROPOSAL_ID_2 = 2;
+
+    beforeEach(async () => {
+      await mockAdapter1.setWeight(voter1.address, 50n);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await time.increase(1n);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID_2, [], ethers.ZeroHash);
+    });
+
+    it('should initially return false for any proposal', async () => {
+      const result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      void expect(result).to.be.false;
+    });
+
+    it('should still return false if voting period is over but no vote has been cast', async () => {
+      await time.increaseTo(
+        (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
+      );
+      const result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      void expect(result).to.be.false;
+    });
+
+    it('should get set to true after casting a vote after voting period ends', async () => {
+      // Initially false
+      let result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      void expect(result).to.be.false;
+
+      await time.increaseTo(
+        (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
+      );
+      await strategy
+        .connect(voter1)
+        .vote(PROPOSAL_ID, 1 /* YES */, [await mockAdapter1.getAddress()], [ethers.ZeroHash]);
+
+      result = await strategy.votingPeriodEnded(PROPOSAL_ID);
+      void expect(result).to.be.true;
+    });
+
+    it('should maintain separate states for different proposal IDs', async () => {
+      await time.increaseTo(
+        (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
+      );
+      await strategy
+        .connect(voter1)
+        .vote(PROPOSAL_ID, 1 /* YES */, [await mockAdapter1.getAddress()], [ethers.ZeroHash]);
+      void expect(await strategy.votingPeriodEnded(PROPOSAL_ID)).to.be.true;
+
+      await time.increaseTo(
+        (await strategy.proposalVotingDetails(PROPOSAL_ID_2)).votingEndTimestamp + 1n,
+      );
+      void expect(await strategy.votingPeriodEnded(PROPOSAL_ID_2)).to.be.false;
+    });
+
+    it('should not emit VotingPeriodEnded event when casting a vote before voting period ends', async () => {
+      await expect(
+        strategy
+          .connect(voter1)
+          .vote(PROPOSAL_ID, 1 /* YES */, [await mockAdapter1.getAddress()], [ethers.ZeroHash]),
+      ).not.to.emit(strategy, 'VotingPeriodEnded');
+    });
+
+    it('should emit VotingPeriodEnded event when casting a vote after voting period ends', async () => {
+      await time.increaseTo(
+        (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
+      );
+      await expect(
+        strategy
+          .connect(voter1)
+          .vote(PROPOSAL_ID, 1 /* YES */, [await mockAdapter1.getAddress()], [ethers.ZeroHash]),
+      )
+        .to.emit(strategy, 'VotingPeriodEnded')
+        .withArgs(
+          PROPOSAL_ID,
+          (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp,
+          await time.latest(),
+        );
     });
   });
 
