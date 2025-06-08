@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IFreezeGuardAzoriusV1} from "../../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
-import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
@@ -20,7 +20,7 @@ contract FreezeGuardAzoriusV1 is
 {
     uint16 private constant VERSION = 1;
 
-    IBaseFreezeVotingV1 internal _freezeVoting;
+    IFreezeVotingBaseV1 internal _freezeVoting;
 
     constructor() {
         _disableInitializers();
@@ -32,7 +32,7 @@ contract FreezeGuardAzoriusV1 is
     ) public virtual override initializer {
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
-        _freezeVoting = IBaseFreezeVotingV1(freezeVoting_);
+        _freezeVoting = IFreezeVotingBaseV1(freezeVoting_);
     }
 
     function _authorizeUpgrade(

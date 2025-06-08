@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {BaseFreezeVotingV1} from "../../../../deployables/freeze-voting/BaseFreezeVotingV1.sol";
+import {FreezeVotingBaseV1} from "../../../../deployables/freeze-voting/FreezeVotingBaseV1.sol";
 
-contract ConcreteBaseFreezeVotingV1 is BaseFreezeVotingV1 {
+contract ConcreteFreezeVotingBaseV1 is FreezeVotingBaseV1 {
     function initialize(
         address owner_,
         uint256 freezeVotesThreshold_,

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IBaseFreezeVotingV1} from "../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IFreezeVotingBaseV1} from "../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 
-contract MockFreezeVoting is IBaseFreezeVotingV1 {
+contract MockFreezeVoting is IFreezeVotingBaseV1 {
     bool private _isFrozen;
     uint256 private _freezeVotesThreshold;
     uint32 private _freezeProposalPeriod;
