@@ -27,7 +27,8 @@ contract DecentPaymasterV1 is
 {
     uint16 private constant VERSION = 1;
 
-    mapping(address => mapping(bytes4 => address)) internal _functionValidators;
+    mapping(address target => mapping(bytes4 selector => address validator))
+        internal _functionValidators;
 
     constructor() {
         _disableInitializers();

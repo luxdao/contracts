@@ -26,7 +26,8 @@ contract MultisigFreezeGuardV1 is
     uint32 internal _timelockPeriod;
     uint32 internal _executionPeriod;
     ISafe internal _childGnosisSafe;
-    mapping(bytes32 => uint48) internal transactionTimelocked;
+    mapping(bytes32 signaturesHash => uint48 timelockedTimestamp)
+        internal transactionTimelocked;
 
     constructor() {
         _disableInitializers();
