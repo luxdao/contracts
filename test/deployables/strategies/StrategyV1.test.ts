@@ -448,6 +448,15 @@ describe('StrategyV1', () => {
         await strategy.isProposer(user1.address, mockProposerAdapter1Address, ethers.ZeroHash),
       ).to.be.true;
     });
+
+    it('should revert with InvalidProposerAdapter if the adapter is not configured', async () => {
+      const unconfiguredAdapter = await new MockProposerAdapter__factory(deployer).deploy();
+      await unconfiguredAdapter.waitForDeployment();
+      const unconfiguredAdapterAddress = await unconfiguredAdapter.getAddress();
+      await expect(
+        strategy.isProposer(user1.address, unconfiguredAdapterAddress, ethers.ZeroHash),
+      ).to.be.revertedWithCustomError(strategy, 'InvalidProposerAdapter');
+    });
   });
 
   describe('getVotingTimestamps & getVotingStartBlock', () => {
@@ -615,9 +624,9 @@ describe('StrategyV1', () => {
         },
       ];
 
-      await expect(
-        strategy.connect(user1).vote(proposalId, 1 /* YES */, adapterData),
-      ).to.be.revertedWithCustomError(strategy, 'InvalidVotingAdapter');
+      await expect(strategy.connect(user1).vote(proposalId, 1 /* YES */, adapterData))
+        .to.be.revertedWithCustomError(strategy, 'InvalidVotingAdapter')
+        .withArgs(unconfiguredAdapterAddress);
     });
 
     it('should correctly record a YES vote, update counts, and emit Voted event', async () => {
