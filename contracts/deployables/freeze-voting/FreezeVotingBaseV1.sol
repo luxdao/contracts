@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-abstract contract BaseFreezeVotingV1 is
-    IBaseFreezeVotingV1,
+abstract contract FreezeVotingBaseV1 is
+    IFreezeVotingBaseV1,
     Ownable2StepUpgradeable
 {
     uint48 internal _freezeProposalCreated;

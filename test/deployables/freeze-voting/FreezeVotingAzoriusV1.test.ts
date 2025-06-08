@@ -3,13 +3,13 @@ import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  AzoriusFreezeVotingV1,
-  AzoriusFreezeVotingV1__factory,
   ERC1967Proxy__factory,
-  IAzoriusFreezeVotingV1,
-  IAzoriusFreezeVotingV1__factory,
-  IBaseFreezeVotingV1__factory,
+  FreezeVotingAzoriusV1,
+  FreezeVotingAzoriusV1__factory,
   IERC165__factory,
+  IFreezeVotingAzoriusV1,
+  IFreezeVotingAzoriusV1__factory,
+  IFreezeVotingBaseV1__factory,
   IVersion__factory,
   IVoterResolverV1__factory,
   MockAzoriusV1,
@@ -32,8 +32,8 @@ async function deployAzoriusFreezeVotingProxy(
   freezePeriod: number,
   parentAzoriusAddress: string,
   lightAccountFactoryAddress: string,
-): Promise<AzoriusFreezeVotingV1> {
-  const initData = AzoriusFreezeVotingV1__factory.createInterface().encodeFunctionData(
+): Promise<FreezeVotingAzoriusV1> {
+  const initData = FreezeVotingAzoriusV1__factory.createInterface().encodeFunctionData(
     'initialize',
     [
       owner,
@@ -49,16 +49,16 @@ async function deployAzoriusFreezeVotingProxy(
     initData,
   );
   await proxy.waitForDeployment();
-  return AzoriusFreezeVotingV1__factory.connect(await proxy.getAddress(), proxyDeployer);
+  return FreezeVotingAzoriusV1__factory.connect(await proxy.getAddress(), proxyDeployer);
 }
 
-describe('AzoriusFreezeVotingV1', () => {
+describe('FreezeVotingAzoriusV1', () => {
   let deployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let voter1: SignerWithAddress;
   let voter2: SignerWithAddress;
 
-  let azoriusFreezeVoting: AzoriusFreezeVotingV1;
+  let azoriusFreezeVoting: FreezeVotingAzoriusV1;
   let mockParentAzorius: MockAzoriusV1;
   let mockStrategy: MockVotingStrategy;
   let mockAdapter1: MockVotingAdapter;
@@ -72,7 +72,7 @@ describe('AzoriusFreezeVotingV1', () => {
   async function fixture() {
     const [d, o, paa, v1, v2] = await ethers.getSigners();
 
-    const implFactory = new AzoriusFreezeVotingV1__factory(d);
+    const implFactory = new FreezeVotingAzoriusV1__factory(d);
     const impl = await implFactory.deploy();
     await impl.waitForDeployment();
     const implAddr = await impl.getAddress();
@@ -168,7 +168,7 @@ describe('AzoriusFreezeVotingV1', () => {
     });
 
     it('implementation contract should have initializers disabled', async () => {
-      const newImpl = AzoriusFreezeVotingV1__factory.connect(
+      const newImpl = FreezeVotingAzoriusV1__factory.connect(
         azoriusFreezeVotingImplementationAddress,
         deployer,
       );
@@ -194,7 +194,7 @@ describe('AzoriusFreezeVotingV1', () => {
   });
 
   describe('castFreezeVote', () => {
-    let votingAdapterData: IAzoriusFreezeVotingV1.VotingAdapterVoteDataStruct[];
+    let votingAdapterData: IFreezeVotingAzoriusV1.VotingAdapterVoteDataStruct[];
     const voteWeightFromAdapter = 50n;
 
     beforeEach(async () => {
@@ -340,19 +340,19 @@ describe('AzoriusFreezeVotingV1', () => {
       void expect(await azoriusFreezeVoting.version()).to.equal(1);
     });
 
-    it('should support IAzoriusFreezeVotingV1', async () => {
+    it('should support IFreezeVotingAzoriusV1', async () => {
       void expect(
         await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IAzoriusFreezeVotingV1__factory.createInterface(), [
-            IBaseFreezeVotingV1__factory.createInterface(),
+          calculateInterfaceId(IFreezeVotingAzoriusV1__factory.createInterface(), [
+            IFreezeVotingBaseV1__factory.createInterface(),
           ]),
         ),
       ).to.be.true;
     });
-    it('should support IBaseFreezeVotingV1', async () => {
+    it('should support IFreezeVotingBaseV1', async () => {
       void expect(
         await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IBaseFreezeVotingV1__factory.createInterface()),
+          calculateInterfaceId(IFreezeVotingBaseV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
