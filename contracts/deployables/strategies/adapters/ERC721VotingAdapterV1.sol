@@ -277,36 +277,19 @@ contract ERC721VotingAdapterV1 is
     function _getValidTokenIds(
         address voter,
         uint32 proposalId,
-        bytes calldata adapterVoteData
+        uint256[] memory allTokenIds
     )
         internal
         view
         virtual
         returns (uint256 weight, uint256[] memory unusedTokenIds)
     {
-        uint256[] memory allTokenIds = _decodeTokenIds(adapterVoteData);
-        if (allTokenIds.length == 0) {
-            return (0, new uint256[](0));
-        }
-
         uint256[] memory uniqueTokenIds = _getUniqueTokenIds(allTokenIds);
-        if (uniqueTokenIds.length == 0) {
-            return (0, new uint256[](0));
-        }
-
         uint256[] memory ownedTokenIds = _getOwnedTokenIds(
             voter,
             uniqueTokenIds
         );
-        if (ownedTokenIds.length == 0) {
-            return (0, new uint256[](0));
-        }
-
         unusedTokenIds = _getUnusedTokenIds(proposalId, ownedTokenIds);
-        if (unusedTokenIds.length == 0) {
-            return (0, new uint256[](0));
-        }
-
         weight = unusedTokenIds.length * _weightPerToken;
     }
 
@@ -315,7 +298,8 @@ contract ERC721VotingAdapterV1 is
         uint32 _proposalId,
         bytes calldata _adapterVoteData
     ) external view virtual override returns (uint256 weight) {
-        (weight, ) = _getValidTokenIds(_voter, _proposalId, _adapterVoteData);
+        uint256[] memory allTokenIds = _decodeTokenIds(_adapterVoteData);
+        (weight, ) = _getValidTokenIds(_voter, _proposalId, allTokenIds);
     }
 
     function weightOfWithValidTokenIds(
@@ -327,12 +311,13 @@ contract ERC721VotingAdapterV1 is
         view
         virtual
         override
-        returns (uint256 weight, uint256[] memory unusedTokenIds)
+        returns (uint256 weight, uint256[] memory validTokenIds)
     {
-        (weight, unusedTokenIds) = _getValidTokenIds(
+        uint256[] memory allTokenIds = _decodeTokenIds(_adapterVoteData);
+        (weight, validTokenIds) = _getValidTokenIds(
             _voter,
             _proposalId,
-            _adapterVoteData
+            allTokenIds
         );
     }
 
@@ -378,5 +363,23 @@ contract ERC721VotingAdapterV1 is
             interfaceId == type(IBaseVotingAdapterV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
+    }
+
+    function validVotingAdapterVote(
+        address voter,
+        uint32 proposalId,
+        bytes calldata adapterVoteData
+    ) external view virtual override returns (bool, uint256) {
+        uint256[] memory allTokenIds = abi.decode(adapterVoteData, (uint256[]));
+        (
+            uint256 votingWeight,
+            uint256[] memory validTokenIds
+        ) = _getValidTokenIds(voter, proposalId, allTokenIds);
+
+        if (validTokenIds.length != allTokenIds.length || votingWeight == 0) {
+            return (false, 0);
+        }
+
+        return (true, votingWeight);
     }
 }

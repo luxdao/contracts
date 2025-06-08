@@ -134,4 +134,11 @@ interface IStrategyV1 {
     function authorizedFreezeVoters() external view returns (address[] memory);
 
     function votingPeriodEnded(uint32 _proposalId) external view returns (bool);
+
+    function validStrategyVote(
+        address voter_,
+        uint32 proposalId_,
+        uint8 voteType_,
+        VotingAdapterVoteData[] calldata votingAdaptersData_
+    ) external view returns (bool isValid);
 }
