@@ -3,9 +3,9 @@ pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
 import {IBaseVotingAdapterV1} from "../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
-import {ERC4337VoterSupportV1} from "../deployables/strategies/ERC4337VoterSupportV1.sol";
+import {VoterResolverV1} from "../deployables/account-abstraction/VoterResolverV1.sol";
 
-contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
+contract MockVotingStrategy is IStrategyV1, VoterResolverV1 {
     struct TimestampPoints {
         uint48 startTimestamp;
         uint48 endTimestamp;
@@ -61,7 +61,7 @@ contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
         for (uint i = 0; i < proposerAdapters_.length; i++) {
             _isProposerAdapterMap[proposerAdapters_[i]] = true;
         }
-        __ERC4337VoterSupportV1_init(lightAccountFactory_);
+        __VoterResolverV1_init(lightAccountFactory_);
     }
 
     function strategyAdmin() external view override returns (address) {

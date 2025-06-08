@@ -2,8 +2,8 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  ConcreteERC4337VoterSupportV1,
-  ConcreteERC4337VoterSupportV1__factory,
+  ConcreteVoterResolverV1,
+  ConcreteVoterResolverV1__factory,
   ERC1967Proxy__factory,
   MockLightAccount,
   MockLightAccount__factory,
@@ -11,15 +11,15 @@ import {
   MockLightAccountFactory__factory,
 } from '../../../typechain-types';
 
-async function deployConcreteERC4337VoterSupport(
+async function deployConcreteVoterResolver(
   deployer: SignerWithAddress,
-  implementation: ConcreteERC4337VoterSupportV1,
+  implementation: ConcreteVoterResolverV1,
   lightAccountFactory: MockLightAccountFactory,
 ) {
-  const initializeCalldata =
-    ConcreteERC4337VoterSupportV1__factory.createInterface().encodeFunctionData('initialize', [
-      lightAccountFactory.target,
-    ]);
+  const initializeCalldata = ConcreteVoterResolverV1__factory.createInterface().encodeFunctionData(
+    'initialize',
+    [lightAccountFactory.target],
+  );
 
   // Deploy the proxy with owner as the deployer so msg.sender becomes the owner
   const proxy = await new ERC1967Proxy__factory(deployer).deploy(
@@ -27,17 +27,17 @@ async function deployConcreteERC4337VoterSupport(
     initializeCalldata,
   );
 
-  return ConcreteERC4337VoterSupportV1__factory.connect(await proxy.getAddress(), deployer);
+  return ConcreteVoterResolverV1__factory.connect(await proxy.getAddress(), deployer);
 }
 
-describe('ERC4337VoterSupportV1', () => {
+describe('VoterResolverV1', () => {
   // Signers
   let deployer: SignerWithAddress;
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
 
   // Contracts
-  let concreteERC4337VoterSupport: ConcreteERC4337VoterSupportV1;
+  let concreteVoterResolver: ConcreteVoterResolverV1;
   let mockLightAccount: MockLightAccount;
   let mockLightAccountFactory: MockLightAccountFactory;
 
@@ -50,11 +50,11 @@ describe('ERC4337VoterSupportV1', () => {
     // Deploy MockLightAccountFactory
     mockLightAccountFactory = await new MockLightAccountFactory__factory(deployer).deploy();
 
-    // Deploy an implementation instance of the ConcreteERC4337VoterSupportV1
-    const implementation = await new ConcreteERC4337VoterSupportV1__factory(deployer).deploy();
+    // Deploy an implementation instance of the ConcreteVoterResolverV1
+    const implementation = await new ConcreteVoterResolverV1__factory(deployer).deploy();
 
-    // Deploy an instance of the ERC4337VoterSupport concrete implementation
-    concreteERC4337VoterSupport = await deployConcreteERC4337VoterSupport(
+    // Deploy an instance of the VoterResolverV1 concrete implementation
+    concreteVoterResolver = await deployConcreteVoterResolver(
       deployer,
       implementation,
       mockLightAccountFactory,
@@ -72,7 +72,7 @@ describe('ERC4337VoterSupportV1', () => {
     describe('light accounts', function () {
       it('should return the owner of the light account', async () => {
         // Test with our mock ownership contract
-        const voter = await concreteERC4337VoterSupport.voter(await mockLightAccount.getAddress());
+        const voter = await concreteVoterResolver.voter(await mockLightAccount.getAddress());
         expect(voter).to.equal(owner.address);
       });
     });
@@ -82,7 +82,7 @@ describe('ERC4337VoterSupportV1', () => {
         it('should return the msgSender', async () => {
           // For EOAs, the voter function should just return the address itself
           const eoaAddress = user.address;
-          const voter = await concreteERC4337VoterSupport.voter(eoaAddress);
+          const voter = await concreteVoterResolver.voter(eoaAddress);
           expect(voter).to.equal(eoaAddress);
         });
       });
@@ -90,8 +90,8 @@ describe('ERC4337VoterSupportV1', () => {
       describe('when the msgSender is a contract that does not implement IOwnership', () => {
         it('should return the contract address', async () => {
           // Use the ConcreteRC4337VoterSupport contract itself as a contract that doesn't implement IOwnership
-          const contractAddress = await concreteERC4337VoterSupport.getAddress();
-          const voter = await concreteERC4337VoterSupport.voter(contractAddress);
+          const contractAddress = await concreteVoterResolver.getAddress();
+          const voter = await concreteVoterResolver.voter(contractAddress);
           expect(voter).to.equal(contractAddress);
         });
       });

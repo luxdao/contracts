@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IERC4337VoterSupportV1} from "../../interfaces/decent/deployables/IERC4337VoterSupportV1.sol";
-import {SmartAccountValidationV1} from "../account-abstraction/SmartAccountValidationV1.sol";
+import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
+import {SmartAccountValidationV1} from "./SmartAccountValidationV1.sol";
 
-abstract contract ERC4337VoterSupportV1 is
-    IERC4337VoterSupportV1,
+abstract contract VoterResolverV1 is
+    IVoterResolverV1,
     SmartAccountValidationV1
 {
     constructor() {
         _disableInitializers();
     }
 
-    function __ERC4337VoterSupportV1_init(
+    function __VoterResolverV1_init(
         address _lightAccountFactory
     ) internal onlyInitializing {
         __SmartAccountValidationV1_init(_lightAccountFactory);
