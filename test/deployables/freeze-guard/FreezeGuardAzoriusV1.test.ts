@@ -2,12 +2,12 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  AzoriusFreezeGuardV1,
-  AzoriusFreezeGuardV1__factory,
   ERC1967Proxy__factory,
-  IAzoriusFreezeGuardV1__factory,
-  IBaseFreezeGuardV1__factory,
+  FreezeGuardAzoriusV1,
+  FreezeGuardAzoriusV1__factory,
   IERC165__factory,
+  IFreezeGuardAzoriusV1__factory,
+  IFreezeGuardBaseV1__factory,
   IGuard__factory,
   IVersion__factory,
   MockFreezeVoting,
@@ -22,10 +22,10 @@ async function deployAzoriusFreezeGuardProxy(
   implementation: string,
   owner: SignerWithAddress,
   freezeVoting: string,
-): Promise<AzoriusFreezeGuardV1> {
+): Promise<FreezeGuardAzoriusV1> {
   // Create initialization data with function selector
   const fullInitData =
-    AzoriusFreezeGuardV1__factory.createInterface().getFunction('initialize').selector +
+    FreezeGuardAzoriusV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(['address', 'address'], [owner.address, freezeVoting])
       .slice(2);
@@ -34,7 +34,7 @@ async function deployAzoriusFreezeGuardProxy(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return AzoriusFreezeGuardV1__factory.connect(await proxy.getAddress(), owner);
+  return FreezeGuardAzoriusV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 describe('AzoriusFreezeGuardV1', () => {
@@ -51,7 +51,7 @@ describe('AzoriusFreezeGuardV1', () => {
 
   // contracts
   let masterCopy: string;
-  let azoriusFreezeGuard: AzoriusFreezeGuardV1;
+  let azoriusFreezeGuard: FreezeGuardAzoriusV1;
   let mockFreezeVoting: MockFreezeVoting;
 
   beforeEach(async () => {
@@ -59,7 +59,7 @@ describe('AzoriusFreezeGuardV1', () => {
     [proxyDeployer, owner, user, nonOwner] = await ethers.getSigners();
 
     // Deploy implementation
-    const implementation = await new AzoriusFreezeGuardV1__factory(proxyDeployer).deploy();
+    const implementation = await new FreezeGuardAzoriusV1__factory(proxyDeployer).deploy();
     masterCopy = await implementation.getAddress();
 
     // Deploy mock contracts
@@ -93,7 +93,7 @@ describe('AzoriusFreezeGuardV1', () => {
     });
 
     it('Should have initialization disabled in the implementation', async function () {
-      const implementationContract = AzoriusFreezeGuardV1__factory.connect(
+      const implementationContract = FreezeGuardAzoriusV1__factory.connect(
         masterCopy,
         proxyDeployer,
       );
@@ -232,21 +232,21 @@ describe('AzoriusFreezeGuardV1', () => {
       ).to.be.true;
     });
 
-    it('Should support IAzoriusFreezeGuardV1 interface', async function () {
+    it('Should support IFreezeGuardAzoriusV1 interface', async function () {
       void expect(
         await azoriusFreezeGuard.supportsInterface(
-          calculateInterfaceId(IAzoriusFreezeGuardV1__factory.createInterface(), [
-            IBaseFreezeGuardV1__factory.createInterface(),
+          calculateInterfaceId(IFreezeGuardAzoriusV1__factory.createInterface(), [
+            IFreezeGuardBaseV1__factory.createInterface(),
             IGuard__factory.createInterface(),
           ]),
         ),
       ).to.be.true;
     });
 
-    it('Should support IBaseFreezeGuardV1 interface', async function () {
+    it('Should support IFreezeGuardBaseV1 interface', async function () {
       void expect(
         await azoriusFreezeGuard.supportsInterface(
-          calculateInterfaceId(IBaseFreezeGuardV1__factory.createInterface(), [
+          calculateInterfaceId(IFreezeGuardBaseV1__factory.createInterface(), [
             IGuard__factory.createInterface(),
           ]),
         ),
@@ -281,7 +281,7 @@ describe('AzoriusFreezeGuardV1', () => {
     runUUPSUpgradeabilityTests({
       getContract: () => azoriusFreezeGuard,
       createNewImplementation: async () => {
-        const newImplementation = await new AzoriusFreezeGuardV1__factory(owner).deploy();
+        const newImplementation = await new FreezeGuardAzoriusV1__factory(owner).deploy();
         return newImplementation;
       },
       owner: () => owner,

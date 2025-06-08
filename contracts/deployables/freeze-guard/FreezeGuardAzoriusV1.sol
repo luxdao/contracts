@@ -2,17 +2,17 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IAzoriusFreezeGuardV1} from "../../interfaces/decent/deployables/IAzoriusFreezeGuardV1.sol";
+import {IFreezeGuardAzoriusV1} from "../../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
-import {IBaseFreezeGuardV1} from "../../interfaces/decent/deployables/IBaseFreezeGuardV1.sol";
+import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract AzoriusFreezeGuardV1 is
-    IAzoriusFreezeGuardV1,
+contract FreezeGuardAzoriusV1 is
+    IFreezeGuardAzoriusV1,
     IVersion,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
@@ -72,8 +72,8 @@ contract AzoriusFreezeGuardV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IAzoriusFreezeGuardV1).interfaceId ||
-            interfaceId_ == type(IBaseFreezeGuardV1).interfaceId ||
+            interfaceId_ == type(IFreezeGuardAzoriusV1).interfaceId ||
+            interfaceId_ == type(IFreezeGuardBaseV1).interfaceId ||
             interfaceId_ == type(IGuard).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
