@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {Version} from "../Version.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -18,7 +17,7 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 
 contract VotesERC20V1 is
     IVotesERC20V1,
-    Version,
+    IVersion,
     ERC20VotesUpgradeable,
     ERC20PermitUpgradeable,
     UUPSUpgradeable,
@@ -95,7 +94,7 @@ contract VotesERC20V1 is
         return super.nonces(owner_);
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

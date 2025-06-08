@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import {IFractalModuleV1} from "../../interfaces/decent/deployables/IFractalModuleV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
-import {Version} from "../Version.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -13,9 +12,9 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract FractalModuleV1 is
     IFractalModuleV1,
+    IVersion,
     GuardableModule,
     Ownable2StepUpgradeable,
-    Version,
     UUPSUpgradeable,
     ERC165
 {
@@ -66,7 +65,7 @@ contract FractalModuleV1 is
         ) revert TxFailed();
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

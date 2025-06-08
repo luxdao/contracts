@@ -5,15 +5,14 @@ import {IHatsProposerAdapterV1} from "../../../interfaces/decent/deployables/IHa
 import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
 import {IHats} from "../../../interfaces/hats/IHats.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
-import {Version} from "../../Version.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract HatsProposerAdapterV1 is
     IHatsProposerAdapterV1,
+    IVersion,
     Initializable,
-    ERC165,
-    Version
+    ERC165
 {
     IHats internal _hatsContract;
     uint256[] internal _whitelistedHatIds;
@@ -64,7 +63,7 @@ contract HatsProposerAdapterV1 is
             _hatsContract.isWearerOfHat(proposer_, hatId);
     }
 
-    function version() public pure virtual override returns (uint16) {
+    function version() external pure virtual override returns (uint16) {
         return VERSION;
     }
 

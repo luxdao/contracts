@@ -4,10 +4,9 @@ pragma solidity ^0.8.30;
 import {IFunctionValidator} from "../../../interfaces/decent/deployables/IFunctionValidator.sol";
 import {IStrategyV1} from "../../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
-import {Version} from "../../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract StrategyV1ValidatorV1 is IFunctionValidator, ERC165, Version {
+contract StrategyV1ValidatorV1 is IFunctionValidator, IVersion, ERC165 {
     uint16 public constant VERSION = 1;
 
     function validateOperation(
@@ -41,7 +40,7 @@ contract StrategyV1ValidatorV1 is IFunctionValidator, ERC165, Version {
             );
     }
 
-    function version() public pure virtual override returns (uint16) {
+    function version() external pure virtual override returns (uint16) {
         return VERSION;
     }
 

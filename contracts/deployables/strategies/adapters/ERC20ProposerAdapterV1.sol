@@ -7,13 +7,12 @@ import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Version} from "../../Version.sol";
 
 contract ERC20ProposerAdapterV1 is
     IERC20ProposerAdapterV1,
+    IVersion,
     Initializable,
-    ERC165,
-    Version
+    ERC165
 {
     IVotes internal _token;
     uint256 internal _proposerThreshold;
@@ -53,7 +52,7 @@ contract ERC20ProposerAdapterV1 is
         return _token.getVotes(proposer_) >= _proposerThreshold;
     }
 
-    function version() public pure virtual override returns (uint16) {
+    function version() external pure virtual override returns (uint16) {
         return VERSION;
     }
 
