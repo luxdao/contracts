@@ -224,7 +224,7 @@ contract StrategyV1 is
         bytes calldata proposerAdapterData_
     ) public view virtual override returns (bool) {
         if (!_isProposerAdapter[proposerAdapter_]) {
-            revert InvalidProposerAdapter(proposerAdapter_);
+            revert InvalidProposerAdapter();
         }
 
         return
@@ -393,7 +393,7 @@ contract StrategyV1 is
             address votingAdapter = votingAdapterVoteData.votingAdapter;
 
             if (!_isVotingAdapter[votingAdapter]) {
-                revert InvalidVotingAdapter();
+                revert InvalidVotingAdapter(votingAdapter);
             }
 
             totalWeightForThisVoteTransaction += IVotingAdapterBaseV1(

@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 interface IStrategyV1 {
     // --- Errors ---
 
-    error InvalidProposerAdapter(address proposerAdapter);
+    error InvalidProposerAdapter();
     error NoVotingAdapters();
     error NoProposerAdapters();
     error InvalidBasisNumerator();
@@ -13,7 +13,7 @@ interface IStrategyV1 {
     error NoVotingWeight();
     error InvalidVoteType();
     error ProposalNotInitialized();
-    error InvalidVotingAdapter();
+    error InvalidVotingAdapter(address votingAdapter);
     error InvalidAddress();
 
     // --- Structs ---
