@@ -274,8 +274,7 @@ contract ModuleAzoriusV1 is
         Transaction[] calldata transactions_,
         string calldata metadata_,
         address proposerAdapter_,
-        bytes calldata proposerAdapterData_,
-        bytes calldata proposalInitializerData_
+        bytes calldata proposerAdapterData_
     ) public virtual override {
         if (
             !_strategy.isProposer(
@@ -299,11 +298,7 @@ contract ModuleAzoriusV1 is
         _proposals[_totalProposalCount].timelockPeriod = _timelockPeriod;
         _proposals[_totalProposalCount].executionPeriod = _executionPeriod;
 
-        _strategy.initializeProposal(
-            _totalProposalCount,
-            txHashes,
-            proposalInitializerData_
-        );
+        _strategy.initializeProposal(_totalProposalCount);
 
         emit ProposalCreated(
             address(_strategy),
