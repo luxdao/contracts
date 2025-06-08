@@ -263,8 +263,12 @@ describe('ERC20VotingAdapterV1', () => {
       await mockStrategy.connect(user1Signer).vote(
         proposalId,
         0, // voteType
-        [await adapter.getAddress()],
-        [mockExtraData],
+        [
+          {
+            votingAdapter: await adapter.getAddress(),
+            adapterVoteData: mockExtraData,
+          },
+        ],
       );
       const weight = await adapter.weightOf(user1Signer.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
@@ -327,8 +331,12 @@ describe('ERC20VotingAdapterV1', () => {
         strategy.connect(voter).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [mockExtraData],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: mockExtraData,
+            },
+          ],
         ),
       )
         .to.emit(adapter, 'VoteRecorded')
@@ -359,8 +367,12 @@ describe('ERC20VotingAdapterV1', () => {
         strategy.connect(voter).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [mockExtraData],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: mockExtraData,
+            },
+          ],
         ),
       )
         .to.emit(adapter, 'VoteRecorded')
@@ -379,15 +391,23 @@ describe('ERC20VotingAdapterV1', () => {
       await strategy.connect(voter).vote(
         proposalId,
         0, // voteType
-        [await adapter.getAddress()],
-        [mockExtraData],
+        [
+          {
+            votingAdapter: await adapter.getAddress(),
+            adapterVoteData: mockExtraData,
+          },
+        ],
       );
       await expect(
         strategy.connect(voter).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [mockExtraData],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: mockExtraData,
+            },
+          ],
         ),
       ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
     });
@@ -404,8 +424,12 @@ describe('ERC20VotingAdapterV1', () => {
       await strategy.connect(voter).vote(
         proposalId,
         0, // voteType
-        [await adapter.getAddress()],
-        [mockExtraData],
+        [
+          {
+            votingAdapter: await adapter.getAddress(),
+            adapterVoteData: mockExtraData,
+          },
+        ],
       );
       const weight = await adapter.weightOf(voter.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
@@ -418,8 +442,12 @@ describe('ERC20VotingAdapterV1', () => {
         strategy.connect(voter).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [mockExtraData],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: mockExtraData,
+            },
+          ],
         ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotReadyForSnapshot');
     });
@@ -431,8 +459,12 @@ describe('ERC20VotingAdapterV1', () => {
         strategy.connect(voter).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [mockExtraData],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: mockExtraData,
+            },
+          ],
         ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotReadyForSnapshot');
     });
@@ -497,8 +529,12 @@ describe('ERC20VotingAdapterV1', () => {
         await strategy.connect(voter).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [ZERO_EXTRA_DATA],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: ZERO_EXTRA_DATA,
+            },
+          ],
         );
 
         // Check the state
@@ -527,8 +563,12 @@ describe('ERC20VotingAdapterV1', () => {
         await strategy.connect(voter).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [ZERO_EXTRA_DATA],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: ZERO_EXTRA_DATA,
+            },
+          ],
         );
 
         // Check states

@@ -170,20 +170,20 @@ contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
     function vote(
         uint32 _proposalId,
         uint8 _voteType,
-        address[] calldata _votingAdaptersToUse,
-        bytes[] calldata _votingAdapterVoteData
+        IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData
     ) external virtual override {
         address resolvedVoter = voter(msg.sender);
         ProposalVotingDetails storage proposal = proposalVotingDetailsMap[
             _proposalId
         ];
         uint256 totalWeight = 0;
-        for (uint i = 0; i < _votingAdaptersToUse.length; i++) {
-            totalWeight += IBaseVotingAdapterV1(_votingAdaptersToUse[i])
-                .recordVote(
+        for (uint i = 0; i < votingAdaptersData.length; i++) {
+            totalWeight += IBaseVotingAdapterV1(
+                votingAdaptersData[i].votingAdapter
+            ).recordVote(
                     resolvedVoter,
                     _proposalId,
-                    _votingAdapterVoteData[i]
+                    votingAdaptersData[i].adapterVoteData
                 );
         }
         if (_voteType == uint8(VoteType.YES)) proposal.yesVotes += totalWeight;
