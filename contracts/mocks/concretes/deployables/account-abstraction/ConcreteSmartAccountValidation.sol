@@ -17,7 +17,7 @@ contract ConcreteSmartAccountValidation is SmartAccountValidationV1 {
 
     function validateUserOpPublic(
         PackedUserOperation calldata userOp
-    ) public view returns (address, address, bytes4) {
+    ) public view returns (address, address, bytes memory) {
         return validateUserOp(userOp);
     }
 }
