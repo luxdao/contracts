@@ -158,18 +158,18 @@ contract StrategyV1 is
     }
 
     function votingPeriodEnded(
-        uint32 _proposalId
+        uint32 proposalId_
     ) external view virtual override returns (bool) {
-        return _votingPeriodEnded[_proposalId];
+        return _votingPeriodEnded[proposalId_];
     }
 
     function initializeProposal(
-        uint32 proposalId,
+        uint32 proposalId_,
         bytes32[] calldata,
         bytes calldata
     ) external virtual override onlyStrategyAdmin {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
-            proposalId
+            proposalId_
         ];
         proposal.votingStartTimestamp = uint48(block.timestamp);
         proposal.votingEndTimestamp = uint48(block.timestamp + _votingPeriod);
@@ -179,7 +179,7 @@ contract StrategyV1 is
         proposal.abstainVotes = 0;
 
         emit ProposalInitialized(
-            proposalId,
+            proposalId_,
             proposal.votingStartTimestamp,
             proposal.votingEndTimestamp,
             proposal.votingStartBlock
@@ -187,13 +187,13 @@ contract StrategyV1 is
     }
 
     function vote(
-        uint32 _proposalId,
-        uint8 _voteType,
+        uint32 proposalId_,
+        uint8 voteType_,
         VotingAdapterVoteData[] calldata votingAdaptersData
     ) external virtual override {
         address resolvedVoter = voter(msg.sender);
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
-            _proposalId
+            proposalId_
         ];
 
         if (proposal.votingEndTimestamp == 0) {
@@ -201,10 +201,10 @@ contract StrategyV1 is
         }
 
         if (block.timestamp > proposal.votingEndTimestamp) {
-            if (!_votingPeriodEnded[_proposalId]) {
-                _votingPeriodEnded[_proposalId] = true;
+            if (!_votingPeriodEnded[proposalId_]) {
+                _votingPeriodEnded[proposalId_] = true;
                 emit VotingPeriodEnded(
-                    _proposalId,
+                    proposalId_,
                     proposal.votingEndTimestamp,
                     uint48(block.timestamp)
                 );
@@ -228,7 +228,7 @@ contract StrategyV1 is
                 votingAdapter
             ).recordVote(
                     resolvedVoter,
-                    _proposalId,
+                    proposalId_,
                     votingAdapterVoteData.adapterVoteData
                 );
 
@@ -239,11 +239,11 @@ contract StrategyV1 is
 
         if (totalWeightForThisVoteTransaction == 0) revert NoVotingWeight();
 
-        if (_voteType == uint8(VoteType.YES)) {
+        if (voteType_ == uint8(VoteType.YES)) {
             proposal.yesVotes += totalWeightForThisVoteTransaction;
-        } else if (_voteType == uint8(VoteType.NO)) {
+        } else if (voteType_ == uint8(VoteType.NO)) {
             proposal.noVotes += totalWeightForThisVoteTransaction;
-        } else if (_voteType == uint8(VoteType.ABSTAIN)) {
+        } else if (voteType_ == uint8(VoteType.ABSTAIN)) {
             proposal.abstainVotes += totalWeightForThisVoteTransaction;
         } else {
             revert InvalidVoteType();
@@ -251,17 +251,17 @@ contract StrategyV1 is
 
         emit Voted(
             resolvedVoter,
-            _proposalId,
-            VoteType(_voteType),
+            proposalId_,
+            VoteType(voteType_),
             totalWeightForThisVoteTransaction
         );
     }
 
     function isQuorumMet(
-        uint32 _proposalId
+        uint32 proposalId_
     ) public view virtual override returns (bool) {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
-            _proposalId
+            proposalId_
         ];
 
         if (proposal.votingEndTimestamp == 0) {
@@ -323,49 +323,43 @@ contract StrategyV1 is
     }
 
     function getVotingTimestamps(
-        uint32 _proposalId
-    )
-        external
-        view
-        virtual
-        override
-        returns (uint48 startTime, uint48 endTime)
-    {
+        uint32 proposalId_
+    ) external view virtual override returns (uint48, uint48) {
         ProposalVotingDetails storage details = _proposalVotingDetails[
-            _proposalId
+            proposalId_
         ];
         if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
         return (details.votingStartTimestamp, details.votingEndTimestamp);
     }
 
     function getVotingStartBlock(
-        uint32 _proposalId
-    ) external view virtual override returns (uint32 votingStartBlock) {
+        uint32 proposalId_
+    ) external view virtual override returns (uint32) {
         ProposalVotingDetails storage details = _proposalVotingDetails[
-            _proposalId
+            proposalId_
         ];
         if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
         return details.votingStartBlock;
     }
 
     function addAuthorizedFreezeVoter(
-        address freezeVoterContract
+        address freezeVoterContract_
     ) external virtual override onlyStrategyAdmin {
-        if (freezeVoterContract == address(0)) revert InvalidAddress();
-        if (!_authorizedFreezeVotersMapping[freezeVoterContract]) {
-            _authorizedFreezeVotersArray.push(freezeVoterContract);
+        if (freezeVoterContract_ == address(0)) revert InvalidAddress();
+        if (!_authorizedFreezeVotersMapping[freezeVoterContract_]) {
+            _authorizedFreezeVotersArray.push(freezeVoterContract_);
         }
-        _authorizedFreezeVotersMapping[freezeVoterContract] = true;
-        emit FreezeVoterAuthorizationChanged(freezeVoterContract, true);
+        _authorizedFreezeVotersMapping[freezeVoterContract_] = true;
+        emit FreezeVoterAuthorizationChanged(freezeVoterContract_, true);
     }
 
     function removeAuthorizedFreezeVoter(
-        address freezeVoterContract
+        address freezeVoterContract_
     ) external virtual override onlyStrategyAdmin {
-        if (freezeVoterContract == address(0)) revert InvalidAddress();
-        if (_authorizedFreezeVotersMapping[freezeVoterContract]) {
+        if (freezeVoterContract_ == address(0)) revert InvalidAddress();
+        if (_authorizedFreezeVotersMapping[freezeVoterContract_]) {
             for (uint256 i = 0; i < _authorizedFreezeVotersArray.length; ) {
-                if (_authorizedFreezeVotersArray[i] == freezeVoterContract) {
+                if (_authorizedFreezeVotersArray[i] == freezeVoterContract_) {
                     _authorizedFreezeVotersArray[
                         i
                     ] = _authorizedFreezeVotersArray[
@@ -379,14 +373,14 @@ contract StrategyV1 is
                 }
             }
         }
-        _authorizedFreezeVotersMapping[freezeVoterContract] = false;
-        emit FreezeVoterAuthorizationChanged(freezeVoterContract, false);
+        _authorizedFreezeVotersMapping[freezeVoterContract_] = false;
+        emit FreezeVoterAuthorizationChanged(freezeVoterContract_, false);
     }
 
     function isAuthorizedFreezeVoter(
-        address freezeVoterContract
+        address freezeVoterContract_
     ) external view virtual override returns (bool) {
-        return _authorizedFreezeVotersMapping[freezeVoterContract];
+        return _authorizedFreezeVotersMapping[freezeVoterContract_];
     }
 
     function authorizedFreezeVoters()
@@ -469,13 +463,13 @@ contract StrategyV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IStrategyV1).interfaceId ||
-            interfaceId == type(IVoterResolverV1).interfaceId ||
-            interfaceId == type(ISmartAccountValidationV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IStrategyV1).interfaceId ||
+            interfaceId_ == type(IVoterResolverV1).interfaceId ||
+            interfaceId_ == type(ISmartAccountValidationV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

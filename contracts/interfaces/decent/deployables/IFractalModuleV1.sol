@@ -6,7 +6,11 @@ import {Transaction} from "../Module.sol";
 interface IFractalModuleV1 {
     error TxFailed();
 
-    function initialize(address owner, address avatar, address target) external;
+    function initialize(
+        address owner_,
+        address avatar_,
+        address target_
+    ) external;
 
-    function execTx(Transaction calldata _transaction) external;
+    function execTx(Transaction calldata transaction_) external;
 }

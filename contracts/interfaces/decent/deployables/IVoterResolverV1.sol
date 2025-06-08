@@ -2,5 +2,7 @@
 pragma solidity ^0.8.30;
 
 interface IVoterResolverV1 {
-    function voter(address _msgSender) external view returns (address);
+    function voter(
+        address voter_
+    ) external view returns (address resolvedVoter);
 }

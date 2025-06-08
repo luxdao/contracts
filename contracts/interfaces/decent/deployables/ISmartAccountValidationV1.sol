@@ -7,5 +7,8 @@ interface ISmartAccountValidationV1 {
     error InvalidCallData();
     error InvalidInnerCallDataLength();
 
-    function lightAccountFactory() external view returns (address);
+    function lightAccountFactory()
+        external
+        view
+        returns (address lightAccountFactory);
 }

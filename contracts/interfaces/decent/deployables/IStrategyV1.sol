@@ -38,14 +38,13 @@ interface IStrategyV1 {
         address indexed freezeVoterContract,
         bool isAuthorized
     );
-
     event VotingPeriodEnded(
         uint32 indexed proposalId,
         uint48 votingEndTimestamp,
         uint48 currentTimestamp
     );
 
-    error InvalidProposerAdapter(address _proposerAdapter);
+    error InvalidProposerAdapter(address proposerAdapter);
     error NoVotingAdapters();
     error NoProposerAdapters();
     error InvalidBasisNumerator();
@@ -58,20 +57,20 @@ interface IStrategyV1 {
     error InvalidAddress();
 
     function initialize(
-        address strategyAdmin,
-        uint32 votingPeriod,
-        uint256 quorumThreshold,
-        uint256 basisNumerator,
-        address[] calldata votingAdapters,
-        address[] calldata proposerAdapters,
-        address lightAccountFactory
+        address strategyAdmin_,
+        uint32 votingPeriod_,
+        uint256 quorumThreshold_,
+        uint256 basisNumerator_,
+        address[] calldata votingAdapters_,
+        address[] calldata proposerAdapters_,
+        address lightAccountFactory_
     ) external;
 
     function isProposer(
         address address_,
         address proposerAdapter_,
         bytes calldata proposerAdapterData_
-    ) external view returns (bool);
+    ) external view returns (bool isProposer);
 
     function initializeProposal(
         uint32 proposalId_,
@@ -79,7 +78,7 @@ interface IStrategyV1 {
         bytes calldata proposalInitializerData_
     ) external;
 
-    function isPassed(uint32 proposalId_) external view returns (bool);
+    function isPassed(uint32 proposalId_) external view returns (bool isPassed);
 
     function getVotingTimestamps(
         uint32 proposalId_
@@ -91,49 +90,67 @@ interface IStrategyV1 {
 
     function isVotingAdapter(
         address votingAdapter_
-    ) external view returns (bool);
+    ) external view returns (bool isVotingAdapter);
 
     function isProposerAdapter(
         address proposerAdapter_
-    ) external view returns (bool);
+    ) external view returns (bool isProposerAdapter);
 
-    function strategyAdmin() external view returns (address);
+    function strategyAdmin() external view returns (address strategyAdmin);
 
-    function votingPeriod() external view returns (uint32);
+    function votingPeriod() external view returns (uint32 votingPeriod);
 
-    function quorumThreshold() external view returns (uint256);
+    function quorumThreshold() external view returns (uint256 quorumThreshold);
 
-    function basisNumerator() external view returns (uint256);
+    function basisNumerator() external view returns (uint256 basisNumerator);
 
     function proposalVotingDetails(
-        uint32 proposalId
-    ) external view returns (ProposalVotingDetails memory);
+        uint32 proposalId_
+    )
+        external
+        view
+        returns (ProposalVotingDetails memory proposalVotingDetails);
 
-    function votingAdapters() external view returns (address[] memory);
+    function votingAdapters()
+        external
+        view
+        returns (address[] memory votingAdapters);
 
-    function proposerAdapters() external view returns (address[] memory);
+    function proposerAdapters()
+        external
+        view
+        returns (address[] memory proposerAdapters);
 
-    function isQuorumMet(uint32 _proposalId) external view returns (bool);
+    function isQuorumMet(
+        uint32 proposalId_
+    ) external view returns (bool isQuorumMet);
 
-    function isBasisMet(uint32 _proposalId) external view returns (bool);
+    function isBasisMet(
+        uint32 proposalId_
+    ) external view returns (bool isBasisMet);
 
     function vote(
-        uint32 _proposalId,
-        uint8 _voteType,
-        VotingAdapterVoteData[] calldata votingAdaptersData
+        uint32 proposalId_,
+        uint8 voteType_,
+        VotingAdapterVoteData[] calldata votingAdaptersData_
     ) external;
 
-    function addAuthorizedFreezeVoter(address freezeVoterContract) external;
+    function addAuthorizedFreezeVoter(address freezeVoterContract_) external;
 
-    function removeAuthorizedFreezeVoter(address freezeVoterContract) external;
+    function removeAuthorizedFreezeVoter(address freezeVoterContract_) external;
 
     function isAuthorizedFreezeVoter(
-        address freezeVoterContract
-    ) external view returns (bool);
+        address freezeVoterContract_
+    ) external view returns (bool isAuthorizedFreezeVoter);
 
-    function authorizedFreezeVoters() external view returns (address[] memory);
+    function authorizedFreezeVoters()
+        external
+        view
+        returns (address[] memory authorizedFreezeVoters);
 
-    function votingPeriodEnded(uint32 _proposalId) external view returns (bool);
+    function votingPeriodEnded(
+        uint32 proposalId_
+    ) external view returns (bool votingPeriodEnded);
 
     function validStrategyVote(
         address voter_,

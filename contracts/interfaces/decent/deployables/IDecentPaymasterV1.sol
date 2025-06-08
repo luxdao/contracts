@@ -14,24 +14,24 @@ interface IDecentPaymasterV1 {
     error InvalidValidator();
 
     function initialize(
-        address _owner,
-        address _entryPoint,
-        address _lightAccountFactory
+        address owner_,
+        address entryPoint_,
+        address lightAccountFactory_
     ) external;
 
     function setFunctionValidator(
-        address contractAddress,
-        bytes4 selector,
-        address validator
+        address contractAddress_,
+        bytes4 selector_,
+        address validator_
     ) external;
 
     function removeFunctionValidator(
-        address contractAddress,
-        bytes4 selector
+        address contractAddress_,
+        bytes4 selector_
     ) external;
 
     function getFunctionValidator(
-        address contractAddress,
-        bytes4 selector
-    ) external view returns (address);
+        address contractAddress_,
+        bytes4 selector_
+    ) external view returns (address functionValidator);
 }

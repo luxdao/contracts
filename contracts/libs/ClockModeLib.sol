@@ -16,11 +16,11 @@ library ClockModeLib {
      * @dev Gets the clock mode of a token.
      * Attempts to call CLOCK_MODE() on the token. If it reverts or returns an unexpected value,
      * defaults to BlockNumber.
-     * @param _token The token address.
+     * @param token_ The token address.
      * @return The detected ClockMode.
      */
-    function getClockMode(address _token) internal view returns (ClockMode) {
-        try IERC6372(_token).CLOCK_MODE() returns (string memory mode) {
+    function getClockMode(address token_) internal view returns (ClockMode) {
+        try IERC6372(token_).CLOCK_MODE() returns (string memory mode) {
             if (keccak256(bytes(mode)) == CLOCK_MODE_TIMESTAMP_BYTES32) {
                 return ClockMode.Timestamp;
             }
@@ -32,11 +32,11 @@ library ClockModeLib {
 
     /**
      * @dev Gets the current time point (block number or timestamp) based on the ClockMode.
-     * @param _mode The ClockMode to use.
+     * @param mode_ The ClockMode to use.
      * @return The current time point.
      */
-    function getCurrentPoint(ClockMode _mode) internal view returns (uint256) {
-        if (_mode == ClockMode.Timestamp) {
+    function getCurrentPoint(ClockMode mode_) internal view returns (uint256) {
+        if (mode_ == ClockMode.Timestamp) {
             return block.timestamp;
         } else {
             return block.number;

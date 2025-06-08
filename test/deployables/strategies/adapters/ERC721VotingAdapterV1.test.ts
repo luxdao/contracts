@@ -327,7 +327,7 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
@@ -343,7 +343,7 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
@@ -370,7 +370,7 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsForWeightCheck],
       );
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
@@ -394,7 +394,7 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [[tokenToUse]],
       );
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
@@ -409,7 +409,7 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
@@ -420,7 +420,7 @@ describe('ERC721VotingAdapterV1', () => {
 
     it('should return 0 weight and empty array if _adapterVoteData is empty or decodes to an empty array', async () => {
       const emptyVoteData = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[]]);
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         emptyVoteData,
@@ -435,7 +435,7 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address, // User1 tries to get weight
         proposalId,
         adapterVoteData,
@@ -459,7 +459,7 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, validTokenIds } = await customAdapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await customAdapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
@@ -487,7 +487,7 @@ describe('ERC721VotingAdapterV1', () => {
         [tokenIdsForWeightCheck],
       );
 
-      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const [weight, validTokenIds] = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         refinedAdapterVoteData,

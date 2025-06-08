@@ -32,19 +32,19 @@ contract VotesERC20V1 is
     }
 
     function initialize(
-        Metadata calldata metadata,
-        Allocation[] calldata allocations,
-        address owner
+        Metadata calldata metadata_,
+        Allocation[] calldata allocations_,
+        address owner_
     ) public virtual override initializer {
-        __ERC20_init(metadata.name, metadata.symbol);
-        __ERC20Permit_init(metadata.name);
+        __ERC20_init(metadata_.name, metadata_.symbol);
+        __ERC20Permit_init(metadata_.name);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
-        __Ownable_init(owner);
+        __Ownable_init(owner_);
 
-        uint256 holderCount = allocations.length;
+        uint256 holderCount = allocations_.length;
         for (uint256 i; i < holderCount; ) {
-            _mint(allocations[i].to, allocations[i].amount);
+            _mint(allocations_[i].to, allocations_[i].amount);
             unchecked {
                 ++i;
             }
@@ -52,7 +52,7 @@ contract VotesERC20V1 is
     }
 
     function _authorizeUpgrade(
-        address newImplementation
+        address newImplementation_
     ) internal virtual override onlyOwner {}
 
     function clock()
@@ -76,15 +76,15 @@ contract VotesERC20V1 is
     }
 
     function _update(
-        address from,
-        address to,
-        uint256 value
+        address from_,
+        address to_,
+        uint256 value_
     ) internal virtual override(ERC20Upgradeable, ERC20VotesUpgradeable) {
-        super._update(from, to, value);
+        super._update(from_, to_, value_);
     }
 
     function nonces(
-        address owner
+        address owner_
     )
         public
         view
@@ -92,7 +92,7 @@ contract VotesERC20V1 is
         override(ERC20PermitUpgradeable, NoncesUpgradeable)
         returns (uint256)
     {
-        return super.nonces(owner);
+        return super.nonces(owner_);
     }
 
     function version() public view virtual override returns (uint16) {
@@ -100,14 +100,14 @@ contract VotesERC20V1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IVotesERC20V1).interfaceId ||
-            interfaceId == type(IERC20).interfaceId ||
-            interfaceId == type(IERC20Permit).interfaceId ||
-            interfaceId == type(IVotes).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IVotesERC20V1).interfaceId ||
+            interfaceId_ == type(IERC20).interfaceId ||
+            interfaceId_ == type(IERC20Permit).interfaceId ||
+            interfaceId_ == type(IVotes).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

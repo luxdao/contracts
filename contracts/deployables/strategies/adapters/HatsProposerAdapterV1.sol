@@ -55,13 +55,13 @@ contract HatsProposerAdapterV1 is
     }
 
     function isProposer(
-        address _proposer,
-        bytes calldata _data
+        address proposer_,
+        bytes calldata data_
     ) public view virtual override returns (bool) {
-        uint256 hatId = abi.decode(_data, (uint256));
+        uint256 hatId = abi.decode(data_, (uint256));
         return
             _hatIdToIsWhitelisted[hatId] &&
-            _hatsContract.isWearerOfHat(_proposer, hatId);
+            _hatsContract.isWearerOfHat(proposer_, hatId);
     }
 
     function version() public pure virtual override returns (uint16) {
@@ -69,12 +69,12 @@ contract HatsProposerAdapterV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IHatsProposerAdapterV1).interfaceId ||
-            interfaceId == type(IProposerAdapterV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IHatsProposerAdapterV1).interfaceId ||
+            interfaceId_ == type(IProposerAdapterV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

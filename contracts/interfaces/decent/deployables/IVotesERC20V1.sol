@@ -13,12 +13,12 @@ interface IVotesERC20V1 {
     }
 
     function initialize(
-        Metadata calldata _metadata,
-        Allocation[] calldata _allocations,
-        address owner
+        Metadata calldata metadata_,
+        Allocation[] calldata allocations_,
+        address owner_
     ) external;
 
-    function clock() external view returns (uint48);
+    function clock() external view returns (uint48 clock);
 
-    function CLOCK_MODE() external pure returns (string memory);
+    function CLOCK_MODE() external pure returns (string memory CLOCK_MODE);
 }

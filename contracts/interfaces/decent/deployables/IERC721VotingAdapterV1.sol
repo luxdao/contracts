@@ -7,36 +7,36 @@ interface IERC721VotingAdapterV1 {
     error TokenIdNotOwnedByVoter(uint256 tokenId);
 
     function initialize(
-        address token,
-        address strategy,
-        uint256 weightPerToken
+        address token_,
+        address strategy_,
+        uint256 weightPerToken_
     ) external;
 
-    function token() external view returns (address);
+    function token() external view returns (address token);
 
-    function weightPerToken() external view returns (uint256);
+    function weightPerToken() external view returns (uint256 weightPerToken);
 
     function tokenIdUsedForVote(
-        uint32 proposalId,
-        uint256 tokenId
-    ) external view returns (bool);
+        uint32 proposalId_,
+        uint256 tokenId_
+    ) external view returns (bool tokenUsed);
 
     function weightOfWithValidTokenIds(
-        address _voter,
-        uint32 _proposalId,
-        bytes calldata _adapterVoteData
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata adapterVoteData_
     ) external view returns (uint256 weight, uint256[] memory validTokenIds);
 
     function getFreezeVoteWeight(
-        address voter,
-        address freezeVoteContract,
-        uint48 freezeProposalSnapshotAndId,
-        bytes calldata adapterVoteData
+        address voter_,
+        address freezeVoteContract_,
+        uint48 freezeProposalSnapshotAndId_,
+        bytes calldata adapterVoteData_
     ) external view returns (uint256 weight);
 
     function tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract(
-        address freezeVoteContract,
-        uint48 freezeProposalSnapshotAndId,
-        uint256 tokenId
-    ) external view returns (bool);
+        address freezeVoteContract_,
+        uint48 freezeProposalSnapshotAndId_,
+        uint256 tokenId_
+    ) external view returns (bool tokenUsed);
 }
