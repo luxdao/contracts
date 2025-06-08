@@ -143,6 +143,7 @@ describe('SmartAccountValidationV1', function () {
     let mockUserOp: PackedUserOperation;
     let mockTarget: MockGaslessTarget;
     let FOO_SELECTOR: string;
+    let expectedInnerCallData: string;
 
     beforeEach(async function () {
       // Deploy MockGaslessTarget
@@ -152,7 +153,7 @@ describe('SmartAccountValidationV1', function () {
       FOO_SELECTOR = mockTarget.interface.getFunction('foo').selector;
 
       // Create mock UserOperation with properly encoded calldata
-      const innerCalldata = mockTarget.interface.encodeFunctionData('foo', [
+      expectedInnerCallData = mockTarget.interface.encodeFunctionData('foo', [
         123, // uint32 someNumber
         1, // uint8 someFlag
       ]);
@@ -160,7 +161,7 @@ describe('SmartAccountValidationV1', function () {
       const executeCalldata = mockLightAccount.interface.encodeFunctionData('execute', [
         await mockTarget.getAddress(),
         0n, // value
-        innerCalldata,
+        expectedInnerCallData,
       ]);
 
       mockUserOp = {
@@ -184,11 +185,12 @@ describe('SmartAccountValidationV1', function () {
         await mockLightAccount.getAddress(),
       );
 
-      const [lightAccountOwner, target, selector] =
+      const [lightAccountOwner, target, returnedInnerCallData] =
         await concreteSmartAccountValidation.validateUserOpPublic(mockUserOp);
       expect(lightAccountOwner).to.equal(await mockLightAccount.owner());
       expect(target).to.equal(await mockTarget.getAddress());
-      expect(selector).to.equal(FOO_SELECTOR);
+      expect(returnedInnerCallData.slice(0, 10)).to.equal(FOO_SELECTOR);
+      expect(returnedInnerCallData).to.equal(expectedInnerCallData);
     });
 
     it('should revert when the sender is not a valid smart account', async function () {

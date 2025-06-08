@@ -69,7 +69,7 @@ abstract contract SmartAccountValidationV1 is
 
     function validateUserOp(
         PackedUserOperation calldata userOp
-    ) internal view virtual returns (address, address, bytes4) {
+    ) internal view virtual returns (address, address, bytes memory) {
         (bool isValid, address lightAccountOwner) = validateSmartAccount(
             userOp.sender
         );
@@ -108,6 +108,6 @@ abstract contract SmartAccountValidationV1 is
             revert InvalidInnerCallDataLength();
         }
 
-        return (lightAccountOwner, target, bytes4(innerCallData));
+        return (lightAccountOwner, target, innerCallData);
     }
 }

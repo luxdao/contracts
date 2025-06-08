@@ -94,20 +94,16 @@ contract DecentPaymasterV1 is
         (
             address lightAccountOwner,
             address target,
-            bytes4 selector
+            bytes memory innerCallData
         ) = validateUserOp(userOp);
+
+        bytes4 selector = bytes4(innerCallData);
 
         // Check if function has a validator
         address validator = _functionValidators[target][selector];
         if (validator == address(0)) {
             revert NoValidatorSet(target, selector);
         }
-
-        // Extract the inner calldata from the UserOp
-        (, , bytes memory innerCallData) = abi.decode(
-            userOp.callData[4:],
-            (address, uint256, bytes)
-        );
 
         // Validate the operation will succeed
         bool isValid = IFunctionValidator(validator).validateOperation(
