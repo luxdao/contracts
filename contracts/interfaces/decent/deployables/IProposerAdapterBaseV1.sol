@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IProposerAdapterV1 {
+interface IProposerAdapterBaseV1 {
     function isProposer(
         address address_,
         bytes calldata data_

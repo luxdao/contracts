@@ -3,24 +3,24 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
-  ERC721ProposerAdapterV1,
-  ERC721ProposerAdapterV1__factory,
   IERC165__factory,
-  IERC721ProposerAdapterV1__factory,
-  IProposerAdapterV1__factory,
+  IProposerAdapterBaseV1__factory,
+  IProposerAdapterERC20V1__factory,
   IVersion__factory,
-  MockERC721,
-  MockERC721__factory,
-} from '../../../../typechain-types';
-import { calculateInterfaceId } from '../../../helpers/utils';
+  MockERC20Votes,
+  MockERC20Votes__factory,
+  ProposerAdapterERC20V1,
+  ProposerAdapterERC20V1__factory,
+} from '../../../../../typechain-types';
+import { calculateInterfaceId } from '../../../../helpers/utils';
 
-async function deployERC721ProposerAdapterProxy(
+async function deployERC20ProposerAdapterProxy(
   deployer: SignerWithAddress,
   implementationAddress: string,
   tokenAddress: string,
   proposerThreshold: bigint,
-): Promise<ERC721ProposerAdapterV1> {
-  const adapterInterface = ERC721ProposerAdapterV1__factory.createInterface();
+): Promise<ProposerAdapterERC20V1> {
+  const adapterInterface = ProposerAdapterERC20V1__factory.createInterface();
   const initializeCalldata = adapterInterface.encodeFunctionData('initialize', [
     tokenAddress,
     proposerThreshold,
@@ -28,96 +28,108 @@ async function deployERC721ProposerAdapterProxy(
   const proxyFactory = new ERC1967Proxy__factory(deployer);
   const proxy = await proxyFactory.deploy(implementationAddress, initializeCalldata);
   await proxy.waitForDeployment();
-  return ERC721ProposerAdapterV1__factory.connect(await proxy.getAddress(), deployer);
+  return ProposerAdapterERC20V1__factory.connect(await proxy.getAddress(), deployer);
 }
 
-describe('ERC721ProposerAdapterV1', () => {
+describe('ProposerAdapterERC20V1', () => {
   let deployer: SignerWithAddress;
   let user1: SignerWithAddress;
 
-  let adapterImplementation: ERC721ProposerAdapterV1;
-  let adapter: ERC721ProposerAdapterV1;
-  let mockNft: MockERC721;
+  let adapterImplementation: ProposerAdapterERC20V1;
+  let adapter: ProposerAdapterERC20V1;
+  let mockToken: MockERC20Votes;
 
-  const DEFAULT_PROPOSER_THRESHOLD = 5n;
+  const DEFAULT_PROPOSER_THRESHOLD = ethers.parseUnits('100', 18);
 
   beforeEach(async () => {
     [deployer, user1] = await ethers.getSigners();
 
-    const mockNftFactory = new MockERC721__factory(deployer);
-    mockNft = await mockNftFactory.deploy();
-    await mockNft.waitForDeployment();
+    const mockTokenFactory = new MockERC20Votes__factory(deployer);
+    mockToken = await mockTokenFactory.deploy();
+    await mockToken.waitForDeployment();
 
     if (!adapterImplementation) {
-      const adapterFactory = new ERC721ProposerAdapterV1__factory(deployer);
+      const adapterFactory = new ProposerAdapterERC20V1__factory(deployer);
       adapterImplementation = await adapterFactory.deploy();
       await adapterImplementation.waitForDeployment();
     }
 
-    adapter = await deployERC721ProposerAdapterProxy(
+    adapter = await deployERC20ProposerAdapterProxy(
       deployer,
       await adapterImplementation.getAddress(),
-      await mockNft.getAddress(),
+      await mockToken.getAddress(),
       DEFAULT_PROPOSER_THRESHOLD,
     );
   });
 
   describe('Initialization (via Proxy)', () => {
     it('should initialize correctly with valid parameters', async () => {
-      expect(await adapter.token()).to.equal(await mockNft.getAddress());
+      expect(await adapter.token()).to.equal(await mockToken.getAddress());
       expect(await adapter.proposerThreshold()).to.equal(DEFAULT_PROPOSER_THRESHOLD);
+    });
+
+    it('should allow proposerThreshold to be zero during proxy initialization', async () => {
+      const localAdapter = await deployERC20ProposerAdapterProxy(
+        deployer,
+        await adapterImplementation.getAddress(),
+        await mockToken.getAddress(),
+        0n,
+      );
+      expect(await localAdapter.proposerThreshold()).to.equal(0n);
     });
 
     it('should prevent reinitialization on proxied adapter', async () => {
       await expect(
-        adapter.initialize(await mockNft.getAddress(), DEFAULT_PROPOSER_THRESHOLD),
+        adapter.initialize(await mockToken.getAddress(), DEFAULT_PROPOSER_THRESHOLD),
       ).to.be.revertedWithCustomError(adapter, 'InvalidInitialization');
     });
 
     it('Implementation contract should remain uninitialized', async () => {
       await expect(
-        adapterImplementation.initialize(await mockNft.getAddress(), DEFAULT_PROPOSER_THRESHOLD),
+        adapterImplementation.initialize(await mockToken.getAddress(), DEFAULT_PROPOSER_THRESHOLD),
       ).to.be.revertedWithCustomError(adapterImplementation, 'InvalidInitialization');
     });
   });
 
   describe('isProposer', () => {
-    it('should return true if user meets the proposer threshold (balance * weight)', async () => {
-      for (let i = 0; i < 5; i++) {
-        await mockNft.connect(deployer).mint(user1.address);
-      }
+    it('should return true if user meets the proposer threshold', async () => {
+      await mockToken.connect(deployer).mint(user1.address, DEFAULT_PROPOSER_THRESHOLD);
+      await mockToken.connect(user1).delegate(user1.address);
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
 
     it('should return true if user exceeds the proposer threshold', async () => {
-      for (let i = 0; i < 6; i++) {
-        await mockNft.connect(deployer).mint(user1.address);
-      }
+      await mockToken.connect(deployer).mint(user1.address, DEFAULT_PROPOSER_THRESHOLD);
+      await mockToken.connect(user1).delegate(user1.address);
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
 
     it('should return false if user is below the proposer threshold', async () => {
-      for (let i = 0; i < 4; i++) {
-        await mockNft.connect(deployer).mint(user1.address);
-      }
+      const userVotes = DEFAULT_PROPOSER_THRESHOLD - 1n;
+      await mockToken.connect(deployer).mint(user1.address, userVotes);
+
+      await mockToken.connect(user1).delegate(user1.address);
+
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.false;
     });
 
-    it('should return false if user has no NFTs', async () => {
+    it('should return false if user has no votes (or token balance)', async () => {
+      await mockToken.connect(user1).delegate(user1.address);
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.false;
     });
 
-    it('should return true if proposerThreshold is 0, even with zero NFTs', async () => {
-      const localAdapter = await deployERC721ProposerAdapterProxy(
+    it('should return true if proposerThreshold is 0, even with zero votes', async () => {
+      const localAdapter = await deployERC20ProposerAdapterProxy(
         deployer,
         await adapterImplementation.getAddress(),
-        await mockNft.getAddress(),
+        await mockToken.getAddress(),
         0n,
       );
+      await mockToken.connect(user1).delegate(user1.address);
       const canPropose = await localAdapter.isProposer(user1.address, ethers.ZeroHash);
       void expect(canPropose).to.be.true;
     });
@@ -130,20 +142,20 @@ describe('ERC721ProposerAdapterV1', () => {
   });
 
   describe('ERC165 supportsInterface', () => {
-    it('should support IERC721ProposerAdapterV1', async () => {
+    it('should support IProposerAdapterERC20V1', async () => {
       void expect(
         await adapter.supportsInterface(
-          calculateInterfaceId(IERC721ProposerAdapterV1__factory.createInterface(), [
-            IProposerAdapterV1__factory.createInterface(),
+          calculateInterfaceId(IProposerAdapterERC20V1__factory.createInterface(), [
+            IProposerAdapterBaseV1__factory.createInterface(),
           ]),
         ),
       ).to.be.true;
     });
 
-    it('should support IProposerAdapterV1', async () => {
+    it('should support IProposerAdapterBaseV1', async () => {
       void expect(
         await adapter.supportsInterface(
-          calculateInterfaceId(IProposerAdapterV1__factory.createInterface()),
+          calculateInterfaceId(IProposerAdapterBaseV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
