@@ -11,35 +11,17 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
  * using CREATE2 for deterministic addresses
  */
 contract ProxyFactory is IProxyFactory {
-    function deployProxy(
-        address implementation_,
-        bytes calldata initData_,
-        bytes32 salt_
-    ) public returns (address) {
-        // Validate the implementation address
-        require(
-            implementation_ != address(0),
-            "Implementation cannot be zero address"
-        );
-        require(
-            implementation_.code.length > 0,
-            "Implementation must be a contract"
-        );
+    // ======================================================================
+    // IProxyFactory
+    // ======================================================================
 
-        // Deploy the proxy using CREATE2
-        address proxy = address(
-            new ERC1967Proxy{salt: salt_}(implementation_, initData_)
-        );
-
-        emit ProxyDeployed(proxy, implementation_);
-        return proxy;
-    }
+    // --- View Functions ---
 
     function predictProxyAddress(
         address implementation_,
         bytes calldata initData_,
         bytes32 salt_
-    ) public view returns (address) {
+    ) public view override returns (address) {
         // Validate the implementation address
         require(
             implementation_ != address(0),
@@ -71,5 +53,31 @@ contract ProxyFactory is IProxyFactory {
         );
 
         return address(uint160(uint256(hash)));
+    }
+
+    // --- State-Changing Functions ---
+
+    function deployProxy(
+        address implementation_,
+        bytes calldata initData_,
+        bytes32 salt_
+    ) public override returns (address) {
+        // Validate the implementation address
+        require(
+            implementation_ != address(0),
+            "Implementation cannot be zero address"
+        );
+        require(
+            implementation_.code.length > 0,
+            "Implementation must be a contract"
+        );
+
+        // Deploy the proxy using CREATE2
+        address proxy = address(
+            new ERC1967Proxy{salt: salt_}(implementation_, initData_)
+        );
+
+        emit ProxyDeployed(proxy, implementation_);
+        return proxy;
     }
 }

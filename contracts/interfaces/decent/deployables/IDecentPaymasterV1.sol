@@ -2,6 +2,14 @@
 pragma solidity ^0.8.30;
 
 interface IDecentPaymasterV1 {
+    // --- Errors ---
+
+    error NoValidatorSet(address target, bytes4 selector);
+    error ValidationFailed(address target, bytes4 selector);
+    error InvalidValidator();
+
+    // --- Events ---
+
     event FunctionValidatorSet(
         address target,
         bytes4 selector,
@@ -9,15 +17,22 @@ interface IDecentPaymasterV1 {
     );
     event FunctionValidatorRemoved(address target, bytes4 selector);
 
-    error NoValidatorSet(address target, bytes4 selector);
-    error ValidationFailed(address target, bytes4 selector);
-    error InvalidValidator();
+    // --- Initializer Functions ---
 
     function initialize(
         address owner_,
         address entryPoint_,
         address lightAccountFactory_
     ) external;
+
+    // --- View Functions ---
+
+    function getFunctionValidator(
+        address contractAddress_,
+        bytes4 selector_
+    ) external view returns (address functionValidator);
+
+    // --- State-Changing Functions ---
 
     function setFunctionValidator(
         address contractAddress_,
@@ -29,9 +44,4 @@ interface IDecentPaymasterV1 {
         address contractAddress_,
         bytes4 selector_
     ) external;
-
-    function getFunctionValidator(
-        address contractAddress_,
-        bytes4 selector_
-    ) external view returns (address functionValidator);
 }

@@ -14,11 +14,17 @@ contract ProposerAdapterHatsV1 is
     Initializable,
     ERC165
 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
     IHats internal _hatsContract;
     uint256[] internal _whitelistedHatIds;
     mapping(uint256 hatId => bool isWhitelisted) internal _hatIdToIsWhitelisted;
 
-    uint16 public constant VERSION = 1;
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -39,7 +45,13 @@ contract ProposerAdapterHatsV1 is
         }
     }
 
-    function hatsContract() external view virtual override returns (address) {
+    // ======================================================================
+    // IProposerAdapterHatsV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function hatsContract() public view virtual override returns (address) {
         return address(_hatsContract);
     }
 
@@ -53,6 +65,12 @@ contract ProposerAdapterHatsV1 is
         return _whitelistedHatIds;
     }
 
+    // ======================================================================
+    // IProposerAdapterBaseV1
+    // ======================================================================
+
+    // --- View Functions ---
+
     function isProposer(
         address proposer_,
         bytes calldata data_
@@ -63,9 +81,21 @@ contract ProposerAdapterHatsV1 is
             _hatsContract.isWearerOfHat(proposer_, hatId);
     }
 
-    function version() external pure virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_

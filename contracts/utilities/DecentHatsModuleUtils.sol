@@ -12,8 +12,16 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract DecentHatsModuleUtils {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
     bytes32 public constant SALT =
         0x5d0e6ce4fd951366cc55da93f6e79d8b81483109d79676a04bcc2bed6a4b5072;
+
+    // ======================================================================
+    // STRUCTS
+    // ======================================================================
 
     struct SablierStreamParams {
         ISablierV2LockupLinear sablier;
@@ -49,9 +57,13 @@ abstract contract DecentHatsModuleUtils {
         HatParams[] hats;
     }
 
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
     function _processRoleHats(
         CreateRoleHatsParams memory roleHatsParams_
-    ) internal {
+    ) internal virtual {
         for (uint256 i = 0; i < roleHatsParams_.hats.length; ) {
             HatParams memory hatParams = roleHatsParams_.hats[i];
 
@@ -107,7 +119,7 @@ abstract contract DecentHatsModuleUtils {
         address topHatAccount_,
         uint256 adminHatId_,
         uint128 termEndDateTs_
-    ) private returns (address) {
+    ) internal virtual returns (address) {
         // If the Hat is termed, create the eligibility module
         if (termEndDateTs_ != 0) {
             return
@@ -130,7 +142,7 @@ abstract contract DecentHatsModuleUtils {
         HatParams memory hat_,
         address eligibilityAddress_,
         address topHatAccount_
-    ) private returns (uint256) {
+    ) internal virtual returns (uint256) {
         // Grab the next Hat ID (before creating it)
         uint256 hatId = hatsProtocol_.getNextId(adminHatId_);
 
@@ -182,7 +194,6 @@ abstract contract DecentHatsModuleUtils {
         return hatId;
     }
 
-    // Exists to avoid stack too deep errors
     function _setupStreamRecipient(
         IERC6551Registry erc6551Registry_,
         address hatsAccountImplementation_,
@@ -190,7 +201,7 @@ abstract contract DecentHatsModuleUtils {
         uint128 termEndDateTs_,
         address wearer_,
         uint256 hatId_
-    ) private returns (address) {
+    ) internal virtual returns (address) {
         // If the hat is termed, the wearer is the stream recipient
         if (termEndDateTs_ != 0) {
             return wearer_;
@@ -212,7 +223,7 @@ abstract contract DecentHatsModuleUtils {
         address streamRecipient_,
         address keyValuePairs_,
         uint256 hatId_
-    ) private {
+    ) internal virtual {
         for (uint256 i = 0; i < streamParams_.length; ) {
             SablierStreamParams memory sablierStreamParams = streamParams_[i];
 

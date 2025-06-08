@@ -8,12 +8,20 @@ abstract contract FreezeVotingBaseV1 is
     IFreezeVotingBaseV1,
     Ownable2StepUpgradeable
 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
     uint48 internal _freezeProposalCreated;
     uint256 internal _freezeProposalVoteCount;
     uint32 internal _freezeProposalPeriod;
     uint32 internal _freezePeriod;
     uint256 internal _freezeVotesThreshold;
     uint48 internal _freezeActivated;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -31,8 +39,14 @@ abstract contract FreezeVotingBaseV1 is
         _freezePeriod = freezePeriod_;
     }
 
+    // ======================================================================
+    // IFreezeVotingBaseV1
+    // ======================================================================
+
+    // --- View Functions ---
+
     function freezeProposalCreated()
-        external
+        public
         view
         virtual
         override
@@ -42,7 +56,7 @@ abstract contract FreezeVotingBaseV1 is
     }
 
     function freezeProposalVoteCount()
-        external
+        public
         view
         virtual
         override
@@ -52,7 +66,7 @@ abstract contract FreezeVotingBaseV1 is
     }
 
     function freezeProposalPeriod()
-        external
+        public
         view
         virtual
         override
@@ -61,12 +75,12 @@ abstract contract FreezeVotingBaseV1 is
         return _freezeProposalPeriod;
     }
 
-    function freezePeriod() external view virtual override returns (uint32) {
+    function freezePeriod() public view virtual override returns (uint32) {
         return _freezePeriod;
     }
 
     function freezeVotesThreshold()
-        external
+        public
         view
         virtual
         override
@@ -75,23 +89,35 @@ abstract contract FreezeVotingBaseV1 is
         return _freezeVotesThreshold;
     }
 
-    function freezeActivated() external view virtual override returns (uint48) {
+    function freezeActivated() public view virtual override returns (uint48) {
         return _freezeActivated;
     }
 
-    function isFrozen() external view virtual override returns (bool) {
+    function isFrozen() public view virtual override returns (bool) {
         return
             _freezeProposalVoteCount >= _freezeVotesThreshold &&
             block.timestamp < _freezeActivated + _freezePeriod;
     }
 
-    function initializeFreezeVote() internal virtual {
+    // --- State-Changing Functions ---
+
+    function unfreeze() public virtual override onlyOwner {
+        _freezeProposalCreated = 0;
+        _freezeProposalVoteCount = 0;
+        _freezeActivated = 0;
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
+    function _initializeFreezeVote() internal virtual {
         _freezeProposalCreated = uint48(block.timestamp);
         _freezeProposalVoteCount = 0;
         _freezeActivated = 0;
     }
 
-    function recordFreezeVote(
+    function _recordFreezeVote(
         address voter_,
         uint256 weightCasted_
     ) internal virtual {
@@ -104,11 +130,5 @@ abstract contract FreezeVotingBaseV1 is
         }
 
         emit FreezeVoteCast(voter_, weightCasted_);
-    }
-
-    function unfreeze() public virtual override onlyOwner {
-        _freezeProposalCreated = 0;
-        _freezeProposalVoteCount = 0;
-        _freezeActivated = 0;
     }
 }

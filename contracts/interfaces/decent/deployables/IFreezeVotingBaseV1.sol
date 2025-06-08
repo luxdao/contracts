@@ -2,9 +2,15 @@
 pragma solidity ^0.8.30;
 
 interface IFreezeVotingBaseV1 {
+    // --- Errors ---
+
     error NoVotes();
 
+    // --- Events ---
+
     event FreezeVoteCast(address indexed voter_, uint256 votesCast_);
+
+    // --- View Functions ---
 
     function freezeProposalCreated()
         external
@@ -31,6 +37,8 @@ interface IFreezeVotingBaseV1 {
     function freezeActivated() external view returns (uint48 freezeActivated);
 
     function isFrozen() external view returns (bool isFrozen);
+
+    // --- State-Changing Functions ---
 
     function unfreeze() external;
 }

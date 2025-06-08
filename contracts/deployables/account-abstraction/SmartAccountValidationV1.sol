@@ -11,7 +11,15 @@ abstract contract SmartAccountValidationV1 is
     ISmartAccountValidationV1,
     Initializable
 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
     ILightAccountFactory internal _lightAccountFactory;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -23,8 +31,14 @@ abstract contract SmartAccountValidationV1 is
         _lightAccountFactory = ILightAccountFactory(lightAccountFactory_);
     }
 
+    // ======================================================================
+    // ISmartAccountValidationV1
+    // ======================================================================
+
+    // --- View Functions ---
+
     function lightAccountFactory()
-        external
+        public
         view
         virtual
         override
@@ -33,7 +47,11 @@ abstract contract SmartAccountValidationV1 is
         return address(_lightAccountFactory);
     }
 
-    function validateSmartAccount(
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
+    function _validateSmartAccount(
         address smartAccount_
     ) internal view virtual returns (bool, address) {
         // First check if the address has code (is a contract)
@@ -67,10 +85,10 @@ abstract contract SmartAccountValidationV1 is
         }
     }
 
-    function validateUserOp(
+    function _validateUserOp(
         PackedUserOperation calldata userOp_
     ) internal view virtual returns (address, address, bytes memory) {
-        (bool isValid, address lightAccountOwner) = validateSmartAccount(
+        (bool isValid, address lightAccountOwner) = _validateSmartAccount(
             userOp_.sender
         );
         if (!isValid) {

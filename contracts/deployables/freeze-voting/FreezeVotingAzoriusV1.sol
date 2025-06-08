@@ -19,10 +19,16 @@ contract FreezeVotingAzoriusV1 is
     VoterResolverV1,
     ERC165
 {
-    uint16 public constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     IModuleAzoriusV1 internal _parentAzorius;
     address internal _freezeProposalStrategy;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -35,7 +41,7 @@ contract FreezeVotingAzoriusV1 is
         uint32 freezePeriod_,
         address parentAzorius_,
         address lightAccountFactory_
-    ) external virtual override initializer {
+    ) public virtual override initializer {
         __BaseFreezeVotingV1_init(
             owner_,
             freezeProposalPeriod_,
@@ -46,12 +52,18 @@ contract FreezeVotingAzoriusV1 is
         _parentAzorius = IModuleAzoriusV1(parentAzorius_);
     }
 
-    function parentAzorius() external view virtual override returns (address) {
+    // ======================================================================
+    // IFreezeVotingAzoriusV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function parentAzorius() public view virtual override returns (address) {
         return address(_parentAzorius);
     }
 
     function freezeProposalStrategy()
-        external
+        public
         view
         virtual
         override
@@ -60,22 +72,64 @@ contract FreezeVotingAzoriusV1 is
         return _freezeProposalStrategy;
     }
 
+    // --- State-Changing Functions ---
+
     function castFreezeVote(
         VotingAdapterVoteData[] calldata votingAdaptersToUse_
-    ) external virtual override {
+    ) public virtual override {
         address resolvedVoter = voter(msg.sender);
 
         if (block.timestamp > _freezeProposalCreated + _freezeProposalPeriod) {
-            initializeFreezeVote();
+            _initializeFreezeVote();
             _freezeProposalStrategy = _parentAzorius.strategy();
             emit FreezeProposalCreated(resolvedVoter, _freezeProposalStrategy);
         }
 
-        recordFreezeVote(
+        _recordFreezeVote(
             resolvedVoter,
             _getVotes(resolvedVoter, votingAdaptersToUse_)
         );
     }
+
+    // ======================================================================
+    // FreezeVotingBaseV1
+    // ======================================================================
+
+    // --- State-Changing Functions ---
+
+    function unfreeze() public virtual override onlyOwner {
+        _freezeProposalStrategy = address(0);
+        super.unfreeze();
+    }
+
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
+    }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    function supportsInterface(
+        bytes4 interfaceId_
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId_ == type(IFreezeVotingAzoriusV1).interfaceId ||
+            interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
+            interfaceId_ == type(IVoterResolverV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
 
     function _getVotes(
         address voter_,
@@ -106,25 +160,5 @@ contract FreezeVotingAzoriusV1 is
         }
 
         return userVotes;
-    }
-
-    function unfreeze() public virtual override onlyOwner {
-        _freezeProposalStrategy = address(0);
-        super.unfreeze();
-    }
-
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId_
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId_ == type(IFreezeVotingAzoriusV1).interfaceId ||
-            interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
-            interfaceId_ == type(IVoterResolverV1).interfaceId ||
-            interfaceId_ == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId_);
     }
 }

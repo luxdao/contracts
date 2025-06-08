@@ -2,15 +2,21 @@
 pragma solidity ^0.8.30;
 
 interface IVotingAdapterERC721V1 {
+    // --- Errors ---
+
     error NoTokenIdsPassed();
     error TokenIdAlreadyUsedForVote(uint256 tokenId);
     error TokenIdNotOwnedByVoter(uint256 tokenId);
+
+    // --- Initializer Functions ---
 
     function initialize(
         address token_,
         address strategy_,
         uint256 weightPerToken_
     ) external;
+
+    // --- View Functions ---
 
     function token() external view returns (address token);
 

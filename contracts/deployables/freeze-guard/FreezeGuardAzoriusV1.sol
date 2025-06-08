@@ -18,9 +18,15 @@ contract FreezeGuardAzoriusV1 is
     UUPSUpgradeable,
     ERC165
 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     IFreezeVotingBaseV1 internal _freezeVoting;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -35,13 +41,31 @@ contract FreezeGuardAzoriusV1 is
         _freezeVoting = IFreezeVotingBaseV1(freezeVoting_);
     }
 
+    // ======================================================================
+    // UUPS UPGRADEABLE
+    // ======================================================================
+
+    // --- Internal Functions ---
+
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
 
-    function freezeVoting() external view virtual override returns (address) {
+    // ======================================================================
+    // IFreezeGuardBaseV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function freezeVoting() public view virtual override returns (address) {
         return address(_freezeVoting);
     }
+
+    // ======================================================================
+    // IGuard
+    // ======================================================================
+
+    // --- View Functions ---
 
     function checkTransaction(
         address,
@@ -55,18 +79,27 @@ contract FreezeGuardAzoriusV1 is
         address payable,
         bytes memory,
         address
-    ) external view virtual override {
+    ) public view virtual override {
         if (_freezeVoting.isFrozen()) revert DAOFrozen();
     }
 
-    function checkAfterExecution(
-        bytes32,
-        bool
-    ) external view virtual override {}
+    function checkAfterExecution(bytes32, bool) public view virtual override {}
 
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_

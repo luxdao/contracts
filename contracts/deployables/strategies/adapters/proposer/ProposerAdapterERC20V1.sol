@@ -14,10 +14,16 @@ contract ProposerAdapterERC20V1 is
     Initializable,
     ERC165
 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
     IVotes internal _token;
     uint256 internal _proposerThreshold;
 
-    uint16 public constant VERSION = 1;
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -26,17 +32,23 @@ contract ProposerAdapterERC20V1 is
     function initialize(
         address token_,
         uint256 proposerThreshold_
-    ) external virtual override initializer {
+    ) public virtual override initializer {
         _token = IVotes(token_);
         _proposerThreshold = proposerThreshold_;
     }
 
-    function token() external view virtual override returns (address) {
+    // ======================================================================
+    // IProposerAdapterERC20V1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function token() public view virtual override returns (address) {
         return address(_token);
     }
 
     function proposerThreshold()
-        external
+        public
         view
         virtual
         override
@@ -45,16 +57,34 @@ contract ProposerAdapterERC20V1 is
         return _proposerThreshold;
     }
 
+    // ======================================================================
+    // IProposerAdapterBaseV1
+    // ======================================================================
+
+    // --- View Functions ---
+
     function isProposer(
         address proposer_,
         bytes calldata
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         return _token.getVotes(proposer_) >= _proposerThreshold;
     }
 
-    function version() external pure virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_

@@ -4,7 +4,11 @@ pragma solidity ^0.8.30;
 import {IHats} from "../../hats/IHats.sol";
 
 interface IDecentAutonomousAdminV1 {
+    // --- Errors ---
+
     error NotCurrentWearer();
+
+    // --- Structs ---
 
     struct TriggerStartArgs {
         address currentWearer;
@@ -12,6 +16,8 @@ interface IDecentAutonomousAdminV1 {
         uint256 hatId;
         address nominatedWearer;
     }
+
+    // --- State-Changing Functions ---
 
     function triggerStartNextTerm(TriggerStartArgs calldata args_) external;
 }
