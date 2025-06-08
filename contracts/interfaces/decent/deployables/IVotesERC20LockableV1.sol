@@ -21,11 +21,11 @@ interface IVotesERC20LockableV1 is IVotesERC20V1 {
 
     function lock(bool locked_) external;
 
-    function locked() external view returns (bool);
+    function locked() external view returns (bool isLocked);
 
     function mint(address to_, uint256 amount_) external;
 
-    function maxTotalSupply() external view returns (uint256);
+    function maxTotalSupply() external view returns (uint256 maxTotalSupply);
 
     function setMaxTotalSupply(uint256 newMaxTotalSupply_) external;
 

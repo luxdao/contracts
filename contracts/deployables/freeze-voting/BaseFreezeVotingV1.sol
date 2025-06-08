@@ -92,18 +92,18 @@ abstract contract BaseFreezeVotingV1 is
     }
 
     function recordFreezeVote(
-        address voter,
-        uint256 weightCasted
+        address voter_,
+        uint256 weightCasted_
     ) internal virtual {
-        if (weightCasted == 0) revert NoVotes();
+        if (weightCasted_ == 0) revert NoVotes();
 
-        _freezeProposalVoteCount += weightCasted;
+        _freezeProposalVoteCount += weightCasted_;
 
         if (_freezeProposalVoteCount >= _freezeVotesThreshold) {
             _freezeActivated = uint48(block.timestamp);
         }
 
-        emit FreezeVoteCast(voter, weightCasted);
+        emit FreezeVoteCast(voter_, weightCasted_);
     }
 
     function unfreeze() public virtual override onlyOwner {

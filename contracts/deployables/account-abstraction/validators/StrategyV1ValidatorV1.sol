@@ -12,12 +12,12 @@ contract StrategyV1ValidatorV1 is IFunctionValidator, ERC165, Version {
 
     function validateOperation(
         address,
-        address lightAccountOwner,
-        address strategy,
-        bytes calldata callData
+        address lightAccountOwner_,
+        address strategy_,
+        bytes calldata callData_
     ) external view virtual override returns (bool) {
         // confirm here that the calldata selector is correct: `vote(uint32,uint8,(tuple(address,bytes))[])`
-        if (bytes4(callData) != IStrategyV1.vote.selector) {
+        if (bytes4(callData_) != IStrategyV1.vote.selector) {
             return false;
         }
 
@@ -28,13 +28,13 @@ contract StrategyV1ValidatorV1 is IFunctionValidator, ERC165, Version {
             uint8 voteType,
             IStrategyV1.VotingAdapterVoteData[] memory votingAdaptersData
         ) = abi.decode(
-                callData[4:], // skip selector
+                callData_[4:], // skip selector
                 (uint32, uint8, IStrategyV1.VotingAdapterVoteData[])
             );
 
         return
-            IStrategyV1(strategy).validStrategyVote(
-                lightAccountOwner,
+            IStrategyV1(strategy_).validStrategyVote(
+                lightAccountOwner_,
                 proposalId,
                 voteType,
                 votingAdaptersData
@@ -46,11 +46,11 @@ contract StrategyV1ValidatorV1 is IFunctionValidator, ERC165, Version {
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IFunctionValidator).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IFunctionValidator).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

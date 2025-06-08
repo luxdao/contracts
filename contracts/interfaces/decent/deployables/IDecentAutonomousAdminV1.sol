@@ -13,5 +13,5 @@ interface IDecentAutonomousAdminV1 {
         address nominatedWearer;
     }
 
-    function triggerStartNextTerm(TriggerStartArgs calldata args) external;
+    function triggerStartNextTerm(TriggerStartArgs calldata args_) external;
 }

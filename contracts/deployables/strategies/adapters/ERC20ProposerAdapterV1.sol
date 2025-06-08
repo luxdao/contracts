@@ -47,10 +47,10 @@ contract ERC20ProposerAdapterV1 is
     }
 
     function isProposer(
-        address _proposer,
+        address proposer_,
         bytes calldata
     ) external view virtual override returns (bool) {
-        return _token.getVotes(_proposer) >= _proposerThreshold;
+        return _token.getVotes(proposer_) >= _proposerThreshold;
     }
 
     function version() public pure virtual override returns (uint16) {
@@ -58,12 +58,12 @@ contract ERC20ProposerAdapterV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IERC20ProposerAdapterV1).interfaceId ||
-            interfaceId == type(IProposerAdapterV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IERC20ProposerAdapterV1).interfaceId ||
+            interfaceId_ == type(IProposerAdapterV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

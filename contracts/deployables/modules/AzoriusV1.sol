@@ -79,7 +79,7 @@ contract AzoriusV1 is
     }
 
     function setUp(
-        bytes memory initializeParams
+        bytes memory initializeParams_
     ) public virtual override initializer {
         (
             address owner_,
@@ -89,7 +89,7 @@ contract AzoriusV1 is
             uint32 timelockPeriod_,
             uint32 executionPeriod_
         ) = abi.decode(
-                initializeParams,
+                initializeParams_,
                 (address, address, address, address, uint32, uint32)
             );
         initialize(
@@ -103,7 +103,7 @@ contract AzoriusV1 is
     }
 
     function _authorizeUpgrade(
-        address newImplementation
+        address newImplementation_
     ) internal virtual override onlyOwner {}
 
     function totalProposalCount()
@@ -125,9 +125,9 @@ contract AzoriusV1 is
     }
 
     function proposals(
-        uint32 _proposalId
+        uint32 proposalId_
     ) external view virtual override returns (Proposal memory) {
-        return _proposals[_proposalId];
+        return _proposals[proposalId_];
     }
 
     function strategy() external view virtual override returns (address) {
@@ -153,24 +153,24 @@ contract AzoriusV1 is
     }
 
     function submitProposal(
-        Transaction[] calldata _transactions,
-        string calldata _metadata,
-        address _proposerAdapter,
-        bytes calldata _proposerAdapterData,
-        bytes calldata _proposalInitializerData
+        Transaction[] calldata transactions_,
+        string calldata metadata_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_,
+        bytes calldata proposalInitializerData_
     ) external virtual override {
         if (
             !_strategy.isProposer(
                 msg.sender,
-                _proposerAdapter,
-                _proposerAdapterData
+                proposerAdapter_,
+                proposerAdapterData_
             )
         ) revert InvalidProposer();
 
-        bytes32[] memory txHashes = new bytes32[](_transactions.length);
-        uint256 transactionsLength = _transactions.length;
+        bytes32[] memory txHashes = new bytes32[](transactions_.length);
+        uint256 transactionsLength = transactions_.length;
         for (uint256 i; i < transactionsLength; ) {
-            txHashes[i] = getTxHash(_transactions[i]);
+            txHashes[i] = getTxHash(transactions_[i]);
             unchecked {
                 ++i;
             }
@@ -184,90 +184,86 @@ contract AzoriusV1 is
         _strategy.initializeProposal(
             _totalProposalCount,
             txHashes,
-            _proposalInitializerData
+            proposalInitializerData_
         );
 
         emit ProposalCreated(
             address(_strategy),
             _totalProposalCount,
             msg.sender,
-            _transactions,
-            _metadata
+            transactions_,
+            metadata_
         );
 
         _totalProposalCount++;
     }
 
     function executeProposal(
-        uint32 _proposalId,
-        Transaction[] calldata _transactions
+        uint32 proposalId_,
+        Transaction[] calldata transactions_
     ) external virtual override {
-        if (_transactions.length == 0) revert InvalidTxs();
+        if (transactions_.length == 0) revert InvalidTxs();
         if (
-            _proposals[_proposalId].executionCounter + _transactions.length >
-            _proposals[_proposalId].txHashes.length
+            _proposals[proposalId_].executionCounter + transactions_.length >
+            _proposals[proposalId_].txHashes.length
         ) revert InvalidTxs();
-        uint256 transactionsLength = _transactions.length;
+        uint256 transactionsLength = transactions_.length;
         bytes32[] memory txHashes = new bytes32[](transactionsLength);
         for (uint256 i; i < transactionsLength; ) {
-            txHashes[i] = _executeProposalTx(_proposalId, _transactions[i]);
+            txHashes[i] = _executeProposalTx(proposalId_, transactions_[i]);
             unchecked {
                 ++i;
             }
         }
-        emit ProposalExecuted(_proposalId, txHashes);
+        emit ProposalExecuted(proposalId_, txHashes);
     }
 
     function getProposalTxHash(
-        uint32 _proposalId,
-        uint32 _txIndex
+        uint32 proposalId_,
+        uint32 txIndex_
     ) external view virtual override returns (bytes32) {
-        return _proposals[_proposalId].txHashes[_txIndex];
+        return _proposals[proposalId_].txHashes[txIndex_];
     }
 
     function getProposalTxHashes(
-        uint32 _proposalId
+        uint32 proposalId_
     ) external view virtual override returns (bytes32[] memory) {
-        return _proposals[_proposalId].txHashes;
+        return _proposals[proposalId_].txHashes;
     }
 
     function getProposal(
-        uint32 _proposalId
+        uint32 proposalId_
     )
         external
         view
         virtual
         override
-        returns (
-            address strategy_,
-            bytes32[] memory txHashes_,
-            uint32 timelockPeriod_,
-            uint32 executionPeriod_,
-            uint32 executionCounter_
-        )
+        returns (address, bytes32[] memory, uint32, uint32, uint32)
     {
-        Proposal memory _proposal = _proposals[_proposalId];
-        strategy_ = _proposal.strategy;
-        txHashes_ = _proposal.txHashes;
-        timelockPeriod_ = _proposal.timelockPeriod;
-        executionPeriod_ = _proposal.executionPeriod;
-        executionCounter_ = _proposal.executionCounter;
+        Proposal memory _proposal = _proposals[proposalId_];
+        return (
+            _proposal.strategy,
+            _proposal.txHashes,
+            _proposal.timelockPeriod,
+            _proposal.executionPeriod,
+            _proposal.executionCounter
+        );
     }
 
     function proposalState(
-        uint32 _proposalId
+        uint32 proposalId_
     ) public view virtual override returns (ProposalState) {
-        if (_proposalId >= _totalProposalCount) revert InvalidProposal();
-        Proposal memory _proposal = _proposals[_proposalId];
+        if (proposalId_ >= _totalProposalCount) revert InvalidProposal();
+        Proposal memory _proposal = _proposals[proposalId_];
         IStrategyV1 strategy_ = IStrategyV1(_proposal.strategy);
 
         (, uint48 votingEndTimestamp) = strategy_.getVotingTimestamps(
-            _proposalId
+            proposalId_
         );
 
         if (block.timestamp <= votingEndTimestamp) {
             return ProposalState.ACTIVE;
-        } else if (!strategy_.isPassed(_proposalId)) {
+        } else if (!strategy_.isPassed(proposalId_)) {
             return ProposalState.FAILED;
         } else if (_proposal.executionCounter == _proposal.txHashes.length) {
             return ProposalState.EXECUTED;
@@ -288,8 +284,8 @@ contract AzoriusV1 is
     }
 
     function generateTxHashData(
-        Transaction calldata _transaction,
-        uint256 _nonce
+        Transaction calldata transaction_,
+        uint256 nonce_
     ) public view virtual override returns (bytes memory) {
         uint256 chainId = block.chainid;
         bytes32 domainSeparator = keccak256(
@@ -298,11 +294,11 @@ contract AzoriusV1 is
         bytes32 transactionHash = keccak256(
             abi.encode(
                 TRANSACTION_TYPEHASH,
-                _transaction.to,
-                _transaction.value,
-                keccak256(_transaction.data),
-                _transaction.operation,
-                _nonce
+                transaction_.to,
+                transaction_.value,
+                keccak256(transaction_.data),
+                transaction_.operation,
+                nonce_
             )
         );
         return
@@ -315,34 +311,36 @@ contract AzoriusV1 is
     }
 
     function getTxHash(
-        Transaction calldata _transaction
+        Transaction calldata transaction_
     ) public view virtual override returns (bytes32) {
-        return keccak256(generateTxHashData(_transaction, 0));
+        return keccak256(generateTxHashData(transaction_, 0));
     }
 
     function _executeProposalTx(
-        uint32 _proposalId,
-        Transaction calldata _transaction
-    ) internal virtual returns (bytes32 txHash) {
-        if (proposalState(_proposalId) != ProposalState.EXECUTABLE)
+        uint32 proposalId_,
+        Transaction calldata transaction_
+    ) internal virtual returns (bytes32) {
+        if (proposalState(proposalId_) != ProposalState.EXECUTABLE)
             revert ProposalNotExecutable();
-        txHash = getTxHash(_transaction);
+        bytes32 txHash = getTxHash(transaction_);
         if (
-            _proposals[_proposalId].txHashes[
-                _proposals[_proposalId].executionCounter
+            _proposals[proposalId_].txHashes[
+                _proposals[proposalId_].executionCounter
             ] != txHash
         ) revert InvalidTxHash();
 
-        _proposals[_proposalId].executionCounter++;
+        _proposals[proposalId_].executionCounter++;
 
         if (
             !exec(
-                _transaction.to,
-                _transaction.value,
-                _transaction.data,
-                _transaction.operation
+                transaction_.to,
+                transaction_.value,
+                transaction_.data,
+                transaction_.operation
             )
         ) revert TxFailed();
+
+        return txHash;
     }
 
     function _updateTimelockPeriod(uint32 timelockPeriod_) internal virtual {
@@ -366,28 +364,28 @@ contract AzoriusV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IAzoriusV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IAzoriusV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 
     function _transferOwnership(
-        address newOwner
+        address newOwner_
     ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
-        Ownable2StepUpgradeable._transferOwnership(newOwner);
+        Ownable2StepUpgradeable._transferOwnership(newOwner_);
     }
 
     function transferOwnership(
-        address newOwner
+        address newOwner_
     )
         public
         virtual
         override(Ownable2StepUpgradeable, OwnableUpgradeable)
         onlyOwner
     {
-        Ownable2StepUpgradeable.transferOwnership(newOwner);
+        Ownable2StepUpgradeable.transferOwnership(newOwner_);
     }
 }

@@ -40,28 +40,28 @@ contract FractalModuleV1 is
     }
 
     function setUp(
-        bytes memory initializeParams
+        bytes memory initializeParams_
     ) public virtual override initializer {
-        (address _owner, address _avatar, address _target) = abi.decode(
-            initializeParams,
+        (address owner_, address avatar_, address target_) = abi.decode(
+            initializeParams_,
             (address, address, address)
         );
-        initialize(_owner, _avatar, _target);
+        initialize(owner_, avatar_, target_);
     }
 
     function _authorizeUpgrade(
-        address newImplementation
+        address newImplementation_
     ) internal virtual override onlyOwner {}
 
     function execTx(
-        Transaction calldata _transaction
+        Transaction calldata transaction_
     ) public virtual override onlyOwner {
         if (
             !exec(
-                _transaction.to,
-                _transaction.value,
-                _transaction.data,
-                _transaction.operation
+                transaction_.to,
+                transaction_.value,
+                transaction_.data,
+                transaction_.operation
             )
         ) revert TxFailed();
     }
@@ -71,28 +71,28 @@ contract FractalModuleV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IFractalModuleV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IFractalModuleV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 
     function _transferOwnership(
-        address newOwner
+        address newOwner_
     ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
-        Ownable2StepUpgradeable._transferOwnership(newOwner);
+        Ownable2StepUpgradeable._transferOwnership(newOwner_);
     }
 
     function transferOwnership(
-        address newOwner
+        address newOwner_
     )
         public
         virtual
         override(Ownable2StepUpgradeable, OwnableUpgradeable)
         onlyOwner
     {
-        Ownable2StepUpgradeable.transferOwnership(newOwner);
+        Ownable2StepUpgradeable.transferOwnership(newOwner_);
     }
 }

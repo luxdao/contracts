@@ -13,19 +13,19 @@ abstract contract VoterResolverV1 is
     }
 
     function __VoterResolverV1_init(
-        address _lightAccountFactory
+        address lightAccountFactory_
     ) internal onlyInitializing {
-        __SmartAccountValidationV1_init(_lightAccountFactory);
+        __SmartAccountValidationV1_init(lightAccountFactory_);
     }
 
     function voter(
-        address _msgSender
+        address voter_
     ) public view virtual override returns (address) {
         (bool isValid, address lightAccountOwner) = validateSmartAccount(
-            _msgSender
+            voter_
         );
         if (!isValid) {
-            return _msgSender;
+            return voter_;
         }
 
         return lightAccountOwner;

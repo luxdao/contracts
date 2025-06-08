@@ -19,38 +19,38 @@ interface IMultisigFreezeGuardV1 is IBaseFreezeGuardV1 {
     error Expired();
 
     function initialize(
-        uint32 timelockPeriod,
-        uint32 executionPeriod,
-        address owner,
-        address freezeVoting,
-        address childGnosisSafe
+        uint32 timelockPeriod_,
+        uint32 executionPeriod_,
+        address owner_,
+        address freezeVoting_,
+        address childGnosisSafe_
     ) external;
 
-    function timelockPeriod() external view returns (uint32);
+    function timelockPeriod() external view returns (uint32 timelockPeriod);
 
-    function executionPeriod() external view returns (uint32);
+    function executionPeriod() external view returns (uint32 executionPeriod);
 
-    function childGnosisSafe() external view returns (address);
+    function childGnosisSafe() external view returns (address childGnosisSafe);
 
     function timelockTransaction(
-        address _to,
-        uint256 _value,
-        bytes memory _data,
-        Enum.Operation _operation,
-        uint256 _safeTxGas,
-        uint256 _baseGas,
-        uint256 _gasPrice,
-        address _gasToken,
-        address payable _refundReceiver,
-        bytes calldata _signatures,
-        uint256 _nonce
+        address to_,
+        uint256 value_,
+        bytes memory data_,
+        Enum.Operation operation_,
+        uint256 safeTxGas_,
+        uint256 baseGas_,
+        uint256 gasPrice_,
+        address gasToken_,
+        address payable refundReceiver_,
+        bytes calldata signatures_,
+        uint256 nonce_
     ) external;
 
-    function updateTimelockPeriod(uint32 _timelockPeriod) external;
+    function updateTimelockPeriod(uint32 timelockPeriod_) external;
 
-    function updateExecutionPeriod(uint32 _executionPeriod) external;
+    function updateExecutionPeriod(uint32 executionPeriod_) external;
 
     function getTransactionTimelocked(
-        bytes32 _signaturesHash
-    ) external view returns (uint48);
+        bytes32 signaturesHash_
+    ) external view returns (uint48 timelockedTimestamp);
 }
