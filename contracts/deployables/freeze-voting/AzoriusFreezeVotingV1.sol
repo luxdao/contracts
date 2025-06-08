@@ -10,14 +10,13 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
 import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
-import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract AzoriusFreezeVotingV1 is
     IAzoriusFreezeVotingV1,
+    IVersion,
     BaseFreezeVotingV1,
     VoterResolverV1,
-    Version,
     ERC165
 {
     uint16 public constant VERSION = 1;
@@ -114,7 +113,7 @@ contract AzoriusFreezeVotingV1 is
         super.unfreeze();
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

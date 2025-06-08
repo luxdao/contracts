@@ -6,7 +6,6 @@ import {IMultisigFreezeGuardV1} from "../../interfaces/decent/deployables/IMulti
 import {IBaseFreezeGuardV1} from "../../interfaces/decent/deployables/IBaseFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
-import {Version} from "../Version.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -15,10 +14,10 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 
 contract MultisigFreezeGuardV1 is
     IMultisigFreezeGuardV1,
-    ERC165,
-    Version,
+    IVersion,
     Ownable2StepUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    ERC165
 {
     uint16 private constant VERSION = 1;
 
@@ -184,7 +183,7 @@ contract MultisigFreezeGuardV1 is
         emit ExecutionPeriodUpdated(executionPeriod_);
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

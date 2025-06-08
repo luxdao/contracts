@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import {IVotesERC20LockableV1} from "../../interfaces/decent/deployables/IVotesERC20LockableV1.sol";
 import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {VotesERC20V1} from "./VotesERC20V1.sol";
-import {Version} from "../Version.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -115,7 +114,7 @@ contract VotesERC20LockableV1 is
         super._update(from_, to_, amount_);
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

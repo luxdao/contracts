@@ -6,7 +6,6 @@ import {IBaseVotingAdapterV1} from "../../../interfaces/decent/deployables/IBase
 import {ClockMode} from "../../../interfaces/decent/ClockMode.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {BaseVotingAdapterV1} from "./BaseVotingAdapterV1.sol";
-import {Version} from "../../Version.sol";
 import {ClockModeLib} from "../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -15,9 +14,9 @@ import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol
 
 contract ERC20VotingAdapterV1 is
     IERC20VotingAdapterV1,
+    IVersion,
     BaseVotingAdapterV1,
-    ERC165,
-    Version
+    ERC165
 {
     uint16 public constant VERSION = 1;
 
@@ -169,7 +168,7 @@ contract ERC20VotingAdapterV1 is
         return weightCasted;
     }
 
-    function version() public pure virtual override returns (uint16) {
+    function version() external pure virtual override returns (uint16) {
         return VERSION;
     }
 
