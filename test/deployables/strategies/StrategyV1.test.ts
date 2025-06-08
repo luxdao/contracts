@@ -5,10 +5,10 @@ import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IERC165__factory,
-  IERC4337VoterSupportV1__factory,
   ISmartAccountValidationV1__factory,
   IStrategyV1__factory,
   IVersion__factory,
+  IVoterResolverV1__factory,
   MockLightAccount__factory,
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
@@ -1063,10 +1063,10 @@ describe('StrategyV1', () => {
       ).to.be.true;
     });
 
-    it('Should support IERC4337VoterSupportV1 interface', async () => {
+    it('Should support IVoterResolverV1 interface', async () => {
       void expect(
         await strategy.supportsInterface(
-          calculateInterfaceId(IERC4337VoterSupportV1__factory.createInterface()),
+          calculateInterfaceId(IVoterResolverV1__factory.createInterface()),
         ),
       ).to.be.true;
     });

@@ -10,8 +10,8 @@ import {
   IAzoriusFreezeVotingV1__factory,
   IBaseFreezeVotingV1__factory,
   IERC165__factory,
-  IERC4337VoterSupportV1__factory,
   IVersion__factory,
+  IVoterResolverV1__factory,
   MockAzoriusV1,
   MockAzoriusV1__factory,
   MockLightAccountFactory,
@@ -370,10 +370,10 @@ describe('AzoriusFreezeVotingV1', () => {
         ),
       ).to.be.true;
     });
-    it('should support IERC4337VoterSupportV1 (from ERC4337VoterSupportV1)', async () => {
+    it('should support IVoterResolverV1', async () => {
       void expect(
         await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IERC4337VoterSupportV1__factory.createInterface()),
+          calculateInterfaceId(IVoterResolverV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
