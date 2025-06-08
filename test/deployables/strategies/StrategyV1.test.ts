@@ -327,7 +327,7 @@ describe('StrategyV1', () => {
 
     it('should revert if called by a non-strategy admin address', async () => {
       await expect(
-        strategy.connect(nonOwner).initializeProposal(defaultProposalId, [], ethers.ZeroHash),
+        strategy.connect(nonOwner).initializeProposal(defaultProposalId),
       ).to.be.revertedWithCustomError(strategy, 'InvalidStrategyAdmin');
     });
 
@@ -337,9 +337,7 @@ describe('StrategyV1', () => {
       const timestampBefore = blockBefore.timestamp;
       const blockNumberBefore = blockBefore.number;
 
-      await expect(
-        strategy.connect(strategyAdmin).initializeProposal(defaultProposalId, [], ethers.ZeroHash),
-      )
+      await expect(strategy.connect(strategyAdmin).initializeProposal(defaultProposalId))
         .to.emit(strategy, 'ProposalInitialized')
         .withArgs(
           defaultProposalId,
@@ -361,13 +359,9 @@ describe('StrategyV1', () => {
     });
 
     it('should reset vote counts for a re-initialized proposal', async () => {
-      await strategy
-        .connect(strategyAdmin)
-        .initializeProposal(defaultProposalId, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(defaultProposalId);
 
-      await strategy
-        .connect(strategyAdmin)
-        .initializeProposal(defaultProposalId, [], ethers.ZeroHash); // Re-initialize
+      await strategy.connect(strategyAdmin).initializeProposal(defaultProposalId); // Re-initialize
 
       const proposalDetails = await strategy.proposalVotingDetails(defaultProposalId);
       expect(proposalDetails.yesVotes).to.equal(0);
@@ -461,7 +455,7 @@ describe('StrategyV1', () => {
 
     beforeEach(async () => {
       proposalId = 1;
-      await strategy.connect(strategyAdmin).initializeProposal(proposalId, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(proposalId);
     });
 
     it('should return correct timestamps and block after proposal initialization', async () => {
@@ -498,7 +492,7 @@ describe('StrategyV1', () => {
 
     beforeEach(async () => {
       proposalId = 1;
-      await strategy.connect(strategyAdmin).initializeProposal(proposalId, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(proposalId);
 
       adapter1Data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[1]]);
       adapter2Data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[2]]);
@@ -709,9 +703,7 @@ describe('StrategyV1', () => {
         defaultInitialProposerAdapters,
         lightAccountFactoryMockAddress,
       );
-      await multiAdapterStrategy
-        .connect(strategyAdmin)
-        .initializeProposal(proposalId, [], ethers.ZeroHash);
+      await multiAdapterStrategy.connect(strategyAdmin).initializeProposal(proposalId);
 
       const weight1 = 60;
       const weight2 = 40;
@@ -800,9 +792,7 @@ describe('StrategyV1', () => {
         defaultInitialProposerAdapters,
         lightAccountFactoryMockAddress,
       );
-      await multiAdapterStrategy
-        .connect(strategyAdmin)
-        .initializeProposal(proposalId, [], ethers.ZeroHash);
+      await multiAdapterStrategy.connect(strategyAdmin).initializeProposal(proposalId);
 
       await mockAdapter1.setWeight(user1.address, 10);
       await mockAdapter2.setWeight(user1.address, 20);
@@ -844,7 +834,7 @@ describe('StrategyV1', () => {
   describe('isPassed', () => {
     const PROPOSAL_ID = 1;
     beforeEach(async () => {
-      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
     });
 
     it('should revert with ProposalNotInitialized if proposal was not initialized', async () => {
@@ -891,9 +881,7 @@ describe('StrategyV1', () => {
         defaultInitialProposerAdapters,
         lightAccountFactoryMockAddress,
       );
-      await specificStrategy
-        .connect(strategyAdmin)
-        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await specificStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
       await mockAdapter1.setWeight(voter1.address, 50n);
       await mockAdapter1.setWeight(voter2.address, 50n);
@@ -934,9 +922,7 @@ describe('StrategyV1', () => {
         defaultInitialProposerAdapters,
         lightAccountFactoryMockAddress,
       );
-      await specificStrategy
-        .connect(strategyAdmin)
-        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await specificStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
       await mockAdapter1.setWeight(voter1.address, 60n); // YES
       await mockAdapter1.setWeight(voter2.address, 10n); // NO
@@ -967,9 +953,9 @@ describe('StrategyV1', () => {
 
     beforeEach(async () => {
       await mockAdapter1.setWeight(voter1.address, 50n);
-      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
       await time.increase(1n);
-      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID_2, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID_2);
     });
 
     it('should initially return false for any proposal', async () => {
@@ -1107,7 +1093,7 @@ describe('StrategyV1', () => {
     const PROPOSAL_ID = 1;
 
     beforeEach(async () => {
-      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
     });
 
     describe('isQuorumMet', () => {
@@ -1129,7 +1115,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 40n);
@@ -1159,7 +1145,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 41n); // Exceeds
@@ -1189,7 +1175,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 50n);
         await mockAdapter1.setWeight(voter2.address, 40n); // 90 total, < 100
@@ -1219,7 +1205,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 10n); // Only NO votes
         await qStrategy.connect(voter1).vote(PROPOSAL_ID, 0 /* NO */, [
@@ -1328,7 +1314,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 101n);
         await mockAdapter1.setWeight(voter2.address, 100n);
@@ -1357,7 +1343,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 100n);
@@ -1387,7 +1373,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await bStrategy.connect(voter1).vote(PROPOSAL_ID, 1 /* YES */, [
@@ -1410,7 +1396,7 @@ describe('StrategyV1', () => {
           defaultInitialProposerAdapters,
           lightAccountFactoryMockAddress,
         );
-        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+        await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 1n);
@@ -1628,7 +1614,7 @@ describe('StrategyV1', () => {
     const ADAPTER_VOTE_DATA = ethers.ZeroHash;
 
     beforeEach(async () => {
-      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
     });
 
     it('should return true for a valid vote configuration', async () => {
@@ -1736,9 +1722,7 @@ describe('StrategyV1', () => {
         defaultInitialProposerAdapters,
         lightAccountFactoryMockAddress,
       );
-      await multiAdapterStrategy
-        .connect(strategyAdmin)
-        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await multiAdapterStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
       await mockAdapter1.setWeight(voter1.address, 50n);
       await mockAdapter2.setWeight(voter1.address, 50n);
@@ -1771,9 +1755,7 @@ describe('StrategyV1', () => {
         defaultInitialProposerAdapters,
         lightAccountFactoryMockAddress,
       );
-      await multiAdapterStrategy
-        .connect(strategyAdmin)
-        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+      await multiAdapterStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
       await mockAdapter1.setWeight(voter1.address, 50n);
       await mockAdapter2.setValidVote(voter1.address, false, 50n); // This one will be invalid

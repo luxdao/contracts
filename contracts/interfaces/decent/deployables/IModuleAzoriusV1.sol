@@ -124,8 +124,7 @@ interface IModuleAzoriusV1 {
         Transaction[] calldata transactions_,
         string calldata metadata_,
         address proposerAdapter_,
-        bytes calldata proposerAdapterData_,
-        bytes calldata proposalInitializerData_
+        bytes calldata proposerAdapterData_
     ) external;
 
     function executeProposal(
