@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IERC20VotingAdapterV1 {
+interface IVotingAdapterERC20V1 {
     error ProposalNotReadyForSnapshot();
     error AlreadyVoted();
 

@@ -4,18 +4,18 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
-  ERC721VotingAdapterV1,
-  ERC721VotingAdapterV1__factory,
-  IBaseVotingAdapterV1__factory,
   IERC165__factory,
-  IERC721VotingAdapterV1__factory,
   IVersion__factory,
+  IVotingAdapterBaseV1__factory,
+  IVotingAdapterERC721V1__factory,
   MockERC721,
   MockERC721__factory,
   MockVotingStrategy,
   MockVotingStrategy__factory,
-} from '../../../../typechain-types';
-import { calculateInterfaceId } from '../../../helpers/utils';
+  VotingAdapterERC721V1,
+  VotingAdapterERC721V1__factory,
+} from '../../../../../typechain-types';
+import { calculateInterfaceId } from '../../../../helpers/utils';
 
 async function deployERC721AdapterProxy(
   proxyDeployer: SignerWithAddress,
@@ -23,8 +23,8 @@ async function deployERC721AdapterProxy(
   tokenAddress: string,
   strategyAddress: string,
   weightPerNft: bigint,
-): Promise<{ adapter: ERC721VotingAdapterV1 }> {
-  const initData = ERC721VotingAdapterV1__factory.createInterface().encodeFunctionData(
+): Promise<{ adapter: VotingAdapterERC721V1 }> {
+  const initData = VotingAdapterERC721V1__factory.createInterface().encodeFunctionData(
     'initialize',
     [tokenAddress, strategyAddress, weightPerNft],
   );
@@ -32,7 +32,7 @@ async function deployERC721AdapterProxy(
   const proxy = await proxyContractFactory.deploy(implementationAddress, initData);
   await proxy.waitForDeployment();
 
-  const adapterInstance = ERC721VotingAdapterV1__factory.connect(
+  const adapterInstance = VotingAdapterERC721V1__factory.connect(
     await proxy.getAddress(),
     proxyDeployer,
   );
@@ -40,7 +40,7 @@ async function deployERC721AdapterProxy(
   return { adapter: adapterInstance };
 }
 
-describe('ERC721VotingAdapterV1', () => {
+describe('VotingAdapterERC721V1', () => {
   // Globally scoped (from first fixture load in `before`)
   let erc721AdapterImplementationAddressG: string;
 
@@ -49,7 +49,7 @@ describe('ERC721VotingAdapterV1', () => {
 
   async function deployGlobalERC721Fixture() {
     const [deployer] = await ethers.getSigners();
-    const adapterImplFactory = new ERC721VotingAdapterV1__factory(deployer);
+    const adapterImplFactory = new VotingAdapterERC721V1__factory(deployer);
     const deployedAdapterImpl = await adapterImplFactory.deploy();
     await deployedAdapterImpl.waitForDeployment();
     erc721AdapterImplementationAddressG = await deployedAdapterImpl.getAddress();
@@ -156,7 +156,7 @@ describe('ERC721VotingAdapterV1', () => {
         deployer: fixtureDeployer,
         strategyAddress,
       } = await loadFixture(deployMocksAndSignersERC721Fixture);
-      const implementationContract = ERC721VotingAdapterV1__factory.connect(
+      const implementationContract = VotingAdapterERC721V1__factory.connect(
         erc721AdapterImplementationAddressG,
         fixtureDeployer,
       );
@@ -171,7 +171,7 @@ describe('ERC721VotingAdapterV1', () => {
   });
 
   describe('weightOf', () => {
-    let adapter: ERC721VotingAdapterV1;
+    let adapter: VotingAdapterERC721V1;
     let mockNft: MockERC721;
     let user1: SignerWithAddress;
     let user1TokenIds: bigint[];
@@ -291,7 +291,7 @@ describe('ERC721VotingAdapterV1', () => {
   });
 
   describe('weightOfWithUnusedTokenIds', () => {
-    let adapter: ERC721VotingAdapterV1;
+    let adapter: VotingAdapterERC721V1;
     let mockNft: MockERC721;
     let user1: SignerWithAddress;
     let user1TokenIds: bigint[];
@@ -499,7 +499,7 @@ describe('ERC721VotingAdapterV1', () => {
   });
 
   describe('recordVote', () => {
-    let adapter: ERC721VotingAdapterV1;
+    let adapter: VotingAdapterERC721V1;
     let mockNft: MockERC721;
     let user1: SignerWithAddress;
     let user1TokenIds: bigint[];
@@ -663,7 +663,7 @@ describe('ERC721VotingAdapterV1', () => {
   });
 
   describe('State Getters', () => {
-    let adapter: ERC721VotingAdapterV1;
+    let adapter: VotingAdapterERC721V1;
     let mockNft: MockERC721;
     let voter1: SignerWithAddress;
     let voter1TokenIds: bigint[];
@@ -855,7 +855,7 @@ describe('ERC721VotingAdapterV1', () => {
   });
 
   describe('ERC165 supportsInterface', () => {
-    let erc721Adapter: ERC721VotingAdapterV1;
+    let erc721Adapter: VotingAdapterERC721V1;
 
     beforeEach(async () => {
       const {
@@ -873,18 +873,18 @@ describe('ERC721VotingAdapterV1', () => {
       erc721Adapter = adapter;
     });
 
-    it('should support IERC721VotingAdapterV1', async () => {
+    it('should support IVotingAdapterERC721V1', async () => {
       void expect(
         await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IERC721VotingAdapterV1__factory.createInterface()),
+          calculateInterfaceId(IVotingAdapterERC721V1__factory.createInterface()),
         ),
       ).to.be.true;
     });
 
-    it('should support IBaseVotingAdapterV1', async () => {
+    it('should support IVotingAdapterBaseV1', async () => {
       void expect(
         await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IBaseVotingAdapterV1__factory.createInterface()),
+          calculateInterfaceId(IVotingAdapterBaseV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
@@ -912,7 +912,7 @@ describe('ERC721VotingAdapterV1', () => {
 
   // New Test Suite for Freeze Voting
   describe('Freeze Voting', () => {
-    let adapter: ERC721VotingAdapterV1;
+    let adapter: VotingAdapterERC721V1;
     let mockNft: MockERC721;
     let mockStrategy: MockVotingStrategy;
     let deployerSigner: SignerWithAddress;
@@ -1345,7 +1345,7 @@ describe('ERC721VotingAdapterV1', () => {
   });
 
   describe('validVotingAdapterVote', () => {
-    let adapter: ERC721VotingAdapterV1;
+    let adapter: VotingAdapterERC721V1;
     let mockNft: MockERC721;
     let user1: SignerWithAddress;
     let user1TokenIds: bigint[];

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
-import {IBaseVotingAdapterV1} from "../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
+import {IVotingAdapterBaseV1} from "../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {VoterResolverV1} from "../deployables/account-abstraction/VoterResolverV1.sol";
 
 contract MockVotingStrategy is IStrategyV1, VoterResolverV1 {
@@ -184,7 +184,7 @@ contract MockVotingStrategy is IStrategyV1, VoterResolverV1 {
         ];
         uint256 totalWeight = 0;
         for (uint i = 0; i < votingAdaptersData.length; i++) {
-            totalWeight += IBaseVotingAdapterV1(
+            totalWeight += IVotingAdapterBaseV1(
                 votingAdaptersData[i].votingAdapter
             ).recordVote(
                     resolvedVoter,
