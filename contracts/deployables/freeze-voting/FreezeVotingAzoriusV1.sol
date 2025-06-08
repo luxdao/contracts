@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IFreezeVotingAzoriusV1} from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
 import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
-import {IBaseVotingAdapterV1} from "../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
+import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
@@ -94,7 +94,7 @@ contract FreezeVotingAzoriusV1 is
                 revert InvalidVotingAdapter();
             }
 
-            userVotes += IBaseVotingAdapterV1(adapterAddress).recordFreezeVote(
+            userVotes += IVotingAdapterBaseV1(adapterAddress).recordFreezeVote(
                 voter_,
                 _freezeProposalCreated,
                 votingAdaptersToUse_[i].adapterVoteData

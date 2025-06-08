@@ -4,18 +4,18 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
-  ERC20VotingAdapterV1,
-  ERC20VotingAdapterV1__factory,
-  IBaseVotingAdapterV1__factory,
   IERC165__factory,
-  IERC20VotingAdapterV1__factory,
   IVersion__factory,
+  IVotingAdapterBaseV1__factory,
+  IVotingAdapterERC20V1__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
   MockVotingStrategy,
   MockVotingStrategy__factory,
-} from '../../../../typechain-types';
-import { calculateInterfaceId } from '../../../helpers/utils';
+  VotingAdapterERC20V1,
+  VotingAdapterERC20V1__factory,
+} from '../../../../../typechain-types';
+import { calculateInterfaceId } from '../../../../helpers/utils';
 
 // Modified helper function to return deployment tx hash
 async function deployERC20AdapterProxy(
@@ -24,8 +24,8 @@ async function deployERC20AdapterProxy(
   tokenAddress: string,
   strategyAddress: string,
   weightPerToken: bigint,
-): Promise<{ adapter: ERC20VotingAdapterV1 }> {
-  const initData = ERC20VotingAdapterV1__factory.createInterface().encodeFunctionData(
+): Promise<{ adapter: VotingAdapterERC20V1 }> {
+  const initData = VotingAdapterERC20V1__factory.createInterface().encodeFunctionData(
     'initialize',
     [tokenAddress, strategyAddress, weightPerToken],
   );
@@ -33,11 +33,11 @@ async function deployERC20AdapterProxy(
   const proxy = await proxyContractFactory.deploy(implementationAddress, initData);
   await proxy.waitForDeployment();
 
-  const adapter = ERC20VotingAdapterV1__factory.connect(await proxy.getAddress(), proxyDeployer);
+  const adapter = VotingAdapterERC20V1__factory.connect(await proxy.getAddress(), proxyDeployer);
   return { adapter };
 }
 
-describe('ERC20VotingAdapterV1', () => {
+describe('VotingAdapterERC20V1', () => {
   let deployerG: SignerWithAddress;
   let erc20AdapterImplementationAddressG: string;
 
@@ -45,7 +45,7 @@ describe('ERC20VotingAdapterV1', () => {
 
   async function deployGlobalFixture() {
     const [deployer, user1, user2] = await ethers.getSigners();
-    const deployedAdapterImpl = await new ERC20VotingAdapterV1__factory(deployer).deploy();
+    const deployedAdapterImpl = await new VotingAdapterERC20V1__factory(deployer).deploy();
     await deployedAdapterImpl.waitForDeployment();
 
     // Assign to global vars
@@ -141,7 +141,7 @@ describe('ERC20VotingAdapterV1', () => {
     });
 
     it('Should have initialization disabled in the implementation contract', async function () {
-      const implementationContract = ERC20VotingAdapterV1__factory.connect(
+      const implementationContract = VotingAdapterERC20V1__factory.connect(
         erc20AdapterImplementationAddressG,
         deployerG,
       );
@@ -159,7 +159,7 @@ describe('ERC20VotingAdapterV1', () => {
   describe('weightOf', () => {
     const proposalId = 1;
     const mockExtraData = ethers.ZeroHash;
-    let adapter: ERC20VotingAdapterV1;
+    let adapter: VotingAdapterERC20V1;
 
     async function setupAdapterForWeightOf(clockMode: 0 | 1, customWeightPerToken?: bigint) {
       await mockToken.setClockMode(clockMode);
@@ -280,7 +280,7 @@ describe('ERC20VotingAdapterV1', () => {
     const mockExtraData = ethers.ZeroHash;
     const expectedEventAdapterVoteData = '0x';
 
-    let adapter: ERC20VotingAdapterV1;
+    let adapter: VotingAdapterERC20V1;
     let token: MockERC20Votes;
     let strategy: MockVotingStrategy;
     let voter: SignerWithAddress;
@@ -485,7 +485,7 @@ describe('ERC20VotingAdapterV1', () => {
   });
 
   describe('State Getters', () => {
-    let adapter: ERC20VotingAdapterV1;
+    let adapter: VotingAdapterERC20V1;
     let token: MockERC20Votes;
     let strategy: MockVotingStrategy;
     let voter: SignerWithAddress;
@@ -671,7 +671,7 @@ describe('ERC20VotingAdapterV1', () => {
   });
 
   describe('ERC165 supportsInterface', () => {
-    let erc20Adapter: ERC20VotingAdapterV1;
+    let erc20Adapter: VotingAdapterERC20V1;
 
     beforeEach(async () => {
       const { adapter } = await deployERC20AdapterProxy(
@@ -684,18 +684,18 @@ describe('ERC20VotingAdapterV1', () => {
       erc20Adapter = adapter;
     });
 
-    it('should support IERC20VotingAdapterV1', async () => {
+    it('should support IVotingAdapterERC20V1', async () => {
       void expect(
         await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IERC20VotingAdapterV1__factory.createInterface()),
+          calculateInterfaceId(IVotingAdapterERC20V1__factory.createInterface()),
         ),
       ).to.be.true;
     });
 
-    it('should support IBaseVotingAdapterV1', async () => {
+    it('should support IVotingAdapterBaseV1', async () => {
       void expect(
         await erc20Adapter.supportsInterface(
-          calculateInterfaceId(IBaseVotingAdapterV1__factory.createInterface()),
+          calculateInterfaceId(IVotingAdapterBaseV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
@@ -723,7 +723,7 @@ describe('ERC20VotingAdapterV1', () => {
 
   // New Test Suite for Freeze Voting
   describe('Freeze Voting', () => {
-    let adapter: ERC20VotingAdapterV1;
+    let adapter: VotingAdapterERC20V1;
     let token: MockERC20Votes;
     let strategy: MockVotingStrategy;
     let deployerSigner: SignerWithAddress;
@@ -973,7 +973,7 @@ describe('ERC20VotingAdapterV1', () => {
   });
 
   describe('validVotingAdapterVote', () => {
-    let adapter: ERC20VotingAdapterV1;
+    let adapter: VotingAdapterERC20V1;
     let token: MockERC20Votes;
     let strategy: MockVotingStrategy;
     let voter: SignerWithAddress;
