@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
-import {IProposerAdapterV1} from "../../interfaces/decent/deployables/IProposerAdapterV1.sol";
+import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
@@ -315,7 +315,7 @@ contract StrategyV1 is
         }
 
         return
-            IProposerAdapterV1(proposerAdapter_).isProposer(
+            IProposerAdapterBaseV1(proposerAdapter_).isProposer(
                 address_,
                 proposerAdapterData_
             );

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IProposerAdapterV1} from "./IProposerAdapterV1.sol";
+import {IProposerAdapterBaseV1} from "./IProposerAdapterBaseV1.sol";
 
-interface IHatsProposerAdapterV1 is IProposerAdapterV1 {
+interface IProposerAdapterHatsV1 is IProposerAdapterBaseV1 {
     function initialize(
         address hatsContractAddress_,
         uint256[] calldata whitelistedHats_
