@@ -24,9 +24,9 @@ contract ERC20VotingAdapterV1 is
     IVotes internal _token;
     uint256 internal _weightPerToken;
     ClockMode internal _tokenClockMode;
-    mapping(uint32 => mapping(address => bool))
+    mapping(uint32 proposalId => mapping(address voter => bool hasCastedVote))
         internal _hasCastedVoteForProposal;
-    mapping(address => mapping(uint48 => mapping(address => bool)))
+    mapping(address freezeVoteContract => mapping(uint48 freezeProposalSnapshotAndId => mapping(address voter => bool hasCastedVote)))
         internal _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract;
 
     constructor() {

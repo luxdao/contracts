@@ -20,7 +20,7 @@ contract MultisigFreezeVotingV1 is
     uint16 private constant VERSION = 1;
 
     ISafe internal _parentSafe;
-    mapping(uint48 freezeProposalCreated => mapping(address voter => bool))
+    mapping(uint48 freezeProposalCreated => mapping(address voter => bool hasFreezeVoted))
         internal _userHasFreezeVoted;
 
     constructor() {

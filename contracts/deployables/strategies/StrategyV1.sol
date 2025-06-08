@@ -27,17 +27,22 @@ contract StrategyV1 is
     uint32 internal _votingPeriod;
     uint256 internal _quorumThreshold;
     uint256 internal _basisNumerator;
-    mapping(uint32 => ProposalVotingDetails) internal _proposalVotingDetails;
+    mapping(uint32 proposalId => ProposalVotingDetails proposalVotingDetails)
+        internal _proposalVotingDetails;
 
     address[] internal _votingAdapters;
     address[] internal _proposerAdapters;
-    mapping(address => bool) internal _isVotingAdapter;
-    mapping(address => bool) internal _isProposerAdapter;
+    mapping(address votingAdapter => bool isVotingAdapter)
+        internal _isVotingAdapter;
+    mapping(address proposerAdapter => bool isProposerAdapter)
+        internal _isProposerAdapter;
 
-    mapping(address => bool) internal _authorizedFreezeVotersMapping;
+    mapping(address freezeVoterContract => bool isAuthorizedFreezeVoter)
+        internal _authorizedFreezeVotersMapping;
     address[] internal _authorizedFreezeVotersArray;
 
-    mapping(uint32 => bool) internal _votingPeriodEnded;
+    mapping(uint32 proposalId => bool isVotingPeriodEnded)
+        internal _votingPeriodEnded;
 
     modifier onlyStrategyAdmin() {
         if (msg.sender != _strategyAdmin) revert InvalidStrategyAdmin();
