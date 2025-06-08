@@ -971,4 +971,271 @@ describe('ERC20VotingAdapterV1', () => {
       });
     });
   });
+
+  describe('validVotingAdapterVote', () => {
+    let adapter: ERC20VotingAdapterV1;
+    let token: MockERC20Votes;
+    let strategy: MockVotingStrategy;
+    let voter: SignerWithAddress;
+    const proposalId = 1;
+    const mockExtraData = ethers.ZeroHash;
+
+    beforeEach(async () => {
+      const mocks = await loadFixture(deployMocksAndSignersFixture);
+      voter = mocks.user1Signer;
+      token = mocks.mockToken;
+      strategy = mocks.mockStrategy;
+
+      const { adapter: deployedAdapter } = await deployERC20AdapterProxy(
+        mocks.deployer,
+        erc20AdapterImplementationAddressG,
+        await token.getAddress(),
+        await strategy.getAddress(),
+        DEFAULT_WEIGHT_PER_TOKEN,
+      );
+      adapter = deployedAdapter;
+      await strategy.setVotingAdapter(await adapter.getAddress(), true);
+    });
+
+    async function setupValidation(voterAddress: string, startOffset: number, endOffset: number) {
+      const currentTimestamp = await time.latest();
+      const startTimestamp = currentTimestamp + startOffset;
+      const endTimestamp = currentTimestamp + endOffset;
+
+      await strategy.setVotingTimestamps(proposalId, startTimestamp, endTimestamp);
+
+      return { startTimestamp, endTimestamp };
+    }
+
+    it('should return (false, 0) if user has already voted', async () => {
+      const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+
+      // Simulate having voted
+      await token.setPastVotes(voter.address, startTimestamp, ethers.parseUnits('10', 18));
+      await strategy.connect(voter).vote(
+        proposalId,
+        0, // voteType
+        [
+          {
+            votingAdapter: await adapter.getAddress(),
+            adapterVoteData: mockExtraData,
+          },
+        ],
+      );
+
+      const [isValid, weight] = await adapter.validVotingAdapterVote(
+        voter.address,
+        proposalId,
+        mockExtraData,
+      );
+
+      void expect(isValid).to.be.false;
+      expect(weight).to.equal(0);
+    });
+
+    describe('Checkpoint-based validation', () => {
+      it('should return (false, 0) if there are no checkpoints', async () => {
+        await setupValidation(voter.address, 100, 200);
+        await token.setCheckpoints(voter.address, []); // no checkpoints
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.false;
+        expect(weight).to.equal(0);
+      });
+
+      it('should return (false, 0) if all checkpoints are after proposal start', async () => {
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp + 1, _value: 100n },
+          { _key: startTimestamp + 2, _value: 200n },
+        ]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.false;
+        expect(weight).to.equal(0);
+      });
+
+      it('should return (false, 0) if the relevant checkpoint has zero votes', async () => {
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+
+        await token.setCheckpoints(voter.address, [{ _key: startTimestamp - 1, _value: 0n }]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.false;
+        expect(weight).to.equal(0);
+      });
+
+      it('should return (true, votingWeight) with a single checkpoint before start timestamp', async () => {
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+        const votingWeight = 123n;
+
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp - 1, _value: votingWeight },
+        ]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.true;
+        expect(weight).to.equal(votingWeight);
+      });
+
+      it('should return (true, votingWeight) with a single checkpoint at start timestamp', async () => {
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+        const votingWeight = 123n;
+
+        await token.setCheckpoints(voter.address, [{ _key: startTimestamp, _value: votingWeight }]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.true;
+        expect(weight).to.equal(votingWeight);
+      });
+
+      it('should use most recent checkpoint before proposal start', async () => {
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+        const expectedWeight = 100n;
+
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp - 3, _value: 50n },
+          { _key: startTimestamp - 2, _value: 0n },
+          { _key: startTimestamp - 1, _value: expectedWeight },
+        ]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.true;
+        expect(weight).to.equal(expectedWeight);
+      });
+
+      it('should ignore checkpoints after proposal start', async () => {
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+        const expectedWeight = 0n; // This should be the result
+
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp - 1, _value: expectedWeight },
+          { _key: startTimestamp + 1, _value: 100n },
+          { _key: startTimestamp + 2, _value: 200n },
+        ]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.false;
+        expect(weight).to.equal(0);
+      });
+
+      it('should return (false, 0) if most recent checkpoint is after proposal end', async () => {
+        const { startTimestamp, endTimestamp } = await setupValidation(voter.address, 100, 200);
+
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp - 1, _value: 100n }, // A valid one
+          { _key: endTimestamp + 1, _value: 50n }, // But this one is after end time
+        ]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+        void expect(isValid).to.be.false;
+        expect(weight).to.equal(0);
+      });
+
+      it('should return (true, votingWeight) for happy path with default weightPerToken', async () => {
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+        const expectedRawWeight = 500n;
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp - 10, _value: 100n },
+          { _key: startTimestamp - 5, _value: expectedRawWeight },
+        ]);
+
+        const [isValid, weight] = await adapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+
+        void expect(isValid).to.be.true;
+        expect(weight).to.equal(expectedRawWeight * DEFAULT_WEIGHT_PER_TOKEN);
+      });
+
+      it('should correctly apply weightPerToken when it is greater than 1', async () => {
+        const customWeightPerToken = 5n;
+        const { adapter: customAdapter } = await deployERC20AdapterProxy(
+          deployer,
+          erc20AdapterImplementationAddressG,
+          await token.getAddress(),
+          await mockStrategy.getAddress(),
+          customWeightPerToken,
+        );
+        await strategy.setVotingAdapter(await customAdapter.getAddress(), true);
+
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+        const votingWeight = 100n;
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp - 1, _value: votingWeight },
+        ]);
+
+        const [isValid, weight] = await customAdapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+
+        void expect(isValid).to.be.true;
+        expect(weight).to.equal(votingWeight * customWeightPerToken);
+      });
+
+      it('should return (false, 0) if weightPerToken is 0', async () => {
+        const customWeightPerToken = 0n;
+        const { adapter: customAdapter } = await deployERC20AdapterProxy(
+          deployer,
+          erc20AdapterImplementationAddressG,
+          await token.getAddress(),
+          await mockStrategy.getAddress(),
+          customWeightPerToken,
+        );
+        await strategy.setVotingAdapter(await customAdapter.getAddress(), true);
+
+        const { startTimestamp } = await setupValidation(voter.address, 100, 200);
+        const votingWeight = 100n;
+        await token.setCheckpoints(voter.address, [
+          { _key: startTimestamp - 1, _value: votingWeight },
+        ]);
+
+        const [isValid, weight] = await customAdapter.validVotingAdapterVote(
+          voter.address,
+          proposalId,
+          mockExtraData,
+        );
+
+        void expect(isValid).to.be.false;
+        expect(weight).to.equal(0);
+      });
+    });
+  });
 });

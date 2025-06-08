@@ -327,14 +327,14 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
       );
 
       expect(weight).to.equal(BigInt(tokenIdsToVoteWith.length) * DEFAULT_WEIGHT_PER_NFT);
-      expect(unusedTokenIds).to.deep.equal(tokenIdsToVoteWith);
+      expect(validTokenIds).to.deep.equal(tokenIdsToVoteWith);
     });
 
     it('should return correct weight and token IDs, filtering out unowned tokens', async () => {
@@ -343,13 +343,13 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
       );
       expect(weight).to.equal(2n * DEFAULT_WEIGHT_PER_NFT);
-      expect(unusedTokenIds).to.deep.equal([user1TokenIds[0], user1TokenIds[1]]);
+      expect(validTokenIds).to.deep.equal([user1TokenIds[0], user1TokenIds[1]]);
     });
 
     it('should return correct weight and token IDs, filtering out tokens already used in the proposal', async () => {
@@ -370,13 +370,13 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsForWeightCheck],
       );
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
       );
       expect(weight).to.equal(1n * DEFAULT_WEIGHT_PER_NFT); // Only anotherValidToken should count
-      expect(unusedTokenIds).to.deep.equal([anotherValidToken]);
+      expect(validTokenIds).to.deep.equal([anotherValidToken]);
     });
 
     it('should correctly handle tokens used in a different proposal', async () => {
@@ -394,13 +394,13 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [[tokenToUse]],
       );
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
       );
       expect(weight).to.equal(1n * DEFAULT_WEIGHT_PER_NFT); // Should be valid for this proposalId
-      expect(unusedTokenIds).to.deep.equal([tokenToUse]);
+      expect(validTokenIds).to.deep.equal([tokenToUse]);
     });
 
     it('should count duplicate token IDs in _adapterVoteData only once', async () => {
@@ -409,24 +409,24 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
       );
       expect(weight).to.equal(2n * DEFAULT_WEIGHT_PER_NFT); // For [0] and [1]
-      expect(unusedTokenIds).to.deep.equal([user1TokenIds[0], user1TokenIds[1]]);
+      expect(validTokenIds).to.deep.equal([user1TokenIds[0], user1TokenIds[1]]);
     });
 
     it('should return 0 weight and empty array if _adapterVoteData is empty or decodes to an empty array', async () => {
       const emptyVoteData = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[]]);
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         emptyVoteData,
       );
       expect(weight).to.equal(0n);
-      void expect(unusedTokenIds).to.be.an('array').that.is.empty;
+      void expect(validTokenIds).to.be.an('array').that.is.empty;
     });
 
     it('should return 0 weight and empty array if voter owns none of the valid provided token IDs', async () => {
@@ -435,13 +435,13 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address, // User1 tries to get weight
         proposalId,
         adapterVoteData,
       );
       expect(weight).to.equal(0n);
-      void expect(unusedTokenIds).to.be.an('array').that.is.empty;
+      void expect(validTokenIds).to.be.an('array').that.is.empty;
     });
 
     it('should correctly apply weightPerToken > 1', async () => {
@@ -459,13 +459,13 @@ describe('ERC721VotingAdapterV1', () => {
         ['uint256[]'],
         [tokenIdsToVoteWith],
       );
-      const { weight, unusedTokenIds } = await customAdapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await customAdapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         adapterVoteData,
       );
       expect(weight).to.equal(BigInt(tokenIdsToVoteWith.length) * customWeightPerToken);
-      expect(unusedTokenIds).to.deep.equal(tokenIdsToVoteWith);
+      expect(validTokenIds).to.deep.equal(tokenIdsToVoteWith);
     });
 
     it('should return 0 weight and empty array for a mix of invalid (unowned, used) and non-existent tokens', async () => {
@@ -487,14 +487,14 @@ describe('ERC721VotingAdapterV1', () => {
         [tokenIdsForWeightCheck],
       );
 
-      const { weight, unusedTokenIds } = await adapter.weightOfWithValidTokenIds(
+      const { weight, validTokenIds } = await adapter.weightOfWithValidTokenIds(
         user1.address,
         proposalId,
         refinedAdapterVoteData,
       );
 
       expect(weight).to.equal(0n);
-      void expect(unusedTokenIds).to.be.an('array').that.is.empty;
+      void expect(validTokenIds).to.be.an('array').that.is.empty;
     });
   });
 
@@ -1341,6 +1341,182 @@ describe('ERC721VotingAdapterV1', () => {
           ).to.emit(adapter, 'FreezeVoteRecorded');
         });
       });
+    });
+  });
+
+  describe('validVotingAdapterVote', () => {
+    let adapter: ERC721VotingAdapterV1;
+    let mockNft: MockERC721;
+    let user1: SignerWithAddress;
+    let user1TokenIds: bigint[];
+    let user2TokenIds: bigint[];
+    let deployer: SignerWithAddress;
+    let strategySigner: SignerWithAddress;
+    const proposalId = 1;
+
+    beforeEach(async () => {
+      const fixture = await loadFixture(deployMocksAndSignersERC721Fixture);
+      mockNft = fixture.mockNft;
+      user1 = fixture.user1Signer;
+      user1TokenIds = fixture.user1TokenIds;
+      user2TokenIds = fixture.user2TokenIds;
+      deployer = fixture.deployer;
+      strategySigner = fixture.strategySigner;
+
+      const { adapter: deployedAdapter } = await deployERC721AdapterProxy(
+        deployer,
+        erc721AdapterImplementationAddressG,
+        await mockNft.getAddress(),
+        fixture.strategyAddress,
+        DEFAULT_WEIGHT_PER_NFT,
+      );
+      adapter = deployedAdapter;
+    });
+
+    it('should return (true, weight) for valid, owned, unused tokens', async () => {
+      const tokenIdsToVoteWith = [user1TokenIds[0], user1TokenIds[1]];
+      const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint256[]'],
+        [tokenIdsToVoteWith],
+      );
+      const expectedWeight = BigInt(tokenIdsToVoteWith.length) * DEFAULT_WEIGHT_PER_NFT;
+
+      const [isValid, weight] = await adapter.validVotingAdapterVote(
+        user1.address,
+        proposalId,
+        adapterVoteData,
+      );
+
+      void expect(isValid).to.be.true;
+      expect(weight).to.equal(expectedWeight);
+    });
+
+    it('should return (false, 0) if tokenIds array is empty', async () => {
+      const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[]]);
+
+      const [isValid, weight] = await adapter.validVotingAdapterVote(
+        user1.address,
+        proposalId,
+        adapterVoteData,
+      );
+
+      void expect(isValid).to.be.false;
+      expect(weight).to.equal(0);
+    });
+
+    it('should return (false, 0) if one token is not owned by the user', async () => {
+      // user1 owns user1TokenIds[0], but not user2TokenIds[0]
+      const tokenIdsToVoteWith = [user1TokenIds[0], user2TokenIds[0]];
+      const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint256[]'],
+        [tokenIdsToVoteWith],
+      );
+
+      const [isValid, weight] = await adapter.validVotingAdapterVote(
+        user1.address,
+        proposalId,
+        adapterVoteData,
+      );
+
+      void expect(isValid).to.be.false;
+      expect(weight).to.equal(0);
+    });
+
+    it('should return (false, 0) if one token has already been used for the proposal', async () => {
+      const usedToken = user1TokenIds[0];
+      const unusedToken = user1TokenIds[1];
+      const voteDataForRecord = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint256[]'],
+        [[usedToken]],
+      );
+
+      // Record a vote to mark the token as used
+      await adapter
+        .connect(strategySigner)
+        .recordVote(user1.address, proposalId, voteDataForRecord);
+
+      const tokenIdsToVoteWith = [usedToken, unusedToken];
+      const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint256[]'],
+        [tokenIdsToVoteWith],
+      );
+
+      const [isValid, weight] = await adapter.validVotingAdapterVote(
+        user1.address,
+        proposalId,
+        adapterVoteData,
+      );
+
+      void expect(isValid).to.be.false;
+      expect(weight).to.equal(0);
+    });
+
+    it('should return (false, 0) if weightPerToken is 0, resulting in 0 total weight', async () => {
+      const { adapter: zeroWeightAdapter } = await deployERC721AdapterProxy(
+        deployer,
+        erc721AdapterImplementationAddressG,
+        await mockNft.getAddress(),
+        strategySigner.address,
+        0n, // 0 weight per token
+      );
+
+      const tokenIdsToVoteWith = [user1TokenIds[0]];
+      const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint256[]'],
+        [tokenIdsToVoteWith],
+      );
+
+      const [isValid, weight] = await zeroWeightAdapter.validVotingAdapterVote(
+        user1.address,
+        proposalId,
+        adapterVoteData,
+      );
+
+      void expect(isValid).to.be.false;
+      expect(weight).to.equal(0);
+    });
+
+    it('should return (false, 0) if duplicate token IDs are provided', async () => {
+      const tokenIdsToVoteWith = [user1TokenIds[0], user1TokenIds[0]]; // Duplicate token
+      const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint256[]'],
+        [tokenIdsToVoteWith],
+      );
+
+      const [isValid, weight] = await adapter.validVotingAdapterVote(
+        user1.address,
+        proposalId,
+        adapterVoteData,
+      );
+
+      void expect(isValid).to.be.false;
+      expect(weight).to.equal(0);
+    });
+
+    it('should correctly apply weightPerToken when it is greater than 1', async () => {
+      const customWeightPerToken = 5n;
+      const { adapter: customAdapter } = await deployERC721AdapterProxy(
+        deployer,
+        erc721AdapterImplementationAddressG,
+        await mockNft.getAddress(),
+        strategySigner.address,
+        customWeightPerToken,
+      );
+
+      const tokenIdsToVoteWith = [user1TokenIds[0]];
+      const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint256[]'],
+        [tokenIdsToVoteWith],
+      );
+
+      const [isValid, weight] = await customAdapter.validVotingAdapterVote(
+        user1.address,
+        proposalId,
+        adapterVoteData,
+      );
+
+      void expect(isValid).to.be.true;
+      expect(weight).to.equal(BigInt(tokenIdsToVoteWith.length) * customWeightPerToken);
     });
   });
 });

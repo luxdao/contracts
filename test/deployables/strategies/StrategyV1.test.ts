@@ -1621,4 +1621,179 @@ describe('StrategyV1', () => {
       });
     });
   });
+
+  describe('validStrategyVote', () => {
+    const PROPOSAL_ID = 1;
+    const VOTE_TYPE_YES = 1;
+    const ADAPTER_VOTE_DATA = ethers.ZeroHash;
+
+    beforeEach(async () => {
+      await strategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+    });
+
+    it('should return true for a valid vote configuration', async () => {
+      // Setup: voter1 has voting weight in mockAdapter1
+      await mockAdapter1.setWeight(voter1.address, 100n);
+
+      const isValid = await strategy.validStrategyVote(voter1.address, PROPOSAL_ID, VOTE_TYPE_YES, [
+        { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
+      ]);
+
+      void expect(isValid).to.be.true;
+    });
+
+    it('should return false if the proposal is not initialized', async () => {
+      const uninitializedProposalId = 999;
+      await mockAdapter1.setWeight(voter1.address, 100n);
+
+      const isValid = await strategy.validStrategyVote(
+        voter1.address,
+        uninitializedProposalId,
+        VOTE_TYPE_YES,
+        [{ votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA }],
+      );
+
+      void expect(isValid).to.be.false;
+    });
+
+    it('should return false if the voting period has ended', async () => {
+      const proposalDetails = await strategy.proposalVotingDetails(PROPOSAL_ID);
+      await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
+
+      // Trigger the end of the voting period
+      await strategy.connect(voter1).vote(PROPOSAL_ID, 1, [
+        {
+          votingAdapter: await mockAdapter1.getAddress(),
+          adapterVoteData: ADAPTER_VOTE_DATA,
+        },
+      ]);
+
+      const isValid = await strategy.validStrategyVote(voter1.address, PROPOSAL_ID, VOTE_TYPE_YES, [
+        { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
+      ]);
+
+      void expect(isValid).to.be.false;
+    });
+
+    it('should return false for an invalid vote type', async () => {
+      const invalidVoteType = 3;
+      await mockAdapter1.setWeight(voter1.address, 100n);
+
+      const isValid = await strategy.validStrategyVote(
+        voter1.address,
+        PROPOSAL_ID,
+        invalidVoteType,
+        [{ votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA }],
+      );
+
+      void expect(isValid).to.be.false;
+    });
+
+    it('should return false if the voting adapter is not attached to the strategy', async () => {
+      const unconfiguredAdapter = await new MockVotingAdapter__factory(deployer).deploy();
+      await unconfiguredAdapter.waitForDeployment();
+      await unconfiguredAdapter.setWeight(voter1.address, 100n);
+
+      const isValid = await strategy.validStrategyVote(voter1.address, PROPOSAL_ID, VOTE_TYPE_YES, [
+        {
+          votingAdapter: await unconfiguredAdapter.getAddress(),
+          adapterVoteData: ADAPTER_VOTE_DATA,
+        },
+      ]);
+
+      void expect(isValid).to.be.false;
+    });
+
+    it('should return false if the adapter considers the vote invalid', async () => {
+      // Adapter returns isValid: false, even with non-zero weight
+      await mockAdapter1.setValidVote(voter1.address, false, 100n);
+
+      const isValid = await strategy.validStrategyVote(voter1.address, PROPOSAL_ID, VOTE_TYPE_YES, [
+        { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
+      ]);
+
+      void expect(isValid).to.be.false;
+    });
+
+    it('should return false if total voting weight is zero', async () => {
+      // Adapter returns isValid: true, but with zero weight
+      await mockAdapter1.setValidVote(voter1.address, true, 0n);
+
+      const isValid = await strategy.validStrategyVote(voter1.address, PROPOSAL_ID, VOTE_TYPE_YES, [
+        { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
+      ]);
+
+      void expect(isValid).to.be.false;
+    });
+
+    it('should return true with multiple valid adapters', async () => {
+      const multiAdapterStrategy = await deployStrategyProxy(
+        strategyAdmin.address,
+        DEFAULT_VOTING_PERIOD,
+        DEFAULT_QUORUM_THRESHOLD,
+        DEFAULT_BASIS_NUMERATOR,
+        [await mockAdapter1.getAddress(), await mockAdapter2.getAddress()],
+        defaultInitialProposerAdapters,
+        lightAccountFactoryMockAddress,
+      );
+      await multiAdapterStrategy
+        .connect(strategyAdmin)
+        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+
+      await mockAdapter1.setWeight(voter1.address, 50n);
+      await mockAdapter2.setWeight(voter1.address, 50n);
+
+      const isValid = await multiAdapterStrategy.validStrategyVote(
+        voter1.address,
+        PROPOSAL_ID,
+        VOTE_TYPE_YES,
+        [
+          {
+            votingAdapter: await mockAdapter1.getAddress(),
+            adapterVoteData: ADAPTER_VOTE_DATA,
+          },
+          {
+            votingAdapter: await mockAdapter2.getAddress(),
+            adapterVoteData: ADAPTER_VOTE_DATA,
+          },
+        ],
+      );
+      void expect(isValid).to.be.true;
+    });
+
+    it('should return false if one of multiple adapters is invalid', async () => {
+      const multiAdapterStrategy = await deployStrategyProxy(
+        strategyAdmin.address,
+        DEFAULT_VOTING_PERIOD,
+        DEFAULT_QUORUM_THRESHOLD,
+        DEFAULT_BASIS_NUMERATOR,
+        [await mockAdapter1.getAddress(), await mockAdapter2.getAddress()],
+        defaultInitialProposerAdapters,
+        lightAccountFactoryMockAddress,
+      );
+      await multiAdapterStrategy
+        .connect(strategyAdmin)
+        .initializeProposal(PROPOSAL_ID, [], ethers.ZeroHash);
+
+      await mockAdapter1.setWeight(voter1.address, 50n);
+      await mockAdapter2.setValidVote(voter1.address, false, 50n); // This one will be invalid
+
+      const isValid = await multiAdapterStrategy.validStrategyVote(
+        voter1.address,
+        PROPOSAL_ID,
+        VOTE_TYPE_YES,
+        [
+          {
+            votingAdapter: await mockAdapter1.getAddress(),
+            adapterVoteData: ADAPTER_VOTE_DATA,
+          },
+          {
+            votingAdapter: await mockAdapter2.getAddress(),
+            adapterVoteData: ADAPTER_VOTE_DATA,
+          },
+        ],
+      );
+      void expect(isValid).to.be.false;
+    });
+  });
 });

@@ -10,6 +10,8 @@ import {Version} from "../../Version.sol";
 import {ClockModeLib} from "../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 contract ERC20VotingAdapterV1 is
     IERC20VotingAdapterV1,
@@ -177,5 +179,71 @@ contract ERC20VotingAdapterV1 is
             interfaceId == type(IBaseVotingAdapterV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
+    }
+
+    function validVotingAdapterVote(
+        address voter,
+        uint32 proposalId,
+        bytes calldata
+    ) external view virtual override returns (bool, uint256) {
+        // check if the user has voted
+        if (_hasCastedVoteForProposal[proposalId][voter]) {
+            return (false, 0);
+        }
+
+        // get the governance token
+        ERC20Votes governanceToken = ERC20Votes(address(_token));
+
+        // get the number of checkpoints for the voter
+        uint32 numCheckpoints = governanceToken.numCheckpoints(voter);
+
+        (uint48 startTimestamp, uint48 endTimestamp) = _strategy
+            .getVotingTimestamps(proposalId);
+
+        // if there are no checkpoints, user has no voting weight
+        if (numCheckpoints == 0) {
+            return (false, 0);
+        }
+
+        // Iterate backwards through checkpoints to find the relevant one for startTimestamp.
+        // This is potentially more efficient than binary search if startTimestamp is recent.
+        uint256 votingWeight = 0;
+        for (uint256 i = numCheckpoints; i > 0; ) {
+            // Checkpoint indices are 0-based, loop index 'j' is 1-based count.
+            Checkpoints.Checkpoint208 memory checkpoint = governanceToken
+                .checkpoints(voter, uint32(i - 1));
+
+            // If this checkpoint's timestamp is after the proposal's endTimestamp,
+            // it implies the current timestamp is also after endTimestamp.
+            // Thus, the voting period has definitively ended, and any vote is invalid.
+            if (checkpoint._key > endTimestamp) {
+                return (false, 0); // Vote is invalid as the proposal has ended.
+            }
+
+            // If the checkpoint timestamp is less than or equal to the proposal start timestamp,
+            // we've found the relevant voting weight.
+            if (checkpoint._key <= startTimestamp) {
+                votingWeight = checkpoint._value;
+                break; // Exit loop once the correct checkpoint is found
+            }
+
+            unchecked {
+                --i;
+            }
+        }
+        // If the loop completes without finding a checkpoint where fromTimestamp <= startTimestamp,
+        // (and the optimization above didn't trigger and return false),
+        // it means all checkpoints are after startTimestamp, so the weight at startTimestamp was 0.
+        // votingWeight remains 0 in this case.
+
+        // multiply votingWeight by _weightPerToken
+        votingWeight = votingWeight * _weightPerToken;
+
+        // Check if the user had any voting weight at the proposal start timestamp
+        if (votingWeight == 0) {
+            return (false, 0);
+        }
+
+        return (true, votingWeight);
     }
 }

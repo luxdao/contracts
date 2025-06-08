@@ -394,6 +394,71 @@ contract StrategyV1 is
         return _authorizedFreezeVotersArray;
     }
 
+    function validStrategyVote(
+        address voter_,
+        uint32 proposalId_,
+        uint8 voteType_,
+        VotingAdapterVoteData[] calldata votingAdaptersData_
+    ) external view virtual override returns (bool) {
+        // get the proposal start and end timestamps to determine if the proposal exists
+        ProposalVotingDetails storage details = _proposalVotingDetails[
+            proposalId_
+        ];
+
+        // Check if proposal exists (will have non-zero endTimestamp if it exists)
+        if (details.votingEndTimestamp == 0) {
+            return false;
+        }
+
+        // Check if voting period has ended
+        if (_votingPeriodEnded[proposalId_]) {
+            return false;
+        }
+
+        // Check if vote type is valid (NO=0, YES=1, ABSTAIN=2)
+        if (voteType_ > 2) {
+            return false;
+        }
+
+        uint256 totalVotingWeight = 0;
+
+        // loop through the voting adapters and check if the vote is valid
+        for (uint256 i = 0; i < votingAdaptersData_.length; ) {
+            VotingAdapterVoteData
+                memory votingAdapterVoteData = votingAdaptersData_[i];
+            address votingAdapter = votingAdapterVoteData.votingAdapter;
+
+            // check if the voting adapter is attached to this strategy
+            if (!_isVotingAdapter[votingAdapter]) {
+                return false;
+            }
+
+            (bool isValid, uint256 votingWeight) = IBaseVotingAdapterV1(
+                votingAdapter
+            ).validVotingAdapterVote(
+                    voter_,
+                    proposalId_,
+                    votingAdapterVoteData.adapterVoteData
+                );
+
+            if (!isValid) {
+                return false;
+            }
+
+            totalVotingWeight += votingWeight;
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (totalVotingWeight == 0) {
+            return false;
+        }
+
+        return true;
+    }
+
     function version() public view virtual override returns (uint16) {
         return VERSION;
     }
