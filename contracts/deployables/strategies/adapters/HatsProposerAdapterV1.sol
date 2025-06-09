@@ -17,7 +17,7 @@ contract HatsProposerAdapterV1 is
 {
     IHats internal _hatsContract;
     uint256[] internal _whitelistedHatIds;
-    mapping(uint256 => bool) internal _hatIdToIsWhitelisted;
+    mapping(uint256 hatId => bool isWhitelisted) internal _hatIdToIsWhitelisted;
 
     uint16 public constant VERSION = 1;
 
