@@ -13,7 +13,6 @@ interface IProxyFactory {
     function predictProxyAddress(
         address implementation_,
         bytes calldata initData_,
-        bytes32 salt_,
-        address deployer_
+        bytes32 salt_
     ) external view returns (address proxy);
 }
