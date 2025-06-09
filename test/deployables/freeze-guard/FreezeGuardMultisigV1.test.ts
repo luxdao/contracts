@@ -4,17 +4,17 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
-  IBaseFreezeGuardV1__factory,
+  FreezeGuardMultisigV1,
+  FreezeGuardMultisigV1__factory,
   IERC165__factory,
+  IFreezeGuardBaseV1__factory,
+  IFreezeGuardMultisigV1__factory,
   IGuard__factory,
-  IMultisigFreezeGuardV1__factory,
   IVersion__factory,
   MockFreezeVoting,
   MockFreezeVoting__factory,
   MockSafe,
   MockSafe__factory,
-  MultisigFreezeGuardV1,
-  MultisigFreezeGuardV1__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
@@ -28,9 +28,9 @@ async function deployMultisigFreezeGuardProxy(
   executionPeriod: number,
   freezeVoting: string,
   childGnosisSafe: string,
-): Promise<MultisigFreezeGuardV1> {
+): Promise<FreezeGuardMultisigV1> {
   // Create initialization data with function selector
-  const initializeInterface = MultisigFreezeGuardV1__factory.createInterface();
+  const initializeInterface = FreezeGuardMultisigV1__factory.createInterface();
   const fullInitData = initializeInterface.encodeFunctionData('initialize', [
     timelockPeriod,
     executionPeriod,
@@ -43,10 +43,10 @@ async function deployMultisigFreezeGuardProxy(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return MultisigFreezeGuardV1__factory.connect(await proxy.getAddress(), owner);
+  return FreezeGuardMultisigV1__factory.connect(await proxy.getAddress(), owner);
 }
 
-describe('MultisigFreezeGuardV1', () => {
+describe('FreezeGuardMultisigV1', () => {
   const Operation = {
     Call: 0,
     DelegateCall: 1,
@@ -60,7 +60,7 @@ describe('MultisigFreezeGuardV1', () => {
 
   // contracts
   let masterCopy: string;
-  let multisigFreezeGuard: MultisigFreezeGuardV1;
+  let multisigFreezeGuard: FreezeGuardMultisigV1;
   let mockFreezeVoting: MockFreezeVoting;
   let mockSafe: MockSafe;
 
@@ -77,7 +77,7 @@ describe('MultisigFreezeGuardV1', () => {
     [proxyDeployer, owner, user, nonOwner] = await ethers.getSigners();
 
     // Deploy implementation
-    const implementation = await new MultisigFreezeGuardV1__factory(proxyDeployer).deploy();
+    const implementation = await new FreezeGuardMultisigV1__factory(proxyDeployer).deploy();
     masterCopy = await implementation.getAddress();
 
     // Deploy mock contracts
@@ -120,7 +120,7 @@ describe('MultisigFreezeGuardV1', () => {
     });
 
     it('Should have initialization disabled in the implementation', async function () {
-      const implementationContract = MultisigFreezeGuardV1__factory.connect(
+      const implementationContract = FreezeGuardMultisigV1__factory.connect(
         masterCopy,
         proxyDeployer,
       );
@@ -475,21 +475,21 @@ describe('MultisigFreezeGuardV1', () => {
       ).to.be.true;
     });
 
-    it('Should support IMultisigFreezeGuardV1 interface', async function () {
+    it('Should support IFreezeGuardMultisigV1 interface', async function () {
       void expect(
         await multisigFreezeGuard.supportsInterface(
-          calculateInterfaceId(IMultisigFreezeGuardV1__factory.createInterface(), [
-            IBaseFreezeGuardV1__factory.createInterface(),
+          calculateInterfaceId(IFreezeGuardMultisigV1__factory.createInterface(), [
+            IFreezeGuardBaseV1__factory.createInterface(),
             IGuard__factory.createInterface(),
           ]),
         ),
       ).to.be.true;
     });
 
-    it('Should support IBaseFreezeGuardV1 interface', async function () {
+    it('Should support IFreezeGuardBaseV1 interface', async function () {
       void expect(
         await multisigFreezeGuard.supportsInterface(
-          calculateInterfaceId(IBaseFreezeGuardV1__factory.createInterface(), [
+          calculateInterfaceId(IFreezeGuardBaseV1__factory.createInterface(), [
             IGuard__factory.createInterface(),
           ]),
         ),
@@ -513,7 +513,7 @@ describe('MultisigFreezeGuardV1', () => {
     runUUPSUpgradeabilityTests({
       getContract: () => multisigFreezeGuard,
       createNewImplementation: async () => {
-        const newImplementation = await new MultisigFreezeGuardV1__factory(owner).deploy();
+        const newImplementation = await new FreezeGuardMultisigV1__factory(owner).deploy();
         return newImplementation;
       },
       owner: () => owner,
