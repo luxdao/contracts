@@ -5,7 +5,6 @@ import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {Version} from "../Version.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -14,9 +13,9 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract AzoriusV1 is
     IAzoriusV1,
+    IVersion,
     GuardableModule,
     Ownable2StepUpgradeable,
-    Version,
     UUPSUpgradeable,
     ERC165
 {
@@ -359,7 +358,7 @@ contract AzoriusV1 is
         emit StrategyUpdated(strategy_);
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

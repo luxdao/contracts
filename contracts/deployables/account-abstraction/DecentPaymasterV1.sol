@@ -7,7 +7,6 @@ import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISm
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {BasePaymasterV1} from "./BasePaymasterV1.sol";
 import {SmartAccountValidationV1} from "./SmartAccountValidationV1.sol";
-import {Version} from "../Version.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {PackedUserOperation, IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -18,7 +17,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 contract DecentPaymasterV1 is
     IDecentPaymasterV1,
-    Version,
+    IVersion,
     BasePaymasterV1,
     SmartAccountValidationV1,
     Ownable2StepUpgradeable,
@@ -115,7 +114,7 @@ contract DecentPaymasterV1 is
         return (abi.encode(), 0);
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

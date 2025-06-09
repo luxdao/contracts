@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {Version} from "../Version.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IAzoriusFreezeGuardV1} from "../../interfaces/decent/deployables/IAzoriusFreezeGuardV1.sol";
 import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
@@ -14,10 +13,10 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 
 contract AzoriusFreezeGuardV1 is
     IAzoriusFreezeGuardV1,
-    ERC165,
-    Version,
+    IVersion,
     Ownable2StepUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    ERC165
 {
     uint16 private constant VERSION = 1;
 
@@ -65,7 +64,7 @@ contract AzoriusFreezeGuardV1 is
         bool
     ) external view virtual override {}
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

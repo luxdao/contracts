@@ -6,15 +6,14 @@ import {IMultisigFreezeVotingV1} from "../../interfaces/decent/deployables/IMult
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
-import {Version} from "../Version.sol";
 import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract MultisigFreezeVotingV1 is
     IMultisigFreezeVotingV1,
+    IVersion,
     BaseFreezeVotingV1,
     VoterResolverV1,
-    Version,
     ERC165
 {
     uint16 private constant VERSION = 1;
@@ -86,7 +85,7 @@ contract MultisigFreezeVotingV1 is
         return 1;
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 
