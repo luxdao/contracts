@@ -8,8 +8,6 @@ abstract contract ERC4337VoterSupportV1 is
     IERC4337VoterSupportV1,
     SmartAccountValidationV1
 {
-    mapping(uint32 => bool) internal _votingPeriodEnded;
-
     constructor() {
         _disableInitializers();
     }
@@ -31,11 +29,5 @@ abstract contract ERC4337VoterSupportV1 is
         }
 
         return lightAccountOwner;
-    }
-
-    function votingPeriodEnded(
-        uint32 _proposalId
-    ) external view virtual override returns (bool) {
-        return _votingPeriodEnded[_proposalId];
     }
 }

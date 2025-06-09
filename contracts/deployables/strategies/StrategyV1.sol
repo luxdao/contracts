@@ -37,6 +37,8 @@ contract StrategyV1 is
     mapping(address => bool) internal _authorizedFreezeVotersMapping;
     address[] internal _authorizedFreezeVotersArray;
 
+    mapping(uint32 => bool) internal _votingPeriodEnded;
+
     modifier onlyStrategyAdmin() {
         if (msg.sender != _strategyAdmin) revert InvalidStrategyAdmin();
         _;
@@ -148,6 +150,12 @@ contract StrategyV1 is
         returns (address[] memory)
     {
         return _proposerAdapters;
+    }
+
+    function votingPeriodEnded(
+        uint32 _proposalId
+    ) external view virtual override returns (bool) {
+        return _votingPeriodEnded[_proposalId];
     }
 
     function initializeProposal(

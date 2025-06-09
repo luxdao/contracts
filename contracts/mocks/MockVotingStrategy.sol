@@ -275,4 +275,8 @@ contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
     {
         return _authorizedFreezeVotersArray;
     }
+
+    function votingPeriodEnded(
+        uint32 _proposalId
+    ) external view override returns (bool) {}
 }
