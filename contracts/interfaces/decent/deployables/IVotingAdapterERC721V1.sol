@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IERC721VotingAdapterV1 {
+interface IVotingAdapterERC721V1 {
     error NoTokenIdsPassed();
     error TokenIdAlreadyUsedForVote(uint256 tokenId);
     error TokenIdNotOwnedByVoter(uint256 tokenId);
