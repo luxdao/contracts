@@ -713,8 +713,12 @@ describe('ERC721VotingAdapterV1', () => {
         await mockStrategy.connect(voter1).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [adapterVoteData],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: adapterVoteData,
+            },
+          ],
         );
 
         // Check the state
@@ -736,8 +740,12 @@ describe('ERC721VotingAdapterV1', () => {
         await mockStrategy.connect(voter1).vote(
           proposalId,
           0, // voteType
-          [await adapter.getAddress()],
-          [adapterVoteData],
+          [
+            {
+              votingAdapter: await adapter.getAddress(),
+              adapterVoteData: adapterVoteData,
+            },
+          ],
         );
 
         // Check the original proposal/token ID

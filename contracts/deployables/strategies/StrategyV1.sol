@@ -184,12 +184,8 @@ contract StrategyV1 is
     function vote(
         uint32 _proposalId,
         uint8 _voteType,
-        address[] calldata _votingAdaptersToUse,
-        bytes[] calldata _votingAdapterVoteData
+        VotingAdapterVoteData[] calldata votingAdaptersData
     ) external virtual override {
-        if (_votingAdaptersToUse.length != _votingAdapterVoteData.length)
-            revert MismatchedInputs();
-
         address resolvedVoter = voter(msg.sender);
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             _proposalId
@@ -214,8 +210,10 @@ contract StrategyV1 is
 
         uint256 totalWeightForThisVoteTransaction = 0;
 
-        for (uint256 i = 0; i < _votingAdaptersToUse.length; ) {
-            address votingAdapter = _votingAdaptersToUse[i];
+        for (uint256 i = 0; i < votingAdaptersData.length; ) {
+            VotingAdapterVoteData
+                memory votingAdapterVoteData = votingAdaptersData[i];
+            address votingAdapter = votingAdapterVoteData.votingAdapter;
 
             if (!_isVotingAdapter[votingAdapter]) {
                 revert InvalidVotingAdapter();
@@ -223,7 +221,11 @@ contract StrategyV1 is
 
             totalWeightForThisVoteTransaction += IBaseVotingAdapterV1(
                 votingAdapter
-            ).recordVote(resolvedVoter, _proposalId, _votingAdapterVoteData[i]);
+            ).recordVote(
+                    resolvedVoter,
+                    _proposalId,
+                    votingAdapterVoteData.adapterVoteData
+                );
 
             unchecked {
                 ++i;
