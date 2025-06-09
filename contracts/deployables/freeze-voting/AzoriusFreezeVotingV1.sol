@@ -7,8 +7,8 @@ import {IBaseVotingAdapterV1} from "../../interfaces/decent/deployables/IBaseVot
 import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IERC4337VoterSupportV1} from "../../interfaces/decent/deployables/IERC4337VoterSupportV1.sol";
-import {ERC4337VoterSupportV1} from "../strategies/ERC4337VoterSupportV1.sol";
+import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
+import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -16,7 +16,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract AzoriusFreezeVotingV1 is
     IAzoriusFreezeVotingV1,
     BaseFreezeVotingV1,
-    ERC4337VoterSupportV1,
+    VoterResolverV1,
     Version,
     ERC165
 {
@@ -43,7 +43,7 @@ contract AzoriusFreezeVotingV1 is
             freezePeriod_,
             freezeVotesThreshold_
         );
-        __ERC4337VoterSupportV1_init(lightAccountFactory_);
+        __VoterResolverV1_init(lightAccountFactory_);
         _parentAzorius = IAzoriusV1(parentAzorius_);
     }
 
@@ -120,7 +120,7 @@ contract AzoriusFreezeVotingV1 is
         return
             interfaceId == type(IAzoriusFreezeVotingV1).interfaceId ||
             interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
-            interfaceId == type(IERC4337VoterSupportV1).interfaceId ||
+            interfaceId == type(IVoterResolverV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
     }

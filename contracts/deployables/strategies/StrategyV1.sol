@@ -4,18 +4,18 @@ pragma solidity ^0.8.30;
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IBaseVotingAdapterV1} from "../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 import {IProposerAdapterV1} from "../../interfaces/decent/deployables/IProposerAdapterV1.sol";
-import {IERC4337VoterSupportV1} from "../../interfaces/decent/deployables/IERC4337VoterSupportV1.sol";
+import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {ERC4337VoterSupportV1} from "./ERC4337VoterSupportV1.sol";
+import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract StrategyV1 is
     IStrategyV1,
     Initializable,
-    ERC4337VoterSupportV1,
+    VoterResolverV1,
     Version,
     ERC165
 {
@@ -70,7 +70,7 @@ contract StrategyV1 is
             basisNumerator_ < BASIS_DENOMINATOR / 2
         ) revert InvalidBasisNumerator();
 
-        __ERC4337VoterSupportV1_init(lightAccountFactory_);
+        __VoterResolverV1_init(lightAccountFactory_);
         _strategyAdmin = strategyAdmin_;
         _votingPeriod = votingPeriod_;
         _quorumThreshold = quorumThreshold_;
@@ -468,7 +468,7 @@ contract StrategyV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId == type(IStrategyV1).interfaceId ||
-            interfaceId == type(IERC4337VoterSupportV1).interfaceId ||
+            interfaceId == type(IVoterResolverV1).interfaceId ||
             interfaceId == type(ISmartAccountValidationV1).interfaceId ||
             interfaceId == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId);
