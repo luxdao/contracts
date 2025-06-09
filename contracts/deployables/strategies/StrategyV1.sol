@@ -39,8 +39,8 @@ contract StrategyV1 is
     mapping(address freezeVoterContract => bool isAuthorizedFreezeVoter)
         internal _authorizedFreezeVotersMapping;
     address[] internal _authorizedFreezeVotersArray;
-    mapping(uint32 proposalId => bool isVotingPeriodEnded)
-        internal _votingPeriodEnded;
+    mapping(uint32 proposalId => bool voteCastedAfterVotingPeriodEnded)
+        internal _voteCastedAfterVotingPeriodEnded;
 
     // ======================================================================
     // MODIFIERS
@@ -163,10 +163,10 @@ contract StrategyV1 is
         return _proposerAdapters;
     }
 
-    function votingPeriodEnded(
+    function voteCastedAfterVotingPeriodEnded(
         uint32 proposalId_
     ) public view virtual override returns (bool) {
-        return _votingPeriodEnded[proposalId_];
+        return _voteCastedAfterVotingPeriodEnded[proposalId_];
     }
 
     function isQuorumMet(
@@ -287,7 +287,7 @@ contract StrategyV1 is
         }
 
         // Check if voting period has ended
-        if (_votingPeriodEnded[proposalId_]) {
+        if (_voteCastedAfterVotingPeriodEnded[proposalId_]) {
             return false;
         }
 
@@ -373,13 +373,9 @@ contract StrategyV1 is
         }
 
         if (block.timestamp > proposal.votingEndTimestamp) {
-            if (!_votingPeriodEnded[proposalId_]) {
-                _votingPeriodEnded[proposalId_] = true;
-                emit VotingPeriodEnded(
-                    proposalId_,
-                    proposal.votingEndTimestamp,
-                    uint48(block.timestamp)
-                );
+            if (!_voteCastedAfterVotingPeriodEnded[proposalId_]) {
+                _voteCastedAfterVotingPeriodEnded[proposalId_] = true;
+                emit VotingPeriodEnded(proposalId_);
                 return;
             }
             revert ProposalNotActive();

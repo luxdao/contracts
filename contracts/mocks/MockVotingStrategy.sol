@@ -296,7 +296,7 @@ contract MockVotingStrategy is IStrategyV1, VoterResolverV1 {
         return _authorizedFreezeVotersArray;
     }
 
-    function votingPeriodEnded(
+    function voteCastedAfterVotingPeriodEnded(
         uint32 _proposalId
     ) external view override returns (bool) {}
 
