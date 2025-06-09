@@ -4,9 +4,11 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
-  IBaseFreezeVotingV1__factory,
+  FreezeVotingMultisigV1,
+  FreezeVotingMultisigV1__factory,
   IERC165__factory,
-  IMultisigFreezeVotingV1__factory,
+  IFreezeVotingBaseV1__factory,
+  IFreezeVotingMultisigV1__factory,
   IVersion__factory,
   MockLightAccount,
   MockLightAccountFactory,
@@ -14,8 +16,6 @@ import {
   MockLightAccount__factory,
   MockSafe,
   MockSafe__factory,
-  MultisigFreezeVotingV1,
-  MultisigFreezeVotingV1__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
@@ -29,10 +29,10 @@ async function deployMultisigFreezeVotingProxy(
   freezePeriod: number,
   parentGnosisSafe: MockSafe,
   lightAccountFactoryAddress: string,
-): Promise<MultisigFreezeVotingV1> {
+): Promise<FreezeVotingMultisigV1> {
   // Combine selector and encoded params
   const fullInitData =
-    MultisigFreezeVotingV1__factory.createInterface().getFunction('initialize').selector +
+    FreezeVotingMultisigV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
         ['address', 'uint256', 'uint32', 'uint32', 'address', 'address'],
@@ -51,10 +51,10 @@ async function deployMultisigFreezeVotingProxy(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return MultisigFreezeVotingV1__factory.connect(await proxy.getAddress(), owner);
+  return FreezeVotingMultisigV1__factory.connect(await proxy.getAddress(), owner);
 }
 
-describe('MultisigFreezeVotingV1', () => {
+describe('FreezeVotingMultisigV1', () => {
   // signers
   let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
@@ -64,7 +64,7 @@ describe('MultisigFreezeVotingV1', () => {
 
   // contracts
   let masterCopy: string;
-  let freezeVoting: MultisigFreezeVotingV1;
+  let freezeVoting: FreezeVotingMultisigV1;
   let mockSafe: MockSafe;
   let lightAccountFactoryMock: MockLightAccountFactory;
   let lightAccountFactoryMockAddress: string;
@@ -88,7 +88,7 @@ describe('MultisigFreezeVotingV1', () => {
     lightAccountFactoryMockAddress = lightAccountFactoryMock.target as string;
 
     // Deploy implementation
-    const implementation = await new MultisigFreezeVotingV1__factory(proxyDeployer).deploy();
+    const implementation = await new FreezeVotingMultisigV1__factory(proxyDeployer).deploy();
     masterCopy = await implementation.getAddress();
 
     // Deploy proxy
@@ -128,7 +128,7 @@ describe('MultisigFreezeVotingV1', () => {
     });
 
     it('Should have initialization disabled in the implementation', async function () {
-      const implementationContract = MultisigFreezeVotingV1__factory.connect(
+      const implementationContract = FreezeVotingMultisigV1__factory.connect(
         masterCopy,
         proxyDeployer,
       );
@@ -508,20 +508,20 @@ describe('MultisigFreezeVotingV1', () => {
   });
 
   describe('ERC165', () => {
-    it('should support the IERC721FreezeVotingV1 interface', async () => {
+    it('should support the IFreezeVotingMultisigV1 interface', async () => {
       void expect(
         await freezeVoting.supportsInterface(
-          calculateInterfaceId(IMultisigFreezeVotingV1__factory.createInterface(), [
-            IBaseFreezeVotingV1__factory.createInterface(),
+          calculateInterfaceId(IFreezeVotingMultisigV1__factory.createInterface(), [
+            IFreezeVotingBaseV1__factory.createInterface(),
           ]),
         ),
       ).to.be.true;
     });
 
-    it('should support the IBaseFreezeVotingV1 interface', async () => {
+    it('should support the IFreezeVotingBaseV1 interface', async () => {
       void expect(
         await freezeVoting.supportsInterface(
-          calculateInterfaceId(IBaseFreezeVotingV1__factory.createInterface()),
+          calculateInterfaceId(IFreezeVotingBaseV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
@@ -548,7 +548,7 @@ describe('MultisigFreezeVotingV1', () => {
   });
 
   describe('ERC4337 Smart Account Voting', () => {
-    let freezeVotingSA: MultisigFreezeVotingV1;
+    let freezeVotingSA: FreezeVotingMultisigV1;
     let mockSafeSA: MockSafe;
     let smartAccountOwnerSA: SignerWithAddress;
     let relayerSA: SignerWithAddress;
@@ -581,7 +581,7 @@ describe('MultisigFreezeVotingV1', () => {
       mockSafeSA = await new MockSafe__factory(proxyDeployer).deploy();
       await mockSafeSA.setOwner(smartAccountOwnerSA.address);
 
-      const implementation = await new MultisigFreezeVotingV1__factory(proxyDeployer).deploy();
+      const implementation = await new FreezeVotingMultisigV1__factory(proxyDeployer).deploy();
       const masterCopySA = await implementation.getAddress();
 
       freezeVotingSA = await deployMultisigFreezeVotingProxy(

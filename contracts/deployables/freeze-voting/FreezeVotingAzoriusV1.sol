@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IAzoriusFreezeVotingV1} from "../../interfaces/decent/deployables/IAzoriusFreezeVotingV1.sol";
-import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IFreezeVotingAzoriusV1} from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
+import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 import {IBaseVotingAdapterV1} from "../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
 import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
-import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
+import {FreezeVotingBaseV1} from "./FreezeVotingBaseV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract AzoriusFreezeVotingV1 is
-    IAzoriusFreezeVotingV1,
+contract FreezeVotingAzoriusV1 is
+    IFreezeVotingAzoriusV1,
     IVersion,
-    BaseFreezeVotingV1,
+    FreezeVotingBaseV1,
     VoterResolverV1,
     ERC165
 {
@@ -121,8 +121,8 @@ contract AzoriusFreezeVotingV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IAzoriusFreezeVotingV1).interfaceId ||
-            interfaceId_ == type(IBaseFreezeVotingV1).interfaceId ||
+            interfaceId_ == type(IFreezeVotingAzoriusV1).interfaceId ||
+            interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
             interfaceId_ == type(IVoterResolverV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);

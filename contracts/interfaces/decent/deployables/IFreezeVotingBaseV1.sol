@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IBaseFreezeVotingV1 {
+interface IFreezeVotingBaseV1 {
     error NoVotes();
 
     event FreezeVoteCast(address indexed voter_, uint256 votesCast_);
