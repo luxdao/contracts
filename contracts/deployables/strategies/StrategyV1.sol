@@ -338,9 +338,7 @@ contract StrategyV1 is
     // --- State-Changing Functions ---
 
     function initializeProposal(
-        uint32 proposalId_,
-        bytes32[] calldata,
-        bytes calldata
+        uint32 proposalId_
     ) public virtual override onlyStrategyAdmin {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             proposalId_

@@ -152,11 +152,7 @@ contract MockVotingStrategy is IStrategyV1, VoterResolverV1 {
         return votingStartBlocksMap[proposalId];
     }
 
-    function initializeProposal(
-        uint32 proposalId,
-        bytes32[] calldata,
-        bytes calldata
-    ) external virtual override {
+    function initializeProposal(uint32 proposalId) external virtual override {
         ProposalVotingDetails storage proposal = proposalVotingDetailsMap[
             proposalId
         ];

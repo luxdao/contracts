@@ -430,13 +430,7 @@ describe('ModuleAzoriusV1', () => {
 
         const tx = await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            proposalMetadata,
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], proposalMetadata, ethers.ZeroAddress, ethers.ZeroHash);
 
         const receipt = await tx.wait();
         if (!receipt) throw new Error('Transaction failed to be mined');
@@ -464,13 +458,7 @@ describe('ModuleAzoriusV1', () => {
         await expect(
           azorius
             .connect(user)
-            .submitProposal(
-              [proposalTx],
-              'Test proposal',
-              ethers.ZeroAddress,
-              ethers.ZeroHash,
-              ethers.ZeroHash,
-            ),
+            .submitProposal([proposalTx], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash),
         ).to.be.revertedWithCustomError(azorius, 'InvalidProposer');
       });
 
@@ -482,13 +470,7 @@ describe('ModuleAzoriusV1', () => {
         await expect(
           azorius
             .connect(proposer)
-            .submitProposal(
-              [],
-              proposalMetadata,
-              ethers.ZeroAddress,
-              ethers.ZeroHash,
-              ethers.ZeroHash,
-            ),
+            .submitProposal([], proposalMetadata, ethers.ZeroAddress, ethers.ZeroHash),
         )
           .to.emit(azorius, 'ProposalCreated')
           .withArgs(mockStrategyAddress, proposalId, proposer.address, [], proposalMetadata);
@@ -544,13 +526,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'Test proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash);
         // Now totalProposalCount is 1. Accessing proposalState(1) should revert.
         await expect(azorius.proposalState(1)).to.be.revertedWithCustomError(
           azorius,
@@ -570,13 +546,7 @@ describe('ModuleAzoriusV1', () => {
         // First create a valid proposal
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'Test proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash);
 
         // Try to access an invalid tx index
         await expect(azorius.getProposalTxHash(0, 999)).to.be.reverted; // Will revert with array out of bounds
@@ -600,13 +570,7 @@ describe('ModuleAzoriusV1', () => {
         // Submit proposal with multiple transactions
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [tx1, tx2],
-            'Test proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([tx1, tx2], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash);
 
         // Get hashes directly
         const hash1 = await azorius.getTxHash(tx1);
@@ -637,13 +601,7 @@ describe('ModuleAzoriusV1', () => {
         // Submit the proposal
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            metadata,
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], metadata, ethers.ZeroAddress, ethers.ZeroHash);
         const proposalId = 0;
 
         const expectedTxHash = await azorius.getTxHash(proposalTx);
@@ -690,13 +648,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [tx1, tx2],
-            'Partial Exec Test',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([tx1, tx2], 'Partial Exec Test', ethers.ZeroAddress, ethers.ZeroHash);
         const proposalId = 0;
 
         // --- Setup for execution ---
@@ -750,13 +702,7 @@ describe('ModuleAzoriusV1', () => {
         // Submit a proposal
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'Test proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash);
 
         proposalId = 0;
 
@@ -961,13 +907,7 @@ describe('ModuleAzoriusV1', () => {
 
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [tx1, tx2],
-            'Test proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([tx1, tx2], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash);
 
         // Set voting to passed and move past timelock on mock strategy
         await mockStrategy.setVotingTimestamps(0, 0, 0);
@@ -1028,13 +968,7 @@ describe('ModuleAzoriusV1', () => {
         // Submit proposal with both transactions (proposalId will be 1 for this new proposal)
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [tx1, tx2],
-            'Test proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([tx1, tx2], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash);
 
         // Get current block number and set up proposal state for the new proposal (ID 1)
         const currentBlockTimestamp = await time.latest();
@@ -1082,13 +1016,7 @@ describe('ModuleAzoriusV1', () => {
           proposalId = Number(await azorius.totalProposalCount());
           await azorius
             .connect(proposer)
-            .submitProposal(
-              [validTx],
-              'Test for Reverts',
-              ethers.ZeroAddress,
-              ethers.ZeroHash,
-              ethers.ZeroHash,
-            );
+            .submitProposal([validTx], 'Test for Reverts', ethers.ZeroAddress, ethers.ZeroHash);
 
           // Setup proposal to be EXECUTABLE for most tests here
           const chainTimeBeforeStrategyUpdate = await time.latest();
@@ -1300,13 +1228,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'New proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'New proposal', ethers.ZeroAddress, ethers.ZeroHash);
         const proposalId = 0; // First proposal
 
         const [, , timelock, ,] = await azorius.getProposal(proposalId);
@@ -1323,13 +1245,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'Existing proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'Existing proposal', ethers.ZeroAddress, ethers.ZeroHash);
         const existingProposalId = 0;
 
         // Update the timelock period
@@ -1346,7 +1262,6 @@ describe('ModuleAzoriusV1', () => {
             [proposalTx],
             'New proposal post-update',
             ethers.ZeroAddress,
-            ethers.ZeroHash,
             ethers.ZeroHash,
           );
         const newProposalId = 1;
@@ -1382,13 +1297,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'New proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'New proposal', ethers.ZeroAddress, ethers.ZeroHash);
         const proposalId = 0;
 
         const [, , , executionPeriod] = await azorius.getProposal(proposalId);
@@ -1404,13 +1313,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'Existing proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'Existing proposal', ethers.ZeroAddress, ethers.ZeroHash);
         const existingProposalId = 0;
 
         await azorius.connect(owner).updateExecutionPeriod(NEW_EXECUTION_PERIOD);
@@ -1424,7 +1327,6 @@ describe('ModuleAzoriusV1', () => {
             [proposalTx],
             'New proposal post-update',
             ethers.ZeroAddress,
-            ethers.ZeroHash,
             ethers.ZeroHash,
           );
         const newProposalId = 1;
@@ -1475,13 +1377,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'New proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'New proposal', ethers.ZeroAddress, ethers.ZeroHash);
         const proposalId = 0;
 
         const [strategyAddress, , , ,] = await azorius.getProposal(proposalId);
@@ -1497,13 +1393,7 @@ describe('ModuleAzoriusV1', () => {
         };
         await azorius
           .connect(proposer)
-          .submitProposal(
-            [proposalTx],
-            'Existing proposal',
-            ethers.ZeroAddress,
-            ethers.ZeroHash,
-            ethers.ZeroHash,
-          );
+          .submitProposal([proposalTx], 'Existing proposal', ethers.ZeroAddress, ethers.ZeroHash);
         const existingProposalId = 0;
 
         await azorius.connect(owner).updateStrategy(newMockStrategyAddress);
@@ -1517,7 +1407,6 @@ describe('ModuleAzoriusV1', () => {
             [proposalTx],
             'New proposal post-update',
             ethers.ZeroAddress,
-            ethers.ZeroHash,
             ethers.ZeroHash,
           );
         const newProposalId = 1;
@@ -1542,7 +1431,6 @@ describe('ModuleAzoriusV1', () => {
             [proposalTx],
             'Existing proposal with mockStrategy',
             ethers.ZeroAddress,
-            ethers.ZeroHash,
             ethers.ZeroHash,
           );
 
