@@ -34,6 +34,12 @@ interface IStrategyV1 {
         bool isAuthorized
     );
 
+    event VotingPeriodEnded(
+        uint32 indexed proposalId,
+        uint48 votingEndTimestamp,
+        uint48 currentTimestamp
+    );
+
     error InvalidProposerAdapter(address _proposerAdapter);
     error NoVotingAdapters();
     error NoProposerAdapters();
@@ -123,4 +129,6 @@ interface IStrategyV1 {
     ) external view returns (bool);
 
     function authorizedFreezeVoters() external view returns (address[] memory);
+
+    function votingPeriodEnded(uint32 _proposalId) external view returns (bool);
 }
