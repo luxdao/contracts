@@ -53,60 +53,54 @@ contract ERC20VotingAdapterV1 is
     }
 
     function hasCastedVoteForProposal(
-        uint32 proposalId,
-        address voter
+        uint32 proposalId_,
+        address voter_
     ) external view virtual override returns (bool) {
-        return _hasCastedVoteForProposal[proposalId][voter];
+        return _hasCastedVoteForProposal[proposalId_][voter_];
     }
 
     function hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
-        address freezeVoteContract,
-        uint48 freezeProposalSnapshotAndId,
-        address voter
+        address freezeVoteContract_,
+        uint48 freezeProposalSnapshotAndId_,
+        address voter_
     ) external view virtual override returns (bool) {
         return
             _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[
-                freezeVoteContract
-            ][freezeProposalSnapshotAndId][voter];
+                freezeVoteContract_
+            ][freezeProposalSnapshotAndId_][voter_];
     }
 
     function _calculateWeightAtSnapshot(
-        address _voter,
-        uint48 _snapshotTimepoint
-    ) internal view virtual returns (uint256 weight) {
+        address voter_,
+        uint48 snapshotTimepoint_
+    ) internal view virtual returns (uint256) {
         return
-            _token.getPastVotes(_voter, _snapshotTimepoint) * _weightPerToken;
+            _token.getPastVotes(voter_, snapshotTimepoint_) * _weightPerToken;
     }
 
     function getFreezeVoteWeight(
-        address voter,
-        uint48 freezeProposalSnapshotAndId
-    ) external view virtual override returns (uint256 weight) {
-        weight = _calculateWeightAtSnapshot(voter, freezeProposalSnapshotAndId);
+        address voter_,
+        uint48 freezeProposalSnapshotAndId_
+    ) external view virtual override returns (uint256) {
+        return _calculateWeightAtSnapshot(voter_, freezeProposalSnapshotAndId_);
     }
 
     function recordFreezeVote(
-        address voter,
-        uint48 freezeProposalSnapshotAndId,
+        address voter_,
+        uint48 freezeProposalSnapshotAndId_,
         bytes calldata
-    )
-        external
-        virtual
-        override
-        onlyAuthorizedFreezeVoter
-        returns (uint256 weightCasted)
-    {
+    ) external virtual override onlyAuthorizedFreezeVoter returns (uint256) {
         if (
             _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[
                 msg.sender
-            ][freezeProposalSnapshotAndId][voter]
+            ][freezeProposalSnapshotAndId_][voter_]
         ) {
             revert AlreadyVoted();
         }
 
-        weightCasted = _calculateWeightAtSnapshot(
-            voter,
-            freezeProposalSnapshotAndId
+        uint256 weightCasted = _calculateWeightAtSnapshot(
+            voter_,
+            freezeProposalSnapshotAndId_
         );
 
         if (weightCasted == 0) {
@@ -114,57 +108,65 @@ contract ERC20VotingAdapterV1 is
         }
 
         _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[msg.sender][
-            freezeProposalSnapshotAndId
-        ][voter] = true;
+            freezeProposalSnapshotAndId_
+        ][voter_] = true;
 
         emit FreezeVoteRecorded(
-            voter,
-            freezeProposalSnapshotAndId,
+            voter_,
+            freezeProposalSnapshotAndId_,
             weightCasted,
             bytes("")
         );
+
+        return weightCasted;
     }
 
     function _getVoteWeightDetails(
-        address _voter,
-        uint32 _proposalId,
+        address voter_,
+        uint32 proposalId_,
         bytes calldata
-    ) internal view virtual returns (uint256 weight) {
+    ) internal view virtual returns (uint256) {
         uint48 startTimepoint;
         if (_tokenClockMode == ClockMode.Timestamp) {
-            (startTimepoint, ) = _strategy.getVotingTimestamps(_proposalId);
+            (startTimepoint, ) = _strategy.getVotingTimestamps(proposalId_);
         } else {
-            startTimepoint = _strategy.getVotingStartBlock(_proposalId);
+            startTimepoint = _strategy.getVotingStartBlock(proposalId_);
         }
 
         if (startTimepoint == 0) revert ProposalNotReadyForSnapshot();
-        weight = _calculateWeightAtSnapshot(_voter, startTimepoint);
+        return _calculateWeightAtSnapshot(voter_, startTimepoint);
     }
 
     function weightOf(
-        address _voter,
-        uint32 _proposalId,
-        bytes calldata _voteData
-    ) external view virtual override returns (uint256 weight) {
-        if (_hasCastedVoteForProposal[_proposalId][_voter]) {
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata voteData_
+    ) external view virtual override returns (uint256) {
+        if (_hasCastedVoteForProposal[proposalId_][voter_]) {
             return 0;
         }
-        weight = _getVoteWeightDetails(_voter, _proposalId, _voteData);
+        return _getVoteWeightDetails(voter_, proposalId_, voteData_);
     }
 
     function recordVote(
-        address _voter,
-        uint32 _proposalId,
-        bytes calldata _voteData
-    ) external virtual override onlyStrategy returns (uint256 weightCasted) {
-        if (_hasCastedVoteForProposal[_proposalId][_voter]) {
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata voteData_
+    ) external virtual override onlyStrategy returns (uint256) {
+        if (_hasCastedVoteForProposal[proposalId_][voter_]) {
             revert AlreadyVoted();
         }
-        _hasCastedVoteForProposal[_proposalId][_voter] = true;
+        _hasCastedVoteForProposal[proposalId_][voter_] = true;
 
-        weightCasted = _getVoteWeightDetails(_voter, _proposalId, _voteData);
+        uint256 weightCasted = _getVoteWeightDetails(
+            voter_,
+            proposalId_,
+            voteData_
+        );
 
-        emit VoteRecorded(_voter, _proposalId, weightCasted, bytes(""));
+        emit VoteRecorded(voter_, proposalId_, weightCasted, bytes(""));
+
+        return weightCasted;
     }
 
     function version() public pure virtual override returns (uint16) {
@@ -172,22 +174,22 @@ contract ERC20VotingAdapterV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IERC20VotingAdapterV1).interfaceId ||
-            interfaceId == type(IBaseVotingAdapterV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IERC20VotingAdapterV1).interfaceId ||
+            interfaceId_ == type(IBaseVotingAdapterV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 
     function validVotingAdapterVote(
-        address voter,
-        uint32 proposalId,
+        address voter_,
+        uint32 proposalId_,
         bytes calldata
     ) external view virtual override returns (bool, uint256) {
         // check if the user has voted
-        if (_hasCastedVoteForProposal[proposalId][voter]) {
+        if (_hasCastedVoteForProposal[proposalId_][voter_]) {
             return (false, 0);
         }
 
@@ -195,10 +197,10 @@ contract ERC20VotingAdapterV1 is
         ERC20Votes governanceToken = ERC20Votes(address(_token));
 
         // get the number of checkpoints for the voter
-        uint32 numCheckpoints = governanceToken.numCheckpoints(voter);
+        uint32 numCheckpoints = governanceToken.numCheckpoints(voter_);
 
         (uint48 startTimestamp, uint48 endTimestamp) = _strategy
-            .getVotingTimestamps(proposalId);
+            .getVotingTimestamps(proposalId_);
 
         // if there are no checkpoints, user has no voting weight
         if (numCheckpoints == 0) {
@@ -211,7 +213,7 @@ contract ERC20VotingAdapterV1 is
         for (uint256 i = numCheckpoints; i > 0; ) {
             // Checkpoint indices are 0-based, loop index 'j' is 1-based count.
             Checkpoints.Checkpoint208 memory checkpoint = governanceToken
-                .checkpoints(voter, uint32(i - 1));
+                .checkpoints(voter_, uint32(i - 1));
 
             // If this checkpoint's timestamp is after the proposal's endTimestamp,
             // it implies the current timestamp is also after endTimestamp.

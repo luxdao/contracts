@@ -4,21 +4,33 @@ pragma solidity ^0.8.30;
 interface IBaseFreezeVotingV1 {
     error NoVotes();
 
-    event FreezeVoteCast(address indexed voter, uint256 votesCast);
+    event FreezeVoteCast(address indexed voter_, uint256 votesCast_);
 
-    function freezeProposalCreated() external view returns (uint48);
+    function freezeProposalCreated()
+        external
+        view
+        returns (uint48 freezeProposalCreated);
 
-    function freezeProposalVoteCount() external view returns (uint256);
+    function freezeProposalVoteCount()
+        external
+        view
+        returns (uint256 freezeProposalVoteCount);
 
-    function freezeProposalPeriod() external view returns (uint32);
+    function freezeProposalPeriod()
+        external
+        view
+        returns (uint32 freezeProposalPeriod);
 
-    function freezePeriod() external view returns (uint32);
+    function freezePeriod() external view returns (uint32 freezePeriod);
 
-    function freezeVotesThreshold() external view returns (uint256);
+    function freezeVotesThreshold()
+        external
+        view
+        returns (uint256 freezeVotesThreshold);
 
-    function freezeActivated() external view returns (uint48);
+    function freezeActivated() external view returns (uint48 freezeActivated);
 
-    function isFrozen() external view returns (bool);
+    function isFrozen() external view returns (bool isFrozen);
 
     function unfreeze() external;
 }

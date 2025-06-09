@@ -3,9 +3,9 @@ pragma solidity ^0.8.30;
 
 interface IFunctionValidator {
     function validateOperation(
-        address userOpSender,
-        address lightAccountOwner,
-        address target,
-        bytes calldata callData
+        address userOpSender_,
+        address lightAccountOwner_,
+        address target_,
+        bytes calldata callData_
     ) external view returns (bool isValid);
 }

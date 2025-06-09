@@ -46,48 +46,54 @@ interface IVotesERC20StakedV1 {
     error TransferFailed();
 
     function initialize(
-        Metadata calldata metadata,
-        address owner,
-        address _stakedToken,
-        uint256 _minimumStakingPeriod,
-        address[] calldata _rewardsTokens
+        Metadata calldata metadata_,
+        address owner_,
+        address stakedToken_,
+        uint256 minimumStakingPeriod_,
+        address[] calldata rewardsTokens_
     ) external;
 
     function addRewardsTokens(address[] calldata rewardsTokens_) external;
 
     function updateMinimumStakingPeriod(
-        uint256 newMinimumStakingPeriod
+        uint256 newMinimumStakingPeriod_
     ) external;
 
-    function stake(uint256 amount) external;
+    function stake(uint256 amount_) external;
 
-    function unstake(uint256 amount) external;
+    function unstake(uint256 amount_) external;
 
     function distributeRewards() external;
 
-    function distributeRewards(address[] calldata _tokens) external;
+    function distributeRewards(address[] calldata tokens_) external;
 
-    function claimRewards(address _recipient) external;
+    function claimRewards(address recipient_) external;
 
     function claimRewards(
-        address _recipient,
-        address[] memory _tokens
+        address recipient_,
+        address[] calldata tokens_
     ) external;
 
-    function clock() external view returns (uint48);
+    function clock() external view returns (uint48 clock);
 
-    function CLOCK_MODE() external pure returns (string memory);
+    function CLOCK_MODE() external pure returns (string memory CLOCK_MODE);
 
-    function stakedToken() external view returns (address);
+    function stakedToken() external view returns (address stakedToken);
 
-    function minimumStakingPeriod() external view returns (uint256);
+    function minimumStakingPeriod()
+        external
+        view
+        returns (uint256 minimumStakingPeriod);
 
-    function totalStaked() external view returns (uint256);
+    function totalStaked() external view returns (uint256 totalStaked);
 
-    function rewardsTokens() external view returns (address[] memory);
+    function rewardsTokens()
+        external
+        view
+        returns (address[] memory rewardsTokens);
 
     function rewardsTokenData(
-        address token
+        address token_
     )
         external
         view
@@ -97,27 +103,30 @@ interface IVotesERC20StakedV1 {
             uint256 rewardsClaimed
         );
 
-    function distributableRewards() external view returns (uint256[] memory);
+    function distributableRewards()
+        external
+        view
+        returns (uint256[] memory distributableRewards);
 
     function distributableRewards(
         address[] calldata rewardsTokens_
-    ) external view returns (uint256[] memory);
+    ) external view returns (uint256[] memory distributableRewards);
 
     function stakerData(
-        address staker
+        address staker_
     ) external view returns (uint256 stakedAmount, uint256 lastStakeTimestamp);
 
     function stakerRewardsData(
-        address token,
-        address staker
+        address token_,
+        address staker_
     ) external view returns (uint256 rewardRate, uint256 accumulatedRewards);
 
     function claimableRewards(
-        address _staker
-    ) external view returns (uint256[] memory _claimableRewards);
+        address staker_
+    ) external view returns (uint256[] memory claimableRewards);
 
     function claimableRewards(
-        address _staker,
-        address[] memory _tokens
-    ) external view returns (uint256[] memory _claimableRewards);
+        address staker_,
+        address[] calldata tokens_
+    ) external view returns (uint256[] memory claimableRewards);
 }

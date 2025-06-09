@@ -6,28 +6,28 @@ interface IERC20VotingAdapterV1 {
     error AlreadyVoted();
 
     function initialize(
-        address token,
-        address strategy,
-        uint256 weightPerToken
+        address token_,
+        address strategy_,
+        uint256 weightPerToken_
     ) external;
 
-    function token() external view returns (address);
+    function token() external view returns (address token);
 
-    function weightPerToken() external view returns (uint256);
+    function weightPerToken() external view returns (uint256 weightPerToken);
 
     function getFreezeVoteWeight(
-        address voter,
-        uint48 freezeProposalSnapshotAndId
+        address voter_,
+        uint48 freezeProposalSnapshotAndId_
     ) external view returns (uint256 weight);
 
     function hasCastedVoteForProposal(
-        uint32 proposalId,
-        address voter
-    ) external view returns (bool);
+        uint32 proposalId_,
+        address voter_
+    ) external view returns (bool hasCastedVote);
 
     function hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract(
-        address freezeVoteContract,
-        uint48 freezeProposalSnapshotAndId,
-        address voter
-    ) external view returns (bool);
+        address freezeVoteContract_,
+        uint48 freezeProposalSnapshotAndId_,
+        address voter_
+    ) external view returns (bool hasCastedVote);
 }

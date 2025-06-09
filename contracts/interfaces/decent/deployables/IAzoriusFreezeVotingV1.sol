@@ -24,10 +24,13 @@ interface IAzoriusFreezeVotingV1 {
     ) external;
 
     function castFreezeVote(
-        VotingAdapterVoteData[] calldata votingAdaptersToUse
+        VotingAdapterVoteData[] calldata votingAdaptersToUse_
     ) external;
 
-    function parentAzorius() external view returns (address);
+    function parentAzorius() external view returns (address parentAzorius);
 
-    function freezeProposalStrategy() external view returns (address);
+    function freezeProposalStrategy()
+        external
+        view
+        returns (address freezeProposalStrategy);
 }

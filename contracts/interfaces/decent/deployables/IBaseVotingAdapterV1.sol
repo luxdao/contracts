@@ -20,29 +20,29 @@ interface IBaseVotingAdapterV1 {
         bytes adapterVoteData
     );
 
-    function strategy() external view returns (address);
+    function strategy() external view returns (address strategy);
 
     function recordVote(
-        address _voter,
-        uint32 _proposalId,
-        bytes calldata _votingAdapterVoteData
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata votingAdapterVoteData_
     ) external returns (uint256 weightCasted);
 
     function weightOf(
-        address _voter,
-        uint32 _proposalId,
-        bytes calldata _votingAdapterVoteData
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata votingAdapterVoteData_
     ) external view returns (uint256 weight);
 
     function recordFreezeVote(
-        address voter,
-        uint48 freezeProposalSnapshotAndId,
-        bytes calldata adapterVoteData
+        address voter_,
+        uint48 freezeProposalSnapshotAndId_,
+        bytes calldata adapterVoteData_
     ) external returns (uint256 weightCasted);
 
     function validVotingAdapterVote(
-        address voter,
-        uint32 proposalId,
-        bytes calldata votingAdapterVoteData
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata votingAdapterVoteData_
     ) external view returns (bool isValid, uint256 votingWeight);
 }

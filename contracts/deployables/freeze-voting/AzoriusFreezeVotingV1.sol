@@ -62,7 +62,7 @@ contract AzoriusFreezeVotingV1 is
     }
 
     function castFreezeVote(
-        VotingAdapterVoteData[] calldata _votingAdaptersToUse
+        VotingAdapterVoteData[] calldata votingAdaptersToUse_
     ) external virtual override {
         address resolvedVoter = voter(msg.sender);
 
@@ -74,16 +74,18 @@ contract AzoriusFreezeVotingV1 is
 
         recordFreezeVote(
             resolvedVoter,
-            _getVotes(resolvedVoter, _votingAdaptersToUse)
+            _getVotes(resolvedVoter, votingAdaptersToUse_)
         );
     }
 
     function _getVotes(
-        address voter,
-        VotingAdapterVoteData[] calldata votingAdaptersToUse
-    ) internal virtual returns (uint256 userVotes) {
-        for (uint256 i = 0; i < votingAdaptersToUse.length; ) {
-            address adapterAddress = votingAdaptersToUse[i].votingAdapter;
+        address voter_,
+        VotingAdapterVoteData[] calldata votingAdaptersToUse_
+    ) internal virtual returns (uint256) {
+        uint256 userVotes = 0;
+
+        for (uint256 i = 0; i < votingAdaptersToUse_.length; ) {
+            address adapterAddress = votingAdaptersToUse_[i].votingAdapter;
 
             if (
                 !IStrategyV1(_freezeProposalStrategy).isVotingAdapter(
@@ -94,15 +96,17 @@ contract AzoriusFreezeVotingV1 is
             }
 
             userVotes += IBaseVotingAdapterV1(adapterAddress).recordFreezeVote(
-                voter,
+                voter_,
                 _freezeProposalCreated,
-                votingAdaptersToUse[i].adapterVoteData
+                votingAdaptersToUse_[i].adapterVoteData
             );
 
             unchecked {
                 ++i;
             }
         }
+
+        return userVotes;
     }
 
     function unfreeze() public virtual override onlyOwner {
@@ -115,13 +119,13 @@ contract AzoriusFreezeVotingV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IAzoriusFreezeVotingV1).interfaceId ||
-            interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
-            interfaceId == type(IVoterResolverV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IAzoriusFreezeVotingV1).interfaceId ||
+            interfaceId_ == type(IBaseFreezeVotingV1).interfaceId ||
+            interfaceId_ == type(IVoterResolverV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

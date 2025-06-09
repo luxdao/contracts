@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 interface ILightAccount {
-    function owner() external view returns (address);
+    function owner() external view returns (address owner);
 
     function execute(
         address target,

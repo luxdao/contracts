@@ -42,77 +42,80 @@ interface IAzoriusV1 {
     }
 
     function initialize(
-        address owner,
-        address avatar,
-        address target,
-        address strategy,
-        uint32 timelockPeriod,
-        uint32 executionPeriod
+        address owner_,
+        address avatar_,
+        address target_,
+        address strategy_,
+        uint32 timelockPeriod_,
+        uint32 executionPeriod_
     ) external;
 
-    function totalProposalCount() external view returns (uint32);
+    function totalProposalCount()
+        external
+        view
+        returns (uint32 totalProposalCount);
 
-    function timelockPeriod() external view returns (uint32);
+    function timelockPeriod() external view returns (uint32 timelockPeriod);
 
-    function executionPeriod() external view returns (uint32);
+    function executionPeriod() external view returns (uint32 executionPeriod);
 
     function proposals(
-        uint32 _proposalId
-    ) external view returns (Proposal memory);
+        uint32 proposalId_
+    ) external view returns (Proposal memory proposal);
 
-    function strategy() external view returns (address);
+    function strategy() external view returns (address strategy);
 
-    function updateTimelockPeriod(uint32 _timelockPeriod) external;
+    function updateTimelockPeriod(uint32 timelockPeriod_) external;
 
-    function updateExecutionPeriod(uint32 _executionPeriod) external;
+    function updateExecutionPeriod(uint32 executionPeriod_) external;
 
-    function updateStrategy(address _strategy) external;
+    function updateStrategy(address strategy_) external;
 
     function submitProposal(
-        Transaction[] calldata _transactions,
-        string calldata _metadata,
-        address _proposerAdapter,
-        bytes calldata _proposerAdapterData,
-        bytes calldata _proposalInitializerData
+        Transaction[] calldata transactions_,
+        string calldata metadata_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_,
+        bytes calldata proposalInitializerData_
     ) external;
 
     function executeProposal(
-        uint32 _proposalId,
-        Transaction[] calldata _transactions
+        uint32 proposalId_,
+        Transaction[] calldata transactions_
     ) external;
 
     function proposalState(
-        uint32 _proposalId
-    ) external view returns (ProposalState);
+        uint32 proposalId_
+    ) external view returns (ProposalState proposalState);
 
     function generateTxHashData(
-        Transaction calldata _transaction,
-        uint256 _nonce
-    ) external view returns (bytes memory);
+        Transaction calldata transaction_,
+        uint256 nonce_
+    ) external view returns (bytes memory txHashData);
 
     function getTxHash(
-        Transaction calldata _transaction
-    ) external view returns (bytes32);
+        Transaction calldata transaction_
+    ) external view returns (bytes32 txHash);
 
     function getProposalTxHash(
-        uint32 _proposalId,
-        uint32 _txIndex
-    ) external view returns (bytes32);
+        uint32 proposalId_,
+        uint32 txIndex_
+    ) external view returns (bytes32 txHash);
 
     function getProposalTxHashes(
-        uint32 _proposalId
-    ) external view returns (bytes32[] memory);
+        uint32 proposalId_
+    ) external view returns (bytes32[] memory txHashes);
 
     function getProposal(
-        uint32 _proposalId
+        uint32 proposalId_
     )
         external
         view
         returns (
-            address _strategy,
-            bytes32[] memory _txHashes,
-            uint32 _timelockPeriod,
-            uint32 _executionPeriod,
-            uint32 _executionCounter
+            address strategy,
+            bytes32[] memory txHashes,
+            uint32 timelockPeriod,
+            uint32 executionPeriod,
+            uint32 executionCounter
         );
 }

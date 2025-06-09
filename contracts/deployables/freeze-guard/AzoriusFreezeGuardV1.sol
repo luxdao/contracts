@@ -37,7 +37,7 @@ contract AzoriusFreezeGuardV1 is
     }
 
     function _authorizeUpgrade(
-        address newImplementation
+        address newImplementation_
     ) internal virtual override onlyOwner {}
 
     function freezeVoting() external view virtual override returns (address) {
@@ -70,13 +70,13 @@ contract AzoriusFreezeGuardV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IAzoriusFreezeGuardV1).interfaceId ||
-            interfaceId == type(IBaseFreezeGuardV1).interfaceId ||
-            interfaceId == type(IGuard).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IAzoriusFreezeGuardV1).interfaceId ||
+            interfaceId_ == type(IBaseFreezeGuardV1).interfaceId ||
+            interfaceId_ == type(IGuard).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }
