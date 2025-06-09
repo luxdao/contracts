@@ -3,11 +3,9 @@ import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  AzoriusV1,
-  AzoriusV1__factory,
   ERC1967Proxy__factory,
-  IAzoriusV1__factory,
   IERC165__factory,
+  IModuleAzoriusV1__factory,
   IVersion__factory,
   MockAvatar,
   MockAvatar__factory,
@@ -15,6 +13,8 @@ import {
   MockERC20Votes__factory,
   MockVotingStrategy,
   MockVotingStrategy__factory,
+  ModuleAzoriusV1,
+  ModuleAzoriusV1__factory,
   UUPSUpgradeable,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
@@ -30,10 +30,10 @@ async function deployAzoriusProxy(
   strategyAddress: string,
   timelockPeriod: number,
   executionPeriod: number,
-): Promise<AzoriusV1> {
+): Promise<ModuleAzoriusV1> {
   // Combine selector and encoded params
   const fullInitData =
-    AzoriusV1__factory.createInterface().getFunction('initialize').selector +
+    ModuleAzoriusV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(
         ['address', 'address', 'address', 'address', 'uint32', 'uint32'],
@@ -45,7 +45,7 @@ async function deployAzoriusProxy(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return AzoriusV1__factory.connect(await proxy.getAddress(), owner);
+  return ModuleAzoriusV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 // Helper function for deploying AzoriusV1 using setUp instead of initialize
@@ -58,9 +58,9 @@ async function deployAzoriusProxyWithSetUp(
   strategyAddress: string,
   timelockPeriod: number,
   executionPeriod: number,
-): Promise<AzoriusV1> {
+): Promise<ModuleAzoriusV1> {
   // Create the call to setUp with the encoded parameters
-  const fullInitData = AzoriusV1__factory.createInterface().encodeFunctionData('setUp', [
+  const fullInitData = ModuleAzoriusV1__factory.createInterface().encodeFunctionData('setUp', [
     ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'address', 'address', 'address', 'uint32', 'uint32'],
       [owner.address, avatar, target, strategyAddress, timelockPeriod, executionPeriod],
@@ -71,10 +71,10 @@ async function deployAzoriusProxyWithSetUp(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return AzoriusV1__factory.connect(await proxy.getAddress(), owner);
+  return ModuleAzoriusV1__factory.connect(await proxy.getAddress(), owner);
 }
 
-describe('AzoriusV1', () => {
+describe('ModuleAzoriusV1', () => {
   // eoas
   let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
@@ -83,7 +83,7 @@ describe('AzoriusV1', () => {
   let nonOwner: SignerWithAddress;
 
   // mocks and mastercopies
-  let implementation: AzoriusV1;
+  let implementation: ModuleAzoriusV1;
   let masterCopy: string;
   let mockStrategy: MockVotingStrategy;
   let mockStrategyAddress: string;
@@ -93,7 +93,7 @@ describe('AzoriusV1', () => {
     [proxyDeployer, owner, proposer, user, nonOwner] = await ethers.getSigners();
 
     // Deploy implementation contract
-    implementation = await new AzoriusV1__factory(proxyDeployer).deploy();
+    implementation = await new ModuleAzoriusV1__factory(proxyDeployer).deploy();
     masterCopy = await implementation.getAddress();
 
     // Deploy a default mock strategy for use in many tests
@@ -102,7 +102,7 @@ describe('AzoriusV1', () => {
   });
 
   describe('Initialization', () => {
-    let azorius: AzoriusV1;
+    let azorius: ModuleAzoriusV1;
     let avatar: MockAvatar;
 
     beforeEach(async () => {
@@ -308,7 +308,7 @@ describe('AzoriusV1', () => {
       });
 
       it('Should have initialization disabled in the implementation', async function () {
-        const implementationContract = AzoriusV1__factory.connect(masterCopy, proxyDeployer);
+        const implementationContract = ModuleAzoriusV1__factory.connect(masterCopy, proxyDeployer);
 
         await expect(
           implementationContract.initialize(
@@ -380,7 +380,7 @@ describe('AzoriusV1', () => {
   });
 
   describe('Proposal Tests', () => {
-    let azorius: AzoriusV1;
+    let azorius: ModuleAzoriusV1;
     let avatar: MockAvatar;
     let mockToken: MockERC20Votes;
 
@@ -1248,7 +1248,7 @@ describe('AzoriusV1', () => {
   });
 
   describe('Owner Functions', () => {
-    let azorius: AzoriusV1;
+    let azorius: ModuleAzoriusV1;
     let avatar: MockAvatar;
 
     const INITIAL_TIMELOCK_PERIOD = 100;
@@ -1586,7 +1586,7 @@ describe('AzoriusV1', () => {
   });
 
   describe('Version', () => {
-    let azorius: AzoriusV1;
+    let azorius: ModuleAzoriusV1;
 
     beforeEach(async () => {
       azorius = await deployAzoriusProxy(
@@ -1608,10 +1608,7 @@ describe('AzoriusV1', () => {
   });
 
   describe('ERC165', function () {
-    let azoriusInstance: AzoriusV1;
-    let iAzoriusV1InterfaceId: string;
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
+    let azoriusInstance: ModuleAzoriusV1;
 
     beforeEach(async function () {
       // Deploy a new instance for testing
@@ -1625,31 +1622,30 @@ describe('AzoriusV1', () => {
         0,
         0,
       );
-
-      // Dynamically calculate interface IDs
-      const IAzoriusV1Interface = IAzoriusV1__factory.createInterface();
-      iAzoriusV1InterfaceId = calculateInterfaceId(IAzoriusV1Interface);
-
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
     });
 
     it('Should support IERC165 interface', async function () {
-      const supported = await azoriusInstance.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await azoriusInstance.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
-    it('Should support IAzoriusV1 interface', async function () {
-      const supported = await azoriusInstance.supportsInterface(iAzoriusV1InterfaceId);
-      void expect(supported).to.be.true;
+    it('Should support IModuleAzoriusV1 interface', async function () {
+      void expect(
+        await azoriusInstance.supportsInterface(
+          calculateInterfaceId(IModuleAzoriusV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IVersion interface', async function () {
-      const supported = await azoriusInstance.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await azoriusInstance.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should not support random interface', async function () {
@@ -1660,7 +1656,7 @@ describe('AzoriusV1', () => {
   });
 
   describe('UUPS Upgradeability', function () {
-    let azorius: AzoriusV1;
+    let azorius: ModuleAzoriusV1;
 
     beforeEach(async function () {
       // Deploy azorius proxy
@@ -1680,7 +1676,7 @@ describe('AzoriusV1', () => {
     runUUPSUpgradeabilityTests({
       getContract: () => azorius as unknown as UUPSUpgradeable,
       createNewImplementation: async () => {
-        const newImplementation = await new AzoriusV1__factory(owner).deploy();
+        const newImplementation = await new ModuleAzoriusV1__factory(owner).deploy();
         return newImplementation as unknown as UUPSUpgradeable;
       },
       owner: () => owner,
