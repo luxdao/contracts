@@ -39,4 +39,10 @@ interface IBaseVotingAdapterV1 {
         uint48 freezeProposalSnapshotAndId,
         bytes calldata adapterVoteData
     ) external returns (uint256 weightCasted);
+
+    function validVotingAdapterVote(
+        address voter,
+        uint32 proposalId,
+        bytes calldata votingAdapterVoteData
+    ) external view returns (bool isValid, uint256 votingWeight);
 }

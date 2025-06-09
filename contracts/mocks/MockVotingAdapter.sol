@@ -13,6 +13,9 @@ contract MockVotingAdapter is IBaseVotingAdapterV1 {
     address public lastVoterForRecordVote;
     uint32 public lastProposalIdForRecordVote;
 
+    mapping(address => bool) private _validVoteToReturn;
+    mapping(address => uint256) private _validationWeightToReturn;
+
     uint256 public weightToReturnOnRecord;
     uint256 public weightToReturnOnGet;
     address public lastVoterForRecord;
@@ -51,6 +54,17 @@ contract MockVotingAdapter is IBaseVotingAdapterV1 {
 
     function setWeight(address _voter, uint256 _weight) external {
         weightsToReturn[_voter] = _weight;
+        _validVoteToReturn[_voter] = true;
+        _validationWeightToReturn[_voter] = _weight;
+    }
+
+    function setValidVote(
+        address _voter,
+        bool _isValid,
+        uint256 _weight
+    ) external {
+        _validVoteToReturn[_voter] = _isValid;
+        _validationWeightToReturn[_voter] = _weight;
     }
 
     function setShouldRevertOnRecordVote(bool _shouldRevert) external {
@@ -71,10 +85,6 @@ contract MockVotingAdapter is IBaseVotingAdapterV1 {
 
     function setWeightToReturnOnGet(uint256 weight) external {
         weightToReturnOnGet = weight;
-    }
-
-    function setShouldRevertRecordVote(bool shouldRevert) external {
-        shouldRevertRecordVote = shouldRevert;
     }
 
     function recordFreezeVote(
@@ -104,5 +114,16 @@ contract MockVotingAdapter is IBaseVotingAdapterV1 {
         lastVoterForRecord = address(0);
         lastSnapshotAndIdForRecord = 0;
         lastAdapterDataForRecord = bytes("");
+    }
+
+    function validVotingAdapterVote(
+        address lightAccountOwner_,
+        uint32,
+        bytes calldata
+    ) external view override returns (bool, uint256) {
+        return (
+            _validVoteToReturn[lightAccountOwner_],
+            _validationWeightToReturn[lightAccountOwner_]
+        );
     }
 }

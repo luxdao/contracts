@@ -5,6 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ClockMode} from "../interfaces/decent/ClockMode.sol";
+import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 /**
  * @title MockERC20Votes
@@ -19,6 +20,9 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
     mapping(uint256 => bool) private _hasMockPastTotalSupplyBeenSet;
     mapping(address => address) private _delegates;
     string public clockMode;
+
+    // Checkpoint mocking
+    mapping(address => Checkpoints.Checkpoint208[]) internal _checkpoints;
 
     constructor()
         ERC20("Mock Voting Token", "MVT")
@@ -85,6 +89,43 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
     ) external {
         _mockPastTotalSupply[timepoint] = totalSupply;
         _hasMockPastTotalSupplyBeenSet[timepoint] = true;
+    }
+
+    /**
+     * @dev Sets mock checkpoints for an account.
+     * @param account The account for which to set checkpoints.
+     * @param newCheckpoints The array of checkpoints to set.
+     */
+    function setCheckpoints(
+        address account,
+        Checkpoints.Checkpoint208[] memory newCheckpoints
+    ) external {
+        // Clear existing checkpoints
+        delete _checkpoints[account];
+
+        // Add each checkpoint individually
+        for (uint256 i = 0; i < newCheckpoints.length; i++) {
+            _checkpoints[account].push(newCheckpoints[i]);
+        }
+    }
+
+    /**
+     * @dev Returns the number of checkpoints for a given account.
+     */
+    function numCheckpoints(
+        address account
+    ) public view virtual returns (uint32) {
+        return uint32(_checkpoints[account].length);
+    }
+
+    /**
+     * @dev Returns the checkpoint for a given account at a given index.
+     */
+    function checkpoints(
+        address account,
+        uint32 pos
+    ) public view virtual returns (Checkpoints.Checkpoint208 memory) {
+        return _checkpoints[account][pos];
     }
 
     /**
