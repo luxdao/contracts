@@ -58,11 +58,7 @@ interface IStrategyV1 {
         address indexed freezeVoterContract,
         bool isAuthorized
     );
-    event VotingPeriodEnded(
-        uint32 indexed proposalId,
-        uint48 votingEndTimestamp,
-        uint48 currentTimestamp
-    );
+    event VotingPeriodEnded(uint32 indexed proposalId);
 
     // --- Initializer Functions ---
 
@@ -144,9 +140,9 @@ interface IStrategyV1 {
         view
         returns (address[] memory authorizedFreezeVoters);
 
-    function votingPeriodEnded(
+    function voteCastedAfterVotingPeriodEnded(
         uint32 proposalId_
-    ) external view returns (bool votingPeriodEnded);
+    ) external view returns (bool voteCastedAfterVotingPeriodEnded);
 
     function validStrategyVote(
         address voter_,
