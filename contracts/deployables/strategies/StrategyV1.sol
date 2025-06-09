@@ -195,11 +195,21 @@ contract StrategyV1 is
             _proposalId
         ];
 
-        if (
-            proposal.votingEndTimestamp == 0 ||
-            block.timestamp > proposal.votingEndTimestamp
-        ) {
-            revert ProposalNotFoundOrNotActive();
+        if (proposal.votingEndTimestamp == 0) {
+            revert ProposalNotInitialized();
+        }
+
+        if (block.timestamp > proposal.votingEndTimestamp) {
+            if (!_votingPeriodEnded[_proposalId]) {
+                _votingPeriodEnded[_proposalId] = true;
+                emit VotingPeriodEnded(
+                    _proposalId,
+                    proposal.votingEndTimestamp,
+                    uint48(block.timestamp)
+                );
+                return;
+            }
+            revert ProposalNotActive();
         }
 
         uint256 totalWeightForThisVoteTransaction = 0;
