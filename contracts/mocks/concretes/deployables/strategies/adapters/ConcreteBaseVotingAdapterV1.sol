@@ -44,4 +44,10 @@ contract ConcreteBaseVotingAdapterV1 is BaseVotingAdapterV1 {
         emit FreezeVoteRecorded(msg.sender, 0, 789, bytes("")); // Dummy emission
         return 789; // Dummy weight for freeze vote
     }
+
+    function validVotingAdapterVote(
+        address lightAccountOwner,
+        uint32 proposalId,
+        bytes calldata votingAdapterVoteData
+    ) external view override returns (bool, uint256) {}
 }

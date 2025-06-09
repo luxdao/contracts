@@ -24,6 +24,12 @@ contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
 
     mapping(uint32 => bool) internal _mockIsPassedMap;
 
+    bool private _validStrategyVoteToReturn;
+    bool private _shouldCheckExpectedParams;
+    uint32 private _expected_proposalId;
+    uint8 private _expected_voteType;
+    bytes32 private _expected_votingAdaptersDataHash;
+
     uint32 internal _mockVotingPeriod;
     uint256 internal _mockQuorumThreshold;
     uint256 internal _mockBasisNumerator;
@@ -209,6 +215,24 @@ contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
         _mockIsPassedMap[proposalId] = passed;
     }
 
+    function setValidStrategyVoteResult(bool result) external {
+        _validStrategyVoteToReturn = result;
+        _shouldCheckExpectedParams = false;
+    }
+
+    function setExpectedValidStrategyVoteParams(
+        uint32 expectedProposalId,
+        uint8 expectedVoteType,
+        IStrategyV1.VotingAdapterVoteData[] calldata expectedVotingAdaptersData
+    ) external {
+        _expected_proposalId = expectedProposalId;
+        _expected_voteType = expectedVoteType;
+        _expected_votingAdaptersDataHash = keccak256(
+            abi.encode(expectedVotingAdaptersData)
+        );
+        _shouldCheckExpectedParams = true;
+    }
+
     function isQuorumMet(uint32) external pure override returns (bool) {
         return true;
     }
@@ -279,4 +303,27 @@ contract MockVotingStrategy is IStrategyV1, ERC4337VoterSupportV1 {
     function votingPeriodEnded(
         uint32 _proposalId
     ) external view override returns (bool) {}
+
+    function validStrategyVote(
+        address,
+        uint32 proposalId_,
+        uint8 voteType_,
+        IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData_
+    ) external view override returns (bool) {
+        if (_shouldCheckExpectedParams) {
+            if (proposalId_ != _expected_proposalId) {
+                revert("Mismatched proposalId");
+            }
+            if (voteType_ != _expected_voteType) {
+                revert("Mismatched voteType");
+            }
+            if (
+                keccak256(abi.encode(votingAdaptersData_)) !=
+                _expected_votingAdaptersDataHash
+            ) {
+                revert("Mismatched votingAdaptersData");
+            }
+        }
+        return _validStrategyVoteToReturn;
+    }
 }
