@@ -44,59 +44,53 @@ contract DecentPaymasterV1 is
     }
 
     function _authorizeUpgrade(
-        address newImplementation
+        address newImplementation_
     ) internal virtual override onlyOwner {}
 
     function setFunctionValidator(
-        address target,
-        bytes4 selector,
-        address validator
+        address target_,
+        bytes4 selector_,
+        address validator_
     ) external virtual override onlyOwner {
-        if (validator == address(0)) revert InvalidValidator();
+        if (validator_ == address(0)) revert InvalidValidator();
 
         if (
-            !IERC165(validator).supportsInterface(
+            !IERC165(validator_).supportsInterface(
                 type(IFunctionValidator).interfaceId
             )
         ) {
             revert InvalidValidator();
         }
 
-        _functionValidators[target][selector] = validator;
-        emit FunctionValidatorSet(target, selector, validator);
+        _functionValidators[target_][selector_] = validator_;
+        emit FunctionValidatorSet(target_, selector_, validator_);
     }
 
     function removeFunctionValidator(
-        address target,
-        bytes4 selector
+        address target_,
+        bytes4 selector_
     ) external virtual override onlyOwner {
-        _functionValidators[target][selector] = address(0);
-        emit FunctionValidatorRemoved(target, selector);
+        _functionValidators[target_][selector_] = address(0);
+        emit FunctionValidatorRemoved(target_, selector_);
     }
 
     function getFunctionValidator(
-        address target,
-        bytes4 selector
+        address target_,
+        bytes4 selector_
     ) public view virtual override returns (address) {
-        return _functionValidators[target][selector];
+        return _functionValidators[target_][selector_];
     }
 
     function _validatePaymasterUserOp(
-        PackedUserOperation calldata userOp,
+        PackedUserOperation calldata userOp_,
         bytes32,
         uint256
-    )
-        internal
-        view
-        virtual
-        override
-        returns (bytes memory context, uint256 validationData)
-    {
+    ) internal view virtual override returns (bytes memory, uint256) {
         (
             address lightAccountOwner,
             address target,
             bytes memory innerCallData
-        ) = validateUserOp(userOp);
+        ) = validateUserOp(userOp_);
 
         bytes4 selector = bytes4(innerCallData);
 
@@ -108,7 +102,7 @@ contract DecentPaymasterV1 is
 
         // Validate the operation will succeed
         bool isValid = IFunctionValidator(validator).validateOperation(
-            userOp.sender,
+            userOp_.sender,
             lightAccountOwner,
             target,
             innerCallData
@@ -126,30 +120,30 @@ contract DecentPaymasterV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IDecentPaymasterV1).interfaceId ||
-            interfaceId == type(ISmartAccountValidationV1).interfaceId ||
-            interfaceId == type(IPaymaster).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IDecentPaymasterV1).interfaceId ||
+            interfaceId_ == type(ISmartAccountValidationV1).interfaceId ||
+            interfaceId_ == type(IPaymaster).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 
     function _transferOwnership(
-        address newOwner
+        address newOwner_
     ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
-        Ownable2StepUpgradeable._transferOwnership(newOwner);
+        Ownable2StepUpgradeable._transferOwnership(newOwner_);
     }
 
     function transferOwnership(
-        address newOwner
+        address newOwner_
     )
         public
         virtual
         override(Ownable2StepUpgradeable, OwnableUpgradeable)
         onlyOwner
     {
-        Ownable2StepUpgradeable.transferOwnership(newOwner);
+        Ownable2StepUpgradeable.transferOwnership(newOwner_);
     }
 }

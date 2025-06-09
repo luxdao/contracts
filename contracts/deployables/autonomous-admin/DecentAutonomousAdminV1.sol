@@ -11,20 +11,23 @@ contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version, ERC165 {
     uint16 private constant VERSION = 1;
 
     function triggerStartNextTerm(
-        TriggerStartArgs calldata args
+        TriggerStartArgs calldata args_
     ) public virtual override {
         IHatsElectionsEligibility hatsElectionModule = IHatsElectionsEligibility(
-                args.hatsProtocol.getHatEligibilityModule(args.hatId)
+                args_.hatsProtocol.getHatEligibilityModule(args_.hatId)
             );
 
         hatsElectionModule.startNextTerm();
 
         // This will burn the hat if wearer is no longer eligible
-        args.hatsProtocol.checkHatWearerStatus(args.hatId, args.currentWearer);
+        args_.hatsProtocol.checkHatWearerStatus(
+            args_.hatId,
+            args_.currentWearer
+        );
 
         // This will mint the hat to the nominated wearer, if necessary
-        if (args.nominatedWearer != args.currentWearer) {
-            args.hatsProtocol.mintHat(args.hatId, args.nominatedWearer);
+        if (args_.nominatedWearer != args_.currentWearer) {
+            args_.hatsProtocol.mintHat(args_.hatId, args_.nominatedWearer);
         }
     }
 
@@ -33,11 +36,11 @@ contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, Version, ERC165 {
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IDecentAutonomousAdminV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IDecentAutonomousAdminV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

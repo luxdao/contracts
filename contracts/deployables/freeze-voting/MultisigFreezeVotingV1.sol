@@ -21,7 +21,7 @@ contract MultisigFreezeVotingV1 is
 
     ISafe internal _parentSafe;
     mapping(uint48 freezeProposalCreated => mapping(address voter => bool hasFreezeVoted))
-        internal _userHasFreezeVoted;
+        internal _accountHasFreezeVoted;
 
     constructor() {
         _disableInitializers();
@@ -49,11 +49,11 @@ contract MultisigFreezeVotingV1 is
         return address(_parentSafe);
     }
 
-    function userHasFreezeVoted(
-        uint48 freezeProposalCreated,
-        address voter
+    function accountHasFreezeVoted(
+        uint48 freezeProposalCreated_,
+        address account_
     ) external view virtual override returns (bool) {
-        return _userHasFreezeVoted[freezeProposalCreated][voter];
+        return _accountHasFreezeVoted[freezeProposalCreated_][account_];
     }
 
     function castFreezeVote() external virtual override {
@@ -71,18 +71,19 @@ contract MultisigFreezeVotingV1 is
     }
 
     function _getVotesAndUpdateHasVoted(
-        address voter
-    ) internal virtual returns (uint256 userVotes) {
-        if (!_parentSafe.isOwner(voter)) {
+        address voter_
+    ) internal virtual returns (uint256) {
+        if (!_parentSafe.isOwner(voter_)) {
             return 0;
         }
 
-        if (_userHasFreezeVoted[_freezeProposalCreated][voter]) {
+        if (_accountHasFreezeVoted[_freezeProposalCreated][voter_]) {
             return 0;
         }
 
-        userVotes = 1;
-        _userHasFreezeVoted[_freezeProposalCreated][voter] = true;
+        _accountHasFreezeVoted[_freezeProposalCreated][voter_] = true;
+
+        return 1;
     }
 
     function version() public view virtual override returns (uint16) {
@@ -90,12 +91,12 @@ contract MultisigFreezeVotingV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IMultisigFreezeVotingV1).interfaceId ||
-            interfaceId == type(IBaseFreezeVotingV1).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IMultisigFreezeVotingV1).interfaceId ||
+            interfaceId_ == type(IBaseFreezeVotingV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

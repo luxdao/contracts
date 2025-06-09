@@ -49,7 +49,7 @@ contract MultisigFreezeGuardV1 is
     }
 
     function _authorizeUpgrade(
-        address newImplementation
+        address newImplementation_
     ) internal virtual override onlyOwner {}
 
     function timelockPeriod() external view virtual override returns (uint32) {
@@ -75,35 +75,35 @@ contract MultisigFreezeGuardV1 is
     }
 
     function timelockTransaction(
-        address to,
-        uint256 value,
-        bytes memory data,
+        address to_,
+        uint256 value_,
+        bytes memory data_,
         Enum.Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address payable refundReceiver,
-        bytes calldata signatures,
-        uint256 nonce
+        uint256 safeTxGas_,
+        uint256 baseGas_,
+        uint256 gasPrice_,
+        address gasToken_,
+        address payable refundReceiver_,
+        bytes calldata signatures_,
+        uint256 nonce_
     ) external virtual override {
-        bytes32 signaturesHash = keccak256(signatures);
+        bytes32 signaturesHash = keccak256(signatures_);
 
         if (transactionTimelocked[signaturesHash] != 0)
             revert AlreadyTimelocked();
 
         bytes memory transactionHashData = _childGnosisSafe
             .encodeTransactionData(
-                to,
-                value,
-                data,
+                to_,
+                value_,
+                data_,
                 operation,
-                safeTxGas,
-                baseGas,
-                gasPrice,
-                gasToken,
-                refundReceiver,
-                nonce
+                safeTxGas_,
+                baseGas_,
+                gasPrice_,
+                gasToken_,
+                refundReceiver_,
+                nonce_
             );
 
         bytes32 transactionHash = keccak256(transactionHashData);
@@ -111,12 +111,12 @@ contract MultisigFreezeGuardV1 is
         _childGnosisSafe.checkSignatures(
             transactionHash,
             transactionHashData,
-            signatures
+            signatures_
         );
 
         transactionTimelocked[signaturesHash] = uint48(block.timestamp);
 
-        emit TransactionTimelocked(msg.sender, transactionHash, signatures);
+        emit TransactionTimelocked(msg.sender, transactionHash, signatures_);
     }
 
     function updateTimelockPeriod(
@@ -141,10 +141,10 @@ contract MultisigFreezeGuardV1 is
         uint256,
         address,
         address payable,
-        bytes memory signatures,
+        bytes memory signatures_,
         address
     ) external view virtual override {
-        bytes32 signaturesHash = keccak256(signatures);
+        bytes32 signaturesHash = keccak256(signatures_);
 
         if (transactionTimelocked[signaturesHash] == 0) revert NotTimelocked();
 
@@ -169,9 +169,9 @@ contract MultisigFreezeGuardV1 is
     ) external view virtual override {}
 
     function getTransactionTimelocked(
-        bytes32 _signaturesHash
+        bytes32 signaturesHash_
     ) public view virtual override returns (uint48) {
-        return transactionTimelocked[_signaturesHash];
+        return transactionTimelocked[signaturesHash_];
     }
 
     function _updateTimelockPeriod(uint32 timelockPeriod_) internal virtual {
@@ -189,13 +189,13 @@ contract MultisigFreezeGuardV1 is
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId == type(IMultisigFreezeGuardV1).interfaceId ||
-            interfaceId == type(IBaseFreezeGuardV1).interfaceId ||
-            interfaceId == type(IGuard).interfaceId ||
-            interfaceId == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId_ == type(IMultisigFreezeGuardV1).interfaceId ||
+            interfaceId_ == type(IBaseFreezeGuardV1).interfaceId ||
+            interfaceId_ == type(IGuard).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

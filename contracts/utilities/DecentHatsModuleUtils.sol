@@ -50,36 +50,36 @@ abstract contract DecentHatsModuleUtils {
     }
 
     function _processRoleHats(
-        CreateRoleHatsParams memory roleHatsParams
+        CreateRoleHatsParams memory roleHatsParams_
     ) internal {
-        for (uint256 i = 0; i < roleHatsParams.hats.length; ) {
-            HatParams memory hatParams = roleHatsParams.hats[i];
+        for (uint256 i = 0; i < roleHatsParams_.hats.length; ) {
+            HatParams memory hatParams = roleHatsParams_.hats[i];
 
             // Create eligibility module if needed
             address eligibilityAddress = _createEligibilityModule(
-                roleHatsParams.hatsProtocol,
-                roleHatsParams.hatsModuleFactory,
-                roleHatsParams.hatsElectionsEligibilityImplementation,
-                roleHatsParams.topHatId,
-                roleHatsParams.topHatAccount,
-                roleHatsParams.adminHatId,
+                roleHatsParams_.hatsProtocol,
+                roleHatsParams_.hatsModuleFactory,
+                roleHatsParams_.hatsElectionsEligibilityImplementation,
+                roleHatsParams_.topHatId,
+                roleHatsParams_.topHatAccount,
+                roleHatsParams_.adminHatId,
                 hatParams.termEndDateTs
             );
 
             // Create and Mint the Role Hat
             uint256 hatId = _createAndMintHat(
-                roleHatsParams.hatsProtocol,
-                roleHatsParams.adminHatId,
+                roleHatsParams_.hatsProtocol,
+                roleHatsParams_.adminHatId,
                 hatParams,
                 eligibilityAddress,
-                roleHatsParams.topHatAccount
+                roleHatsParams_.topHatAccount
             );
 
             // Get the stream recipient (based on termed or not)
             address streamRecipient = _setupStreamRecipient(
-                roleHatsParams.erc6551Registry,
-                roleHatsParams.hatsAccountImplementation,
-                address(roleHatsParams.hatsProtocol),
+                roleHatsParams_.erc6551Registry,
+                roleHatsParams_.hatsAccountImplementation,
+                address(roleHatsParams_.hatsProtocol),
                 hatParams.termEndDateTs,
                 hatParams.wearer,
                 hatId
@@ -89,7 +89,7 @@ abstract contract DecentHatsModuleUtils {
             _processSablierStreams(
                 hatParams.sablierStreamsParams,
                 streamRecipient,
-                roleHatsParams.keyValuePairs,
+                roleHatsParams_.keyValuePairs,
                 hatId
             );
 
@@ -100,68 +100,68 @@ abstract contract DecentHatsModuleUtils {
     }
 
     function _createEligibilityModule(
-        IHats hatsProtocol,
-        IHatsModuleFactory hatsModuleFactory,
-        address hatsElectionsEligibilityImplementation,
-        uint256 topHatId,
-        address topHatAccount,
-        uint256 adminHatId,
-        uint128 termEndDateTs
+        IHats hatsProtocol_,
+        IHatsModuleFactory hatsModuleFactory_,
+        address hatsElectionsEligibilityImplementation_,
+        uint256 topHatId_,
+        address topHatAccount_,
+        uint256 adminHatId_,
+        uint128 termEndDateTs_
     ) private returns (address) {
         // If the Hat is termed, create the eligibility module
-        if (termEndDateTs != 0) {
+        if (termEndDateTs_ != 0) {
             return
-                hatsModuleFactory.createHatsModule(
-                    hatsElectionsEligibilityImplementation,
-                    hatsProtocol.getNextId(adminHatId),
-                    abi.encode(topHatId, uint256(0)), // [BALLOT_BOX_ID, ADMIN_HAT_ID]
-                    abi.encode(termEndDateTs),
+                hatsModuleFactory_.createHatsModule(
+                    hatsElectionsEligibilityImplementation_,
+                    hatsProtocol_.getNextId(adminHatId_),
+                    abi.encode(topHatId_, uint256(0)), // [BALLOT_BOX_ID, ADMIN_HAT_ID]
+                    abi.encode(termEndDateTs_),
                     uint256(SALT)
                 );
         }
 
         // Otherwise, return the Top Hat account
-        return topHatAccount;
+        return topHatAccount_;
     }
 
     function _createAndMintHat(
-        IHats hatsProtocol,
-        uint256 adminHatId,
-        HatParams memory hat,
-        address eligibilityAddress,
-        address topHatAccount
+        IHats hatsProtocol_,
+        uint256 adminHatId_,
+        HatParams memory hat_,
+        address eligibilityAddress_,
+        address topHatAccount_
     ) private returns (uint256) {
         // Grab the next Hat ID (before creating it)
-        uint256 hatId = hatsProtocol.getNextId(adminHatId);
+        uint256 hatId = hatsProtocol_.getNextId(adminHatId_);
 
         // Create the new Hat
         IAvatar(msg.sender).execTransactionFromModule(
-            address(hatsProtocol),
+            address(hatsProtocol_),
             0,
             abi.encodeWithSignature(
                 "createHat(uint256,string,uint32,address,address,bool,string)",
-                adminHatId,
-                hat.details,
-                hat.maxSupply,
-                eligibilityAddress,
-                topHatAccount,
-                hat.isMutable,
-                hat.imageURI
+                adminHatId_,
+                hat_.details,
+                hat_.maxSupply,
+                eligibilityAddress_,
+                topHatAccount_,
+                hat_.isMutable,
+                hat_.imageURI
             ),
             Enum.Operation.Call
         );
 
         // If the Hat is termed, nominate the wearer as the eligible member
-        if (hat.termEndDateTs != 0) {
+        if (hat_.termEndDateTs != 0) {
             address[] memory nominatedWearers = new address[](1);
-            nominatedWearers[0] = hat.wearer;
+            nominatedWearers[0] = hat_.wearer;
 
             IAvatar(msg.sender).execTransactionFromModule(
-                eligibilityAddress,
+                eligibilityAddress_,
                 0,
                 abi.encodeWithSignature(
                     "elect(uint128,address[])",
-                    hat.termEndDateTs,
+                    hat_.termEndDateTs,
                     nominatedWearers
                 ),
                 Enum.Operation.Call
@@ -170,12 +170,12 @@ abstract contract DecentHatsModuleUtils {
 
         // Mint the Hat
         IAvatar(msg.sender).execTransactionFromModule(
-            address(hatsProtocol),
+            address(hatsProtocol_),
             0,
             abi.encodeWithSignature(
                 "mintHat(uint256,address)",
                 hatId,
-                hat.wearer
+                hat_.wearer
             ),
             Enum.Operation.Call
         );
@@ -184,37 +184,37 @@ abstract contract DecentHatsModuleUtils {
 
     // Exists to avoid stack too deep errors
     function _setupStreamRecipient(
-        IERC6551Registry erc6551Registry,
-        address hatsAccountImplementation,
-        address hatsProtocol,
-        uint128 termEndDateTs,
-        address wearer,
-        uint256 hatId
+        IERC6551Registry erc6551Registry_,
+        address hatsAccountImplementation_,
+        address hatsProtocol_,
+        uint128 termEndDateTs_,
+        address wearer_,
+        uint256 hatId_
     ) private returns (address) {
         // If the hat is termed, the wearer is the stream recipient
-        if (termEndDateTs != 0) {
-            return wearer;
+        if (termEndDateTs_ != 0) {
+            return wearer_;
         }
 
         // Otherwise, the Hat's smart account is the stream recipient
         return
-            erc6551Registry.createAccount(
-                hatsAccountImplementation,
+            erc6551Registry_.createAccount(
+                hatsAccountImplementation_,
                 SALT,
                 block.chainid,
-                hatsProtocol,
-                hatId
+                hatsProtocol_,
+                hatId_
             );
     }
 
     function _processSablierStreams(
-        SablierStreamParams[] memory streamParams,
-        address streamRecipient,
-        address keyValuePairs,
-        uint256 hatId
+        SablierStreamParams[] memory streamParams_,
+        address streamRecipient_,
+        address keyValuePairs_,
+        uint256 hatId_
     ) private {
-        for (uint256 i = 0; i < streamParams.length; ) {
-            SablierStreamParams memory sablierStreamParams = streamParams[i];
+        for (uint256 i = 0; i < streamParams_.length; ) {
+            SablierStreamParams memory sablierStreamParams = streamParams_[i];
 
             // Approve tokens for Sablier
             IAvatar(msg.sender).execTransactionFromModule(
@@ -239,7 +239,7 @@ abstract contract DecentHatsModuleUtils {
                     "createWithTimestamps((address,address,uint128,address,bool,bool,(uint40,uint40,uint40),(address,uint256)))",
                     LockupLinear.CreateWithTimestamps({
                         sender: sablierStreamParams.sender,
-                        recipient: streamRecipient,
+                        recipient: streamRecipient_,
                         totalAmount: sablierStreamParams.totalAmount,
                         asset: IERC20(sablierStreamParams.asset),
                         cancelable: sablierStreamParams.cancelable,
@@ -257,14 +257,14 @@ abstract contract DecentHatsModuleUtils {
             keys[0] = "hatIdToStreamId";
             values[0] = string(
                 abi.encodePacked(
-                    Strings.toString(hatId),
+                    Strings.toString(hatId_),
                     ":",
                     Strings.toString(streamId)
                 )
             );
 
             IAvatar(msg.sender).execTransactionFromModule(
-                keyValuePairs,
+                keyValuePairs_,
                 0,
                 abi.encodeWithSignature(
                     "updateValues(string[],string[])",

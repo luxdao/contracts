@@ -5,15 +5,15 @@ interface IProxyFactory {
     event ProxyDeployed(address indexed proxy, address indexed implementation);
 
     function deployProxy(
-        address implementation,
-        bytes calldata initData,
-        bytes32 salt
+        address implementation_,
+        bytes calldata initData_,
+        bytes32 salt_
     ) external returns (address proxy);
 
     function predictProxyAddress(
-        address implementation,
-        bytes calldata initData,
-        bytes32 salt,
-        address deployer
-    ) external view returns (address);
+        address implementation_,
+        bytes calldata initData_,
+        bytes32 salt_,
+        address deployer_
+    ) external view returns (address proxy);
 }

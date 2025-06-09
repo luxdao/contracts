@@ -19,11 +19,11 @@ contract DecentHatsModificationModule is DecentHatsModuleUtils {
      * to avoid a race condition where not more than one active proposal to create a new role can exist at a time.
      * See: https://github.com/decentdao/decent-interface/issues/2402
      *
-     * @param roleHatsParams An array of params for each role hat to be created.
+     * @param roleHatsParams_ An array of params for each role hat to be created.
      */
     function createRoleHats(
-        CreateRoleHatsParams calldata roleHatsParams
+        CreateRoleHatsParams calldata roleHatsParams_
     ) external {
-        _processRoleHats(roleHatsParams);
+        _processRoleHats(roleHatsParams_);
     }
 }

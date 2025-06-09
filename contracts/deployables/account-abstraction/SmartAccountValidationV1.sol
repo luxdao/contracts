@@ -34,12 +34,12 @@ abstract contract SmartAccountValidationV1 is
     }
 
     function validateSmartAccount(
-        address smartAccount
+        address smartAccount_
     ) internal view virtual returns (bool, address) {
         // First check if the address has code (is a contract)
         uint256 size;
         assembly {
-            size := extcodesize(smartAccount)
+            size := extcodesize(smartAccount_)
         }
 
         // If it's an EOA (no code), it's not a `LightAccount`
@@ -47,19 +47,19 @@ abstract contract SmartAccountValidationV1 is
             return (false, address(0));
         }
 
-        try ILightAccount(smartAccount).owner() returns (
-            address lightAccountOwner
+        try ILightAccount(smartAccount_).owner() returns (
+            address lightAccountOwner_
         ) {
             // Regenerate the expected light account address
             address lightAccountAddress = _lightAccountFactory.getAddress(
-                lightAccountOwner,
+                lightAccountOwner_,
                 0 // we assume that Decent App is only creating one account per user
             );
 
             // If the given `smartAccount` address is the same as the derived
             // `lightAccountAddress`, then we know that the `smartAccount`
             // was created by the `LightAccountFactory` and therefore can be trusted.
-            return (lightAccountAddress == smartAccount, lightAccountOwner);
+            return (lightAccountAddress == smartAccount_, lightAccountOwner_);
         } catch {
             // `smartAccount` does not implement `owner()`
             // so it's definitely not a `LightAccount`
@@ -68,10 +68,10 @@ abstract contract SmartAccountValidationV1 is
     }
 
     function validateUserOp(
-        PackedUserOperation calldata userOp
+        PackedUserOperation calldata userOp_
     ) internal view virtual returns (address, address, bytes memory) {
         (bool isValid, address lightAccountOwner) = validateSmartAccount(
-            userOp.sender
+            userOp_.sender
         );
         if (!isValid) {
             revert InvalidSmartAccount();
@@ -87,19 +87,19 @@ abstract contract SmartAccountValidationV1 is
         // encoded in the UserOp).
 
         // Validate that we have at least 4 bytes for the selector
-        if (userOp.callData.length < 4) {
+        if (userOp_.callData.length < 4) {
             revert InvalidUserOpCallDataLength();
         }
 
         // Extract and validate the LightAccount's "execute" function selector
         // 0xb61d27f6 = bytes4(keccak256("execute(address,uint256,bytes)"))
-        if (bytes4(userOp.callData) != 0xb61d27f6) {
+        if (bytes4(userOp_.callData) != 0xb61d27f6) {
             revert InvalidCallData();
         }
 
         // Decode the "execute" function parameters
         (address target, , bytes memory innerCallData) = abi.decode(
-            userOp.callData[4:],
+            userOp_.callData[4:],
             (address, uint256, bytes)
         );
 
