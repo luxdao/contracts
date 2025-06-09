@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IHatsProposerAdapterV1} from "../../../interfaces/decent/deployables/IHatsProposerAdapterV1.sol";
-import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
-import {IHats} from "../../../interfaces/hats/IHats.sol";
-import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
+import {IProposerAdapterHatsV1} from "../../../../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
+import {IProposerAdapterBaseV1} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {IHats} from "../../../../interfaces/hats/IHats.sol";
+import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract HatsProposerAdapterV1 is
-    IHatsProposerAdapterV1,
+contract ProposerAdapterHatsV1 is
+    IProposerAdapterHatsV1,
     IVersion,
     Initializable,
     ERC165
@@ -71,8 +71,8 @@ contract HatsProposerAdapterV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IHatsProposerAdapterV1).interfaceId ||
-            interfaceId_ == type(IProposerAdapterV1).interfaceId ||
+            interfaceId_ == type(IProposerAdapterHatsV1).interfaceId ||
+            interfaceId_ == type(IProposerAdapterBaseV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }

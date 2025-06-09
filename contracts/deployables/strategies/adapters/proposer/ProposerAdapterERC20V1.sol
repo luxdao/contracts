@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IERC20ProposerAdapterV1} from "../../../interfaces/decent/deployables/IERC20ProposerAdapterV1.sol";
-import {IProposerAdapterV1} from "../../../interfaces/decent/deployables/IProposerAdapterV1.sol";
-import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
+import {IProposerAdapterERC20V1} from "../../../../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
+import {IProposerAdapterBaseV1} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract ERC20ProposerAdapterV1 is
-    IERC20ProposerAdapterV1,
+contract ProposerAdapterERC20V1 is
+    IProposerAdapterERC20V1,
     IVersion,
     Initializable,
     ERC165
@@ -60,8 +60,8 @@ contract ERC20ProposerAdapterV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IERC20ProposerAdapterV1).interfaceId ||
-            interfaceId_ == type(IProposerAdapterV1).interfaceId ||
+            interfaceId_ == type(IProposerAdapterERC20V1).interfaceId ||
+            interfaceId_ == type(IProposerAdapterBaseV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
