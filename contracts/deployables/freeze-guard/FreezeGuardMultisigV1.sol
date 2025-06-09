@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IFreezeGuardMultisigV1} from "../../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
 import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
-import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
+import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
@@ -21,7 +21,7 @@ contract FreezeGuardMultisigV1 is
 {
     uint16 private constant VERSION = 1;
 
-    IBaseFreezeVotingV1 internal _freezeVoting;
+    IFreezeVotingBaseV1 internal _freezeVoting;
     uint32 internal _timelockPeriod;
     uint32 internal _executionPeriod;
     ISafe internal _childGnosisSafe;
@@ -43,7 +43,7 @@ contract FreezeGuardMultisigV1 is
         __UUPSUpgradeable_init();
         _updateTimelockPeriod(timelockPeriod_);
         _updateExecutionPeriod(executionPeriod_);
-        _freezeVoting = IBaseFreezeVotingV1(freezeVoting_);
+        _freezeVoting = IFreezeVotingBaseV1(freezeVoting_);
         _childGnosisSafe = ISafe(childGnosisSafe_);
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IAzoriusFreezeVotingV1 {
+interface IFreezeVotingAzoriusV1 {
     error InvalidVotingAdapter();
 
     struct VotingAdapterVoteData {

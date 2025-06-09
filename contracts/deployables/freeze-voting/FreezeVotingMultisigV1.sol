@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IBaseFreezeVotingV1} from "../../interfaces/decent/deployables/IBaseFreezeVotingV1.sol";
-import {IMultisigFreezeVotingV1} from "../../interfaces/decent/deployables/IMultisigFreezeVotingV1.sol";
+import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
+import {IFreezeVotingMultisigV1} from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
-import {BaseFreezeVotingV1} from "./BaseFreezeVotingV1.sol";
+import {FreezeVotingBaseV1} from "./FreezeVotingBaseV1.sol";
 import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract MultisigFreezeVotingV1 is
-    IMultisigFreezeVotingV1,
+contract FreezeVotingMultisigV1 is
+    IFreezeVotingMultisigV1,
     IVersion,
-    BaseFreezeVotingV1,
+    FreezeVotingBaseV1,
     VoterResolverV1,
     ERC165
 {
@@ -93,8 +93,8 @@ contract MultisigFreezeVotingV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IMultisigFreezeVotingV1).interfaceId ||
-            interfaceId_ == type(IBaseFreezeVotingV1).interfaceId ||
+            interfaceId_ == type(IFreezeVotingMultisigV1).interfaceId ||
+            interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }

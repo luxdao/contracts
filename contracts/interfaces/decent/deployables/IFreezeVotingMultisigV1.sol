@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IMultisigFreezeVotingV1 {
+interface IFreezeVotingMultisigV1 {
     event FreezeProposalCreated(address indexed creator);
 
     function initialize(
