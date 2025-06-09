@@ -2,14 +2,20 @@
 pragma solidity ^0.8.30;
 
 interface IVotingAdapterERC20V1 {
+    // --- Errors ---
+
     error ProposalNotReadyForSnapshot();
     error AlreadyVoted();
+
+    // --- Initializer Functions ---
 
     function initialize(
         address token_,
         address strategy_,
         uint256 weightPerToken_
     ) external;
+
+    // --- View Functions ---
 
     function token() external view returns (address token);
 

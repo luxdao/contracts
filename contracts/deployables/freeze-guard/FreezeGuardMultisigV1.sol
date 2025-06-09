@@ -19,7 +19,9 @@ contract FreezeGuardMultisigV1 is
     UUPSUpgradeable,
     ERC165
 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     IFreezeVotingBaseV1 internal _freezeVoting;
     uint32 internal _timelockPeriod;
@@ -27,6 +29,10 @@ contract FreezeGuardMultisigV1 is
     ISafe internal _childGnosisSafe;
     mapping(bytes32 signaturesHash => uint48 timelockedTimestamp)
         internal transactionTimelocked;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -47,31 +53,41 @@ contract FreezeGuardMultisigV1 is
         _childGnosisSafe = ISafe(childGnosisSafe_);
     }
 
+    // ======================================================================
+    // UUPS UPGRADEABLE
+    // ======================================================================
+
+    // --- Internal Functions ---
+
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
 
-    function timelockPeriod() external view virtual override returns (uint32) {
+    // ======================================================================
+    // IFreezeGuardMultisigV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function timelockPeriod() public view virtual override returns (uint32) {
         return _timelockPeriod;
     }
 
-    function executionPeriod() external view virtual override returns (uint32) {
+    function executionPeriod() public view virtual override returns (uint32) {
         return _executionPeriod;
     }
 
-    function freezeVoting() external view virtual override returns (address) {
-        return address(_freezeVoting);
-    }
-
-    function childGnosisSafe()
-        external
-        view
-        virtual
-        override
-        returns (address)
-    {
+    function childGnosisSafe() public view virtual override returns (address) {
         return address(_childGnosisSafe);
     }
+
+    function getTransactionTimelocked(
+        bytes32 signaturesHash_
+    ) public view virtual override returns (uint48) {
+        return transactionTimelocked[signaturesHash_];
+    }
+
+    // --- State-Changing Functions ---
 
     function timelockTransaction(
         address to_,
@@ -85,7 +101,7 @@ contract FreezeGuardMultisigV1 is
         address payable refundReceiver_,
         bytes calldata signatures_,
         uint256 nonce_
-    ) external virtual override {
+    ) public virtual override {
         bytes32 signaturesHash = keccak256(signatures_);
 
         if (transactionTimelocked[signaturesHash] != 0)
@@ -120,15 +136,31 @@ contract FreezeGuardMultisigV1 is
 
     function updateTimelockPeriod(
         uint32 timelockPeriod_
-    ) external virtual override onlyOwner {
+    ) public virtual override onlyOwner {
         _updateTimelockPeriod(timelockPeriod_);
     }
 
     function updateExecutionPeriod(
         uint32 executionPeriod_
-    ) external virtual override onlyOwner {
+    ) public virtual override onlyOwner {
         _updateExecutionPeriod(executionPeriod_);
     }
+
+    // ======================================================================
+    // IFreezeGuardBaseV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function freezeVoting() public view virtual override returns (address) {
+        return address(_freezeVoting);
+    }
+
+    // ======================================================================
+    // IGuard
+    // ======================================================================
+
+    // --- View Functions ---
 
     function checkTransaction(
         address,
@@ -142,7 +174,7 @@ contract FreezeGuardMultisigV1 is
         address payable,
         bytes memory signatures_,
         address
-    ) external view virtual override {
+    ) public view virtual override {
         bytes32 signaturesHash = keccak256(signatures_);
 
         if (transactionTimelocked[signaturesHash] == 0) revert NotTimelocked();
@@ -162,30 +194,23 @@ contract FreezeGuardMultisigV1 is
         if (_freezeVoting.isFrozen()) revert DAOFrozen();
     }
 
-    function checkAfterExecution(
-        bytes32,
-        bool
-    ) external view virtual override {}
+    function checkAfterExecution(bytes32, bool) public view virtual override {}
 
-    function getTransactionTimelocked(
-        bytes32 signaturesHash_
-    ) public view virtual override returns (uint48) {
-        return transactionTimelocked[signaturesHash_];
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
 
-    function _updateTimelockPeriod(uint32 timelockPeriod_) internal virtual {
-        _timelockPeriod = timelockPeriod_;
-        emit TimelockPeriodUpdated(timelockPeriod_);
-    }
+    // ======================================================================
+    // ERC165
+    // ======================================================================
 
-    function _updateExecutionPeriod(uint32 executionPeriod_) internal virtual {
-        _executionPeriod = executionPeriod_;
-        emit ExecutionPeriodUpdated(executionPeriod_);
-    }
-
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
-    }
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_
@@ -196,5 +221,19 @@ contract FreezeGuardMultisigV1 is
             interfaceId_ == type(IGuard).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
+    function _updateTimelockPeriod(uint32 timelockPeriod_) internal virtual {
+        _timelockPeriod = timelockPeriod_;
+        emit TimelockPeriodUpdated(timelockPeriod_);
+    }
+
+    function _updateExecutionPeriod(uint32 executionPeriod_) internal virtual {
+        _executionPeriod = executionPeriod_;
+        emit ExecutionPeriodUpdated(executionPeriod_);
     }
 }

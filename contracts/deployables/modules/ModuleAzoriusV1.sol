@@ -19,7 +19,10 @@ contract ModuleAzoriusV1 is
     UUPSUpgradeable,
     ERC165
 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
     /**
      * ```
      * keccak256(
@@ -51,6 +54,10 @@ contract ModuleAzoriusV1 is
     uint32 internal _executionPeriod;
     mapping(uint32 proposalId => Proposal proposal) internal _proposals;
     IStrategyV1 internal _strategy;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -101,12 +108,24 @@ contract ModuleAzoriusV1 is
         );
     }
 
+    // ======================================================================
+    // UUPS UPGRADEABLE
+    // ======================================================================
+
+    // --- Internal Functions ---
+
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
 
+    // ======================================================================
+    // IModuleAzoriusV1
+    // ======================================================================
+
+    // --- View Functions ---
+
     function totalProposalCount()
-        external
+        public
         view
         virtual
         override
@@ -115,138 +134,22 @@ contract ModuleAzoriusV1 is
         return _totalProposalCount;
     }
 
-    function timelockPeriod() external view virtual override returns (uint32) {
+    function timelockPeriod() public view virtual override returns (uint32) {
         return _timelockPeriod;
     }
 
-    function executionPeriod() external view virtual override returns (uint32) {
+    function executionPeriod() public view virtual override returns (uint32) {
         return _executionPeriod;
     }
 
     function proposals(
         uint32 proposalId_
-    ) external view virtual override returns (Proposal memory) {
+    ) public view virtual override returns (Proposal memory) {
         return _proposals[proposalId_];
     }
 
-    function strategy() external view virtual override returns (address) {
+    function strategy() public view virtual override returns (address) {
         return address(_strategy);
-    }
-
-    function updateTimelockPeriod(
-        uint32 timelockPeriod_
-    ) external virtual override onlyOwner {
-        _updateTimelockPeriod(timelockPeriod_);
-    }
-
-    function updateExecutionPeriod(
-        uint32 executionPeriod_
-    ) external virtual override onlyOwner {
-        _updateExecutionPeriod(executionPeriod_);
-    }
-
-    function updateStrategy(
-        address strategy_
-    ) external virtual override onlyOwner {
-        _updateStrategy(strategy_);
-    }
-
-    function submitProposal(
-        Transaction[] calldata transactions_,
-        string calldata metadata_,
-        address proposerAdapter_,
-        bytes calldata proposerAdapterData_,
-        bytes calldata proposalInitializerData_
-    ) external virtual override {
-        if (
-            !_strategy.isProposer(
-                msg.sender,
-                proposerAdapter_,
-                proposerAdapterData_
-            )
-        ) revert InvalidProposer();
-
-        bytes32[] memory txHashes = new bytes32[](transactions_.length);
-        uint256 transactionsLength = transactions_.length;
-        for (uint256 i; i < transactionsLength; ) {
-            txHashes[i] = getTxHash(transactions_[i]);
-            unchecked {
-                ++i;
-            }
-        }
-
-        _proposals[_totalProposalCount].strategy = address(_strategy);
-        _proposals[_totalProposalCount].txHashes = txHashes;
-        _proposals[_totalProposalCount].timelockPeriod = _timelockPeriod;
-        _proposals[_totalProposalCount].executionPeriod = _executionPeriod;
-
-        _strategy.initializeProposal(
-            _totalProposalCount,
-            txHashes,
-            proposalInitializerData_
-        );
-
-        emit ProposalCreated(
-            address(_strategy),
-            _totalProposalCount,
-            msg.sender,
-            transactions_,
-            metadata_
-        );
-
-        _totalProposalCount++;
-    }
-
-    function executeProposal(
-        uint32 proposalId_,
-        Transaction[] calldata transactions_
-    ) external virtual override {
-        if (transactions_.length == 0) revert InvalidTxs();
-        if (
-            _proposals[proposalId_].executionCounter + transactions_.length >
-            _proposals[proposalId_].txHashes.length
-        ) revert InvalidTxs();
-        uint256 transactionsLength = transactions_.length;
-        bytes32[] memory txHashes = new bytes32[](transactionsLength);
-        for (uint256 i; i < transactionsLength; ) {
-            txHashes[i] = _executeProposalTx(proposalId_, transactions_[i]);
-            unchecked {
-                ++i;
-            }
-        }
-        emit ProposalExecuted(proposalId_, txHashes);
-    }
-
-    function getProposalTxHash(
-        uint32 proposalId_,
-        uint32 txIndex_
-    ) external view virtual override returns (bytes32) {
-        return _proposals[proposalId_].txHashes[txIndex_];
-    }
-
-    function getProposalTxHashes(
-        uint32 proposalId_
-    ) external view virtual override returns (bytes32[] memory) {
-        return _proposals[proposalId_].txHashes;
-    }
-
-    function getProposal(
-        uint32 proposalId_
-    )
-        external
-        view
-        virtual
-        override
-        returns (address, bytes32[] memory, uint32, uint32, uint32)
-    {
-        Proposal memory _proposal = _proposals[proposalId_];
-        return (
-            _proposal.strategy,
-            _proposal.txHashes,
-            _proposal.timelockPeriod,
-            _proposal.executionPeriod,
-            _proposal.executionCounter
-        );
     }
 
     function proposalState(
@@ -315,6 +218,178 @@ contract ModuleAzoriusV1 is
         return keccak256(generateTxHashData(transaction_, 0));
     }
 
+    function getProposalTxHash(
+        uint32 proposalId_,
+        uint32 txIndex_
+    ) public view virtual override returns (bytes32) {
+        return _proposals[proposalId_].txHashes[txIndex_];
+    }
+
+    function getProposalTxHashes(
+        uint32 proposalId_
+    ) public view virtual override returns (bytes32[] memory) {
+        return _proposals[proposalId_].txHashes;
+    }
+
+    function getProposal(
+        uint32 proposalId_
+    )
+        public
+        view
+        virtual
+        override
+        returns (address, bytes32[] memory, uint32, uint32, uint32)
+    {
+        Proposal memory _proposal = _proposals[proposalId_];
+        return (
+            _proposal.strategy,
+            _proposal.txHashes,
+            _proposal.timelockPeriod,
+            _proposal.executionPeriod,
+            _proposal.executionCounter
+        );
+    }
+
+    // --- State-Changing Functions ---
+
+    function updateTimelockPeriod(
+        uint32 timelockPeriod_
+    ) public virtual override onlyOwner {
+        _updateTimelockPeriod(timelockPeriod_);
+    }
+
+    function updateExecutionPeriod(
+        uint32 executionPeriod_
+    ) public virtual override onlyOwner {
+        _updateExecutionPeriod(executionPeriod_);
+    }
+
+    function updateStrategy(
+        address strategy_
+    ) public virtual override onlyOwner {
+        _updateStrategy(strategy_);
+    }
+
+    function submitProposal(
+        Transaction[] calldata transactions_,
+        string calldata metadata_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_,
+        bytes calldata proposalInitializerData_
+    ) public virtual override {
+        if (
+            !_strategy.isProposer(
+                msg.sender,
+                proposerAdapter_,
+                proposerAdapterData_
+            )
+        ) revert InvalidProposer();
+
+        bytes32[] memory txHashes = new bytes32[](transactions_.length);
+        uint256 transactionsLength = transactions_.length;
+        for (uint256 i; i < transactionsLength; ) {
+            txHashes[i] = getTxHash(transactions_[i]);
+            unchecked {
+                ++i;
+            }
+        }
+
+        _proposals[_totalProposalCount].strategy = address(_strategy);
+        _proposals[_totalProposalCount].txHashes = txHashes;
+        _proposals[_totalProposalCount].timelockPeriod = _timelockPeriod;
+        _proposals[_totalProposalCount].executionPeriod = _executionPeriod;
+
+        _strategy.initializeProposal(
+            _totalProposalCount,
+            txHashes,
+            proposalInitializerData_
+        );
+
+        emit ProposalCreated(
+            address(_strategy),
+            _totalProposalCount,
+            msg.sender,
+            transactions_,
+            metadata_
+        );
+
+        _totalProposalCount++;
+    }
+
+    function executeProposal(
+        uint32 proposalId_,
+        Transaction[] calldata transactions_
+    ) public virtual override {
+        if (transactions_.length == 0) revert InvalidTxs();
+        if (
+            _proposals[proposalId_].executionCounter + transactions_.length >
+            _proposals[proposalId_].txHashes.length
+        ) revert InvalidTxs();
+        uint256 transactionsLength = transactions_.length;
+        bytes32[] memory txHashes = new bytes32[](transactionsLength);
+        for (uint256 i; i < transactionsLength; ) {
+            txHashes[i] = _executeProposalTx(proposalId_, transactions_[i]);
+            unchecked {
+                ++i;
+            }
+        }
+        emit ProposalExecuted(proposalId_, txHashes);
+    }
+
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
+    }
+
+    // ======================================================================
+    // Ownable2StepUpgradeable
+    // ======================================================================
+
+    // --- State-Changing Functions ---
+
+    function transferOwnership(
+        address newOwner_
+    )
+        public
+        virtual
+        override(Ownable2StepUpgradeable, OwnableUpgradeable)
+        onlyOwner
+    {
+        Ownable2StepUpgradeable.transferOwnership(newOwner_);
+    }
+
+    // --- Internal Functions ---
+
+    function _transferOwnership(
+        address newOwner_
+    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
+        Ownable2StepUpgradeable._transferOwnership(newOwner_);
+    }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function supportsInterface(
+        bytes4 interfaceId_
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId_ == type(IModuleAzoriusV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
     function _executeProposalTx(
         uint32 proposalId_,
         Transaction calldata transaction_
@@ -356,35 +431,5 @@ contract ModuleAzoriusV1 is
         if (strategy_ == address(0)) revert InvalidStrategy();
         _strategy = IStrategyV1(strategy_);
         emit StrategyUpdated(strategy_);
-    }
-
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId_
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId_ == type(IModuleAzoriusV1).interfaceId ||
-            interfaceId_ == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId_);
-    }
-
-    function _transferOwnership(
-        address newOwner_
-    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
-        Ownable2StepUpgradeable._transferOwnership(newOwner_);
-    }
-
-    function transferOwnership(
-        address newOwner_
-    )
-        public
-        virtual
-        override(Ownable2StepUpgradeable, OwnableUpgradeable)
-        onlyOwner
-    {
-        Ownable2StepUpgradeable.transferOwnership(newOwner_);
     }
 }

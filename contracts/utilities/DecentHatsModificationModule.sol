@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IDecentHatsModificationModule} from "../interfaces/decent/utilities/IDecentHatsModificationModule.sol";
 import {DecentHatsModuleUtils} from "./DecentHatsModuleUtils.sol";
 
-contract DecentHatsModificationModule is DecentHatsModuleUtils {
+contract DecentHatsModificationModule is
+    IDecentHatsModificationModule,
+    DecentHatsModuleUtils
+{
+    // ======================================================================
+    // IDecentHatsModificationModule
+    // ======================================================================
+
+    // --- State-Changing Functions ---
+
     /**
      * @notice Creates a new termed or untermed role hat and any streams on it.
      *
@@ -23,7 +33,7 @@ contract DecentHatsModificationModule is DecentHatsModuleUtils {
      */
     function createRoleHats(
         CreateRoleHatsParams calldata roleHatsParams_
-    ) external {
+    ) public virtual override {
         _processRoleHats(roleHatsParams_);
     }
 }

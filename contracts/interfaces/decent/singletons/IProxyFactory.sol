@@ -2,17 +2,23 @@
 pragma solidity ^0.8.30;
 
 interface IProxyFactory {
+    // --- Events ---
+
     event ProxyDeployed(address indexed proxy, address indexed implementation);
 
-    function deployProxy(
-        address implementation_,
-        bytes calldata initData_,
-        bytes32 salt_
-    ) external returns (address proxy);
+    // --- View Functions ---
 
     function predictProxyAddress(
         address implementation_,
         bytes calldata initData_,
         bytes32 salt_
     ) external view returns (address proxy);
+
+    // --- State-Changing Functions ---
+
+    function deployProxy(
+        address implementation_,
+        bytes calldata initData_,
+        bytes32 salt_
+    ) external returns (address proxy);
 }

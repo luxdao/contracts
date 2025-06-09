@@ -2,6 +2,19 @@
 pragma solidity ^0.8.30;
 
 interface IVotesERC20StakedV1 {
+    // --- Errors ---
+
+    error NonTransferable();
+    error ZeroStake();
+    error ZeroUnstake();
+    error ZeroStaked();
+    error InvalidRewardsToken(address token);
+    error DuplicateRewardsToken();
+    error MinimumStakingPeriod();
+    error TransferFailed();
+
+    // --- Structs ---
+
     struct Metadata {
         string name;
         string symbol;
@@ -21,6 +34,8 @@ interface IVotesERC20StakedV1 {
         mapping(address staker => uint256 accumulatedRewards) stakerAccumulatedRewards;
     }
 
+    // --- Events ---
+
     event MinimumStakingPeriodUpdated(uint256 newMinimumStakingPeriod);
     event Staked(address indexed staker, uint256 amount);
     event Unstaked(address indexed staker, uint256 amount);
@@ -36,14 +51,8 @@ interface IVotesERC20StakedV1 {
         address indexed recipient,
         uint256 amount
     );
-    error NonTransferable();
-    error ZeroStake();
-    error ZeroUnstake();
-    error ZeroStaked();
-    error InvalidRewardsToken(address token);
-    error DuplicateRewardsToken();
-    error MinimumStakingPeriod();
-    error TransferFailed();
+
+    // --- Initializer Functions ---
 
     function initialize(
         Metadata calldata metadata_,
@@ -53,30 +62,13 @@ interface IVotesERC20StakedV1 {
         address[] calldata rewardsTokens_
     ) external;
 
-    function addRewardsTokens(address[] calldata rewardsTokens_) external;
+    // --- Pure Functions ---
 
-    function updateMinimumStakingPeriod(
-        uint256 newMinimumStakingPeriod_
-    ) external;
+    function CLOCK_MODE() external pure returns (string memory clockMode);
 
-    function stake(uint256 amount_) external;
-
-    function unstake(uint256 amount_) external;
-
-    function distributeRewards() external;
-
-    function distributeRewards(address[] calldata tokens_) external;
-
-    function claimRewards(address recipient_) external;
-
-    function claimRewards(
-        address recipient_,
-        address[] calldata tokens_
-    ) external;
+    // --- View Functions ---
 
     function clock() external view returns (uint48 clock);
-
-    function CLOCK_MODE() external pure returns (string memory CLOCK_MODE);
 
     function stakedToken() external view returns (address stakedToken);
 
@@ -129,4 +121,27 @@ interface IVotesERC20StakedV1 {
         address staker_,
         address[] calldata tokens_
     ) external view returns (uint256[] memory claimableRewards);
+
+    // --- State-Changing Functions ---
+
+    function addRewardsTokens(address[] calldata rewardsTokens_) external;
+
+    function updateMinimumStakingPeriod(
+        uint256 newMinimumStakingPeriod_
+    ) external;
+
+    function stake(uint256 amount_) external;
+
+    function unstake(uint256 amount_) external;
+
+    function distributeRewards() external;
+
+    function distributeRewards(address[] calldata tokens_) external;
+
+    function claimRewards(address recipient_) external;
+
+    function claimRewards(
+        address recipient_,
+        address[] calldata tokens_
+    ) external;
 }

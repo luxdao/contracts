@@ -24,10 +24,16 @@ contract DecentPaymasterV1 is
     UUPSUpgradeable,
     ERC165
 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     mapping(address target => mapping(bytes4 selector => address validator))
         internal _functionValidators;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -37,20 +43,41 @@ contract DecentPaymasterV1 is
         address owner_,
         address entryPoint_,
         address lightAccountFactory_
-    ) external virtual override initializer {
+    ) public virtual override initializer {
         __BasePaymasterV1_init(owner_, IEntryPoint(entryPoint_));
         __SmartAccountValidationV1_init(lightAccountFactory_);
     }
+
+    // ======================================================================
+    // UUPS UPGRADEABLE
+    // ======================================================================
+
+    // --- Internal Functions ---
 
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
 
+    // ======================================================================
+    // IDecentPaymasterV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function getFunctionValidator(
+        address target_,
+        bytes4 selector_
+    ) public view virtual override returns (address) {
+        return _functionValidators[target_][selector_];
+    }
+
+    // --- State-Changing Functions ---
+
     function setFunctionValidator(
         address target_,
         bytes4 selector_,
         address validator_
-    ) external virtual override onlyOwner {
+    ) public virtual override onlyOwner {
         if (validator_ == address(0)) revert InvalidValidator();
 
         if (
@@ -68,17 +95,16 @@ contract DecentPaymasterV1 is
     function removeFunctionValidator(
         address target_,
         bytes4 selector_
-    ) external virtual override onlyOwner {
+    ) public virtual override onlyOwner {
         _functionValidators[target_][selector_] = address(0);
         emit FunctionValidatorRemoved(target_, selector_);
     }
 
-    function getFunctionValidator(
-        address target_,
-        bytes4 selector_
-    ) public view virtual override returns (address) {
-        return _functionValidators[target_][selector_];
-    }
+    // ======================================================================
+    // BasePaymasterV1
+    // ======================================================================
+
+    // --- Internal Functions ---
 
     function _validatePaymasterUserOp(
         PackedUserOperation calldata userOp_,
@@ -89,7 +115,7 @@ contract DecentPaymasterV1 is
             address lightAccountOwner,
             address target,
             bytes memory innerCallData
-        ) = validateUserOp(userOp_);
+        ) = _validateUserOp(userOp_);
 
         bytes4 selector = bytes4(innerCallData);
 
@@ -114,26 +140,11 @@ contract DecentPaymasterV1 is
         return (abi.encode(), 0);
     }
 
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
-    }
+    // ======================================================================
+    // Ownable2StepUpgradeable
+    // ======================================================================
 
-    function supportsInterface(
-        bytes4 interfaceId_
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId_ == type(IDecentPaymasterV1).interfaceId ||
-            interfaceId_ == type(ISmartAccountValidationV1).interfaceId ||
-            interfaceId_ == type(IPaymaster).interfaceId ||
-            interfaceId_ == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId_);
-    }
-
-    function _transferOwnership(
-        address newOwner_
-    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
-        Ownable2StepUpgradeable._transferOwnership(newOwner_);
-    }
+    // --- State-Changing Functions ---
 
     function transferOwnership(
         address newOwner_
@@ -144,5 +155,40 @@ contract DecentPaymasterV1 is
         onlyOwner
     {
         Ownable2StepUpgradeable.transferOwnership(newOwner_);
+    }
+
+    // --- Internal Functions ---
+
+    function _transferOwnership(
+        address newOwner_
+    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
+        Ownable2StepUpgradeable._transferOwnership(newOwner_);
+    }
+
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
+    }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function supportsInterface(
+        bytes4 interfaceId_
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId_ == type(IDecentPaymasterV1).interfaceId ||
+            interfaceId_ == type(ISmartAccountValidationV1).interfaceId ||
+            interfaceId_ == type(IPaymaster).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

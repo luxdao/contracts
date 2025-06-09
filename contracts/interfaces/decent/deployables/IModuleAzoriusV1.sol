@@ -4,6 +4,39 @@ pragma solidity ^0.8.30;
 import {Transaction} from "../Module.sol";
 
 interface IModuleAzoriusV1 {
+    // --- Errors ---
+
+    error InvalidStrategy();
+    error InvalidProposal();
+    error InvalidProposer();
+    error ProposalNotExecutable();
+    error InvalidTxHash();
+    error TxFailed();
+    error InvalidTxs();
+
+    // --- Structs ---
+
+    struct Proposal {
+        uint32 executionCounter;
+        uint32 timelockPeriod;
+        uint32 executionPeriod;
+        address strategy;
+        bytes32[] txHashes;
+    }
+
+    // --- Enums ---
+
+    enum ProposalState {
+        ACTIVE,
+        TIMELOCKED,
+        EXECUTABLE,
+        EXECUTED,
+        EXPIRED,
+        FAILED
+    }
+
+    // --- Events ---
+
     event ProposalCreated(
         address strategy,
         uint32 proposalId,
@@ -16,30 +49,7 @@ interface IModuleAzoriusV1 {
     event ExecutionPeriodUpdated(uint32 executionPeriod);
     event StrategyUpdated(address strategy);
 
-    error InvalidStrategy();
-    error InvalidProposal();
-    error InvalidProposer();
-    error ProposalNotExecutable();
-    error InvalidTxHash();
-    error TxFailed();
-    error InvalidTxs();
-
-    struct Proposal {
-        uint32 executionCounter;
-        uint32 timelockPeriod;
-        uint32 executionPeriod;
-        address strategy;
-        bytes32[] txHashes;
-    }
-
-    enum ProposalState {
-        ACTIVE,
-        TIMELOCKED,
-        EXECUTABLE,
-        EXECUTED,
-        EXPIRED,
-        FAILED
-    }
+    // --- Initializer Functions ---
 
     function initialize(
         address owner_,
@@ -49,6 +59,8 @@ interface IModuleAzoriusV1 {
         uint32 timelockPeriod_,
         uint32 executionPeriod_
     ) external;
+
+    // --- View Functions ---
 
     function totalProposalCount()
         external
@@ -64,25 +76,6 @@ interface IModuleAzoriusV1 {
     ) external view returns (Proposal memory proposal);
 
     function strategy() external view returns (address strategy);
-
-    function updateTimelockPeriod(uint32 timelockPeriod_) external;
-
-    function updateExecutionPeriod(uint32 executionPeriod_) external;
-
-    function updateStrategy(address strategy_) external;
-
-    function submitProposal(
-        Transaction[] calldata transactions_,
-        string calldata metadata_,
-        address proposerAdapter_,
-        bytes calldata proposerAdapterData_,
-        bytes calldata proposalInitializerData_
-    ) external;
-
-    function executeProposal(
-        uint32 proposalId_,
-        Transaction[] calldata transactions_
-    ) external;
 
     function proposalState(
         uint32 proposalId_
@@ -118,4 +111,25 @@ interface IModuleAzoriusV1 {
             uint32 executionPeriod,
             uint32 executionCounter
         );
+
+    // --- State-Changing Functions ---
+
+    function updateTimelockPeriod(uint32 timelockPeriod_) external;
+
+    function updateExecutionPeriod(uint32 executionPeriod_) external;
+
+    function updateStrategy(address strategy_) external;
+
+    function submitProposal(
+        Transaction[] calldata transactions_,
+        string calldata metadata_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_,
+        bytes calldata proposalInitializerData_
+    ) external;
+
+    function executeProposal(
+        uint32 proposalId_,
+        Transaction[] calldata transactions_
+    ) external;
 }

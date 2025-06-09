@@ -14,19 +14,21 @@ contract VotesERC20LockableV1 is
     AccessControlUpgradeable,
     VotesERC20V1
 {
-    uint16 private constant VERSION = 1;
-
-    bool internal _locked;
-    uint256 internal _maxTotalSupply;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     bytes32 public constant TRANSFER_FROM_ROLE =
         keccak256("TRANSFER_FROM_ROLE");
     bytes32 public constant TRANSFER_TO_ROLE = keccak256("TRANSFER_TO_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    constructor() {
-        _disableInitializers();
-    }
+    bool internal _locked;
+    uint256 internal _maxTotalSupply;
+
+    // ======================================================================
+    // MODIFIERS
+    // ======================================================================
 
     modifier isTransferable(address from_, address to_) {
         if (
@@ -38,6 +40,14 @@ contract VotesERC20LockableV1 is
             revert IsLocked();
         }
         _;
+    }
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
+
+    constructor() {
+        _disableInitializers();
     }
 
     function initialize(
@@ -66,24 +76,32 @@ contract VotesERC20LockableV1 is
         _maxTotalSupply = maxTotalSupply_;
     }
 
-    function locked() external view virtual override returns (bool) {
+    // ======================================================================
+    // IVotesERC20LockableV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function locked() public view virtual override returns (bool) {
         return _locked;
     }
 
-    function maxTotalSupply() external view virtual override returns (uint256) {
+    function maxTotalSupply() public view virtual override returns (uint256) {
         return _maxTotalSupply;
     }
 
+    // --- State-Changing Functions ---
+
     function lock(
         bool locked_
-    ) external virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
         _locked = locked_;
         emit Locked(_locked);
     }
 
     function setMaxTotalSupply(
         uint256 newMaxTotalSupply_
-    ) external virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newMaxTotalSupply_ < totalSupply()) {
             revert InvalidMaxTotalSupply();
         }
@@ -94,7 +112,7 @@ contract VotesERC20LockableV1 is
     function mint(
         address to_,
         uint256 amount_
-    ) external virtual override onlyRole(MINTER_ROLE) {
+    ) public virtual override onlyRole(MINTER_ROLE) {
         uint256 newTotalSupply = totalSupply() + amount_;
         if (newTotalSupply > _maxTotalSupply) {
             revert ExceedMaxTotalSupply();
@@ -102,9 +120,39 @@ contract VotesERC20LockableV1 is
         _mint(to_, amount_);
     }
 
-    function burn(uint256 amount_) external virtual override {
+    function burn(uint256 amount_) public virtual override {
         _burn(msg.sender, amount_);
     }
+
+    // ======================================================================
+    // VotesERC20V1
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function CLOCK_MODE()
+        public
+        pure
+        virtual
+        override(VotesERC20V1, IVotesERC20V1)
+        returns (string memory)
+    {
+        return "mode=timestamp";
+    }
+
+    // --- View Functions ---
+
+    function clock()
+        public
+        view
+        virtual
+        override(VotesERC20V1, IVotesERC20V1)
+        returns (uint48)
+    {
+        return uint48(block.timestamp);
+    }
+
+    // --- Internal Functions ---
 
     function _update(
         address from_,
@@ -114,9 +162,21 @@ contract VotesERC20LockableV1 is
         super._update(from_, to_, amount_);
     }
 
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_
@@ -131,25 +191,5 @@ contract VotesERC20LockableV1 is
             interfaceId_ == type(IVotesERC20LockableV1).interfaceId ||
             interfaceId_ == type(IAccessControl).interfaceId ||
             super.supportsInterface(interfaceId_);
-    }
-
-    function CLOCK_MODE()
-        public
-        pure
-        virtual
-        override(VotesERC20V1, IVotesERC20V1)
-        returns (string memory)
-    {
-        return "mode=timestamp";
-    }
-
-    function clock()
-        public
-        view
-        virtual
-        override(VotesERC20V1, IVotesERC20V1)
-        returns (uint48)
-    {
-        return uint48(block.timestamp);
     }
 }

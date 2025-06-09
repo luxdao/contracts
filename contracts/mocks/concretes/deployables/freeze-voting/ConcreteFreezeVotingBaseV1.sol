@@ -19,7 +19,7 @@ contract ConcreteFreezeVotingBaseV1 is FreezeVotingBaseV1 {
     function castFreezeVote() external {
         // If no freeze proposal exists yet, create one
         if (_freezeProposalCreated == 0) {
-            initializeFreezeVote();
+            _initializeFreezeVote();
         }
 
         // Check if proposal period has expired
@@ -28,6 +28,6 @@ contract ConcreteFreezeVotingBaseV1 is FreezeVotingBaseV1 {
             "Freeze proposal period expired"
         );
 
-        recordFreezeVote(msg.sender, 1);
+        _recordFreezeVote(msg.sender, 1);
     }
 }

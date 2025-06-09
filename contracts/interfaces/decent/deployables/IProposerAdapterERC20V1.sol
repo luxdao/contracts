@@ -4,7 +4,11 @@ pragma solidity ^0.8.30;
 import {IProposerAdapterBaseV1} from "./IProposerAdapterBaseV1.sol";
 
 interface IProposerAdapterERC20V1 is IProposerAdapterBaseV1 {
+    // --- Initializer Functions ---
+
     function initialize(address token_, uint256 proposerThreshold_) external;
+
+    // --- View Functions ---
 
     function token() external view returns (address token);
 

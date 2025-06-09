@@ -6,7 +6,15 @@ import {IStrategyV1} from "../../../../interfaces/decent/deployables/IStrategyV1
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 abstract contract VotingAdapterBaseV1 is IVotingAdapterBaseV1, Initializable {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
     IStrategyV1 internal _strategy;
+
+    // ======================================================================
+    // MODIFIERS
+    // ======================================================================
 
     modifier onlyStrategy() {
         if (msg.sender != address(_strategy)) revert NotStrategy();
@@ -20,6 +28,10 @@ abstract contract VotingAdapterBaseV1 is IVotingAdapterBaseV1, Initializable {
         _;
     }
 
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
+
     constructor() {
         _disableInitializers();
     }
@@ -30,7 +42,13 @@ abstract contract VotingAdapterBaseV1 is IVotingAdapterBaseV1, Initializable {
         _strategy = IStrategyV1(strategy_);
     }
 
-    function strategy() external view virtual override returns (address) {
+    // ======================================================================
+    // IVotingAdapterBaseV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function strategy() public view virtual override returns (address) {
         return address(_strategy);
     }
 }

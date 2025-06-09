@@ -18,7 +18,9 @@ contract StrategyV1 is
     VoterResolverV1,
     ERC165
 {
-    uint16 public constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     uint256 public constant BASIS_DENOMINATOR = 1_000_000;
 
@@ -28,25 +30,30 @@ contract StrategyV1 is
     uint256 internal _basisNumerator;
     mapping(uint32 proposalId => ProposalVotingDetails proposalVotingDetails)
         internal _proposalVotingDetails;
-
     address[] internal _votingAdapters;
     address[] internal _proposerAdapters;
     mapping(address votingAdapter => bool isVotingAdapter)
         internal _isVotingAdapter;
     mapping(address proposerAdapter => bool isProposerAdapter)
         internal _isProposerAdapter;
-
     mapping(address freezeVoterContract => bool isAuthorizedFreezeVoter)
         internal _authorizedFreezeVotersMapping;
     address[] internal _authorizedFreezeVotersArray;
-
     mapping(uint32 proposalId => bool isVotingPeriodEnded)
         internal _votingPeriodEnded;
+
+    // ======================================================================
+    // MODIFIERS
+    // ======================================================================
 
     modifier onlyStrategyAdmin() {
         if (msg.sender != _strategyAdmin) revert InvalidStrategyAdmin();
         _;
     }
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -96,36 +103,36 @@ contract StrategyV1 is
         }
     }
 
-    function strategyAdmin() external view virtual override returns (address) {
+    // ======================================================================
+    // IStrategyV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function strategyAdmin() public view virtual override returns (address) {
         return _strategyAdmin;
     }
 
-    function votingPeriod() external view virtual override returns (uint32) {
+    function votingPeriod() public view virtual override returns (uint32) {
         return _votingPeriod;
     }
 
-    function quorumThreshold()
-        external
-        view
-        virtual
-        override
-        returns (uint256)
-    {
+    function quorumThreshold() public view virtual override returns (uint256) {
         return _quorumThreshold;
     }
 
-    function basisNumerator() external view virtual override returns (uint256) {
+    function basisNumerator() public view virtual override returns (uint256) {
         return _basisNumerator;
     }
 
     function proposalVotingDetails(
         uint32 proposalId
-    ) external view virtual override returns (ProposalVotingDetails memory) {
+    ) public view virtual override returns (ProposalVotingDetails memory) {
         return _proposalVotingDetails[proposalId];
     }
 
     function votingAdapters()
-        external
+        public
         view
         virtual
         override
@@ -136,18 +143,18 @@ contract StrategyV1 is
 
     function isVotingAdapter(
         address votingAdapter_
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         return _isVotingAdapter[votingAdapter_];
     }
 
     function isProposerAdapter(
         address proposerAdapter_
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         return _isProposerAdapter[proposerAdapter_];
     }
 
     function proposerAdapters()
-        external
+        public
         view
         virtual
         override
@@ -158,15 +165,183 @@ contract StrategyV1 is
 
     function votingPeriodEnded(
         uint32 proposalId_
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         return _votingPeriodEnded[proposalId_];
     }
+
+    function isQuorumMet(
+        uint32 proposalId_
+    ) public view virtual override returns (bool) {
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            proposalId_
+        ];
+
+        if (proposal.votingEndTimestamp == 0) {
+            revert ProposalNotInitialized();
+        }
+
+        uint256 totalVotesForQuorum = proposal.yesVotes + proposal.abstainVotes;
+        return totalVotesForQuorum >= _quorumThreshold;
+    }
+
+    function isBasisMet(
+        uint32 _proposalId
+    ) public view virtual override returns (bool) {
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            _proposalId
+        ];
+
+        if (proposal.votingEndTimestamp == 0) {
+            revert ProposalNotInitialized();
+        }
+
+        return
+            (proposal.yesVotes * BASIS_DENOMINATOR) >
+            ((proposal.yesVotes + proposal.noVotes) * _basisNumerator);
+    }
+
+    function isPassed(
+        uint32 _proposalId
+    ) public view virtual override returns (bool) {
+        ProposalVotingDetails storage proposal = _proposalVotingDetails[
+            _proposalId
+        ];
+
+        if (proposal.votingEndTimestamp == 0) {
+            revert ProposalNotInitialized();
+        }
+
+        if (block.timestamp <= proposal.votingEndTimestamp) {
+            return false;
+        }
+
+        return isQuorumMet(_proposalId) && isBasisMet(_proposalId);
+    }
+
+    function isProposer(
+        address address_,
+        address proposerAdapter_,
+        bytes calldata proposerAdapterData_
+    ) public view virtual override returns (bool) {
+        if (!_isProposerAdapter[proposerAdapter_]) {
+            revert InvalidProposerAdapter(proposerAdapter_);
+        }
+
+        return
+            IProposerAdapterBaseV1(proposerAdapter_).isProposer(
+                address_,
+                proposerAdapterData_
+            );
+    }
+
+    function getVotingTimestamps(
+        uint32 proposalId_
+    ) public view virtual override returns (uint48, uint48) {
+        ProposalVotingDetails storage details = _proposalVotingDetails[
+            proposalId_
+        ];
+        if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
+        return (details.votingStartTimestamp, details.votingEndTimestamp);
+    }
+
+    function getVotingStartBlock(
+        uint32 proposalId_
+    ) public view virtual override returns (uint32) {
+        ProposalVotingDetails storage details = _proposalVotingDetails[
+            proposalId_
+        ];
+        if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
+        return details.votingStartBlock;
+    }
+
+    function isAuthorizedFreezeVoter(
+        address freezeVoterContract_
+    ) public view virtual override returns (bool) {
+        return _authorizedFreezeVotersMapping[freezeVoterContract_];
+    }
+
+    function authorizedFreezeVoters()
+        public
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _authorizedFreezeVotersArray;
+    }
+
+    function validStrategyVote(
+        address voter_,
+        uint32 proposalId_,
+        uint8 voteType_,
+        VotingAdapterVoteData[] calldata votingAdaptersData_
+    ) public view virtual override returns (bool) {
+        // get the proposal start and end timestamps to determine if the proposal exists
+        ProposalVotingDetails storage details = _proposalVotingDetails[
+            proposalId_
+        ];
+
+        // Check if proposal exists (will have non-zero endTimestamp if it exists)
+        if (details.votingEndTimestamp == 0) {
+            return false;
+        }
+
+        // Check if voting period has ended
+        if (_votingPeriodEnded[proposalId_]) {
+            return false;
+        }
+
+        // Check if vote type is valid (NO=0, YES=1, ABSTAIN=2)
+        if (voteType_ > 2) {
+            return false;
+        }
+
+        uint256 totalVotingWeight = 0;
+
+        // loop through the voting adapters and check if the vote is valid
+        for (uint256 i = 0; i < votingAdaptersData_.length; ) {
+            VotingAdapterVoteData
+                memory votingAdapterVoteData = votingAdaptersData_[i];
+            address votingAdapter = votingAdapterVoteData.votingAdapter;
+
+            // check if the voting adapter is attached to this strategy
+            if (!_isVotingAdapter[votingAdapter]) {
+                return false;
+            }
+
+            (bool isValid, uint256 votingWeight) = IVotingAdapterBaseV1(
+                votingAdapter
+            ).validVotingAdapterVote(
+                    voter_,
+                    proposalId_,
+                    votingAdapterVoteData.adapterVoteData
+                );
+
+            if (!isValid) {
+                return false;
+            }
+
+            totalVotingWeight += votingWeight;
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (totalVotingWeight == 0) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // --- State-Changing Functions ---
 
     function initializeProposal(
         uint32 proposalId_,
         bytes32[] calldata,
         bytes calldata
-    ) external virtual override onlyStrategyAdmin {
+    ) public virtual override onlyStrategyAdmin {
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             proposalId_
         ];
@@ -189,7 +364,7 @@ contract StrategyV1 is
         uint32 proposalId_,
         uint8 voteType_,
         VotingAdapterVoteData[] calldata votingAdaptersData
-    ) external virtual override {
+    ) public virtual override {
         address resolvedVoter = voter(msg.sender);
         ProposalVotingDetails storage proposal = _proposalVotingDetails[
             proposalId_
@@ -256,94 +431,9 @@ contract StrategyV1 is
         );
     }
 
-    function isQuorumMet(
-        uint32 proposalId_
-    ) public view virtual override returns (bool) {
-        ProposalVotingDetails storage proposal = _proposalVotingDetails[
-            proposalId_
-        ];
-
-        if (proposal.votingEndTimestamp == 0) {
-            revert ProposalNotInitialized();
-        }
-
-        uint256 totalVotesForQuorum = proposal.yesVotes + proposal.abstainVotes;
-        return totalVotesForQuorum >= _quorumThreshold;
-    }
-
-    function isBasisMet(
-        uint32 _proposalId
-    ) public view virtual override returns (bool) {
-        ProposalVotingDetails storage proposal = _proposalVotingDetails[
-            _proposalId
-        ];
-
-        if (proposal.votingEndTimestamp == 0) {
-            revert ProposalNotInitialized();
-        }
-
-        return
-            (proposal.yesVotes * BASIS_DENOMINATOR) >
-            ((proposal.yesVotes + proposal.noVotes) * _basisNumerator);
-    }
-
-    function isPassed(
-        uint32 _proposalId
-    ) external view virtual override returns (bool) {
-        ProposalVotingDetails storage proposal = _proposalVotingDetails[
-            _proposalId
-        ];
-
-        if (proposal.votingEndTimestamp == 0) {
-            revert ProposalNotInitialized();
-        }
-
-        if (block.timestamp <= proposal.votingEndTimestamp) {
-            return false;
-        }
-
-        return isQuorumMet(_proposalId) && isBasisMet(_proposalId);
-    }
-
-    function isProposer(
-        address address_,
-        address proposerAdapter_,
-        bytes calldata proposerAdapterData_
-    ) external view virtual override returns (bool) {
-        if (!_isProposerAdapter[proposerAdapter_]) {
-            revert InvalidProposerAdapter(proposerAdapter_);
-        }
-
-        return
-            IProposerAdapterBaseV1(proposerAdapter_).isProposer(
-                address_,
-                proposerAdapterData_
-            );
-    }
-
-    function getVotingTimestamps(
-        uint32 proposalId_
-    ) external view virtual override returns (uint48, uint48) {
-        ProposalVotingDetails storage details = _proposalVotingDetails[
-            proposalId_
-        ];
-        if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
-        return (details.votingStartTimestamp, details.votingEndTimestamp);
-    }
-
-    function getVotingStartBlock(
-        uint32 proposalId_
-    ) external view virtual override returns (uint32) {
-        ProposalVotingDetails storage details = _proposalVotingDetails[
-            proposalId_
-        ];
-        if (details.votingEndTimestamp == 0) revert ProposalNotInitialized();
-        return details.votingStartBlock;
-    }
-
     function addAuthorizedFreezeVoter(
         address freezeVoterContract_
-    ) external virtual override onlyStrategyAdmin {
+    ) public virtual override onlyStrategyAdmin {
         if (freezeVoterContract_ == address(0)) revert InvalidAddress();
         if (!_authorizedFreezeVotersMapping[freezeVoterContract_]) {
             _authorizedFreezeVotersArray.push(freezeVoterContract_);
@@ -354,7 +444,7 @@ contract StrategyV1 is
 
     function removeAuthorizedFreezeVoter(
         address freezeVoterContract_
-    ) external virtual override onlyStrategyAdmin {
+    ) public virtual override onlyStrategyAdmin {
         if (freezeVoterContract_ == address(0)) revert InvalidAddress();
         if (_authorizedFreezeVotersMapping[freezeVoterContract_]) {
             for (uint256 i = 0; i < _authorizedFreezeVotersArray.length; ) {
@@ -376,90 +466,21 @@ contract StrategyV1 is
         emit FreezeVoterAuthorizationChanged(freezeVoterContract_, false);
     }
 
-    function isAuthorizedFreezeVoter(
-        address freezeVoterContract_
-    ) external view virtual override returns (bool) {
-        return _authorizedFreezeVotersMapping[freezeVoterContract_];
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
 
-    function authorizedFreezeVoters()
-        external
-        view
-        virtual
-        override
-        returns (address[] memory)
-    {
-        return _authorizedFreezeVotersArray;
-    }
+    // ======================================================================
+    // ERC165
+    // ======================================================================
 
-    function validStrategyVote(
-        address voter_,
-        uint32 proposalId_,
-        uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData_
-    ) external view virtual override returns (bool) {
-        // get the proposal start and end timestamps to determine if the proposal exists
-        ProposalVotingDetails storage details = _proposalVotingDetails[
-            proposalId_
-        ];
-
-        // Check if proposal exists (will have non-zero endTimestamp if it exists)
-        if (details.votingEndTimestamp == 0) {
-            return false;
-        }
-
-        // Check if voting period has ended
-        if (_votingPeriodEnded[proposalId_]) {
-            return false;
-        }
-
-        // Check if vote type is valid (NO=0, YES=1, ABSTAIN=2)
-        if (voteType_ > 2) {
-            return false;
-        }
-
-        uint256 totalVotingWeight = 0;
-
-        // loop through the voting adapters and check if the vote is valid
-        for (uint256 i = 0; i < votingAdaptersData_.length; ) {
-            VotingAdapterVoteData
-                memory votingAdapterVoteData = votingAdaptersData_[i];
-            address votingAdapter = votingAdapterVoteData.votingAdapter;
-
-            // check if the voting adapter is attached to this strategy
-            if (!_isVotingAdapter[votingAdapter]) {
-                return false;
-            }
-
-            (bool isValid, uint256 votingWeight) = IVotingAdapterBaseV1(
-                votingAdapter
-            ).validVotingAdapterVote(
-                    voter_,
-                    proposalId_,
-                    votingAdapterVoteData.adapterVoteData
-                );
-
-            if (!isValid) {
-                return false;
-            }
-
-            totalVotingWeight += votingWeight;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        if (totalVotingWeight == 0) {
-            return false;
-        }
-
-        return true;
-    }
-
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
-    }
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_

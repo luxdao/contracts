@@ -5,6 +5,15 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IFreezeGuardBaseV1} from "./IFreezeGuardBaseV1.sol";
 
 interface IFreezeGuardMultisigV1 is IFreezeGuardBaseV1 {
+    // --- Errors ---
+
+    error AlreadyTimelocked();
+    error NotTimelocked();
+    error Timelocked();
+    error Expired();
+
+    // --- Events ---
+
     event TransactionTimelocked(
         address indexed timelocker,
         bytes32 indexed transactionHash,
@@ -13,10 +22,7 @@ interface IFreezeGuardMultisigV1 is IFreezeGuardBaseV1 {
     event TimelockPeriodUpdated(uint32 timelockPeriod);
     event ExecutionPeriodUpdated(uint32 executionPeriod);
 
-    error AlreadyTimelocked();
-    error NotTimelocked();
-    error Timelocked();
-    error Expired();
+    // --- Initializer Functions ---
 
     function initialize(
         uint32 timelockPeriod_,
@@ -26,11 +32,19 @@ interface IFreezeGuardMultisigV1 is IFreezeGuardBaseV1 {
         address childGnosisSafe_
     ) external;
 
+    // --- View Functions ---
+
     function timelockPeriod() external view returns (uint32 timelockPeriod);
 
     function executionPeriod() external view returns (uint32 executionPeriod);
 
     function childGnosisSafe() external view returns (address childGnosisSafe);
+
+    function getTransactionTimelocked(
+        bytes32 signaturesHash_
+    ) external view returns (uint48 timelockedTimestamp);
+
+    // --- State-Changing Functions ---
 
     function timelockTransaction(
         address to_,
@@ -49,8 +63,4 @@ interface IFreezeGuardMultisigV1 is IFreezeGuardBaseV1 {
     function updateTimelockPeriod(uint32 timelockPeriod_) external;
 
     function updateExecutionPeriod(uint32 executionPeriod_) external;
-
-    function getTransactionTimelocked(
-        bytes32 signaturesHash_
-    ) external view returns (uint48 timelockedTimestamp);
 }
