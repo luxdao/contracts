@@ -7,7 +7,11 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, IVersion, ERC165 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // IDecentAutonomousAdminV1
+    // ======================================================================
+
+    // --- State-Changing Functions ---
 
     function triggerStartNextTerm(
         TriggerStartArgs calldata args_
@@ -30,9 +34,21 @@ contract DecentAutonomousAdminV1 is IDecentAutonomousAdminV1, IVersion, ERC165 {
         }
     }
 
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_

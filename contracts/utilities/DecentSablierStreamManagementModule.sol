@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IDecentSablierStreamManagementModule} from "../interfaces/decent/utilities/IDecentSablierStreamManagementModule.sol";
+import {Lockup} from "../interfaces/sablier/types/DataTypes.sol";
+import {ISablierV2Lockup} from "../interfaces/sablier/ISablierV2Lockup.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IAvatar} from "@gnosis-guild/zodiac/contracts/interfaces/IAvatar.sol";
-import {ISablierV2Lockup} from "../interfaces/sablier/ISablierV2Lockup.sol";
-import {Lockup} from "../interfaces/sablier/types/DataTypes.sol";
 
-contract DecentSablierStreamManagementModule {
+contract DecentSablierStreamManagementModule is
+    IDecentSablierStreamManagementModule
+{
+    // ======================================================================
+    // IDecentSablierStreamManagementModule
+    // ======================================================================
+
+    // --- State-Changing Functions ---
+
     function withdrawMaxFromStream(
         ISablierV2Lockup sablier_,
         address recipientHatAccount_,
         uint256 streamId_,
         address to_
-    ) public {
+    ) public virtual override {
         // Check if there are funds to withdraw
         if (sablier_.withdrawableAmountOf(streamId_) == 0) {
             return;
@@ -37,7 +46,10 @@ contract DecentSablierStreamManagementModule {
         );
     }
 
-    function cancelStream(ISablierV2Lockup sablier_, uint256 streamId_) public {
+    function cancelStream(
+        ISablierV2Lockup sablier_,
+        uint256 streamId_
+    ) public virtual override {
         // Check if the stream can be cancelled
         Lockup.Status streamStatus = sablier_.statusOf(streamId_);
         if (

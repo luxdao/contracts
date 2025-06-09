@@ -8,6 +8,10 @@ abstract contract VoterResolverV1 is
     IVoterResolverV1,
     SmartAccountValidationV1
 {
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
+
     constructor() {
         _disableInitializers();
     }
@@ -18,10 +22,16 @@ abstract contract VoterResolverV1 is
         __SmartAccountValidationV1_init(lightAccountFactory_);
     }
 
+    // ======================================================================
+    // IVoterResolverV1
+    // ======================================================================
+
+    // --- View Functions ---
+
     function voter(
         address voter_
     ) public view virtual override returns (address) {
-        (bool isValid, address lightAccountOwner) = validateSmartAccount(
+        (bool isValid, address lightAccountOwner) = _validateSmartAccount(
             voter_
         );
         if (!isValid) {

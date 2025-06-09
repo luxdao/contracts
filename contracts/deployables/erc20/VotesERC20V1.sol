@@ -24,7 +24,9 @@ contract VotesERC20V1 is
     Ownable2StepUpgradeable,
     ERC165
 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -50,19 +52,21 @@ contract VotesERC20V1 is
         }
     }
 
+    // ======================================================================
+    // UUPS UPGRADEABLE
+    // ======================================================================
+
+    // --- Internal Functions ---
+
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
 
-    function clock()
-        public
-        view
-        virtual
-        override(IVotesERC20V1, VotesUpgradeable)
-        returns (uint48)
-    {
-        return uint48(block.timestamp);
-    }
+    // ======================================================================
+    // IVotesERC20V1
+    // ======================================================================
+
+    // --- Pure Functions ---
 
     function CLOCK_MODE()
         public
@@ -74,6 +78,24 @@ contract VotesERC20V1 is
         return "mode=timestamp";
     }
 
+    // --- View Functions ---
+
+    function clock()
+        public
+        view
+        virtual
+        override(IVotesERC20V1, VotesUpgradeable)
+        returns (uint48)
+    {
+        return uint48(block.timestamp);
+    }
+
+    // ======================================================================
+    // ERC20VotesUpgradeable
+    // ======================================================================
+
+    // --- Internal Functions ---
+
     function _update(
         address from_,
         address to_,
@@ -81,6 +103,12 @@ contract VotesERC20V1 is
     ) internal virtual override(ERC20Upgradeable, ERC20VotesUpgradeable) {
         super._update(from_, to_, value_);
     }
+
+    // ======================================================================
+    // NoncesUpgradeable
+    // ======================================================================
+
+    // --- View Functions ---
 
     function nonces(
         address owner_
@@ -94,9 +122,21 @@ contract VotesERC20V1 is
         return super.nonces(owner_);
     }
 
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_

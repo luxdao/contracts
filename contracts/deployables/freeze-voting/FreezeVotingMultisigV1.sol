@@ -16,11 +16,17 @@ contract FreezeVotingMultisigV1 is
     VoterResolverV1,
     ERC165
 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     ISafe internal _parentSafe;
     mapping(uint48 freezeProposalCreated => mapping(address voter => bool hasFreezeVoted))
         internal _accountHasFreezeVoted;
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -44,30 +50,66 @@ contract FreezeVotingMultisigV1 is
         _parentSafe = ISafe(parentSafe_);
     }
 
-    function parentSafe() external view virtual override returns (address) {
+    // ======================================================================
+    // IFreezeVotingMultisigV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function parentSafe() public view virtual override returns (address) {
         return address(_parentSafe);
     }
 
     function accountHasFreezeVoted(
         uint48 freezeProposalCreated_,
         address account_
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         return _accountHasFreezeVoted[freezeProposalCreated_][account_];
     }
 
-    function castFreezeVote() external virtual override {
+    // --- State-Changing Functions ---
+
+    function castFreezeVote() public virtual override {
         address resolvedVoter = voter(msg.sender);
 
         if (block.timestamp > _freezeProposalCreated + _freezeProposalPeriod) {
-            initializeFreezeVote();
+            _initializeFreezeVote();
             emit FreezeProposalCreated(resolvedVoter);
         }
 
-        recordFreezeVote(
+        _recordFreezeVote(
             resolvedVoter,
             _getVotesAndUpdateHasVoted(resolvedVoter)
         );
     }
+
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
+    }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    function supportsInterface(
+        bytes4 interfaceId_
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId_ == type(IFreezeVotingMultisigV1).interfaceId ||
+            interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
 
     function _getVotesAndUpdateHasVoted(
         address voter_
@@ -83,19 +125,5 @@ contract FreezeVotingMultisigV1 is
         _accountHasFreezeVoted[_freezeProposalCreated][voter_] = true;
 
         return 1;
-    }
-
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId_
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId_ == type(IFreezeVotingMultisigV1).interfaceId ||
-            interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
-            interfaceId_ == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId_);
     }
 }

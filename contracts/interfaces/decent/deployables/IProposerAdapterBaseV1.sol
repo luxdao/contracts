@@ -2,6 +2,8 @@
 pragma solidity ^0.8.30;
 
 interface IProposerAdapterBaseV1 {
+    // --- View Functions ---
+
     function isProposer(
         address address_,
         bytes calldata data_

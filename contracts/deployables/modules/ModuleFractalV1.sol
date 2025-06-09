@@ -18,7 +18,9 @@ contract ModuleFractalV1 is
     UUPSUpgradeable,
     ERC165
 {
-    uint16 private constant VERSION = 1;
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor() {
         _disableInitializers();
@@ -48,9 +50,21 @@ contract ModuleFractalV1 is
         initialize(owner_, avatar_, target_);
     }
 
+    // ======================================================================
+    // UUPS UPGRADEABLE
+    // ======================================================================
+
+    // --- Internal Functions ---
+
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
+
+    // ======================================================================
+    // IModuleFractalV1
+    // ======================================================================
+
+    // --- State-Changing Functions ---
 
     function execTx(
         Transaction calldata transaction_
@@ -65,24 +79,21 @@ contract ModuleFractalV1 is
         ) revert TxFailed();
     }
 
-    function version() external view virtual override returns (uint16) {
-        return VERSION;
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
     }
 
-    function supportsInterface(
-        bytes4 interfaceId_
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId_ == type(IModuleFractalV1).interfaceId ||
-            interfaceId_ == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId_);
-    }
+    // ======================================================================
+    // Ownable2StepUpgradeable
+    // ======================================================================
 
-    function _transferOwnership(
-        address newOwner_
-    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
-        Ownable2StepUpgradeable._transferOwnership(newOwner_);
-    }
+    // --- State-Changing Functions ---
 
     function transferOwnership(
         address newOwner_
@@ -93,5 +104,28 @@ contract ModuleFractalV1 is
         onlyOwner
     {
         Ownable2StepUpgradeable.transferOwnership(newOwner_);
+    }
+
+    // --- Internal Functions ---
+
+    function _transferOwnership(
+        address newOwner_
+    ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
+        Ownable2StepUpgradeable._transferOwnership(newOwner_);
+    }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function supportsInterface(
+        bytes4 interfaceId_
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId_ == type(IModuleFractalV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
     }
 }

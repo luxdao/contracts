@@ -18,7 +18,9 @@ contract VotingAdapterERC20V1 is
     VotingAdapterBaseV1,
     ERC165
 {
-    uint16 public constant VERSION = 1;
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
     IVotes internal _token;
     uint256 internal _weightPerToken;
@@ -28,6 +30,10 @@ contract VotingAdapterERC20V1 is
     mapping(address freezeVoteContract => mapping(uint48 freezeProposalSnapshotAndId => mapping(address voter => bool hasCastedVote)))
         internal _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract;
 
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
+
     constructor() {
         _disableInitializers();
     }
@@ -36,25 +42,38 @@ contract VotingAdapterERC20V1 is
         address token_,
         address strategy_,
         uint256 weightPerToken_
-    ) external virtual override initializer {
+    ) public virtual override initializer {
         __BaseVotingAdapterV1_init(strategy_);
         _token = IVotes(token_);
         _weightPerToken = weightPerToken_;
         _tokenClockMode = ClockModeLib.getClockMode(token_);
     }
 
-    function token() external view virtual override returns (address) {
+    // ======================================================================
+    // IVotingAdapterERC20V1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function token() public view virtual override returns (address) {
         return address(_token);
     }
 
-    function weightPerToken() external view virtual override returns (uint256) {
+    function weightPerToken() public view virtual override returns (uint256) {
         return _weightPerToken;
+    }
+
+    function getFreezeVoteWeight(
+        address voter_,
+        uint48 freezeProposalSnapshotAndId_
+    ) public view virtual override returns (uint256) {
+        return _calculateWeightAtSnapshot(voter_, freezeProposalSnapshotAndId_);
     }
 
     function hasCastedVoteForProposal(
         uint32 proposalId_,
         address voter_
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         return _hasCastedVoteForProposal[proposalId_][voter_];
     }
 
@@ -62,131 +81,35 @@ contract VotingAdapterERC20V1 is
         address freezeVoteContract_,
         uint48 freezeProposalSnapshotAndId_,
         address voter_
-    ) external view virtual override returns (bool) {
+    ) public view virtual override returns (bool) {
         return
             _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[
                 freezeVoteContract_
             ][freezeProposalSnapshotAndId_][voter_];
     }
 
-    function _calculateWeightAtSnapshot(
-        address voter_,
-        uint48 snapshotTimepoint_
-    ) internal view virtual returns (uint256) {
-        return
-            _token.getPastVotes(voter_, snapshotTimepoint_) * _weightPerToken;
-    }
+    // ======================================================================
+    // IVotingAdapterBaseV1
+    // ======================================================================
 
-    function getFreezeVoteWeight(
-        address voter_,
-        uint48 freezeProposalSnapshotAndId_
-    ) external view virtual override returns (uint256) {
-        return _calculateWeightAtSnapshot(voter_, freezeProposalSnapshotAndId_);
-    }
-
-    function recordFreezeVote(
-        address voter_,
-        uint48 freezeProposalSnapshotAndId_,
-        bytes calldata
-    ) external virtual override onlyAuthorizedFreezeVoter returns (uint256) {
-        if (
-            _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[
-                msg.sender
-            ][freezeProposalSnapshotAndId_][voter_]
-        ) {
-            revert AlreadyVoted();
-        }
-
-        uint256 weightCasted = _calculateWeightAtSnapshot(
-            voter_,
-            freezeProposalSnapshotAndId_
-        );
-
-        if (weightCasted == 0) {
-            revert NoFreezeVotingWeight();
-        }
-
-        _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[msg.sender][
-            freezeProposalSnapshotAndId_
-        ][voter_] = true;
-
-        emit FreezeVoteRecorded(
-            voter_,
-            freezeProposalSnapshotAndId_,
-            weightCasted,
-            bytes("")
-        );
-
-        return weightCasted;
-    }
-
-    function _getVoteWeightDetails(
-        address voter_,
-        uint32 proposalId_,
-        bytes calldata
-    ) internal view virtual returns (uint256) {
-        uint48 startTimepoint;
-        if (_tokenClockMode == ClockMode.Timestamp) {
-            (startTimepoint, ) = _strategy.getVotingTimestamps(proposalId_);
-        } else {
-            startTimepoint = _strategy.getVotingStartBlock(proposalId_);
-        }
-
-        if (startTimepoint == 0) revert ProposalNotReadyForSnapshot();
-        return _calculateWeightAtSnapshot(voter_, startTimepoint);
-    }
+    // --- View Functions ---
 
     function weightOf(
         address voter_,
         uint32 proposalId_,
         bytes calldata voteData_
-    ) external view virtual override returns (uint256) {
+    ) public view virtual override returns (uint256) {
         if (_hasCastedVoteForProposal[proposalId_][voter_]) {
             return 0;
         }
         return _getVoteWeightDetails(voter_, proposalId_, voteData_);
     }
 
-    function recordVote(
-        address voter_,
-        uint32 proposalId_,
-        bytes calldata voteData_
-    ) external virtual override onlyStrategy returns (uint256) {
-        if (_hasCastedVoteForProposal[proposalId_][voter_]) {
-            revert AlreadyVoted();
-        }
-        _hasCastedVoteForProposal[proposalId_][voter_] = true;
-
-        uint256 weightCasted = _getVoteWeightDetails(
-            voter_,
-            proposalId_,
-            voteData_
-        );
-
-        emit VoteRecorded(voter_, proposalId_, weightCasted, bytes(""));
-
-        return weightCasted;
-    }
-
-    function version() external pure virtual override returns (uint16) {
-        return VERSION;
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId_
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId_ == type(IVotingAdapterERC20V1).interfaceId ||
-            interfaceId_ == type(IVotingAdapterBaseV1).interfaceId ||
-            interfaceId_ == type(IVersion).interfaceId ||
-            super.supportsInterface(interfaceId_);
-    }
-
     function validVotingAdapterVote(
         address voter_,
         uint32 proposalId_,
         bytes calldata
-    ) external view virtual override returns (bool, uint256) {
+    ) public view virtual override returns (bool, uint256) {
         // check if the user has voted
         if (_hasCastedVoteForProposal[proposalId_][voter_]) {
             return (false, 0);
@@ -246,5 +169,118 @@ contract VotingAdapterERC20V1 is
         }
 
         return (true, votingWeight);
+    }
+
+    // --- State-Changing Functions ---
+
+    function recordFreezeVote(
+        address voter_,
+        uint48 freezeProposalSnapshotAndId_,
+        bytes calldata
+    ) public virtual override onlyAuthorizedFreezeVoter returns (uint256) {
+        if (
+            _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[
+                msg.sender
+            ][freezeProposalSnapshotAndId_][voter_]
+        ) {
+            revert AlreadyVoted();
+        }
+
+        uint256 weightCasted = _calculateWeightAtSnapshot(
+            voter_,
+            freezeProposalSnapshotAndId_
+        );
+
+        if (weightCasted == 0) {
+            revert NoFreezeVotingWeight();
+        }
+
+        _hasCastedVotePerFreezeVoteProposalPerFreezeVoteContract[msg.sender][
+            freezeProposalSnapshotAndId_
+        ][voter_] = true;
+
+        emit FreezeVoteRecorded(
+            voter_,
+            freezeProposalSnapshotAndId_,
+            weightCasted,
+            bytes("")
+        );
+
+        return weightCasted;
+    }
+
+    function recordVote(
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata voteData_
+    ) public virtual override onlyStrategy returns (uint256) {
+        if (_hasCastedVoteForProposal[proposalId_][voter_]) {
+            revert AlreadyVoted();
+        }
+        _hasCastedVoteForProposal[proposalId_][voter_] = true;
+
+        uint256 weightCasted = _getVoteWeightDetails(
+            voter_,
+            proposalId_,
+            voteData_
+        );
+
+        emit VoteRecorded(voter_, proposalId_, weightCasted, bytes(""));
+
+        return weightCasted;
+    }
+
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
+    }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function supportsInterface(
+        bytes4 interfaceId_
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId_ == type(IVotingAdapterERC20V1).interfaceId ||
+            interfaceId_ == type(IVotingAdapterBaseV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            super.supportsInterface(interfaceId_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
+    function _calculateWeightAtSnapshot(
+        address voter_,
+        uint48 snapshotTimepoint_
+    ) internal view virtual returns (uint256) {
+        return
+            _token.getPastVotes(voter_, snapshotTimepoint_) * _weightPerToken;
+    }
+
+    function _getVoteWeightDetails(
+        address voter_,
+        uint32 proposalId_,
+        bytes calldata
+    ) internal view virtual returns (uint256) {
+        uint48 startTimepoint;
+        if (_tokenClockMode == ClockMode.Timestamp) {
+            (startTimepoint, ) = _strategy.getVotingTimestamps(proposalId_);
+        } else {
+            startTimepoint = _strategy.getVotingStartBlock(proposalId_);
+        }
+
+        if (startTimepoint == 0) revert ProposalNotReadyForSnapshot();
+        return _calculateWeightAtSnapshot(voter_, startTimepoint);
     }
 }
