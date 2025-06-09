@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IERC20VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC20VotingAdapterV1.sol";
-import {IBaseVotingAdapterV1} from "../../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
-import {ClockMode} from "../../../interfaces/decent/ClockMode.sol";
-import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
-import {BaseVotingAdapterV1} from "./BaseVotingAdapterV1.sol";
-import {ClockModeLib} from "../../../libs/ClockModeLib.sol";
+import {IVotingAdapterERC20V1} from "../../../../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
+import {IVotingAdapterBaseV1} from "../../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
+import {ClockMode} from "../../../../interfaces/decent/ClockMode.sol";
+import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
+import {VotingAdapterBaseV1} from "./VotingAdapterBaseV1.sol";
+import {ClockModeLib} from "../../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
-contract ERC20VotingAdapterV1 is
-    IERC20VotingAdapterV1,
+contract VotingAdapterERC20V1 is
+    IVotingAdapterERC20V1,
     IVersion,
-    BaseVotingAdapterV1,
+    VotingAdapterBaseV1,
     ERC165
 {
     uint16 public constant VERSION = 1;
@@ -176,8 +176,8 @@ contract ERC20VotingAdapterV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IERC20VotingAdapterV1).interfaceId ||
-            interfaceId_ == type(IBaseVotingAdapterV1).interfaceId ||
+            interfaceId_ == type(IVotingAdapterERC20V1).interfaceId ||
+            interfaceId_ == type(IVotingAdapterBaseV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }

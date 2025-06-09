@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IBaseVotingAdapterV1} from "../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
+import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {IProposerAdapterV1} from "../../interfaces/decent/deployables/IProposerAdapterV1.sol";
 import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
@@ -223,7 +223,7 @@ contract StrategyV1 is
                 revert InvalidVotingAdapter();
             }
 
-            totalWeightForThisVoteTransaction += IBaseVotingAdapterV1(
+            totalWeightForThisVoteTransaction += IVotingAdapterBaseV1(
                 votingAdapter
             ).recordVote(
                     resolvedVoter,
@@ -431,7 +431,7 @@ contract StrategyV1 is
                 return false;
             }
 
-            (bool isValid, uint256 votingWeight) = IBaseVotingAdapterV1(
+            (bool isValid, uint256 votingWeight) = IVotingAdapterBaseV1(
                 votingAdapter
             ).validVotingAdapterVote(
                     voter_,

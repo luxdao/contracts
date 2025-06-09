@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IERC721VotingAdapterV1} from "../../../interfaces/decent/deployables/IERC721VotingAdapterV1.sol";
-import {IBaseVotingAdapterV1} from "../../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
-import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
-import {BaseVotingAdapterV1} from "./BaseVotingAdapterV1.sol";
+import {IVotingAdapterERC721V1} from "../../../../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
+import {IVotingAdapterBaseV1} from "../../../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
+import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
+import {VotingAdapterBaseV1} from "./VotingAdapterBaseV1.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract ERC721VotingAdapterV1 is
-    IERC721VotingAdapterV1,
+contract VotingAdapterERC721V1 is
+    IVotingAdapterERC721V1,
     IVersion,
-    BaseVotingAdapterV1,
+    VotingAdapterBaseV1,
     ERC165
 {
     uint16 public constant VERSION = 1;
@@ -362,8 +362,8 @@ contract ERC721VotingAdapterV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IERC721VotingAdapterV1).interfaceId ||
-            interfaceId_ == type(IBaseVotingAdapterV1).interfaceId ||
+            interfaceId_ == type(IVotingAdapterERC721V1).interfaceId ||
+            interfaceId_ == type(IVotingAdapterBaseV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }

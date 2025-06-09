@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface IBaseVotingAdapterV1 {
+interface IVotingAdapterBaseV1 {
     error NotStrategy();
     error UnauthorizedFreezeVoter(address caller);
     error NoFreezeVotingWeight();
