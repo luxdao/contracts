@@ -7,16 +7,15 @@ import {IProposerAdapterV1} from "../../interfaces/decent/deployables/IProposerA
 import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
 import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {Version} from "../Version.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract StrategyV1 is
     IStrategyV1,
+    IVersion,
     Initializable,
     VoterResolverV1,
-    Version,
     ERC165
 {
     uint16 public constant VERSION = 1;
@@ -458,7 +457,7 @@ contract StrategyV1 is
         return true;
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 

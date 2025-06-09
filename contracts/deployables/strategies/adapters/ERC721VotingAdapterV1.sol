@@ -5,15 +5,14 @@ import {IERC721VotingAdapterV1} from "../../../interfaces/decent/deployables/IER
 import {IBaseVotingAdapterV1} from "../../../interfaces/decent/deployables/IBaseVotingAdapterV1.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {BaseVotingAdapterV1} from "./BaseVotingAdapterV1.sol";
-import {Version} from "../../Version.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract ERC721VotingAdapterV1 is
     IERC721VotingAdapterV1,
+    IVersion,
     BaseVotingAdapterV1,
-    ERC165,
-    Version
+    ERC165
 {
     uint16 public constant VERSION = 1;
 
@@ -355,7 +354,7 @@ contract ERC721VotingAdapterV1 is
         return weightCasted;
     }
 
-    function version() public pure virtual override returns (uint16) {
+    function version() external pure virtual override returns (uint16) {
         return VERSION;
     }
 

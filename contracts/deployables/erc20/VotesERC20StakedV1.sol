@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {Version} from "../Version.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -14,7 +13,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract VotesERC20StakedV1 is
     IVotesERC20StakedV1,
-    Version,
+    IVersion,
     ERC20VotesUpgradeable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
@@ -23,6 +22,7 @@ contract VotesERC20StakedV1 is
     using SafeERC20 for IERC20;
 
     uint16 private constant VERSION = 1;
+
     IERC20 internal _stakedToken;
     address internal constant NATIVE_ASSET =
         0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -289,7 +289,7 @@ contract VotesERC20StakedV1 is
         return "mode=timestamp";
     }
 
-    function version() public view virtual override returns (uint16) {
+    function version() external view virtual override returns (uint16) {
         return VERSION;
     }
 
