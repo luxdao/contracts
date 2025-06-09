@@ -19,4 +19,6 @@ interface IProposerAdapterHatsV1 is IProposerAdapterBaseV1 {
         external
         view
         returns (uint256[] memory whitelistedHatIds);
+
+    function hatIdIsWhitelisted(uint256 hatId_) external view returns (bool);
 }

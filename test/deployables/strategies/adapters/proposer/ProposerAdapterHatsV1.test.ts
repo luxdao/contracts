@@ -138,6 +138,72 @@ describe('ProposerAdapterHatsV1', () => {
       );
       void expect(canPropose).to.be.true;
     });
+
+    it('should return false if adapter was initialized with no whitelisted hats', async () => {
+      const localAdapter = await deployHatsProposerAdapterProxy(
+        deployer,
+        await adapterImplementation.getAddress(),
+        await mockHats.getAddress(),
+        [],
+      );
+      await mockHats.setWearerStatus(user1.address, HAT_ID_1, true);
+      const canPropose = await localAdapter.isProposer(
+        user1.address,
+        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
+      );
+      void expect(canPropose).to.be.false;
+    });
+
+    it('should revert if data is not a valid abi-encoded uint256', async () => {
+      // Empty data
+      await expect(adapter.isProposer(user1.address, '0x')).to.be.reverted;
+
+      // Data too short
+      await expect(adapter.isProposer(user1.address, '0x1234')).to.be.reverted;
+    });
+  });
+
+  describe('IProposerAdapterHatsV1 View Functions', () => {
+    it('hatsContract(): should return the correct hats contract address', async () => {
+      expect(await adapter.hatsContract()).to.equal(await mockHats.getAddress());
+    });
+
+    describe('whitelistedHatIds()', () => {
+      it('should return the list of whitelisted hat IDs', async () => {
+        expect(await adapter.whitelistedHatIds()).to.deep.equal([HAT_ID_1]);
+      });
+
+      it('should return an empty array if initialized with no hats', async () => {
+        const localAdapter = await deployHatsProposerAdapterProxy(
+          deployer,
+          await adapterImplementation.getAddress(),
+          await mockHats.getAddress(),
+          [], // empty array
+        );
+        expect(await localAdapter.whitelistedHatIds()).to.deep.equal([]);
+      });
+    });
+
+    describe('hatIdIsWhitelisted()', () => {
+      it('should return true for a whitelisted hat ID', async () => {
+        void expect(await adapter.hatIdIsWhitelisted(HAT_ID_1)).to.be.true;
+      });
+
+      it('should return false for a non-whitelisted hat ID', async () => {
+        void expect(await adapter.hatIdIsWhitelisted(HAT_ID_2)).to.be.false;
+      });
+
+      it('should return false for any hat ID if initialized with no hats', async () => {
+        const localAdapter = await deployHatsProposerAdapterProxy(
+          deployer,
+          await adapterImplementation.getAddress(),
+          await mockHats.getAddress(),
+          [], // empty array
+        );
+        void expect(await localAdapter.hatIdIsWhitelisted(HAT_ID_1)).to.be.false;
+        void expect(await localAdapter.hatIdIsWhitelisted(HAT_ID_2)).to.be.false;
+      });
+    });
   });
 
   describe('version', () => {
