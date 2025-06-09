@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IFractalModuleV1} from "../../interfaces/decent/deployables/IFractalModuleV1.sol";
+import {IFractalV1} from "../../interfaces/decent/deployables/IFractalV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
@@ -10,8 +10,8 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract FractalModuleV1 is
-    IFractalModuleV1,
+contract FractalV1 is
+    IFractalV1,
     IVersion,
     GuardableModule,
     Ownable2StepUpgradeable,
@@ -73,7 +73,7 @@ contract FractalModuleV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IFractalModuleV1).interfaceId ||
+            interfaceId_ == type(IFractalV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }

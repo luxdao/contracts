@@ -3,10 +3,10 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
-  FractalModuleV1,
-  FractalModuleV1__factory,
+  FractalV1,
+  FractalV1__factory,
   IERC165__factory,
-  IFractalModuleV1__factory,
+  IFractalV1__factory,
   IVersion__factory,
   MockAvatar,
   MockAvatar__factory,
@@ -24,10 +24,10 @@ async function deployFractalModuleProxy(
   owner: SignerWithAddress,
   avatar: string,
   target: string,
-): Promise<FractalModuleV1> {
+): Promise<FractalV1> {
   // Combine selector and encoded params
   const fullInitData =
-    FractalModuleV1__factory.createInterface().getFunction('initialize').selector +
+    FractalV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
       .encode(['address', 'address', 'address'], [owner.address, avatar, target])
       .slice(2);
@@ -36,7 +36,7 @@ async function deployFractalModuleProxy(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return FractalModuleV1__factory.connect(await proxy.getAddress(), owner);
+  return FractalV1__factory.connect(await proxy.getAddress(), owner);
 }
 
 // Helper function for deploying using setUp instead of initialize
@@ -46,9 +46,9 @@ async function deployFractalModuleProxyWithSetUp(
   owner: SignerWithAddress,
   avatar: string,
   target: string,
-): Promise<FractalModuleV1> {
+): Promise<FractalV1> {
   // Create the call to setUp with the encoded parameters
-  const fullInitData = FractalModuleV1__factory.createInterface().encodeFunctionData('setUp', [
+  const fullInitData = FractalV1__factory.createInterface().encodeFunctionData('setUp', [
     ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'address', 'address'],
       [owner.address, avatar, target],
@@ -59,10 +59,10 @@ async function deployFractalModuleProxyWithSetUp(
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
 
   // Return a contract instance connected to the proxy
-  return FractalModuleV1__factory.connect(await proxy.getAddress(), owner);
+  return FractalV1__factory.connect(await proxy.getAddress(), owner);
 }
 
-describe('FractalModuleV1', () => {
+describe('FractalV1', () => {
   // eoas
   let proxyDeployer: SignerWithAddress;
   let owner: SignerWithAddress;
@@ -78,13 +78,13 @@ describe('FractalModuleV1', () => {
     [proxyDeployer, owner, nonOwner, user] = await ethers.getSigners();
 
     // Deploy implementation contract
-    const implementation = await new FractalModuleV1__factory(proxyDeployer).deploy();
+    const implementation = await new FractalV1__factory(proxyDeployer).deploy();
     masterCopy = await implementation.getAddress();
     mockToken = await new MockERC20Votes__factory(proxyDeployer).deploy();
   });
 
   describe('Initialization', () => {
-    let fractalModule: FractalModuleV1;
+    let fractalModule: FractalV1;
     let avatar: MockAvatar;
 
     beforeEach(async () => {
@@ -229,7 +229,7 @@ describe('FractalModuleV1', () => {
   });
 
   describe('Transaction Execution', () => {
-    let fractalModule: FractalModuleV1;
+    let fractalModule: FractalV1;
     let avatar: MockAvatar;
 
     beforeEach(async () => {
@@ -389,7 +389,7 @@ describe('FractalModuleV1', () => {
   });
 
   describe('Version', () => {
-    let fractalModule: FractalModuleV1;
+    let fractalModule: FractalV1;
 
     beforeEach(async () => {
       fractalModule = await deployFractalModuleProxy(
@@ -408,10 +408,7 @@ describe('FractalModuleV1', () => {
   });
 
   describe('ERC165', function () {
-    let fractalModuleInstance: FractalModuleV1;
-    let iFractalModuleV1InterfaceId: string;
-    let iVersionInterfaceId: string;
-    let iERC165InterfaceId: string;
+    let fractalModuleInstance: FractalV1;
 
     beforeEach(async function () {
       // Deploy a new instance for testing
@@ -422,31 +419,30 @@ describe('FractalModuleV1', () => {
         ethers.ZeroAddress,
         ethers.ZeroAddress,
       );
-
-      // Dynamically calculate interface IDs
-      const IFractalModuleV1Interface = IFractalModuleV1__factory.createInterface();
-      iFractalModuleV1InterfaceId = calculateInterfaceId(IFractalModuleV1Interface);
-
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
     });
 
     it('Should support IERC165 interface', async function () {
-      const supported = await fractalModuleInstance.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await fractalModuleInstance.supportsInterface(
+          calculateInterfaceId(IERC165__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IFractalModuleV1 interface', async function () {
-      const supported = await fractalModuleInstance.supportsInterface(iFractalModuleV1InterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await fractalModuleInstance.supportsInterface(
+          calculateInterfaceId(IFractalV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should support IVersion interface', async function () {
-      const supported = await fractalModuleInstance.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
+      void expect(
+        await fractalModuleInstance.supportsInterface(
+          calculateInterfaceId(IVersion__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should not support random interface', async function () {
@@ -457,7 +453,7 @@ describe('FractalModuleV1', () => {
   });
 
   describe('UUPS Upgradeability', function () {
-    let fractalModule: FractalModuleV1;
+    let fractalModule: FractalV1;
 
     beforeEach(async function () {
       // Deploy fractal module proxy
@@ -474,7 +470,7 @@ describe('FractalModuleV1', () => {
     runUUPSUpgradeabilityTests({
       getContract: () => fractalModule as unknown as UUPSUpgradeable,
       createNewImplementation: async () => {
-        const newImplementation = await new FractalModuleV1__factory(owner).deploy();
+        const newImplementation = await new FractalV1__factory(owner).deploy();
         return newImplementation as unknown as UUPSUpgradeable;
       },
       owner: () => owner,
