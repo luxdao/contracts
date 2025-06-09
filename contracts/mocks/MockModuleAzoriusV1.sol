@@ -68,7 +68,6 @@ contract MockModuleAzoriusV1 is IModuleAzoriusV1 {
         Transaction[] calldata,
         string calldata,
         address,
-        bytes calldata,
         bytes calldata
     ) external virtual override {}
 

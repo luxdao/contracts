@@ -157,11 +157,7 @@ interface IStrategyV1 {
 
     // --- State-Changing Functions ---
 
-    function initializeProposal(
-        uint32 proposalId_,
-        bytes32[] calldata txHashes_,
-        bytes calldata proposalInitializerData_
-    ) external;
+    function initializeProposal(uint32 proposalId_) external;
 
     function vote(
         uint32 proposalId_,
