@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
+import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
@@ -11,8 +11,8 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract AzoriusV1 is
-    IAzoriusV1,
+contract ModuleAzoriusV1 is
+    IModuleAzoriusV1,
     IVersion,
     GuardableModule,
     Ownable2StepUpgradeable,
@@ -366,7 +366,7 @@ contract AzoriusV1 is
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(IAzoriusV1).interfaceId ||
+            interfaceId_ == type(IModuleAzoriusV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }

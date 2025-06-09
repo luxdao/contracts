@@ -12,10 +12,10 @@ import {
   IFreezeVotingBaseV1__factory,
   IVersion__factory,
   IVoterResolverV1__factory,
-  MockAzoriusV1,
-  MockAzoriusV1__factory,
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
+  MockModuleAzoriusV1,
+  MockModuleAzoriusV1__factory,
   MockVotingAdapter,
   MockVotingAdapter__factory,
   MockVotingStrategy,
@@ -59,7 +59,7 @@ describe('FreezeVotingAzoriusV1', () => {
   let voter2: SignerWithAddress;
 
   let azoriusFreezeVoting: FreezeVotingAzoriusV1;
-  let mockParentAzorius: MockAzoriusV1;
+  let mockParentAzorius: MockModuleAzoriusV1;
   let mockStrategy: MockVotingStrategy;
   let mockAdapter1: MockVotingAdapter;
   let mockLightAccountFactory: MockLightAccountFactory;
@@ -77,7 +77,7 @@ describe('FreezeVotingAzoriusV1', () => {
     await impl.waitForDeployment();
     const implAddr = await impl.getAddress();
 
-    const mockAzoriusFactory = new MockAzoriusV1__factory(d);
+    const mockAzoriusFactory = new MockModuleAzoriusV1__factory(d);
     const mAzorius = await mockAzoriusFactory.deploy();
     await mAzorius.waitForDeployment();
 

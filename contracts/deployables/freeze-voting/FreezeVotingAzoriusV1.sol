@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {IFreezeVotingAzoriusV1} from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
 import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
-import {IAzoriusV1} from "../../interfaces/decent/deployables/IAzoriusV1.sol";
+import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
@@ -21,7 +21,7 @@ contract FreezeVotingAzoriusV1 is
 {
     uint16 public constant VERSION = 1;
 
-    IAzoriusV1 internal _parentAzorius;
+    IModuleAzoriusV1 internal _parentAzorius;
     address internal _freezeProposalStrategy;
 
     constructor() {
@@ -43,7 +43,7 @@ contract FreezeVotingAzoriusV1 is
             freezeVotesThreshold_
         );
         __VoterResolverV1_init(lightAccountFactory_);
-        _parentAzorius = IAzoriusV1(parentAzorius_);
+        _parentAzorius = IModuleAzoriusV1(parentAzorius_);
     }
 
     function parentAzorius() external view virtual override returns (address) {

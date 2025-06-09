@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Transaction} from "../Module.sol";
 
-interface IFractalV1 {
+interface IModuleFractalV1 {
     error TxFailed();
 
     function initialize(
