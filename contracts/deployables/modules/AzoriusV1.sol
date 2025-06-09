@@ -50,7 +50,7 @@ contract AzoriusV1 is
     uint32 internal _totalProposalCount;
     uint32 internal _timelockPeriod;
     uint32 internal _executionPeriod;
-    mapping(uint256 => Proposal) internal _proposals;
+    mapping(uint32 proposalId => Proposal proposal) internal _proposals;
     IStrategyV1 internal _strategy;
 
     constructor() {

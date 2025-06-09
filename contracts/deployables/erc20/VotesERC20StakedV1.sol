@@ -30,10 +30,11 @@ contract VotesERC20StakedV1 is
     uint256 internal _minimumStakingPeriod;
     uint256 internal _totalStaked;
 
-    mapping(address => StakerData) internal _stakerData;
+    mapping(address staker => StakerData stakerData) internal _stakerData;
 
     address[] internal _rewardsTokens;
-    mapping(address => RewardsTokenData) internal _rewardsTokenDatas;
+    mapping(address rewardsToken => RewardsTokenData rewardsTokenData)
+        internal _rewardsTokenDatas;
 
     constructor() {
         _disableInitializers();

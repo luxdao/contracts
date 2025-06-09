@@ -19,8 +19,9 @@ contract ERC721VotingAdapterV1 is
 
     IERC721 internal _token;
     uint256 internal _weightPerToken;
-    mapping(uint32 => mapping(uint256 => bool)) internal _tokenIdUsedForVote;
-    mapping(address => mapping(uint48 => mapping(uint256 => bool)))
+    mapping(uint32 proposalId => mapping(uint256 tokenId => bool hasBeenUsedForVote))
+        internal _tokenIdUsedForVote;
+    mapping(address freezeVoteContract => mapping(uint48 freezeProposalSnapshotAndId => mapping(uint256 tokenId => bool hasBeenUsedForVote)))
         internal _tokenIdUsedPerFreezeVoteProposalPerFreezeVoteContract;
 
     constructor() {
