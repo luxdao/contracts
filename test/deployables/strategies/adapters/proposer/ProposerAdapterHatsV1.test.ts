@@ -3,24 +3,24 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
-  HatsProposerAdapterV1,
-  HatsProposerAdapterV1__factory,
   IERC165__factory,
-  IHatsProposerAdapterV1__factory,
-  IProposerAdapterV1__factory,
+  IProposerAdapterBaseV1__factory,
+  IProposerAdapterHatsV1__factory,
   IVersion__factory,
   MockHats,
   MockHats__factory,
-} from '../../../../typechain-types';
-import { calculateInterfaceId } from '../../../helpers/utils';
+  ProposerAdapterHatsV1,
+  ProposerAdapterHatsV1__factory,
+} from '../../../../../typechain-types';
+import { calculateInterfaceId } from '../../../../helpers/utils';
 
 async function deployHatsProposerAdapterProxy(
   deployer: SignerWithAddress,
   implementationAddress: string,
   hatsContractAddress: string,
   initialWhitelistedHats: bigint[],
-): Promise<HatsProposerAdapterV1> {
-  const adapterInterface = HatsProposerAdapterV1__factory.createInterface();
+): Promise<ProposerAdapterHatsV1> {
+  const adapterInterface = ProposerAdapterHatsV1__factory.createInterface();
   const initializeCalldata = adapterInterface.encodeFunctionData('initialize', [
     hatsContractAddress,
     initialWhitelistedHats,
@@ -28,15 +28,15 @@ async function deployHatsProposerAdapterProxy(
   const proxyFactory = new ERC1967Proxy__factory(deployer);
   const proxy = await proxyFactory.deploy(implementationAddress, initializeCalldata);
   await proxy.waitForDeployment();
-  return HatsProposerAdapterV1__factory.connect(await proxy.getAddress(), deployer);
+  return ProposerAdapterHatsV1__factory.connect(await proxy.getAddress(), deployer);
 }
 
-describe('HatsProposerAdapterV1', () => {
+describe('ProposerAdapterHatsV1', () => {
   let deployer: SignerWithAddress;
   let user1: SignerWithAddress;
 
-  let adapterImplementation: HatsProposerAdapterV1;
-  let adapter: HatsProposerAdapterV1;
+  let adapterImplementation: ProposerAdapterHatsV1;
+  let adapter: ProposerAdapterHatsV1;
   let mockHats: MockHats;
 
   const HAT_ID_1 = 111n;
@@ -50,7 +50,7 @@ describe('HatsProposerAdapterV1', () => {
     await mockHats.waitForDeployment();
 
     if (!adapterImplementation) {
-      const adapterFactory = new HatsProposerAdapterV1__factory(deployer);
+      const adapterFactory = new ProposerAdapterHatsV1__factory(deployer);
       adapterImplementation = await adapterFactory.deploy();
       await adapterImplementation.waitForDeployment();
     }
@@ -147,20 +147,20 @@ describe('HatsProposerAdapterV1', () => {
   });
 
   describe('ERC165 supportsInterface', () => {
-    it('should support IHatsProposerAdapterV1', async () => {
+    it('should support IProposerAdapterHatsV1', async () => {
       void expect(
         await adapter.supportsInterface(
-          calculateInterfaceId(IHatsProposerAdapterV1__factory.createInterface(), [
-            IProposerAdapterV1__factory.createInterface(),
+          calculateInterfaceId(IProposerAdapterHatsV1__factory.createInterface(), [
+            IProposerAdapterBaseV1__factory.createInterface(),
           ]),
         ),
       ).to.be.true;
     });
 
-    it('should support IProposerAdapterV1', async () => {
+    it('should support IProposerAdapterBaseV1', async () => {
       void expect(
         await adapter.supportsInterface(
-          calculateInterfaceId(IProposerAdapterV1__factory.createInterface()),
+          calculateInterfaceId(IProposerAdapterBaseV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
