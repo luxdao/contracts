@@ -2,60 +2,51 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
+import {ICountersign} from "../../interfaces/decent/deployables/ICountersign.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract Countersign is IVersion, Ownable2StepUpgradeable, ERC165 {
-    struct Transaction {
-        address target;
-        uint256 value;
-        bytes data;
-    }
+contract Countersign is ICountersign, IVersion, ERC165 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
 
-    struct Signer {
-        bool isSigner;
-        bool required;
-        bool signed;
-        uint256 weight;
-        Transaction[] transactions;
-    }
+    string internal _agreementUri;
+    address internal immutable _verificationContract;
+    uint256 internal immutable _minWeight;
+    address[] internal _signerAddresses;
+    mapping(address signer => Signer signerData) internal _signerData;
+    Transaction[] internal _preExecutionTransactions;
 
-    error InvalidSignerData();
-    error InvalidSigner();
-    error AlreadySigned();
-
-    event Signed(address indexed signer);
-
-    uint256 public minWeight;
-    uint256 public maxWeight;
-    address[] public signerAddresses;
-    mapping(address signer => Signer signerData) public signers;
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
 
     constructor(
+        string memory agreementUri_,
+        address verificationContract_,
         uint256 minWeight_,
-        uint256 maxWeight_,
         address[] memory signerAddresses_,
         bool[] memory signerRequired_,
         uint256[] memory signerWeights_,
-        Transaction[][] memory signerTransactions_
+        Transaction[][] memory signerTransactions_,
+        Transaction[] memory preExecutionTransactions_
     ) {
         if (
             signerAddresses_.length != signerRequired_.length ||
             signerAddresses_.length != signerWeights_.length ||
             signerAddresses_.length != signerTransactions_.length
         ) {
-            revert InvalidSignerData();
+            revert InvalidArrayLengths();
         }
 
-        __Ownable2Step_init(msg.sender);
-
-        minWeight = minWeight_;
-        maxWeight = maxWeight_;
-
-        signerAddresses = signerAddresses_;
+        _agreementUri = agreementUri_;
+        _verificationContract = verificationContract_;
+        _minWeight = minWeight_;
+        _signerAddresses = signerAddresses_;
+        _preExecutionTransactions = preExecutionTransactions_;
 
         for (uint256 i = 0; i < signerAddresses_.length; ) {
-            signers[signerAddresses_[i]] = Signer({
+            _signerData[signerAddresses_[i]] = Signer({
                 isSigner: true,
                 required: signerRequired_[i],
                 signed: false,
@@ -69,31 +60,95 @@ contract Countersign is IVersion, Ownable2StepUpgradeable, ERC165 {
         }
     }
 
-    function sign() public {
-        Signer storage signer = signers[msg.sender];
+    // ======================================================================
+    // ICountersign
+    // ======================================================================
 
-        if (!signer.isSigner) revert InvalidSigner();
+    // --- View Functions ---
 
-        if (signer.signed) revert AlreadySigned();
-
-        signer.signed = true;
-
-        emit Signed(msg.sender);
+    function agreementUri()
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        return _agreementUri;
     }
 
-    function _execute(Transaction memory transaction_) internal returns (bool) {
-        (bool success, ) = transaction_.target.call{value: transaction_.value}(
-            transaction_.data
+    function verificationContract()
+        public
+        view
+        virtual
+        override
+        returns (address)
+    {
+        return _verificationContract;
+    }
+
+    function minWeight() public view virtual override returns (uint256) {
+        return _minWeight;
+    }
+
+    function signerAddresses()
+        public
+        view
+        virtual
+        override
+        returns (address[] memory)
+    {
+        return _signerAddresses;
+    }
+
+    function signerData(
+        address signer
+    )
+        public
+        view
+        virtual
+        override
+        returns (
+            bool isSigner,
+            bool required,
+            bool signed,
+            uint256 weight,
+            Transaction[] memory transactions
+        )
+    {
+        return (
+            _signerData[signer].isSigner,
+            _signerData[signer].required,
+            _signerData[signer].signed,
+            _signerData[signer].weight,
+            _signerData[signer].transactions
         );
-
-        // if (!success) revert ExecutionFailed();
-
-        return success;
     }
+
+    function preExecutionTransactions()
+        public
+        view
+        virtual
+        override
+        returns (Transaction[] memory)
+    {
+        return _preExecutionTransactions;
+    }
+
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
 
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
 
     function supportsInterface(
         bytes4 interfaceId_
