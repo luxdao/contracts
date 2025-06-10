@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
+pragma abicoder v2;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersign} from "../../interfaces/decent/deployables/ICountersign.sol";
@@ -154,6 +155,7 @@ contract Countersign is ICountersign, IVersion, ERC165 {
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
+            interfaceId_ == type(ICountersign).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
