@@ -1,10 +1,8 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   IERC165__factory,
-  IERC20__factory,
   IVersion__factory,
   CountersignV1,
   CountersignV1__factory,
@@ -14,7 +12,7 @@ import {
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
-describe.only('CountersignV1', () => {
+describe('CountersignV1', () => {
   // signers
   let founder: SignerWithAddress;
   let investorAlice: SignerWithAddress;
@@ -25,7 +23,6 @@ describe.only('CountersignV1', () => {
 
   // contracts
   let countersign: CountersignV1;
-  let masterCopy: string;
   let daoToken: MockERC20Votes;
   let usdc: MockERC20Votes;
 
@@ -33,7 +30,14 @@ describe.only('CountersignV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [founder, investorAlice, investorBob, investorCarol, mockVerificationContract, mockDAOTreasury] = await ethers.getSigners();
+    [
+      founder,
+      investorAlice,
+      investorBob,
+      investorCarol,
+      mockVerificationContract,
+      mockDAOTreasury,
+    ] = await ethers.getSigners();
 
     daoToken = await new MockERC20Votes__factory(founder).deploy();
     usdc = await new MockERC20Votes__factory(founder).deploy();
@@ -51,20 +55,31 @@ describe.only('CountersignV1', () => {
     await daoToken.mint(mockDAOTreasury.address, ethers.parseEther('100000'));
 
     // create signer addresses array
-    const signerAddresses = [founder.address, investorAlice.address, investorBob.address, investorCarol.address];
+    const signerAddresses = [
+      founder.address,
+      investorAlice.address,
+      investorBob.address,
+      investorCarol.address,
+    ];
     const signerRequired = [true, true, false, false];
-    const signerWeights = [0, ethers.parseEther('100'), ethers.parseEther('50'), ethers.parseEther('20')];
+    const signerWeights = [
+      0,
+      ethers.parseEther('100'),
+      ethers.parseEther('50'),
+      ethers.parseEther('20'),
+    ];
 
     const signerTransactions = [
       [], // founder: empty array
-      [ // investor Alice
+      [
+        // investor Alice
         {
           target: await usdc.getAddress(),
           value: 0,
           data: usdc.interface.encodeFunctionData('transferFrom', [
             investorAlice.address,
             mockDAOTreasury.address,
-            ethers.parseEther('100') // 100 USDC
+            ethers.parseEther('100'), // 100 USDC
           ]),
         },
         {
@@ -73,18 +88,19 @@ describe.only('CountersignV1', () => {
           data: daoToken.interface.encodeFunctionData('transferFrom', [
             mockDAOTreasury.address,
             investorAlice.address,
-            ethers.parseEther('100000') // 100,000 daoToken
+            ethers.parseEther('100000'), // 100,000 daoToken
           ]),
-        }
+        },
       ],
-      [ // investor Bob
+      [
+        // investor Bob
         {
           target: await usdc.getAddress(),
           value: 0,
           data: usdc.interface.encodeFunctionData('transferFrom', [
             investorBob.address,
             mockDAOTreasury.address,
-            ethers.parseEther('50') // 50 USDC
+            ethers.parseEther('50'), // 50 USDC
           ]),
         },
         {
@@ -93,18 +109,19 @@ describe.only('CountersignV1', () => {
           data: daoToken.interface.encodeFunctionData('transferFrom', [
             mockDAOTreasury.address,
             investorAlice.address,
-            ethers.parseEther('50000') // 50,000 daoToken
+            ethers.parseEther('50000'), // 50,000 daoToken
           ]),
-        }
+        },
       ],
-      [ // investor Carol
+      [
+        // investor Carol
         {
           target: await usdc.getAddress(),
           value: 0,
           data: usdc.interface.encodeFunctionData('transferFrom', [
             investorCarol.address,
             mockDAOTreasury.address,
-            ethers.parseEther('10') // 10 USDC
+            ethers.parseEther('10'), // 10 USDC
           ]),
         },
         {
@@ -113,10 +130,10 @@ describe.only('CountersignV1', () => {
           data: daoToken.interface.encodeFunctionData('transferFrom', [
             mockDAOTreasury.address,
             investorCarol.address,
-            ethers.parseEther('10000') // 10,000 daoToken
+            ethers.parseEther('10000'), // 10,000 daoToken
           ]),
-        }
-      ]
+        },
+      ],
     ];
 
     // preExecution transaction transfer 100,000 DAO tokens from treasury to address zero
@@ -124,8 +141,12 @@ describe.only('CountersignV1', () => {
       {
         target: await daoToken.getAddress(),
         value: 0,
-        data: daoToken.interface.encodeFunctionData('transferFrom', [mockDAOTreasury.address, ethers.ZeroAddress, ethers.parseEther('100000')])
-      }
+        data: daoToken.interface.encodeFunctionData('transferFrom', [
+          mockDAOTreasury.address,
+          ethers.ZeroAddress,
+          ethers.parseEther('100000'),
+        ]),
+      },
     ];
 
     countersign = await new CountersignV1__factory(founder).deploy(
@@ -140,16 +161,24 @@ describe.only('CountersignV1', () => {
     );
 
     // Alice approves countersign to spend her USDC
-    await usdc.connect(investorAlice).approve(await countersign.getAddress(), ethers.parseEther('100'));
+    await usdc
+      .connect(investorAlice)
+      .approve(await countersign.getAddress(), ethers.parseEther('100'));
 
     // Bob approves countersign to spend his USDC
-    await usdc.connect(investorBob).approve(await countersign.getAddress(), ethers.parseEther('50'));
+    await usdc
+      .connect(investorBob)
+      .approve(await countersign.getAddress(), ethers.parseEther('50'));
 
     // Carol approves countersign to spend her USDC
-    await usdc.connect(investorCarol).approve(await countersign.getAddress(), ethers.parseEther('10'));
+    await usdc
+      .connect(investorCarol)
+      .approve(await countersign.getAddress(), ethers.parseEther('10'));
 
     // DAO treasury approves countersign to spend its DAO tokens
-    await daoToken.connect(mockDAOTreasury).approve(await countersign.getAddress(), ethers.parseEther('100000'));
+    await daoToken
+      .connect(mockDAOTreasury)
+      .approve(await countersign.getAddress(), ethers.parseEther('100000'));
   });
 
   describe('Deployment', () => {
@@ -166,7 +195,12 @@ describe.only('CountersignV1', () => {
     });
 
     it('should return correct signer addresses', async () => {
-      expect(await countersign.signerAddresses()).to.deep.equal([founder.address, investorAlice.address, investorBob.address, investorCarol.address]);
+      expect(await countersign.signerAddresses()).to.deep.equal([
+        founder.address,
+        investorAlice.address,
+        investorBob.address,
+        investorCarol.address,
+      ]);
     });
 
     it('should return correct signer data', async () => {
@@ -185,7 +219,7 @@ describe.only('CountersignV1', () => {
       void expect(aliceData.signed).to.be.false;
       void expect(aliceData.weight).to.equal(ethers.parseEther('100'));
       void expect(aliceData.transactions).to.have.lengthOf(2);
-      
+
       // Verify Alice's USDC transfer transaction
       void expect(aliceData.transactions[0].target).to.equal(await usdc.getAddress());
       void expect(aliceData.transactions[0].value).to.equal(0n);
@@ -193,8 +227,8 @@ describe.only('CountersignV1', () => {
         usdc.interface.encodeFunctionData('transferFrom', [
           investorAlice.address,
           mockDAOTreasury.address,
-          ethers.parseEther('100') // 100 USDC
-        ])
+          ethers.parseEther('100'), // 100 USDC
+        ]),
       );
 
       // Verify Alice's DAO token transfer transaction
@@ -204,8 +238,8 @@ describe.only('CountersignV1', () => {
         daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
           investorAlice.address,
-          ethers.parseEther('100000') // 100,000 daoToken
-        ])
+          ethers.parseEther('100000'), // 100,000 daoToken
+        ]),
       );
 
       // Bob data: isSigner=true, required=false, signed=false, weight=50, transactions=[2 transactions]
@@ -223,8 +257,8 @@ describe.only('CountersignV1', () => {
         usdc.interface.encodeFunctionData('transferFrom', [
           investorBob.address,
           mockDAOTreasury.address,
-          ethers.parseEther('50') // 50 USDC
-        ])
+          ethers.parseEther('50'), // 50 USDC
+        ]),
       );
 
       // Verify Bob's DAO token transfer transaction
@@ -234,8 +268,8 @@ describe.only('CountersignV1', () => {
         daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
           investorAlice.address,
-          ethers.parseEther('50000') // 50,000 daoToken
-        ])
+          ethers.parseEther('50000'), // 50,000 daoToken
+        ]),
       );
 
       // Carol data: isSigner=true, required=false, signed=false, weight=20, transactions=[2 transactions]
@@ -253,8 +287,8 @@ describe.only('CountersignV1', () => {
         usdc.interface.encodeFunctionData('transferFrom', [
           investorCarol.address,
           mockDAOTreasury.address,
-          ethers.parseEther('10') // 10 USDC
-        ])
+          ethers.parseEther('10'), // 10 USDC
+        ]),
       );
 
       // Verify Carol's DAO token transfer transaction
@@ -264,8 +298,22 @@ describe.only('CountersignV1', () => {
         daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
           investorCarol.address,
-          ethers.parseEther('10000') // 10,000 daoToken
-        ])
+          ethers.parseEther('10000'), // 10,000 daoToken
+        ]),
+      );
+    });
+
+    it('should return correct preExecutionTransactions', async () => {
+      const preExecutionTransactions = await countersign.preExecutionTransactions();
+      void expect(preExecutionTransactions).to.have.lengthOf(1);
+      void expect(preExecutionTransactions[0].target).to.equal(await daoToken.getAddress());
+      void expect(preExecutionTransactions[0].value).to.equal(0n);
+      void expect(preExecutionTransactions[0].data).to.equal(
+        daoToken.interface.encodeFunctionData('transferFrom', [
+          mockDAOTreasury.address,
+          ethers.ZeroAddress,
+          ethers.parseEther('100000'),
+        ]),
       );
     });
   });
@@ -282,7 +330,6 @@ describe.only('CountersignV1', () => {
     let iCountersignV1InterfaceId: string;
     let iERC165InterfaceId: string;
     beforeEach(async function () {
-
       // Calculate interface IDs
       const IVersionInterface = IVersion__factory.createInterface();
       iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
