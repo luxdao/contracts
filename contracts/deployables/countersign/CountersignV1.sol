@@ -3,10 +3,10 @@ pragma solidity ^0.8.30;
 pragma abicoder v2;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {ICountersign} from "../../interfaces/decent/deployables/ICountersign.sol";
+import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Countersign is ICountersign, IVersion, ERC165 {
+contract CountersignV1 is ICountersignV1, IVersion, ERC165 {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
@@ -62,7 +62,7 @@ contract Countersign is ICountersign, IVersion, ERC165 {
     }
 
     // ======================================================================
-    // ICountersign
+    // ICountersignV1
     // ======================================================================
 
     // --- View Functions ---
@@ -155,7 +155,7 @@ contract Countersign is ICountersign, IVersion, ERC165 {
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
-            interfaceId_ == type(ICountersign).interfaceId ||
+            interfaceId_ == type(ICountersignV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
