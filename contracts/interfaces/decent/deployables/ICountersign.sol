@@ -28,7 +28,10 @@ interface ICountersign {
 
     function agreementUri() external view returns (string memory agreementUri);
 
-    function verificationContract() external view returns (address verificationContract);
+    function verificationContract()
+        external
+        view
+        returns (address verificationContract);
 
     function minWeight() external view returns (uint256 minWeight);
 
