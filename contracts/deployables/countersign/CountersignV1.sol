@@ -4,15 +4,16 @@ pragma solidity ^0.8.30;
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract CountersignV1 is ICountersignV1, IVersion, ERC165 {
+contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
     string internal _agreementUri;
-    address internal immutable _verificationContract;
-    uint256 internal immutable _minWeight;
+    address internal _verificationContract;
+    uint256 internal _minWeight;
     address[] internal _signerAddresses;
     mapping(address signer => Signer signerData) internal _signerData;
     Transaction[] internal _preExecutionTransactions;
@@ -21,13 +22,17 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165 {
     // CONSTRUCTOR & INITIALIZERS
     // ======================================================================
 
-    constructor(
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         string memory agreementUri_,
         address verificationContract_,
         uint256 minWeight_,
         SignerInitialization[] memory signerInitializations_,
         Transaction[] memory preExecutionTransactions_
-    ) {
+    ) public virtual override initializer {
         _agreementUri = agreementUri_;
         _verificationContract = verificationContract_;
         _minWeight = minWeight_;

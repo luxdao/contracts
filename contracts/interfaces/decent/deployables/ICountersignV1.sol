@@ -31,6 +31,16 @@ interface ICountersignV1 {
 
     // --- Events ---
 
+    // --- Initializer Functions ---
+
+    function initialize(
+        string memory agreementUri_,
+        address verificationContract_,
+        uint256 minWeight_,
+        SignerInitialization[] memory signerInitializations_,
+        Transaction[] memory preExecutionTransactions_
+    ) external;
+
     // --- View Functions ---
 
     function agreementUri() external view returns (string memory agreementUri);
