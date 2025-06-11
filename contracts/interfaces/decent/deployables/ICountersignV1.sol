@@ -36,6 +36,8 @@ interface ICountersignV1 {
     function initialize(
         string memory agreementUri_,
         address verificationContract_,
+        uint256 signingDeadline_,
+        uint256 executionDeadline_,
         uint256 minWeight_,
         SignerInitialization[] memory signerInitializations_,
         Transaction[] memory preExecutionTransactions_
@@ -49,6 +51,13 @@ interface ICountersignV1 {
         external
         view
         returns (address verificationContract);
+
+    function signingDeadline() external view returns (uint256 signingDeadline);
+
+    function executionDeadline()
+        external
+        view
+        returns (uint256 executionDeadline);
 
     function minWeight() external view returns (uint256 minWeight);
 
