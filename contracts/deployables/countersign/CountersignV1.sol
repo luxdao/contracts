@@ -172,6 +172,26 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _preExecutionTransactions;
     }
 
+    // --- State-Changing Functions ---
+
+    function sign() public virtual override {
+        if (block.timestamp > _signingDeadline) {
+            revert SigningDeadlineElapsed();
+        }
+
+        if (!_signerData[msg.sender].isSigner) {
+            revert InvalidSigner();
+        }
+
+        if (_signerData[msg.sender].signed) {
+            revert SignerAlreadySigned();
+        }
+
+        _signerData[msg.sender].signed = true;
+
+        emit Signed(msg.sender);
+    }
+
     // ======================================================================
     // IVersion
     // ======================================================================

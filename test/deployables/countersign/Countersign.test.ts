@@ -65,6 +65,7 @@ describe.only('CountersignV1', () => {
   let investorAlice: SignerWithAddress;
   let investorBob: SignerWithAddress;
   let investorCarol: SignerWithAddress;
+  let anon: SignerWithAddress;
   let mockVerificationContract: SignerWithAddress;
   let mockDAOTreasury: SignerWithAddress;
 
@@ -85,6 +86,7 @@ describe.only('CountersignV1', () => {
       investorAlice,
       investorBob,
       investorCarol,
+      anon,
       mockVerificationContract,
       mockDAOTreasury,
     ] = await ethers.getSigners();
@@ -448,6 +450,42 @@ describe.only('CountersignV1', () => {
       const randomInterfaceId = '0x12345678';
       const supported = await countersign.supportsInterface(randomInterfaceId);
       void expect(supported).to.be.false;
+    });
+  });
+
+  describe('Signing', () => {
+    it('should allow signers to sign', async () => {
+      const [, , aliceBeforeSigned, ,] = await countersign.signerData(investorAlice.address);
+      void expect(aliceBeforeSigned).to.be.false;
+      await countersign.connect(investorAlice).sign();
+      const [, , aliceAfterSigned, ,] = await countersign.signerData(investorAlice.address);
+      void expect(aliceAfterSigned).to.be.true;
+
+      const [, , bobBeforeSigned, ,] = await countersign.signerData(investorBob.address);
+      void expect(bobBeforeSigned).to.be.false;
+      await countersign.connect(investorBob).sign();
+      const [, , bobAfterSigned, ,] = await countersign.signerData(investorBob.address);
+      void expect(bobAfterSigned).to.be.true;
+
+      const [, , carolBeforeSigned, ,] = await countersign.signerData(investorCarol.address);
+      void expect(carolBeforeSigned).to.be.false;
+      await countersign.connect(investorCarol).sign();
+      const [, , carolAfterSigned, ,] = await countersign.signerData(investorCarol.address);
+      void expect(carolAfterSigned).to.be.true;
+    });
+
+    it('should not allow signers to sign after the signing deadline', async () => {
+      await time.increaseTo(signingDeadline + 1n);
+      await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(countersign, 'SigningDeadlineElapsed');
+    });
+
+    it('should not allow signers to sign if they are not a signer', async () => {
+      await expect(countersign.connect(anon).sign()).to.be.revertedWithCustomError(countersign, 'InvalidSigner');
+    });
+
+    it('should not allow signers to sign if they have already signed', async () => {
+      await countersign.connect(investorAlice).sign();
+      await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(countersign, 'SignerAlreadySigned');
     });
   });
 });
