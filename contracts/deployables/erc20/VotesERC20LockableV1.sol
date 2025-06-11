@@ -25,6 +25,7 @@ contract VotesERC20LockableV1 is
 
     bool internal _locked;
     uint256 internal _maxTotalSupply;
+    uint48 internal _unlockTime;
 
     // ======================================================================
     // MODIFIERS
@@ -90,11 +91,18 @@ contract VotesERC20LockableV1 is
         return _maxTotalSupply;
     }
 
+    function getUnlockTime() public view virtual override returns (uint48) {
+        return _unlockTime;
+    }
+
     // --- State-Changing Functions ---
 
     function lock(
         bool locked_
     ) public virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (locked_) {
+            _unlockTime = uint48(block.timestamp);
+        }
         _locked = locked_;
         emit Locked(_locked);
     }
