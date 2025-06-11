@@ -163,11 +163,9 @@ describe('VotesERC20LockableV1', () => {
       });
 
       describe('Unlocking by the owner should succeed', () => {
-        let unlockTime: bigint;
         let unlockTx: ContractTransactionResponse;
 
         beforeEach(async () => {
-          unlockTime = await proxy.getUnlockTime();
           await mine(1);
           unlockTx = await proxy.connect(owner).lock(false);
         });
