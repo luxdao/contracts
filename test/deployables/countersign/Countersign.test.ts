@@ -205,25 +205,25 @@ describe('CountersignV1', () => {
 
     it('should return correct signer data', async () => {
       // Founder data: isSigner=true, required=true, signed=false, weight=0, transactions=[]
-      const founderData = await countersign.signerData(founder.address);
-      void expect(founderData.isSigner).to.be.true;
-      void expect(founderData.required).to.be.true;
-      void expect(founderData.signed).to.be.false;
-      void expect(founderData.weight).to.equal(0n);
-      void expect(founderData.transactions).to.deep.equal([]);
+      const [founderIsSigner, founderRequired, founderSigned, founderWeight, founderTransactions] = await countersign.signerData(founder.address);
+      void expect(founderIsSigner).to.be.true;
+      void expect(founderRequired).to.be.true;
+      void expect(founderSigned).to.be.false;
+      void expect(founderWeight).to.equal(0n);
+      void expect(founderTransactions).to.deep.equal([]);
 
       // Alice data: isSigner=true, required=true, signed=false, weight=100, transactions=[2 transactions]
-      const aliceData = await countersign.signerData(investorAlice.address);
-      void expect(aliceData.isSigner).to.be.true;
-      void expect(aliceData.required).to.be.true;
-      void expect(aliceData.signed).to.be.false;
-      void expect(aliceData.weight).to.equal(ethers.parseEther('100'));
-      void expect(aliceData.transactions).to.have.lengthOf(2);
+      const [aliceIsSigner, aliceRequired, aliceSigned, aliceWeight, aliceTransactions] = await countersign.signerData(investorAlice.address);
+      void expect(aliceIsSigner).to.be.true;
+      void expect(aliceRequired).to.be.true;
+      void expect(aliceSigned).to.be.false;
+      void expect(aliceWeight).to.equal(ethers.parseEther('100'));
+      void expect(aliceTransactions).to.have.lengthOf(2);
 
       // Verify Alice's USDC transfer transaction
-      void expect(aliceData.transactions[0].target).to.equal(await usdc.getAddress());
-      void expect(aliceData.transactions[0].value).to.equal(0n);
-      void expect(aliceData.transactions[0].data).to.equal(
+      void expect(aliceTransactions[0].target).to.equal(await usdc.getAddress());
+      void expect(aliceTransactions[0].value).to.equal(0n);
+      void expect(aliceTransactions[0].data).to.equal(
         usdc.interface.encodeFunctionData('transferFrom', [
           investorAlice.address,
           mockDAOTreasury.address,
@@ -232,9 +232,9 @@ describe('CountersignV1', () => {
       );
 
       // Verify Alice's DAO token transfer transaction
-      void expect(aliceData.transactions[1].target).to.equal(await daoToken.getAddress());
-      void expect(aliceData.transactions[1].value).to.equal(0n);
-      void expect(aliceData.transactions[1].data).to.equal(
+      void expect(aliceTransactions[1].target).to.equal(await daoToken.getAddress());
+      void expect(aliceTransactions[1].value).to.equal(0n);
+      void expect(aliceTransactions[1].data).to.equal(
         daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
           investorAlice.address,
@@ -243,17 +243,17 @@ describe('CountersignV1', () => {
       );
 
       // Bob data: isSigner=true, required=false, signed=false, weight=50, transactions=[2 transactions]
-      const bobData = await countersign.signerData(investorBob.address);
-      void expect(bobData.isSigner).to.be.true;
-      void expect(bobData.required).to.be.false;
-      void expect(bobData.signed).to.be.false;
-      void expect(bobData.weight).to.equal(ethers.parseEther('50'));
-      void expect(bobData.transactions).to.have.lengthOf(2);
+      const [bobIsSigner, bobRequired, bobSigned, bobWeight, bobTransactions] = await countersign.signerData(investorBob.address);
+      void expect(bobIsSigner).to.be.true;
+      void expect(bobRequired).to.be.false;
+      void expect(bobSigned).to.be.false;
+      void expect(bobWeight).to.equal(ethers.parseEther('50'));
+      void expect(bobTransactions).to.have.lengthOf(2);
 
       // Verify Bob's USDC transfer transaction
-      void expect(bobData.transactions[0].target).to.equal(await usdc.getAddress());
-      void expect(bobData.transactions[0].value).to.equal(0n);
-      void expect(bobData.transactions[0].data).to.equal(
+      void expect(bobTransactions[0].target).to.equal(await usdc.getAddress());
+      void expect(bobTransactions[0].value).to.equal(0n);
+      void expect(bobTransactions[0].data).to.equal(
         usdc.interface.encodeFunctionData('transferFrom', [
           investorBob.address,
           mockDAOTreasury.address,
@@ -262,9 +262,9 @@ describe('CountersignV1', () => {
       );
 
       // Verify Bob's DAO token transfer transaction
-      void expect(bobData.transactions[1].target).to.equal(await daoToken.getAddress());
-      void expect(bobData.transactions[1].value).to.equal(0n);
-      void expect(bobData.transactions[1].data).to.equal(
+      void expect(bobTransactions[1].target).to.equal(await daoToken.getAddress());
+      void expect(bobTransactions[1].value).to.equal(0n);
+      void expect(bobTransactions[1].data).to.equal(
         daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
           investorAlice.address,
@@ -273,17 +273,17 @@ describe('CountersignV1', () => {
       );
 
       // Carol data: isSigner=true, required=false, signed=false, weight=20, transactions=[2 transactions]
-      const carolData = await countersign.signerData(investorCarol.address);
-      void expect(carolData.isSigner).to.be.true;
-      void expect(carolData.required).to.be.false;
-      void expect(carolData.signed).to.be.false;
-      void expect(carolData.weight).to.equal(ethers.parseEther('20'));
-      void expect(carolData.transactions).to.have.lengthOf(2);
+      const [carolIsSigner, carolRequired, carolSigned, carolWeight, carolTransactions] = await countersign.signerData(investorCarol.address);
+      void expect(carolIsSigner).to.be.true;
+      void expect(carolRequired).to.be.false;
+      void expect(carolSigned).to.be.false;
+      void expect(carolWeight).to.equal(ethers.parseEther('20'));
+      void expect(carolTransactions).to.have.lengthOf(2);
 
       // Verify Carol's USDC transfer transaction
-      void expect(carolData.transactions[0].target).to.equal(await usdc.getAddress());
-      void expect(carolData.transactions[0].value).to.equal(0n);
-      void expect(carolData.transactions[0].data).to.equal(
+      void expect(carolTransactions[0].target).to.equal(await usdc.getAddress());
+      void expect(carolTransactions[0].value).to.equal(0n);
+      void expect(carolTransactions[0].data).to.equal(
         usdc.interface.encodeFunctionData('transferFrom', [
           investorCarol.address,
           mockDAOTreasury.address,
@@ -292,9 +292,9 @@ describe('CountersignV1', () => {
       );
 
       // Verify Carol's DAO token transfer transaction
-      void expect(carolData.transactions[1].target).to.equal(await daoToken.getAddress());
-      void expect(carolData.transactions[1].value).to.equal(0n);
-      void expect(carolData.transactions[1].data).to.equal(
+      void expect(carolTransactions[1].target).to.equal(await daoToken.getAddress());
+      void expect(carolTransactions[1].value).to.equal(0n);
+      void expect(carolTransactions[1].data).to.equal(
         daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
           investorCarol.address,
