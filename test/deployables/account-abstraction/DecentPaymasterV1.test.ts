@@ -44,16 +44,11 @@ async function deployDecentPaymasterProxy(
   entryPoint: string,
   lightAccountFactory: string,
 ): Promise<DecentPaymasterV1> {
-  // Encode initialization parameters
-  const initializeParams = ethers.AbiCoder.defaultAbiCoder().encode(
-    ['address', 'address', 'address'],
+  // Create full initialization data with function selector
+  const fullInitData = DecentPaymasterV1__factory.createInterface().encodeFunctionData(
+    'initialize',
     [owner.address, entryPoint, lightAccountFactory],
   );
-
-  // Create full initialization data with function selector
-  const fullInitData =
-    DecentPaymasterV1__factory.createInterface().getFunction('initialize').selector +
-    initializeParams.slice(2);
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);

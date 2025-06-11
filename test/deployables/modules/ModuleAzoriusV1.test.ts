@@ -32,7 +32,6 @@ async function deployAzoriusProxy(
   executionPeriod: number,
 ): Promise<ModuleAzoriusV1> {
   // Combine selector and encoded params
-
   const fullInitData = ModuleAzoriusV1__factory.createInterface().encodeFunctionData('initialize', [
     owner.address,
     avatar,

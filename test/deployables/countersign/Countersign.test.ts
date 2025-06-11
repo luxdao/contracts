@@ -2,14 +2,14 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  IERC165__factory,
-  IVersion__factory,
   CountersignV1,
   CountersignV1__factory,
+  ERC1967Proxy__factory,
+  ICountersignV1__factory,
+  IERC165__factory,
+  IVersion__factory,
   MockERC20Votes,
   MockERC20Votes__factory,
-  ICountersignV1__factory,
-  ERC1967Proxy__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
@@ -24,26 +24,13 @@ async function deployCountersignProxy(
   preExecutionTransactions: any[],
 ): Promise<CountersignV1> {
   // Create initialization data with function selector
-  const fullInitData =
-    CountersignV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(
-        [
-          'string',
-          'address',
-          'uint256',
-          'tuple(address account, bool required, uint256 weight, tuple(address target, uint256 value, bytes data)[] transactions)[]',
-          'tuple(address target, uint256 value, bytes data)[]',
-        ],
-        [
-          agreementUri,
-          verificationContract,
-          minWeight,
-          signerInitializations,
-          preExecutionTransactions,
-        ],
-      )
-      .slice(2);
+  const fullInitData = CountersignV1__factory.createInterface().encodeFunctionData('initialize', [
+    agreementUri,
+    verificationContract,
+    minWeight,
+    signerInitializations,
+    preExecutionTransactions,
+  ]);
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
