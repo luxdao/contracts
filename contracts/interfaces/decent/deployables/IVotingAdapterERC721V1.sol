@@ -6,7 +6,6 @@ interface IVotingAdapterERC721V1 {
 
     error TokenIdAlreadyUsedForVote(uint256 tokenId);
     error TokenIdNotOwnedByVoter(uint256 tokenId);
-    error DuplicateTokenIds();
 
     // --- Initializer Functions ---
 
