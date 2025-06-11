@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import type { ContractTransactionResponse } from 'ethers';
 import { ethers } from 'hardhat';
@@ -168,8 +168,7 @@ describe('VotesERC20LockableV1', () => {
 
         beforeEach(async () => {
           unlockTime = await proxy.getUnlockTime();
-          // move forward 1 days
-          await time.increase(86400);
+          await mine(1);
           unlockTx = await proxy.connect(owner).lock(false);
         });
 
@@ -181,8 +180,8 @@ describe('VotesERC20LockableV1', () => {
           expect(unlockTx).to.emit(proxy, 'Locked').withArgs(false);
         });
 
-        it('should not update unlockTime', async () => {
-          expect(await proxy.getUnlockTime()).to.equal(unlockTime);
+        it('should update unlockTime', async () => {
+          expect(await proxy.getUnlockTime()).to.equal(await time.latest());
         });
       });
 
@@ -221,9 +220,12 @@ describe('VotesERC20LockableV1', () => {
       });
 
       describe('Locking by the owner should succeed', () => {
+        let unlockTime: bigint;
         let lockTx: ContractTransactionResponse;
 
         beforeEach(async () => {
+          unlockTime = await proxy.getUnlockTime();
+          await mine(1);
           lockTx = await proxy.connect(owner).lock(true);
         });
 
@@ -235,8 +237,8 @@ describe('VotesERC20LockableV1', () => {
           expect(lockTx).to.emit(proxy, 'Locked').withArgs(true);
         });
 
-        it('should update unlockTime', async () => {
-          expect(await proxy.getUnlockTime()).to.equal(await time.latest());
+        it('should not update unlockTime', async () => {
+          expect(await proxy.getUnlockTime()).to.equal(unlockTime);
         });
       });
 
