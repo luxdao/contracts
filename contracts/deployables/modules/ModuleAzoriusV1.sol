@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
+import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
@@ -71,17 +71,18 @@ contract ModuleAzoriusV1 is
         uint32 timelockPeriod_,
         uint32 executionPeriod_
     ) public virtual override initializer {
-        __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
+        __Ownable_init(owner_);
 
-        setAvatar(avatar_);
-        setTarget(target_);
+        // avoids onlyOwner requirement on setAvatar and setTarget
+        avatar = avatar_;
+        target = target_;
+        emit AvatarSet(address(0), avatar_);
+        emit TargetSet(address(0), target_);
 
         _updateStrategy(strategy_);
         _updateTimelockPeriod(timelockPeriod_);
         _updateExecutionPeriod(executionPeriod_);
-
-        _transferOwnership(owner_);
     }
 
     function setUp(
