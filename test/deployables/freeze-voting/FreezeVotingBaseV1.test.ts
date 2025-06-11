@@ -18,14 +18,10 @@ async function deployConcreteBaseFreezeVotingProxy(
   freezePeriod: number,
 ): Promise<ConcreteFreezeVotingBaseV1> {
   // Combine selector and encoded params
-  const fullInitData =
-    ConcreteFreezeVotingBaseV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(
-        ['address', 'uint256', 'uint32', 'uint32'],
-        [owner.address, freezeVotesThreshold, freezeProposalPeriod, freezePeriod],
-      )
-      .slice(2);
+  const fullInitData = ConcreteFreezeVotingBaseV1__factory.createInterface().encodeFunctionData(
+    'initialize',
+    [owner.address, freezeVotesThreshold, freezeProposalPeriod, freezePeriod],
+  );
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);

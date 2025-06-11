@@ -24,11 +24,10 @@ async function deployAzoriusFreezeGuardProxy(
   freezeVoting: string,
 ): Promise<FreezeGuardAzoriusV1> {
   // Create initialization data with function selector
-  const fullInitData =
-    FreezeGuardAzoriusV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(['address', 'address'], [owner.address, freezeVoting])
-      .slice(2);
+  const fullInitData = FreezeGuardAzoriusV1__factory.createInterface().encodeFunctionData(
+    'initialize',
+    [owner.address, freezeVoting],
+  );
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);

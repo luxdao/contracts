@@ -33,11 +33,10 @@ async function deploySmartAccountValidation(
   mockLightAccountFactoryAddress: string,
 ) {
   // Create full initialization data with function selector
-  const fullInitData =
-    ConcreteSmartAccountValidation__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(['address'], [mockLightAccountFactoryAddress])
-      .slice(2);
+  const fullInitData = ConcreteSmartAccountValidation__factory.createInterface().encodeFunctionData(
+    'initialize',
+    [mockLightAccountFactoryAddress],
+  );
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(deployer).deploy(implementation, fullInitData);

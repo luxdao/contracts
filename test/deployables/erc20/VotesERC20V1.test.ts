@@ -38,14 +38,11 @@ async function deployVotesERC20Proxy(
     symbol,
   };
 
-  const fullInitData =
-    VotesERC20V1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(
-        ['tuple(string name, string symbol)', 'tuple(address to, uint256 amount)[]', 'address'],
-        [metadata, allocations, owner.address],
-      )
-      .slice(2);
+  const fullInitData = VotesERC20V1__factory.createInterface().encodeFunctionData('initialize', [
+    metadata,
+    allocations,
+    owner.address,
+  ]);
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
