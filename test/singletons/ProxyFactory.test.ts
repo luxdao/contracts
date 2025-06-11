@@ -621,6 +621,23 @@ describe('ProxyFactory', () => {
   });
 
   describe('Error Cases', () => {
+    it('should revert when trying to deploy to zero address', async () => {
+      // Zero address has no code, so it should fail the code length check
+      const zeroAddress = ethers.ZeroAddress;
+      const initData = '0x'; // Empty init data
+      const salt = ethers.keccak256(ethers.randomBytes(32));
+
+      // Should revert with ImplementationMustBeAContract error
+      await expect(
+        proxyFactory.deployProxy(zeroAddress, initData, salt),
+      ).to.be.revertedWithCustomError(proxyFactory, 'ImplementationMustBeAContract');
+
+      // Same check for predictProxyAddress
+      await expect(
+        proxyFactory.predictProxyAddress(zeroAddress, initData, salt),
+      ).to.be.revertedWithCustomError(proxyFactory, 'ImplementationMustBeAContract');
+    });
+
     it('should handle initialization functions that revert', async () => {
       // Create initialization data that will cause a revert
       const initData =

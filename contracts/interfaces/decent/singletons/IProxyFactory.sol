@@ -2,6 +2,10 @@
 pragma solidity ^0.8.30;
 
 interface IProxyFactory {
+    // --- Errors ---
+
+    error ImplementationMustBeAContract();
+
     // --- Events ---
 
     event ProxyDeployed(address indexed proxy, address indexed implementation);

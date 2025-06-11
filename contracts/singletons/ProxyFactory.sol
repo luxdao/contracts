@@ -23,14 +23,9 @@ contract ProxyFactory is IProxyFactory {
         bytes32 salt_
     ) public view override returns (address) {
         // Validate the implementation address
-        require(
-            implementation_ != address(0),
-            "Implementation cannot be zero address"
-        );
-        require(
-            implementation_.code.length > 0,
-            "Implementation must be a contract"
-        );
+        if (implementation_.code.length == 0) {
+            revert ImplementationMustBeAContract();
+        }
 
         // Calculate the proxy bytecode (implementation address + init data)
         bytes memory proxyConstructorData = abi.encode(
@@ -63,14 +58,9 @@ contract ProxyFactory is IProxyFactory {
         bytes32 salt_
     ) public override returns (address) {
         // Validate the implementation address
-        require(
-            implementation_ != address(0),
-            "Implementation cannot be zero address"
-        );
-        require(
-            implementation_.code.length > 0,
-            "Implementation must be a contract"
-        );
+        if (implementation_.code.length == 0) {
+            revert ImplementationMustBeAContract();
+        }
 
         // Deploy the proxy using CREATE2
         address proxy = address(
