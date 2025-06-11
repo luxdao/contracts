@@ -25,49 +25,39 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165 {
         string memory agreementUri_,
         address verificationContract_,
         uint256 minWeight_,
-        address[] memory signerAddresses_,
-        bool[] memory signerRequired_,
-        uint256[] memory signerWeights_,
-        Transaction[][] memory signerTransactions_,
+        SignerInitialization[] memory signerInitializations_,
         Transaction[] memory preExecutionTransactions_
     ) {
-        if (
-            signerAddresses_.length != signerRequired_.length ||
-            signerAddresses_.length != signerWeights_.length ||
-            signerAddresses_.length != signerTransactions_.length
-        ) {
-            revert InvalidArrayLengths();
-        }
-
         _agreementUri = agreementUri_;
         _verificationContract = verificationContract_;
         _minWeight = minWeight_;
-        _signerAddresses = signerAddresses_;
 
-        for (uint256 i = 0; i < preExecutionTransactions_.length; ) {
-            _preExecutionTransactions.push(preExecutionTransactions_[i]);
-            unchecked {
-                ++i;
-            }
-        }
+        for (uint256 i = 0; i < signerInitializations_.length; ) {
+            SignerInitialization memory signerInit = signerInitializations_[i];
 
-        for (uint256 i = 0; i < signerAddresses_.length; ) {
-            _signerData[signerAddresses_[i]].isSigner = true;
-            _signerData[signerAddresses_[i]].required = signerRequired_[i];
-            _signerData[signerAddresses_[i]].signed = false;
-            _signerData[signerAddresses_[i]].weight = signerWeights_[i];
+            _signerAddresses.push(signerInit.account);
 
-            Transaction[] storage transactions = _signerData[
-                signerAddresses_[i]
-            ].transactions;
+            _signerData[signerInit.account].isSigner = true;
+            _signerData[signerInit.account].required = signerInit.required;
+            _signerData[signerInit.account].signed = false;
+            _signerData[signerInit.account].weight = signerInit.weight;
 
-            for (uint256 j = 0; j < signerTransactions_[i].length; ) {
-                transactions.push(signerTransactions_[i][j]);
+            Transaction[] storage transactions = _signerData[signerInit.account]
+                .transactions;
+            for (uint256 j = 0; j < signerInit.transactions.length; ) {
+                transactions.push(signerInit.transactions[j]);
                 unchecked {
                     ++j;
                 }
             }
 
+            unchecked {
+                ++i;
+            }
+        }
+
+        for (uint256 i = 0; i < preExecutionTransactions_.length; ) {
+            _preExecutionTransactions.push(preExecutionTransactions_[i]);
             unchecked {
                 ++i;
             }
