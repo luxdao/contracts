@@ -26,7 +26,7 @@ describe('CountersignV1', () => {
   let daoToken: MockERC20Votes;
   let usdc: MockERC20Votes;
 
-  const agreeumentUri = 'ipfs://the-agreement-uri';
+  const agreementUri = 'ipfs://the-agreement-uri';
 
   beforeEach(async () => {
     // Get signers
@@ -55,85 +55,91 @@ describe('CountersignV1', () => {
     await daoToken.mint(mockDAOTreasury.address, ethers.parseEther('100000'));
 
     // create signer addresses array
-    const signerAddresses = [
-      founder.address,
-      investorAlice.address,
-      investorBob.address,
-      investorCarol.address,
-    ];
-    const signerRequired = [true, true, false, false];
-    const signerWeights = [
-      0,
-      ethers.parseEther('100'),
-      ethers.parseEther('50'),
-      ethers.parseEther('20'),
-    ];
-
-    const signerTransactions = [
-      [], // founder: empty array
-      [
-        // investor Alice
-        {
-          target: await usdc.getAddress(),
-          value: 0,
-          data: usdc.interface.encodeFunctionData('transferFrom', [
-            investorAlice.address,
-            mockDAOTreasury.address,
-            ethers.parseEther('100'), // 100 USDC
-          ]),
-        },
-        {
-          target: await daoToken.getAddress(),
-          value: 0,
-          data: daoToken.interface.encodeFunctionData('transferFrom', [
-            mockDAOTreasury.address,
-            investorAlice.address,
-            ethers.parseEther('100000'), // 100,000 daoToken
-          ]),
-        },
-      ],
-      [
-        // investor Bob
-        {
-          target: await usdc.getAddress(),
-          value: 0,
-          data: usdc.interface.encodeFunctionData('transferFrom', [
-            investorBob.address,
-            mockDAOTreasury.address,
-            ethers.parseEther('50'), // 50 USDC
-          ]),
-        },
-        {
-          target: await daoToken.getAddress(),
-          value: 0,
-          data: daoToken.interface.encodeFunctionData('transferFrom', [
-            mockDAOTreasury.address,
-            investorAlice.address,
-            ethers.parseEther('50000'), // 50,000 daoToken
-          ]),
-        },
-      ],
-      [
-        // investor Carol
-        {
-          target: await usdc.getAddress(),
-          value: 0,
-          data: usdc.interface.encodeFunctionData('transferFrom', [
-            investorCarol.address,
-            mockDAOTreasury.address,
-            ethers.parseEther('10'), // 10 USDC
-          ]),
-        },
-        {
-          target: await daoToken.getAddress(),
-          value: 0,
-          data: daoToken.interface.encodeFunctionData('transferFrom', [
-            mockDAOTreasury.address,
-            investorCarol.address,
-            ethers.parseEther('10000'), // 10,000 daoToken
-          ]),
-        },
-      ],
+    const signerInitializations = [
+      {
+        account: founder.address,
+        required: true,
+        weight: 0,
+        transactions: [], // founder: empty array
+      },
+      {
+        account: investorAlice.address,
+        required: true,
+        weight: ethers.parseEther('100'),
+        transactions: [
+          // investor Alice
+          {
+            target: await usdc.getAddress(),
+            value: 0,
+            data: usdc.interface.encodeFunctionData('transferFrom', [
+              investorAlice.address,
+              mockDAOTreasury.address,
+              ethers.parseEther('100'), // 100 USDC
+            ]),
+          },
+          {
+            target: await daoToken.getAddress(),
+            value: 0,
+            data: daoToken.interface.encodeFunctionData('transferFrom', [
+              mockDAOTreasury.address,
+              investorAlice.address,
+              ethers.parseEther('100000'), // 100,000 daoToken
+            ]),
+          },
+        ],
+      },
+      {
+        account: investorBob.address,
+        required: false,
+        weight: ethers.parseEther('50'),
+        transactions: [
+          // investor Bob
+          {
+            target: await usdc.getAddress(),
+            value: 0,
+            data: usdc.interface.encodeFunctionData('transferFrom', [
+              investorBob.address,
+              mockDAOTreasury.address,
+              ethers.parseEther('50'), // 50 USDC
+            ]),
+          },
+          {
+            target: await daoToken.getAddress(),
+            value: 0,
+            data: daoToken.interface.encodeFunctionData('transferFrom', [
+              mockDAOTreasury.address,
+              investorAlice.address,
+              ethers.parseEther('50000'), // 50,000 daoToken
+            ]),
+          },
+        ],
+      },
+      {
+        account: investorCarol.address,
+        required: false,
+        weight: ethers.parseEther('20'),
+        transactions: [
+          // investor Carol
+          {
+            target: await usdc.getAddress(),
+            value: 0,
+            data: usdc.interface.encodeFunctionData('transferFrom', [
+              investorCarol.address,
+              mockDAOTreasury.address,
+              ethers.parseEther('10'), // 10 USDC
+            ]),
+          },
+          {
+            target: await daoToken.getAddress(),
+            value: 0,
+            data: daoToken.interface.encodeFunctionData('transferFrom', [
+              mockDAOTreasury.address,
+              investorCarol.address,
+              ethers.parseEther('10000'), // 10,000 daoToken
+            ]),
+          },
+        ],
+      },
     ];
 
     // preExecution transaction transfer 100,000 DAO tokens from treasury to address zero
@@ -150,13 +156,10 @@ describe('CountersignV1', () => {
     ];
 
     countersign = await new CountersignV1__factory(founder).deploy(
-      agreeumentUri,
+      agreementUri,
       mockVerificationContract.address,
       ethers.parseEther('100'), // minWeight
-      signerAddresses,
-      signerRequired,
-      signerWeights,
-      signerTransactions,
+      signerInitializations,
       preExecutionTransactions,
     );
 
@@ -183,7 +186,7 @@ describe('CountersignV1', () => {
 
   describe('Deployment', () => {
     it('should return correct agreement URI', async () => {
-      expect(await countersign.agreementUri()).to.equal(agreeumentUri);
+      expect(await countersign.agreementUri()).to.equal(agreementUri);
     });
 
     it('should return correct verification contract', async () => {
@@ -205,7 +208,8 @@ describe('CountersignV1', () => {
 
     it('should return correct signer data', async () => {
       // Founder data: isSigner=true, required=true, signed=false, weight=0, transactions=[]
-      const [founderIsSigner, founderRequired, founderSigned, founderWeight, founderTransactions] = await countersign.signerData(founder.address);
+      const [founderIsSigner, founderRequired, founderSigned, founderWeight, founderTransactions] =
+        await countersign.signerData(founder.address);
       void expect(founderIsSigner).to.be.true;
       void expect(founderRequired).to.be.true;
       void expect(founderSigned).to.be.false;
@@ -213,7 +217,8 @@ describe('CountersignV1', () => {
       void expect(founderTransactions).to.deep.equal([]);
 
       // Alice data: isSigner=true, required=true, signed=false, weight=100, transactions=[2 transactions]
-      const [aliceIsSigner, aliceRequired, aliceSigned, aliceWeight, aliceTransactions] = await countersign.signerData(investorAlice.address);
+      const [aliceIsSigner, aliceRequired, aliceSigned, aliceWeight, aliceTransactions] =
+        await countersign.signerData(investorAlice.address);
       void expect(aliceIsSigner).to.be.true;
       void expect(aliceRequired).to.be.true;
       void expect(aliceSigned).to.be.false;
@@ -243,7 +248,8 @@ describe('CountersignV1', () => {
       );
 
       // Bob data: isSigner=true, required=false, signed=false, weight=50, transactions=[2 transactions]
-      const [bobIsSigner, bobRequired, bobSigned, bobWeight, bobTransactions] = await countersign.signerData(investorBob.address);
+      const [bobIsSigner, bobRequired, bobSigned, bobWeight, bobTransactions] =
+        await countersign.signerData(investorBob.address);
       void expect(bobIsSigner).to.be.true;
       void expect(bobRequired).to.be.false;
       void expect(bobSigned).to.be.false;
@@ -273,7 +279,8 @@ describe('CountersignV1', () => {
       );
 
       // Carol data: isSigner=true, required=false, signed=false, weight=20, transactions=[2 transactions]
-      const [carolIsSigner, carolRequired, carolSigned, carolWeight, carolTransactions] = await countersign.signerData(investorCarol.address);
+      const [carolIsSigner, carolRequired, carolSigned, carolWeight, carolTransactions] =
+        await countersign.signerData(investorCarol.address);
       void expect(carolIsSigner).to.be.true;
       void expect(carolRequired).to.be.false;
       void expect(carolSigned).to.be.false;

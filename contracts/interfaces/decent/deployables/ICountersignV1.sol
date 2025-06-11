@@ -14,6 +14,13 @@ interface ICountersignV1 {
         bytes data;
     }
 
+    struct SignerInitialization {
+        address account;
+        bool required;
+        uint256 weight;
+        Transaction[] transactions;
+    }
+
     struct Signer {
         bool isSigner;
         bool required;
