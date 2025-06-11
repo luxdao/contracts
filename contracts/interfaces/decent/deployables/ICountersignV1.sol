@@ -5,6 +5,9 @@ interface ICountersignV1 {
     // --- Errors ---
 
     error InvalidArrayLengths();
+    error InvalidSigner();
+    error SigningDeadlineElapsed();
+    error SignerAlreadySigned();
 
     // --- Structs ---
 
@@ -30,6 +33,8 @@ interface ICountersignV1 {
     }
 
     // --- Events ---
+
+    event Signed(address indexed signer);
 
     // --- Initializer Functions ---
 
@@ -83,4 +88,8 @@ interface ICountersignV1 {
         external
         view
         returns (Transaction[] memory preExecutionTransactions);
+
+    // --- State-Changing Functions ---
+
+    function sign() external;
 }
