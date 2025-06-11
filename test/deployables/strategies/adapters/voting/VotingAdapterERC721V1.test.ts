@@ -690,7 +690,9 @@ describe('VotingAdapterERC721V1', () => {
 
       await expect(
         strategy.connect(user1).vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }]),
-      ).to.be.revertedWithCustomError(adapter, 'DuplicateTokenIds');
+      )
+        .to.be.revertedWithCustomError(adapter, 'TokenIdAlreadyUsedForVote')
+        .withArgs(tokenIdsToVoteWith[0]);
     });
   });
 
@@ -1392,7 +1394,9 @@ describe('VotingAdapterERC721V1', () => {
         adapter
           .connect(authorizedCaller)
           .recordFreezeVote(voter1.address, PROPOSAL_SNAPSHOT_AND_ID_1, adapterVoteData),
-      ).to.be.revertedWithCustomError(adapter, 'DuplicateTokenIds');
+      )
+        .to.be.revertedWithCustomError(adapter, 'TokenIdAlreadyUsedForVote')
+        .withArgs(tokenIdsToUse[0]);
     });
 
     it('should revert with TokenIdNotOwnedByVoter if voter does not own an existing token ID', async () => {
