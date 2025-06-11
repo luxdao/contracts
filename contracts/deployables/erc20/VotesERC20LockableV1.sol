@@ -100,7 +100,7 @@ contract VotesERC20LockableV1 is
     function lock(
         bool locked_
     ) public virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (locked_) {
+        if (!locked_) {
             _unlockTime = uint48(block.timestamp);
         }
         _locked = locked_;
