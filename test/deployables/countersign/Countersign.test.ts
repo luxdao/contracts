@@ -9,8 +9,48 @@ import {
   MockERC20Votes,
   MockERC20Votes__factory,
   ICountersignV1__factory,
+  ERC1967Proxy__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
+
+// Helper function for deploying Countersign instances using ERC1967Proxy
+async function deployCountersignProxy(
+  proxyDeployer: SignerWithAddress,
+  implementation: string,
+  agreementUri: string,
+  verificationContract: string,
+  minWeight: bigint,
+  signerInitializations: any[],
+  preExecutionTransactions: any[],
+): Promise<CountersignV1> {
+  // Create initialization data with function selector
+  const fullInitData =
+    CountersignV1__factory.createInterface().getFunction('initialize').selector +
+    ethers.AbiCoder.defaultAbiCoder()
+      .encode(
+        [
+          'string',
+          'address',
+          'uint256',
+          'tuple(address account, bool required, uint256 weight, tuple(address target, uint256 value, bytes data)[] transactions)[]',
+          'tuple(address target, uint256 value, bytes data)[]',
+        ],
+        [
+          agreementUri,
+          verificationContract,
+          minWeight,
+          signerInitializations,
+          preExecutionTransactions,
+        ],
+      )
+      .slice(2);
+
+  // Deploy the proxy with the implementation
+  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
+
+  // Return a contract instance connected to the proxy
+  return CountersignV1__factory.connect(await proxy.getAddress(), proxyDeployer);
+}
 
 describe('CountersignV1', () => {
   // signers
@@ -155,7 +195,10 @@ describe('CountersignV1', () => {
       },
     ];
 
-    countersign = await new CountersignV1__factory(founder).deploy(
+    const countersignImplementation = await new CountersignV1__factory(founder).deploy();
+    countersign = await deployCountersignProxy(
+      founder,
+      await countersignImplementation.getAddress(),
       agreementUri,
       mockVerificationContract.address,
       ethers.parseEther('100'), // minWeight
@@ -184,7 +227,19 @@ describe('CountersignV1', () => {
       .approve(await countersign.getAddress(), ethers.parseEther('100000'));
   });
 
-  describe('Deployment', () => {
+  describe('Initialization', () => {
+    it('should not allow reinitialization', async () => {
+      await expect(
+        countersign.initialize(
+          agreementUri,
+          mockVerificationContract.address,
+          ethers.parseEther('100'),
+          [],
+          [],
+        ),
+      ).to.be.revertedWithCustomError(countersign, 'InvalidInitialization');
+    });
+
     it('should return correct agreement URI', async () => {
       expect(await countersign.agreementUri()).to.equal(agreementUri);
     });
