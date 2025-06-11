@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 interface IVotingAdapterERC721V1 {
     // --- Errors ---
 
-    error NoTokenIdsPassed();
     error TokenIdAlreadyUsedForVote(uint256 tokenId);
     error TokenIdNotOwnedByVoter(uint256 tokenId);
 
