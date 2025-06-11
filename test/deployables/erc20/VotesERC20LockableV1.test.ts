@@ -38,22 +38,10 @@ async function deployVotesERC20Lockable(
     symbol,
   };
 
-  const fullInitData =
-    VotesERC20LockableV1__factory.createInterface().getFunction(
-      'initialize((string,string),(address,uint256)[],address,bool,uint256)',
-    ).selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(
-        [
-          'tuple(string name, string symbol)',
-          'tuple(address to, uint256 amount)[]',
-          'address',
-          'bool',
-          'uint256',
-        ],
-        [metadata, allocations, owner.address, locked, maxTotalSupply],
-      )
-      .slice(2);
+  const fullInitData = VotesERC20LockableV1__factory.createInterface().encodeFunctionData(
+    'initialize((string,string),(address,uint256)[],address,bool,uint256)',
+    [metadata, allocations, owner.address, locked, maxTotalSupply],
+  );
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(deployer).deploy(implementation, fullInitData);
