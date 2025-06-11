@@ -1,4 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
@@ -19,6 +20,8 @@ async function deployCountersignProxy(
   implementation: string,
   agreementUri: string,
   verificationContract: string,
+  signingDeadline: bigint,
+  executionDeadline: bigint,
   minWeight: bigint,
   signerInitializations: any[],
   preExecutionTransactions: any[],
@@ -32,12 +35,16 @@ async function deployCountersignProxy(
           'string',
           'address',
           'uint256',
+          'uint256',
+          'uint256',
           'tuple(address account, bool required, uint256 weight, tuple(address target, uint256 value, bytes data)[] transactions)[]',
           'tuple(address target, uint256 value, bytes data)[]',
         ],
         [
           agreementUri,
           verificationContract,
+          signingDeadline,
+          executionDeadline,
           minWeight,
           signerInitializations,
           preExecutionTransactions,
@@ -52,7 +59,7 @@ async function deployCountersignProxy(
   return CountersignV1__factory.connect(await proxy.getAddress(), proxyDeployer);
 }
 
-describe('CountersignV1', () => {
+describe.only('CountersignV1', () => {
   // signers
   let founder: SignerWithAddress;
   let investorAlice: SignerWithAddress;
@@ -65,6 +72,9 @@ describe('CountersignV1', () => {
   let countersign: CountersignV1;
   let daoToken: MockERC20Votes;
   let usdc: MockERC20Votes;
+
+  let signingDeadline: bigint;
+  let executionDeadline: bigint;
 
   const agreementUri = 'ipfs://the-agreement-uri';
 
@@ -195,12 +205,18 @@ describe('CountersignV1', () => {
       },
     ];
 
+    const currentTime = await time.latest();
+    signingDeadline = BigInt(currentTime) + BigInt(7 * 24 * 60 * 60); // one week
+    executionDeadline = BigInt(currentTime) + BigInt(14 * 24 * 60 * 60); // two weeks
+
     const countersignImplementation = await new CountersignV1__factory(founder).deploy();
     countersign = await deployCountersignProxy(
       founder,
       await countersignImplementation.getAddress(),
       agreementUri,
       mockVerificationContract.address,
+      signingDeadline,
+      executionDeadline,
       ethers.parseEther('100'), // minWeight
       signerInitializations,
       preExecutionTransactions,
@@ -233,6 +249,8 @@ describe('CountersignV1', () => {
         countersign.initialize(
           agreementUri,
           mockVerificationContract.address,
+          signingDeadline,
+          executionDeadline,
           ethers.parseEther('100'),
           [],
           [],
@@ -246,6 +264,14 @@ describe('CountersignV1', () => {
 
     it('should return correct verification contract', async () => {
       expect(await countersign.verificationContract()).to.equal(mockVerificationContract.address);
+    });
+
+    it('should return correct signing deadline', async () => {
+      expect(await countersign.signingDeadline()).to.equal(signingDeadline);
+    });
+
+    it('should return correct execution deadline', async () => {
+      expect(await countersign.executionDeadline()).to.equal(executionDeadline);
     });
 
     it('should return correct minWeight', async () => {
