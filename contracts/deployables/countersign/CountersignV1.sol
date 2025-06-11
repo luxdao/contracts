@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
-pragma abicoder v2;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
@@ -44,16 +43,30 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165 {
         _verificationContract = verificationContract_;
         _minWeight = minWeight_;
         _signerAddresses = signerAddresses_;
-        _preExecutionTransactions = preExecutionTransactions_;
+
+        for (uint256 i = 0; i < preExecutionTransactions_.length; ) {
+            _preExecutionTransactions.push(preExecutionTransactions_[i]);
+            unchecked {
+                ++i;
+            }
+        }
 
         for (uint256 i = 0; i < signerAddresses_.length; ) {
-            _signerData[signerAddresses_[i]] = Signer({
-                isSigner: true,
-                required: signerRequired_[i],
-                signed: false,
-                weight: signerWeights_[i],
-                transactions: signerTransactions_[i]
-            });
+            _signerData[signerAddresses_[i]].isSigner = true;
+            _signerData[signerAddresses_[i]].required = signerRequired_[i];
+            _signerData[signerAddresses_[i]].signed = false;
+            _signerData[signerAddresses_[i]].weight = signerWeights_[i];
+
+            Transaction[] storage transactions = _signerData[
+                signerAddresses_[i]
+            ].transactions;
+
+            for (uint256 j = 0; j < signerTransactions_[i].length; ) {
+                transactions.push(signerTransactions_[i][j]);
+                unchecked {
+                    ++j;
+                }
+            }
 
             unchecked {
                 ++i;
@@ -104,24 +117,33 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165 {
     function signerData(
         address signer
     )
-        public
+        external
         view
-        virtual
         override
-        returns (
-            bool isSigner,
-            bool required,
-            bool signed,
-            uint256 weight,
-            Transaction[] memory transactions
-        )
+        returns (bool, bool, bool, uint256, Transaction[] memory)
     {
+        Signer storage signerData_ = _signerData[signer];
+
+        Transaction[] storage signerTransactions = signerData_.transactions;
+        uint256 transactionCount = signerTransactions.length;
+
+        Transaction[] memory returnedSignerTransactions = new Transaction[](
+            transactionCount
+        );
+
+        for (uint256 i = 0; i < transactionCount; ) {
+            returnedSignerTransactions[i] = signerTransactions[i];
+            unchecked {
+                ++i;
+            }
+        }
+
         return (
-            _signerData[signer].isSigner,
-            _signerData[signer].required,
-            _signerData[signer].signed,
-            _signerData[signer].weight,
-            _signerData[signer].transactions
+            true,
+            signerData_.required,
+            signerData_.signed,
+            signerData_.weight,
+            returnedSignerTransactions
         );
     }
 
