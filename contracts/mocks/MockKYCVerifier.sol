@@ -6,7 +6,6 @@ import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract MockKYCVerifier is IKYCVerifierV1, IVersion, ERC165 {
-
     bool internal _verify;
 
     constructor() {

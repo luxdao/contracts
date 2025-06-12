@@ -2,11 +2,6 @@
 pragma solidity ^0.8.30;
 
 interface IKYCVerifierV1 {
-    // --- Errors ---
-
-    // --- Structs ---
-
-    // --- Events ---
 
     // --- Initializer Functions ---
 
@@ -14,11 +9,10 @@ interface IKYCVerifierV1 {
 
     // --- View Functions ---
 
-    function verify(address account) external view returns (bool);
+    function verify(address account_) external view returns (bool);
 
     function zkMeVerify() external view returns (address);
 
     function cooperator() external view returns (address);
 
-    // --- State-Changing Functions ---
 }

@@ -21,11 +21,10 @@ async function deployKYCVerifierProxy(
   cooperator: string,
 ): Promise<KYCVerifierV1> {
   // Create initialization data with function selector
-  const fullInitData =
-    KYCVerifierV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(['address', 'address'], [zkMeVerify, cooperator])
-      .slice(2);
+  const fullInitData = KYCVerifierV1__factory.createInterface().encodeFunctionData('initialize', [
+    zkMeVerify,
+    cooperator,
+  ]);
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);

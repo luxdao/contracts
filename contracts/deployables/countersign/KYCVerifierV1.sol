@@ -51,8 +51,6 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, Initializable {
         return _cooperator;
     }
 
-    // --- State-Changing Functions ---
-
     // ======================================================================
     // IVersion
     // ======================================================================
