@@ -36,7 +36,7 @@ interface ICountersignV1 {
 
     // --- Events ---
 
-    event Signed(address indexed signer);
+    event Signed(address indexed signer, bytes signature);
 
     // --- Initializer Functions ---
 
