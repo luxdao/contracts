@@ -5,6 +5,7 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1.sol";
 
 contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
@@ -174,7 +175,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
     // --- State-Changing Functions ---
 
-    function sign() public virtual override {
+    function sign(bytes memory signature) public virtual override {
         if (block.timestamp > _signingDeadline) {
             revert SigningDeadlineElapsed();
         }
@@ -185,6 +186,10 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
         if (_signerData[msg.sender].signed) {
             revert SignerAlreadySigned();
+        }
+
+        if (!IKYCVerifierV1(_kycVerifier).verify(IKYCVerifierV1.SignData({countersign: address(this), account: msg.sender}), signature)) {
+            revert InvalidKYCSignature();
         }
 
         _signerData[msg.sender].signed = true;
