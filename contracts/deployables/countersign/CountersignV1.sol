@@ -51,8 +51,6 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
             _signerData[signerInit.account].isSigner = true;
             _signerData[signerInit.account].required = signerInit.required;
-            _signerData[signerInit.account].signed = false;
-            _signerData[signerInit.account].signedTimestamp = 0;
             _signerData[signerInit.account].weight = signerInit.weight;
 
             Transaction[] storage transactions = _signerData[signerInit.account]
