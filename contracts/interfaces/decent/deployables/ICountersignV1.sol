@@ -29,7 +29,7 @@ interface ICountersignV1 {
         bool isSigner;
         bool required;
         bool signed;
-        uint256 signedTimestamp;
+        uint48 signedTimestamp;
         uint256 weight;
         Transaction[] transactions;
     }
@@ -43,8 +43,8 @@ interface ICountersignV1 {
     function initialize(
         string memory agreementUri_,
         address verificationContract_,
-        uint256 signingDeadline_,
-        uint256 executionDeadline_,
+        uint48 signingDeadline_,
+        uint48 executionDeadline_,
         uint256 minWeight_,
         SignerInitialization[] memory signerInitializations_,
         Transaction[] memory preExecutionTransactions_
@@ -79,7 +79,7 @@ interface ICountersignV1 {
             bool isSigner_,
             bool required_,
             bool signed_,
-            uint256 signedTimestamp_,
+            uint48 signedTimestamp_,
             uint256 weight_,
             Transaction[] memory transactions
         );

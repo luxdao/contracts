@@ -14,8 +14,8 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
     string internal _agreementUri;
     address internal _kycVerifier;
-    uint256 internal _signingDeadline;
-    uint256 internal _executionDeadline;
+    uint48 internal _signingDeadline;
+    uint48 internal _executionDeadline;
     uint256 internal _minWeight;
     address[] internal _signerAddresses;
     mapping(address signer => Signer signerData) internal _signerData;
@@ -32,8 +32,8 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     function initialize(
         string memory agreementUri_,
         address kycVerifier_,
-        uint256 signingDeadline_,
-        uint256 executionDeadline_,
+        uint48 signingDeadline_,
+        uint48 executionDeadline_,
         uint256 minWeight_,
         SignerInitialization[] memory signerInitializations_,
         Transaction[] memory preExecutionTransactions_
@@ -129,7 +129,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         external
         view
         override
-        returns (bool, bool, bool, uint256, uint256, Transaction[] memory)
+        returns (bool, bool, bool, uint48, uint256, Transaction[] memory)
     {
         Signer storage signerData_ = _signerData[signer];
 
@@ -189,7 +189,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         }
 
         signerData_.signed = true;
-        signerData_.signedTimestamp = block.timestamp;
+        signerData_.signedTimestamp = uint48(block.timestamp);
 
         emit Signed(msg.sender);
     }
