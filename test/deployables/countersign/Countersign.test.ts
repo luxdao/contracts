@@ -11,6 +11,8 @@ import {
   MockERC20Votes__factory,
   ICountersignV1__factory,
   ERC1967Proxy__factory,
+  MockKYCVerifier,
+  MockKYCVerifier__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
@@ -66,13 +68,13 @@ describe.only('CountersignV1', () => {
   let investorBob: SignerWithAddress;
   let investorCarol: SignerWithAddress;
   let anon: SignerWithAddress;
-  let mockKYCVerifier: SignerWithAddress;
   let mockDAOTreasury: SignerWithAddress;
 
   // contracts
   let countersign: CountersignV1;
   let daoToken: MockERC20Votes;
   let usdc: MockERC20Votes;
+  let mockKYCVerifier: MockKYCVerifier;
 
   let signingDeadline: bigint;
   let executionDeadline: bigint;
@@ -87,12 +89,13 @@ describe.only('CountersignV1', () => {
       investorBob,
       investorCarol,
       anon,
-      mockKYCVerifier,
       mockDAOTreasury,
     ] = await ethers.getSigners();
 
     daoToken = await new MockERC20Votes__factory(founder).deploy();
     usdc = await new MockERC20Votes__factory(founder).deploy();
+
+    mockKYCVerifier = await new MockKYCVerifier__factory(founder).deploy();
 
     // mint Alice 100 USDC
     await usdc.mint(investorAlice.address, ethers.parseEther('100'));
@@ -216,7 +219,7 @@ describe.only('CountersignV1', () => {
       founder,
       await countersignImplementation.getAddress(),
       agreementUri,
-      mockKYCVerifier.address,
+      await mockKYCVerifier.getAddress(),
       signingDeadline,
       executionDeadline,
       ethers.parseEther('100'), // minWeight
@@ -250,7 +253,7 @@ describe.only('CountersignV1', () => {
       await expect(
         countersign.initialize(
           agreementUri,
-          mockKYCVerifier.address,
+          await mockKYCVerifier.getAddress(),
           signingDeadline,
           executionDeadline,
           ethers.parseEther('100'),
@@ -265,7 +268,7 @@ describe.only('CountersignV1', () => {
     });
 
     it('should return correct kyc verifier', async () => {
-      expect(await countersign.kycVerifier()).to.equal(mockKYCVerifier.address);
+      expect(await countersign.kycVerifier()).to.equal(await mockKYCVerifier.getAddress());
     });
 
     it('should return correct signing deadline', async () => {
@@ -455,37 +458,49 @@ describe.only('CountersignV1', () => {
 
   describe('Signing', () => {
     it('should allow signers to sign', async () => {
+      // set mock KYC verifier to verify all signatures
+      await mockKYCVerifier.setVerify(true);
+
       const [, , aliceBeforeSigned, ,] = await countersign.signerData(investorAlice.address);
       void expect(aliceBeforeSigned).to.be.false;
-      await countersign.connect(investorAlice).sign();
+      await countersign.connect(investorAlice).sign("0x");
       const [, , aliceAfterSigned, ,] = await countersign.signerData(investorAlice.address);
       void expect(aliceAfterSigned).to.be.true;
 
       const [, , bobBeforeSigned, ,] = await countersign.signerData(investorBob.address);
       void expect(bobBeforeSigned).to.be.false;
-      await countersign.connect(investorBob).sign();
+      await countersign.connect(investorBob).sign("0x");
       const [, , bobAfterSigned, ,] = await countersign.signerData(investorBob.address);
       void expect(bobAfterSigned).to.be.true;
 
       const [, , carolBeforeSigned, ,] = await countersign.signerData(investorCarol.address);
       void expect(carolBeforeSigned).to.be.false;
-      await countersign.connect(investorCarol).sign();
+      await countersign.connect(investorCarol).sign("0x");
       const [, , carolAfterSigned, ,] = await countersign.signerData(investorCarol.address);
       void expect(carolAfterSigned).to.be.true;
     });
 
     it('should not allow signers to sign after the signing deadline', async () => {
+      await mockKYCVerifier.setVerify(true);
+
       await time.increaseTo(signingDeadline + 1n);
-      await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(countersign, 'SigningDeadlineElapsed');
+      await expect(countersign.connect(investorAlice).sign("0x")).to.be.revertedWithCustomError(countersign, 'SigningDeadlineElapsed');
     });
 
     it('should not allow signers to sign if they are not a signer', async () => {
-      await expect(countersign.connect(anon).sign()).to.be.revertedWithCustomError(countersign, 'InvalidSigner');
+      await mockKYCVerifier.setVerify(true);
+      await expect(countersign.connect(anon).sign("0x")).to.be.revertedWithCustomError(countersign, 'InvalidSigner');
     });
 
     it('should not allow signers to sign if they have already signed', async () => {
-      await countersign.connect(investorAlice).sign();
-      await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(countersign, 'SignerAlreadySigned');
+      await mockKYCVerifier.setVerify(true);
+      await countersign.connect(investorAlice).sign("0x");
+      await expect(countersign.connect(investorAlice).sign("0x")).to.be.revertedWithCustomError(countersign, 'SignerAlreadySigned');
+    });
+
+    it('should not allow signers to sign if the signature is invalid', async () => {
+      await mockKYCVerifier.setVerify(false);
+      await expect(countersign.connect(investorAlice).sign("0x")).to.be.revertedWithCustomError(countersign, 'InvalidKYCSignature');
     });
   });
 });
