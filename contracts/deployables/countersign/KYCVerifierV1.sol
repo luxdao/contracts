@@ -14,9 +14,9 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, EIP712Upgradeable {
 
     address internal _verifier;
 
-    // keccak256("SignData(address countersign, address account)")
+    // keccak256("SignData(address countersign,address account)")
     bytes32 internal constant TYPEHASH =
-        keccak256("SignData(address countersign, address account)");
+        keccak256("SignData(address countersign,address account)");
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -42,12 +42,13 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, EIP712Upgradeable {
     // --- View Functions ---
 
     function verify(
-        address countersign_,
-        address account_,
+        SignData memory signData_,
         bytes memory signature
     ) public view virtual override returns (bool) {
         bytes32 digest = _hashTypedDataV4(
-            keccak256(abi.encode(TYPEHASH, countersign_, account_))
+            keccak256(
+                abi.encode(TYPEHASH, signData_.countersign, signData_.account)
+            )
         );
         return ECDSA.recover(digest, signature) == _verifier;
     }
