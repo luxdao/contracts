@@ -29,6 +29,7 @@ interface ICountersignV1 {
         bool isSigner;
         bool required;
         bool signed;
+        uint256 signedTimestamp;
         uint256 weight;
         Transaction[] transactions;
     }
@@ -53,10 +54,7 @@ interface ICountersignV1 {
 
     function agreementUri() external view returns (string memory agreementUri);
 
-    function kycVerifier()
-        external
-        view
-        returns (address kycVerifier);
+    function kycVerifier() external view returns (address kycVerifier);
 
     function signingDeadline() external view returns (uint256 signingDeadline);
 
@@ -81,6 +79,7 @@ interface ICountersignV1 {
             bool isSigner,
             bool required,
             bool signed,
+            uint256 signedTimestamp,
             uint256 weight,
             Transaction[] memory transactions
         );

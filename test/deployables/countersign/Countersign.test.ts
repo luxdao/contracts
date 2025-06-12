@@ -294,20 +294,22 @@ describe.only('CountersignV1', () => {
 
     it('should return correct signer data', async () => {
       // Founder data: isSigner=true, required=true, signed=false, weight=0, transactions=[]
-      const [founderIsSigner, founderRequired, founderSigned, founderWeight, founderTransactions] =
+      const [founderIsSigner, founderRequired, founderSigned, founderSignedTimestamp, founderWeight, founderTransactions] =
         await countersign.signerData(founder.address);
       void expect(founderIsSigner).to.be.true;
       void expect(founderRequired).to.be.true;
       void expect(founderSigned).to.be.false;
+      void expect(founderSignedTimestamp).to.equal(0n);
       void expect(founderWeight).to.equal(0n);
       void expect(founderTransactions).to.deep.equal([]);
 
       // Alice data: isSigner=true, required=true, signed=false, weight=100, transactions=[2 transactions]
-      const [aliceIsSigner, aliceRequired, aliceSigned, aliceWeight, aliceTransactions] =
+      const [aliceIsSigner, aliceRequired, aliceSigned, aliceBeforeSignedTimestamp, aliceWeight, aliceTransactions] =
         await countersign.signerData(investorAlice.address);
       void expect(aliceIsSigner).to.be.true;
       void expect(aliceRequired).to.be.true;
       void expect(aliceSigned).to.be.false;
+      void expect(aliceBeforeSignedTimestamp).to.equal(0n);
       void expect(aliceWeight).to.equal(ethers.parseEther('100'));
       void expect(aliceTransactions).to.have.lengthOf(2);
 
@@ -334,11 +336,12 @@ describe.only('CountersignV1', () => {
       );
 
       // Bob data: isSigner=true, required=false, signed=false, weight=50, transactions=[2 transactions]
-      const [bobIsSigner, bobRequired, bobSigned, bobWeight, bobTransactions] =
+      const [bobIsSigner, bobRequired, bobSigned, bobBeforeSignedTimestamp, bobWeight, bobTransactions] =
         await countersign.signerData(investorBob.address);
       void expect(bobIsSigner).to.be.true;
       void expect(bobRequired).to.be.false;
       void expect(bobSigned).to.be.false;
+      void expect(bobBeforeSignedTimestamp).to.equal(0n);
       void expect(bobWeight).to.equal(ethers.parseEther('50'));
       void expect(bobTransactions).to.have.lengthOf(2);
 
@@ -365,11 +368,12 @@ describe.only('CountersignV1', () => {
       );
 
       // Carol data: isSigner=true, required=false, signed=false, weight=20, transactions=[2 transactions]
-      const [carolIsSigner, carolRequired, carolSigned, carolWeight, carolTransactions] =
+      const [carolIsSigner, carolRequired, carolSigned, carolBeforeSignedTimestamp, carolWeight, carolTransactions] =
         await countersign.signerData(investorCarol.address);
       void expect(carolIsSigner).to.be.true;
       void expect(carolRequired).to.be.false;
       void expect(carolSigned).to.be.false;
+      void expect(carolBeforeSignedTimestamp).to.equal(0n);
       void expect(carolWeight).to.equal(ethers.parseEther('20'));
       void expect(carolTransactions).to.have.lengthOf(2);
 
@@ -461,17 +465,21 @@ describe.only('CountersignV1', () => {
       // set mock KYC verifier to verify all signatures
       await mockKYCVerifier.setVerify(true);
 
-      const [, , aliceBeforeSigned, ,] = await countersign.signerData(investorAlice.address);
+      const [, , aliceBeforeSigned, aliceBeforeSignedTimestamp, ,] = await countersign.signerData(investorAlice.address);
       void expect(aliceBeforeSigned).to.be.false;
+      void expect(aliceBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorAlice).sign("0x");
-      const [, , aliceAfterSigned, ,] = await countersign.signerData(investorAlice.address);
+      const [, , aliceAfterSigned, aliceAfterSignedTimestamp, ,] = await countersign.signerData(investorAlice.address);
       void expect(aliceAfterSigned).to.be.true;
+      void expect(aliceAfterSignedTimestamp).to.equal(await time.latest());
 
-      const [, , bobBeforeSigned, ,] = await countersign.signerData(investorBob.address);
+      const [, , bobBeforeSigned, bobBeforeSignedTimestamp, ,] = await countersign.signerData(investorBob.address);
       void expect(bobBeforeSigned).to.be.false;
+      void expect(bobBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorBob).sign("0x");
-      const [, , bobAfterSigned, ,] = await countersign.signerData(investorBob.address);
+      const [, , bobAfterSigned, bobAfterSignedTimestamp, ,] = await countersign.signerData(investorBob.address);
       void expect(bobAfterSigned).to.be.true;
+      void expect(bobAfterSignedTimestamp).to.equal(await time.latest());
 
       const [, , carolBeforeSigned, ,] = await countersign.signerData(investorCarol.address);
       void expect(carolBeforeSigned).to.be.false;
