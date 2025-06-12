@@ -121,7 +121,7 @@ describe('KYCVerifierV1', () => {
     });
   });
 
-  describe('Signatures', () => {
+  describe('Verifications', () => {
     it('should verify if zkMeVerify has approved', async () => {
       await mockZKMEVerify.setApproved(true);
       void expect(await kycVerifier.verify(investorAlice.address)).to.be.true;
