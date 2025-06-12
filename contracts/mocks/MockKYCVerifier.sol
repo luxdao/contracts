@@ -16,11 +16,7 @@ contract MockKYCVerifier is IKYCVerifierV1, IVersion, ERC165 {
         initialize(address(this), "", "");
     }
 
-    function initialize(
-        address,
-        string memory,
-        string memory
-    ) public { }
+    function initialize(address, string memory, string memory) public {}
 
     function setVerify(bool verify_) public {
         _verify = verify_;
