@@ -36,7 +36,7 @@ interface ICountersignV1 {
 
     // --- Events ---
 
-    event Signed(address indexed signer, bytes signature);
+    event Signed(address indexed signer);
 
     // --- Initializer Functions ---
 
@@ -91,5 +91,5 @@ interface ICountersignV1 {
 
     // --- State-Changing Functions ---
 
-    function sign(bytes memory signature_) external;
+    function sign() external;
 }

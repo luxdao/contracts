@@ -169,7 +169,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
     // --- State-Changing Functions ---
 
-    function sign(bytes memory signature) public virtual override {
+    function sign() public virtual override {
         if (block.timestamp > _signingDeadline) {
             revert SigningDeadlineElapsed();
         }
@@ -184,22 +184,14 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             revert SignerAlreadySigned();
         }
 
-        if (
-            !IKYCVerifierV1(_kycVerifier).verify(
-                IKYCVerifierV1.SignData({
-                    countersign: address(this),
-                    account: msg.sender
-                }),
-                signature
-            )
-        ) {
+        if (!IKYCVerifierV1(_kycVerifier).verify(msg.sender)) {
             revert InvalidKYCSignature();
         }
 
         signerData_.signed = true;
         signerData_.signedTimestamp = block.timestamp;
 
-        emit Signed(msg.sender, signature);
+        emit Signed(msg.sender);
     }
 
     // ======================================================================
