@@ -6,12 +6,17 @@ interface IKYCVerifierV1 {
 
     // --- Structs ---
 
+    struct SignData {
+        address countersign;
+        address account;
+    }
+
     // --- Events ---
 
     // --- Initializer Functions ---
 
     function initialize(
-        address decentSigner_,
+        address verifier_,
         string memory name_,
         string memory version_
     ) external;
@@ -19,8 +24,7 @@ interface IKYCVerifierV1 {
     // --- View Functions ---
 
     function verify(
-        address countersign_,
-        address account_,
+        SignData memory signData_,
         bytes memory signature
     ) external view returns (bool);
 
