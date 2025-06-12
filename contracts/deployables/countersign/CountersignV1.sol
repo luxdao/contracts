@@ -52,6 +52,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             _signerData[signerInit.account].isSigner = true;
             _signerData[signerInit.account].required = signerInit.required;
             _signerData[signerInit.account].signed = false;
+            _signerData[signerInit.account].signedTimestamp = 0;
             _signerData[signerInit.account].weight = signerInit.weight;
 
             Transaction[] storage transactions = _signerData[signerInit.account]
@@ -92,13 +93,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _agreementUri;
     }
 
-    function kycVerifier()
-        public
-        view
-        virtual
-        override
-        returns (address)
-    {
+    function kycVerifier() public view virtual override returns (address) {
         return _kycVerifier;
     }
 
@@ -136,7 +131,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         external
         view
         override
-        returns (bool, bool, bool, uint256, Transaction[] memory)
+        returns (bool, bool, bool, uint256, uint256, Transaction[] memory)
     {
         Signer storage signerData_ = _signerData[signer];
 
@@ -158,6 +153,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             true,
             signerData_.required,
             signerData_.signed,
+            signerData_.signedTimestamp,
             signerData_.weight,
             returnedSignerTransactions
         );
@@ -188,11 +184,20 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             revert SignerAlreadySigned();
         }
 
-        if (!IKYCVerifierV1(_kycVerifier).verify(IKYCVerifierV1.SignData({countersign: address(this), account: msg.sender}), signature)) {
+        if (
+            !IKYCVerifierV1(_kycVerifier).verify(
+                IKYCVerifierV1.SignData({
+                    countersign: address(this),
+                    account: msg.sender
+                }),
+                signature
+            )
+        ) {
             revert InvalidKYCSignature();
         }
 
         _signerData[msg.sender].signed = true;
+        _signerData[msg.sender].signedTimestamp = block.timestamp;
 
         emit Signed(msg.sender);
     }
