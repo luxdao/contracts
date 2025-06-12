@@ -38,9 +38,9 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, Initializable {
     // --- View Functions ---
 
     function verify(
-        address account
+        address account_
     ) public view virtual override returns (bool) {
-        return IZKMEVerify(_zkMeVerify).hasApproved(_cooperator, account);
+        return IZKMEVerify(_zkMeVerify).hasApproved(_cooperator, account_);
     }
 
     function zkMeVerify() public view virtual override returns (address) {
