@@ -31,6 +31,8 @@ interface IVotesERC20LockableV1 is IVotesERC20V1 {
 
     function maxTotalSupply() external view returns (uint256 maxTotalSupply);
 
+    function getUnlockTime() external view returns (uint48 unlockTime);
+
     // --- State-Changing Functions ---
 
     function lock(bool locked_) external;

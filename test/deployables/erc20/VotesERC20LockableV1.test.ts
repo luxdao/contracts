@@ -1,4 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import type { ContractTransactionResponse } from 'ethers';
 import { ethers } from 'hardhat';
@@ -37,22 +38,10 @@ async function deployVotesERC20Lockable(
     symbol,
   };
 
-  const fullInitData =
-    VotesERC20LockableV1__factory.createInterface().getFunction(
-      'initialize((string,string),(address,uint256)[],address,bool,uint256)',
-    ).selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(
-        [
-          'tuple(string name, string symbol)',
-          'tuple(address to, uint256 amount)[]',
-          'address',
-          'bool',
-          'uint256',
-        ],
-        [metadata, allocations, owner.address, locked, maxTotalSupply],
-      )
-      .slice(2);
+  const fullInitData = VotesERC20LockableV1__factory.createInterface().encodeFunctionData(
+    'initialize((string,string),(address,uint256)[],address,bool,uint256)',
+    [metadata, allocations, owner.address, locked, maxTotalSupply],
+  );
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(deployer).deploy(implementation, fullInitData);
@@ -165,6 +154,7 @@ describe('VotesERC20LockableV1', () => {
         let unlockTx: ContractTransactionResponse;
 
         beforeEach(async () => {
+          await mine(1);
           unlockTx = await proxy.connect(owner).lock(false);
         });
 
@@ -174,6 +164,10 @@ describe('VotesERC20LockableV1', () => {
 
         it('should emit an event', async () => {
           expect(unlockTx).to.emit(proxy, 'Locked').withArgs(false);
+        });
+
+        it('should update unlockTime', async () => {
+          expect(await proxy.getUnlockTime()).to.equal(await time.latest());
         });
       });
 
@@ -212,9 +206,12 @@ describe('VotesERC20LockableV1', () => {
       });
 
       describe('Locking by the owner should succeed', () => {
+        let unlockTime: bigint;
         let lockTx: ContractTransactionResponse;
 
         beforeEach(async () => {
+          unlockTime = await proxy.getUnlockTime();
+          await mine(1);
           lockTx = await proxy.connect(owner).lock(true);
         });
 
@@ -224,6 +221,10 @@ describe('VotesERC20LockableV1', () => {
 
         it('should emit an event', async () => {
           expect(lockTx).to.emit(proxy, 'Locked').withArgs(true);
+        });
+
+        it('should not update unlockTime', async () => {
+          expect(await proxy.getUnlockTime()).to.equal(unlockTime);
         });
       });
 
