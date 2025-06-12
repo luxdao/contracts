@@ -28,9 +28,10 @@ async function deployConcreteUpgradeableContract(
     : ethers.keccak256(ethers.randomBytes(32));
 
   // Create initialization data with function selector
-  const fullInitData =
-    UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder().encode(['string', 'address'], [name, owner.address]).slice(2);
+  const fullInitData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+    'initialize',
+    [name, owner.address],
+  );
 
   // Deploy using the generic deployProxy method
   await proxyFactory.deployProxy(implementation, fullInitData, salt);
@@ -135,11 +136,10 @@ describe('ProxyFactory', () => {
       // Deploy with a different salt but keep track of the creation parameters
       const DIFFERENT_SALT = 'different-salt';
       const saltHash = ethers.keccak256(ethers.toUtf8Bytes(DIFFERENT_SALT));
-      const initData =
-        UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder()
-          .encode(['string', 'address'], [NAME, upgradeableContractOwner.address])
-          .slice(2);
+      const initData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [NAME, upgradeableContractOwner.address],
+      );
 
       // Deploy a new contract with these parameters
       await proxyFactory.deployProxy(upgradeableMasterCopy, initData, saltHash);
@@ -182,11 +182,10 @@ describe('ProxyFactory', () => {
       // Setup initialization data
       const PREDICTION_SALT = 'prediction-test-salt';
       const saltHash = ethers.keccak256(ethers.toUtf8Bytes(PREDICTION_SALT));
-      const initData =
-        UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder()
-          .encode(['string', 'address'], [NAME, upgradeableContractOwner.address])
-          .slice(2);
+      const initData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [NAME, upgradeableContractOwner.address],
+      );
 
       // Get predicted address
       const predictedAddress = await proxyFactory.predictProxyAddress(
@@ -309,9 +308,10 @@ describe('ProxyFactory', () => {
       const newVersion = 2;
 
       // Prepare initialization data for the upgrade
-      const fullInitData =
-        UpgradeContractV2__factory.createInterface().getFunction('initialize(uint16)').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['uint16'], [newVersion]).slice(2);
+      const fullInitData = UpgradeContractV2__factory.createInterface().encodeFunctionData(
+        'initialize(uint16)',
+        [newVersion],
+      );
 
       // Upgrade the proxy to the upgraded implementation with initialization data
       await upgradeableContract.upgradeToAndCall(upgradedMasterCopy, fullInitData);
@@ -376,10 +376,11 @@ describe('ProxyFactory', () => {
       const largeString = 'x'.repeat(10000);
 
       // Create initialization data with the large string
-      const iface = MinimalUpgradeableContract__factory.createInterface();
       const largeInitData =
-        iface.getFunction('initializeWithLargeData').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['string'], [largeString]).slice(2);
+        MinimalUpgradeableContract__factory.createInterface().encodeFunctionData(
+          'initializeWithLargeData',
+          [largeString],
+        );
 
       // Deploy with large init data
       const salt = ethers.keccak256(ethers.randomBytes(32));
@@ -407,11 +408,10 @@ describe('ProxyFactory', () => {
     it('should not allow initialize to be called twice', async () => {
       // Deploy a contract
       const name = 'InitializerTest';
-      const initData =
-        UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder()
-          .encode(['string', 'address'], [name, upgradeableContractOwner.address])
-          .slice(2);
+      const initData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [name, upgradeableContractOwner.address],
+      );
 
       const salt = ethers.keccak256(ethers.randomBytes(32));
       await proxyFactory.deployProxy(upgradeV1Implementation, initData, salt);
@@ -437,11 +437,10 @@ describe('ProxyFactory', () => {
     it('should correctly handle reinitializers with proper version increments', async () => {
       // Deploy a contract
       const name = 'ReinitializerTest';
-      const initData =
-        UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder()
-          .encode(['string', 'address'], [name, upgradeableContractOwner.address])
-          .slice(2);
+      const initData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [name, upgradeableContractOwner.address],
+      );
 
       const salt = ethers.keccak256(ethers.randomBytes(32));
       await proxyFactory.deployProxy(upgradeV1Implementation, initData, salt);
@@ -460,9 +459,10 @@ describe('ProxyFactory', () => {
 
       // Upgrade to V2
       const v2Version = 2;
-      const v2InitData =
-        UpgradeContractV2__factory.createInterface().getFunction('initialize(uint16)').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['uint16'], [v2Version]).slice(2);
+      const v2InitData = UpgradeContractV2__factory.createInterface().encodeFunctionData(
+        'initialize(uint16)',
+        [v2Version],
+      );
 
       await contract.upgradeToAndCall(upgradeV2Implementation, v2InitData);
 
@@ -484,9 +484,10 @@ describe('ProxyFactory', () => {
 
       // Upgrade to V3 - should work with reinitializer(3)
       const v3AdditionalValue = 42;
-      const v3InitData =
-        UpgradeContractV3__factory.createInterface().getFunction('initialize(uint256)').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [v3AdditionalValue]).slice(2);
+      const v3InitData = UpgradeContractV3__factory.createInterface().encodeFunctionData(
+        'initialize(uint256)',
+        [v3AdditionalValue],
+      );
 
       await contractV2.upgradeToAndCall(upgradeV3Implementation, v3InitData);
 
@@ -507,11 +508,10 @@ describe('ProxyFactory', () => {
     it('should support upgrading through multiple implementation versions', async () => {
       // Deploy initial contract
       const name = 'MultiStepTest';
-      const initData =
-        UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder()
-          .encode(['string', 'address'], [name, upgradeableContractOwner.address])
-          .slice(2);
+      const initData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [name, upgradeableContractOwner.address],
+      );
 
       const salt = ethers.keccak256(ethers.randomBytes(32));
       await proxyFactory.deployProxy(upgradeV1Implementation, initData, salt);
@@ -533,9 +533,10 @@ describe('ProxyFactory', () => {
 
       // Upgrade to V2
       const v2Version = 2;
-      const v2InitData =
-        UpgradeContractV2__factory.createInterface().getFunction('initialize(uint16)').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['uint16'], [v2Version]).slice(2);
+      const v2InitData = UpgradeContractV2__factory.createInterface().encodeFunctionData(
+        'initialize(uint16)',
+        [v2Version],
+      );
 
       await contractV1.upgradeToAndCall(upgradeV2Implementation, v2InitData);
 
@@ -551,9 +552,10 @@ describe('ProxyFactory', () => {
 
       // Upgrade to V3
       const v3AdditionalValue = 42;
-      const v3InitData =
-        UpgradeContractV3__factory.createInterface().getFunction('initialize(uint256)').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [v3AdditionalValue]).slice(2);
+      const v3InitData = UpgradeContractV3__factory.createInterface().encodeFunctionData(
+        'initialize(uint256)',
+        [v3AdditionalValue],
+      );
 
       await contractV2.upgradeToAndCall(upgradeV3Implementation, v3InitData);
 
@@ -574,11 +576,10 @@ describe('ProxyFactory', () => {
     it('should support complex state transformations during upgrades', async () => {
       // Deploy initial contract
       const name = 'StateMigrationTest';
-      const initData =
-        UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder()
-          .encode(['string', 'address'], [name, upgradeableContractOwner.address])
-          .slice(2);
+      const initData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [name, upgradeableContractOwner.address],
+      );
 
       const salt = ethers.keccak256(ethers.randomBytes(32));
       await proxyFactory.deployProxy(upgradeV1Implementation, initData, salt);
@@ -591,9 +592,10 @@ describe('ProxyFactory', () => {
 
       // Upgrade to V3 directly (skipping V2)
       const v3AdditionalValue = 100;
-      const v3InitData =
-        UpgradeContractV3__factory.createInterface().getFunction('initialize(uint256)').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [v3AdditionalValue]).slice(2);
+      const v3InitData = UpgradeContractV3__factory.createInterface().encodeFunctionData(
+        'initialize(uint256)',
+        [v3AdditionalValue],
+      );
 
       const contract = UpgradeContractV1__factory.connect(
         predictedAddress,
@@ -621,11 +623,29 @@ describe('ProxyFactory', () => {
   });
 
   describe('Error Cases', () => {
+    it('should revert when trying to deploy to zero address', async () => {
+      // Zero address has no code, so it should fail the code length check
+      const zeroAddress = ethers.ZeroAddress;
+      const initData = '0x'; // Empty init data
+      const salt = ethers.keccak256(ethers.randomBytes(32));
+
+      // Should revert with ImplementationMustBeAContract error
+      await expect(
+        proxyFactory.deployProxy(zeroAddress, initData, salt),
+      ).to.be.revertedWithCustomError(proxyFactory, 'ImplementationMustBeAContract');
+
+      // Same check for predictProxyAddress
+      await expect(
+        proxyFactory.predictProxyAddress(zeroAddress, initData, salt),
+      ).to.be.revertedWithCustomError(proxyFactory, 'ImplementationMustBeAContract');
+    });
+
     it('should handle initialization functions that revert', async () => {
       // Create initialization data that will cause a revert
-      const initData =
-        FailingInitializerContract__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder().encode(['bool'], [true]).slice(2); // true = should fail
+      const initData = FailingInitializerContract__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [true],
+      );
 
       const salt = ethers.keccak256(ethers.randomBytes(32));
 
@@ -638,11 +658,10 @@ describe('ProxyFactory', () => {
     it('should allow detection of incompatible storage layout upgrades', async () => {
       // Deploy initial contract
       const name = 'IncompatibleStorageTest';
-      const initData =
-        UpgradeContractV1__factory.createInterface().getFunction('initialize').selector +
-        ethers.AbiCoder.defaultAbiCoder()
-          .encode(['string', 'address'], [name, upgradeableContractOwner.address])
-          .slice(2);
+      const initData = UpgradeContractV1__factory.createInterface().encodeFunctionData(
+        'initialize',
+        [name, upgradeableContractOwner.address],
+      );
 
       const salt = ethers.keccak256(ethers.randomBytes(32));
       await proxyFactory.deployProxy(upgradeV1Implementation, initData, salt);

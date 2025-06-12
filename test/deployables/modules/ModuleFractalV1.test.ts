@@ -26,11 +26,11 @@ async function deployFractalModuleProxy(
   target: string,
 ): Promise<ModuleFractalV1> {
   // Combine selector and encoded params
-  const fullInitData =
-    ModuleFractalV1__factory.createInterface().getFunction('initialize').selector +
-    ethers.AbiCoder.defaultAbiCoder()
-      .encode(['address', 'address', 'address'], [owner.address, avatar, target])
-      .slice(2);
+  const fullInitData = ModuleFractalV1__factory.createInterface().encodeFunctionData('initialize', [
+    owner.address,
+    avatar,
+    target,
+  ]);
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
