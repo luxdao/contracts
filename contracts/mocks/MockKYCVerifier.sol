@@ -6,30 +6,28 @@ import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract MockKYCVerifier is IKYCVerifierV1, IVersion, ERC165 {
-    // ======================================================================
-    // STATE VARIABLES
-    // ======================================================================
 
     bool internal _verify;
 
     constructor() {
-        initialize(address(this), "", "");
+        initialize(address(0), address(0));
     }
 
-    function initialize(address, string memory, string memory) public {}
+    function initialize(address, address) public {}
 
     function setVerify(bool verify_) public {
         _verify = verify_;
     }
 
-    function verify(
-        SignData memory,
-        bytes memory
-    ) public view virtual override returns (bool) {
+    function verify(address) public view virtual override returns (bool) {
         return _verify;
     }
 
-    function verifier() public view virtual override returns (address) {
+    function zkMeVerify() public view virtual override returns (address) {
+        return address(0);
+    }
+
+    function cooperator() public view virtual override returns (address) {
         return address(0);
     }
 

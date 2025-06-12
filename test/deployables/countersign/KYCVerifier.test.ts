@@ -8,6 +8,8 @@ import {
   KYCVerifierV1__factory,
   IKYCVerifierV1__factory,
   ERC1967Proxy__factory,
+  MockZKMEVerify,
+  MockZKMEVerify__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
@@ -15,15 +17,14 @@ import { calculateInterfaceId } from '../../helpers/utils';
 async function deployKYCVerifierProxy(
   proxyDeployer: SignerWithAddress,
   implementation: string,
-  decentVerifier: string,
-  name: string,
-  version: string,
+  zkMeVerify: string,
+  cooperator: string,
 ): Promise<KYCVerifierV1> {
   // Create initialization data with function selector
   const fullInitData =
     KYCVerifierV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
-      .encode(['address', 'string', 'string'], [decentVerifier, name, version])
+      .encode(['address', 'address'], [zkMeVerify, cooperator])
       .slice(2);
 
   // Deploy the proxy with the implementation
@@ -35,38 +36,44 @@ async function deployKYCVerifierProxy(
 
 describe('KYCVerifierV1', () => {
   // signers
-  let decentVerifier: SignerWithAddress;
-  let mockCountersign: SignerWithAddress;
   let investorAlice: SignerWithAddress;
-  let investorBob: SignerWithAddress;
+  let cooperator: SignerWithAddress;
+  let deployer: SignerWithAddress;
 
   // contracts
   let kycVerifier: KYCVerifierV1;
+  let mockZKMEVerify: MockZKMEVerify;
 
   beforeEach(async () => {
     // Get signers
-    [decentVerifier, mockCountersign, investorAlice, investorBob] = await ethers.getSigners();
+    [investorAlice, cooperator, deployer] = await ethers.getSigners();
+
+    // deploy mock ZKMEVerify
+    mockZKMEVerify = await new MockZKMEVerify__factory(deployer).deploy();
 
     // deploy KYC verifier
-    const implementation = await new KYCVerifierV1__factory(decentVerifier).deploy();
+    const implementation = await new KYCVerifierV1__factory(deployer).deploy();
     kycVerifier = await deployKYCVerifierProxy(
-      decentVerifier,
+      deployer,
       await implementation.getAddress(),
-      decentVerifier.address,
-      'KYCVerifier',
-      '1',
+      await mockZKMEVerify.getAddress(),
+      cooperator.address,
     );
   });
 
   describe('Initialization', () => {
     it('should not allow reinitialization', async () => {
       await expect(
-        kycVerifier.initialize(decentVerifier.address, 'KYCVerifier', '1'),
+        kycVerifier.initialize(await mockZKMEVerify.getAddress(), cooperator.address),
       ).to.be.revertedWithCustomError(kycVerifier, 'InvalidInitialization');
     });
 
-    it('should return correct verifier', async () => {
-      expect(await kycVerifier.verifier()).to.equal(decentVerifier.address);
+    it('should return correct zkMeVerify', async () => {
+      expect(await kycVerifier.zkMeVerify()).to.equal(await mockZKMEVerify.getAddress());
+    });
+
+    it('should return correct cooperator', async () => {
+      expect(await kycVerifier.cooperator()).to.equal(cooperator.address);
     });
   });
 
@@ -116,106 +123,14 @@ describe('KYCVerifierV1', () => {
   });
 
   describe('Signatures', () => {
-    it('should verify a valid signature', async () => {
-      const domain = {
-        name: 'KYCVerifier',
-        version: '1',
-        chainId: await ethers.provider.getNetwork().then(n => n.chainId),
-        verifyingContract: await kycVerifier.getAddress(),
-      };
-
-      const types = {
-        SignData: [
-          { name: 'countersign', type: 'address' },
-          { name: 'account', type: 'address' },
-        ],
-      };
-
-      const aliceMessage = {
-        countersign: mockCountersign.address,
-        account: investorAlice.address,
-      };
-
-      const aliceSignature = await decentVerifier.signTypedData(domain, types, aliceMessage);
-
-      void expect(
-        await kycVerifier.verify(
-          {
-            countersign: mockCountersign.address,
-            account: investorAlice.address,
-          },
-          aliceSignature,
-        ),
-      ).to.be.true;
-
-      const bobMessage = {
-        countersign: mockCountersign.address,
-        account: investorBob.address,
-      };
-
-      const bobSignature = await decentVerifier.signTypedData(domain, types, bobMessage);
-
-      void expect(
-        await kycVerifier.verify(
-          {
-            countersign: mockCountersign.address,
-            account: investorBob.address,
-          },
-          bobSignature,
-        ),
-      ).to.be.true;
+    it('should verify if zkMeVerify has approved', async () => {
+      await mockZKMEVerify.setApproved(true);
+      void expect(await kycVerifier.verify(investorAlice.address)).to.be.true;
     });
 
-    it('should not verify an invalid signature', async () => {
-      const domain = {
-        name: 'KYCVerifier',
-        version: '1',
-        chainId: await ethers.provider.getNetwork().then(n => n.chainId),
-        verifyingContract: await kycVerifier.getAddress(),
-      };
-
-      const types = {
-        SignData: [
-          { name: 'countersign', type: 'address' },
-          { name: 'account', type: 'address' },
-        ],
-      };
-
-      // message is invalidly signed with Bob's address
-      const aliceMessage = {
-        countersign: mockCountersign.address,
-        account: investorBob.address,
-      };
-
-      const aliceSignature = await decentVerifier.signTypedData(domain, types, aliceMessage);
-
-      void expect(
-        await kycVerifier.verify(
-          {
-            countersign: mockCountersign.address,
-            account: investorAlice.address,
-          },
-          aliceSignature,
-        ),
-      ).to.be.false;
-
-      // message is invalidly signed with Alice's address as countersign
-      const bobMessage = {
-        countersign: investorAlice.address,
-        account: investorBob.address,
-      };
-
-      const bobSignature = await decentVerifier.signTypedData(domain, types, bobMessage);
-
-      void expect(
-        await kycVerifier.verify(
-          {
-            countersign: mockCountersign.address,
-            account: investorBob.address,
-          },
-          bobSignature,
-        ),
-      ).to.be.false;
+    it('should not verify if zkMeVerify has not approved', async () => {
+      await mockZKMEVerify.setApproved(false);
+      void expect(await kycVerifier.verify(investorAlice.address)).to.be.false;
     });
   });
 });

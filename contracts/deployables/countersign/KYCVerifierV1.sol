@@ -3,20 +3,17 @@ pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1.sol";
+import {IZKMEVerify} from "../../interfaces/decent/deployables/IZKMEVerify.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {EIP712Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, EIP712Upgradeable {
+contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, Initializable {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
-    address internal _verifier;
-
-    // keccak256("SignData(address countersign,address account)")
-    bytes32 internal constant TYPEHASH =
-        keccak256("SignData(address countersign,address account)");
+    address internal _zkMeVerify;
+    address internal _cooperator;
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -27,12 +24,11 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, EIP712Upgradeable {
     }
 
     function initialize(
-        address verifier_,
-        string memory name_,
-        string memory version_
+        address zkMeVerify_,
+        address cooperator_
     ) public virtual override initializer {
-        _verifier = verifier_;
-        __EIP712_init(name_, version_);
+        _zkMeVerify = zkMeVerify_;
+        _cooperator = cooperator_;
     }
 
     // ======================================================================
@@ -42,19 +38,17 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, ERC165, EIP712Upgradeable {
     // --- View Functions ---
 
     function verify(
-        SignData memory signData_,
-        bytes memory signature
+        address account
     ) public view virtual override returns (bool) {
-        bytes32 digest = _hashTypedDataV4(
-            keccak256(
-                abi.encode(TYPEHASH, signData_.countersign, signData_.account)
-            )
-        );
-        return ECDSA.recover(digest, signature) == _verifier;
+        return IZKMEVerify(_zkMeVerify).hasApproved(_cooperator, account);
     }
 
-    function verifier() public view virtual override returns (address) {
-        return _verifier;
+    function zkMeVerify() public view virtual override returns (address) {
+        return _zkMeVerify;
+    }
+
+    function cooperator() public view virtual override returns (address) {
+        return _cooperator;
     }
 
     // --- State-Changing Functions ---

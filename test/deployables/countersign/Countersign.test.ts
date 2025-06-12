@@ -474,7 +474,7 @@ describe('CountersignV1', () => {
       );
       void expect(aliceBeforeSigned).to.be.false;
       void expect(aliceBeforeSignedTimestamp).to.equal(0n);
-      await countersign.connect(investorAlice).sign('0x');
+      await countersign.connect(investorAlice).sign();
       const [, , aliceAfterSigned, aliceAfterSignedTimestamp, ,] = await countersign.signerData(
         investorAlice.address,
       );
@@ -486,7 +486,7 @@ describe('CountersignV1', () => {
       );
       void expect(bobBeforeSigned).to.be.false;
       void expect(bobBeforeSignedTimestamp).to.equal(0n);
-      await countersign.connect(investorBob).sign('0x');
+      await countersign.connect(investorBob).sign();
       const [, , bobAfterSigned, bobAfterSignedTimestamp, ,] = await countersign.signerData(
         investorBob.address,
       );
@@ -495,7 +495,7 @@ describe('CountersignV1', () => {
 
       const [, , carolBeforeSigned, ,] = await countersign.signerData(investorCarol.address);
       void expect(carolBeforeSigned).to.be.false;
-      await countersign.connect(investorCarol).sign('0x');
+      await countersign.connect(investorCarol).sign();
       const [, , carolAfterSigned, ,] = await countersign.signerData(investorCarol.address);
       void expect(carolAfterSigned).to.be.true;
     });
@@ -504,7 +504,7 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       await time.increaseTo(signingDeadline + 1n);
-      await expect(countersign.connect(investorAlice).sign('0x')).to.be.revertedWithCustomError(
+      await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(
         countersign,
         'SigningDeadlineElapsed',
       );
@@ -512,7 +512,7 @@ describe('CountersignV1', () => {
 
     it('should not allow signers to sign if they are not a signer', async () => {
       await mockKYCVerifier.setVerify(true);
-      await expect(countersign.connect(anon).sign('0x')).to.be.revertedWithCustomError(
+      await expect(countersign.connect(anon).sign()).to.be.revertedWithCustomError(
         countersign,
         'InvalidSigner',
       );
@@ -520,8 +520,8 @@ describe('CountersignV1', () => {
 
     it('should not allow signers to sign if they have already signed', async () => {
       await mockKYCVerifier.setVerify(true);
-      await countersign.connect(investorAlice).sign('0x');
-      await expect(countersign.connect(investorAlice).sign('0x')).to.be.revertedWithCustomError(
+      await countersign.connect(investorAlice).sign();
+      await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(
         countersign,
         'SignerAlreadySigned',
       );
@@ -529,7 +529,7 @@ describe('CountersignV1', () => {
 
     it('should not allow signers to sign if the verifiersignature is invalid', async () => {
       await mockKYCVerifier.setVerify(false);
-      await expect(countersign.connect(investorAlice).sign('0x')).to.be.revertedWithCustomError(
+      await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(
         countersign,
         'InvalidKYCSignature',
       );
