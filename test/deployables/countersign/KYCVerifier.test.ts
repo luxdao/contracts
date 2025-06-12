@@ -23,18 +23,7 @@ async function deployKYCVerifierProxy(
   const fullInitData =
     KYCVerifierV1__factory.createInterface().getFunction('initialize').selector +
     ethers.AbiCoder.defaultAbiCoder()
-      .encode(
-        [
-          'address',
-          'string',
-          'string',
-        ],
-        [
-          decentVerifier,
-          name,
-          version,
-        ],
-      )
+      .encode(['address', 'string', 'string'], [decentVerifier, name, version])
       .slice(2);
 
   // Deploy the proxy with the implementation
@@ -56,12 +45,7 @@ describe('KYCVerifierV1', () => {
 
   beforeEach(async () => {
     // Get signers
-    [
-      decentVerifier,
-      mockCountersign,
-      investorAlice,
-      investorBob,
-    ] = await ethers.getSigners();
+    [decentVerifier, mockCountersign, investorAlice, investorBob] = await ethers.getSigners();
 
     // deploy KYC verifier
     const implementation = await new KYCVerifierV1__factory(decentVerifier).deploy();
@@ -77,11 +61,7 @@ describe('KYCVerifierV1', () => {
   describe('Initialization', () => {
     it('should not allow reinitialization', async () => {
       await expect(
-        kycVerifier.initialize(
-          decentVerifier.address,
-          'KYCVerifier',
-          '1',
-        ),
+        kycVerifier.initialize(decentVerifier.address, 'KYCVerifier', '1'),
       ).to.be.revertedWithCustomError(kycVerifier, 'InvalidInitialization');
     });
 
@@ -141,19 +121,19 @@ describe('KYCVerifierV1', () => {
         name: 'KYCVerifier',
         version: '1',
         chainId: await ethers.provider.getNetwork().then(n => n.chainId),
-        verifyingContract: await kycVerifier.getAddress()
+        verifyingContract: await kycVerifier.getAddress(),
       };
 
       const types = {
         SignData: [
           { name: 'countersign', type: 'address' },
-          { name: 'account', type: 'address' }
-        ]
+          { name: 'account', type: 'address' },
+        ],
       };
 
       const aliceMessage = {
         countersign: mockCountersign.address,
-        account: investorAlice.address
+        account: investorAlice.address,
       };
 
       const aliceSignature = await decentVerifier.signTypedData(domain, types, aliceMessage);
@@ -162,15 +142,15 @@ describe('KYCVerifierV1', () => {
         await kycVerifier.verify(
           {
             countersign: mockCountersign.address,
-            account: investorAlice.address
+            account: investorAlice.address,
           },
-          aliceSignature
-        )
+          aliceSignature,
+        ),
       ).to.be.true;
 
       const bobMessage = {
         countersign: mockCountersign.address,
-        account: investorBob.address
+        account: investorBob.address,
       };
 
       const bobSignature = await decentVerifier.signTypedData(domain, types, bobMessage);
@@ -179,10 +159,10 @@ describe('KYCVerifierV1', () => {
         await kycVerifier.verify(
           {
             countersign: mockCountersign.address,
-            account: investorBob.address
+            account: investorBob.address,
           },
-          bobSignature
-        )
+          bobSignature,
+        ),
       ).to.be.true;
     });
 
@@ -191,20 +171,20 @@ describe('KYCVerifierV1', () => {
         name: 'KYCVerifier',
         version: '1',
         chainId: await ethers.provider.getNetwork().then(n => n.chainId),
-        verifyingContract: await kycVerifier.getAddress()
+        verifyingContract: await kycVerifier.getAddress(),
       };
 
       const types = {
         SignData: [
           { name: 'countersign', type: 'address' },
-          { name: 'account', type: 'address' }
-        ]
+          { name: 'account', type: 'address' },
+        ],
       };
 
       // message is invalidly signed with Bob's address
       const aliceMessage = {
         countersign: mockCountersign.address,
-        account: investorBob.address
+        account: investorBob.address,
       };
 
       const aliceSignature = await decentVerifier.signTypedData(domain, types, aliceMessage);
@@ -213,16 +193,16 @@ describe('KYCVerifierV1', () => {
         await kycVerifier.verify(
           {
             countersign: mockCountersign.address,
-            account: investorAlice.address
+            account: investorAlice.address,
           },
-          aliceSignature
-        )
+          aliceSignature,
+        ),
       ).to.be.false;
 
       // message is invalidly signed with Alice's address as countersign
       const bobMessage = {
         countersign: investorAlice.address,
-        account: investorBob.address
+        account: investorBob.address,
       };
 
       const bobSignature = await decentVerifier.signTypedData(domain, types, bobMessage);
@@ -231,10 +211,10 @@ describe('KYCVerifierV1', () => {
         await kycVerifier.verify(
           {
             countersign: mockCountersign.address,
-            account: investorBob.address
+            account: investorBob.address,
           },
-          bobSignature
-        )
+          bobSignature,
+        ),
       ).to.be.false;
     });
   });
