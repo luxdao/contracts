@@ -8,6 +8,7 @@ interface ICountersignV1 {
     error InvalidSigner();
     error SigningDeadlineElapsed();
     error SignerAlreadySigned();
+    error InvalidKYCSignature();
 
     // --- Structs ---
 
@@ -91,5 +92,5 @@ interface ICountersignV1 {
 
     // --- State-Changing Functions ---
 
-    function sign() external;
+    function sign(bytes memory signature) external;
 }
