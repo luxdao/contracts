@@ -52,10 +52,10 @@ interface ICountersignV1 {
 
     function agreementUri() external view returns (string memory agreementUri);
 
-    function verificationContract()
+    function kycVerifier()
         external
         view
-        returns (address verificationContract);
+        returns (address kycVerifier);
 
     function signingDeadline() external view returns (uint256 signingDeadline);
 

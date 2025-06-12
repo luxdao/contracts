@@ -66,7 +66,7 @@ describe.only('CountersignV1', () => {
   let investorBob: SignerWithAddress;
   let investorCarol: SignerWithAddress;
   let anon: SignerWithAddress;
-  let mockVerificationContract: SignerWithAddress;
+  let mockKYCVerifier: SignerWithAddress;
   let mockDAOTreasury: SignerWithAddress;
 
   // contracts
@@ -87,7 +87,7 @@ describe.only('CountersignV1', () => {
       investorBob,
       investorCarol,
       anon,
-      mockVerificationContract,
+      mockKYCVerifier,
       mockDAOTreasury,
     ] = await ethers.getSigners();
 
@@ -216,7 +216,7 @@ describe.only('CountersignV1', () => {
       founder,
       await countersignImplementation.getAddress(),
       agreementUri,
-      mockVerificationContract.address,
+      mockKYCVerifier.address,
       signingDeadline,
       executionDeadline,
       ethers.parseEther('100'), // minWeight
@@ -250,7 +250,7 @@ describe.only('CountersignV1', () => {
       await expect(
         countersign.initialize(
           agreementUri,
-          mockVerificationContract.address,
+          mockKYCVerifier.address,
           signingDeadline,
           executionDeadline,
           ethers.parseEther('100'),
@@ -264,8 +264,8 @@ describe.only('CountersignV1', () => {
       expect(await countersign.agreementUri()).to.equal(agreementUri);
     });
 
-    it('should return correct verification contract', async () => {
-      expect(await countersign.verificationContract()).to.equal(mockVerificationContract.address);
+    it('should return correct kyc verifier', async () => {
+      expect(await countersign.kycVerifier()).to.equal(mockKYCVerifier.address);
     });
 
     it('should return correct signing deadline', async () => {

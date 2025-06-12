@@ -44,7 +44,7 @@ async function deployKYCVerifierProxy(
   return KYCVerifierV1__factory.connect(await proxy.getAddress(), proxyDeployer);
 }
 
-describe.only('KYCVerifierV1', () => {
+describe('KYCVerifierV1', () => {
   // signers
   let decentVerifier: SignerWithAddress;
   let mockCountersign: SignerWithAddress;

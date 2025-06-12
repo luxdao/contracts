@@ -12,7 +12,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
 
     string internal _agreementUri;
-    address internal _verificationContract;
+    address internal _kycVerifier;
     uint256 internal _signingDeadline;
     uint256 internal _executionDeadline;
     uint256 internal _minWeight;
@@ -30,7 +30,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
     function initialize(
         string memory agreementUri_,
-        address verificationContract_,
+        address kycVerifier_,
         uint256 signingDeadline_,
         uint256 executionDeadline_,
         uint256 minWeight_,
@@ -38,7 +38,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         Transaction[] memory preExecutionTransactions_
     ) public virtual override initializer {
         _agreementUri = agreementUri_;
-        _verificationContract = verificationContract_;
+        _kycVerifier = kycVerifier_;
         _signingDeadline = signingDeadline_;
         _executionDeadline = executionDeadline_;
         _minWeight = minWeight_;
@@ -91,14 +91,14 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _agreementUri;
     }
 
-    function verificationContract()
+    function kycVerifier()
         public
         view
         virtual
         override
         returns (address)
     {
-        return _verificationContract;
+        return _kycVerifier;
     }
 
     function signingDeadline() public view virtual override returns (uint256) {
