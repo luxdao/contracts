@@ -527,7 +527,7 @@ describe('CountersignV1', () => {
       );
     });
 
-    it('should not allow signers to sign if the verifiersignature is invalid', async () => {
+    it('should not allow signers to sign if the KYCVerifier does not verify', async () => {
       await mockKYCVerifier.setVerify(false);
       await expect(countersign.connect(investorAlice).sign()).to.be.revertedWithCustomError(
         countersign,
