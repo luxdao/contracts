@@ -33,6 +33,8 @@ async function deployCountersignProxy(
   const fullInitData = CountersignV1__factory.createInterface().encodeFunctionData('initialize', [
     agreementUri,
     verificationContract,
+    signingDeadline,
+    executionDeadline,
     minWeight,
     signerInitializations,
     preExecutionTransactions,
