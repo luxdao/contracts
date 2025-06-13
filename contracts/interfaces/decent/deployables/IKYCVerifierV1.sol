@@ -9,10 +9,10 @@ interface IKYCVerifierV1 {
 
     // --- View Functions ---
 
-    function verify(address account_) external view returns (bool);
+    function verify(address account_) external view returns (bool verified);
 
-    function zkMeVerify() external view returns (address);
+    function zkMeVerify() external view returns (address zkMeVerify);
 
-    function cooperator() external view returns (address);
+    function cooperator() external view returns (address cooperator);
 
 }
