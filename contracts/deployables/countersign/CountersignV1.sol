@@ -95,7 +95,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _kycVerifier;
     }
 
-    function signingDeadline() public view virtual override returns (uint256) {
+    function signingDeadline() public view virtual override returns (uint48) {
         return _signingDeadline;
     }
 
@@ -104,7 +104,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         view
         virtual
         override
-        returns (uint256)
+        returns (uint48)
     {
         return _executionDeadline;
     }
