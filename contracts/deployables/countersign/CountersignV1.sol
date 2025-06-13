@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1.sol";
+
 
 contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
@@ -95,7 +96,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _kycVerifier;
     }
 
-    function signingDeadline() public view virtual override returns (uint256) {
+    function signingDeadline() public view virtual override returns (uint48) {
         return _signingDeadline;
     }
 
@@ -104,7 +105,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         view
         virtual
         override
-        returns (uint256)
+        returns (uint48)
     {
         return _executionDeadline;
     }
@@ -124,16 +125,16 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     }
 
     function signerData(
-        address signer
+        address signer_
     )
         external
         view
         override
         returns (bool, bool, bool, bool, uint48, uint256, Transaction[] memory)
     {
-        Signer storage signerData_ = _signerData[signer];
+        Signer storage signer = _signerData[signer_];
 
-        Transaction[] storage signerTransactions = signerData_.transactions;
+        Transaction[] storage signerTransactions = signer.transactions;
         uint256 transactionCount = signerTransactions.length;
 
         Transaction[] memory returnedSignerTransactions = new Transaction[](
@@ -149,11 +150,11 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
         return (
             true,
-            signerData_.required,
-            signerData_.signed,
-            signerData_.executed,
-            signerData_.signedTimestamp,
-            signerData_.weight,
+            signer.required,
+            signer.signed,
+            signer.executed,
+            signer.signedTimestamp,
+            signer.weight,
             returnedSignerTransactions
         );
     }
@@ -175,13 +176,13 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             revert SigningDeadlineElapsed();
         }
 
-        Signer storage signerData_ = _signerData[msg.sender];
+        Signer storage signer = _signerData[msg.sender];
 
-        if (!signerData_.isSigner) {
+        if (!signer.isSigner) {
             revert InvalidSigner();
         }
 
-        if (signerData_.signed) {
+        if (signer.signed) {
             revert SignerAlreadySigned();
         }
 
@@ -189,8 +190,8 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             revert InvalidKYCSignature();
         }
 
-        signerData_.signed = true;
-        signerData_.signedTimestamp = uint48(block.timestamp);
+        signer.signed = true;
+        signer.signedTimestamp = uint48(block.timestamp);
 
         emit Signed(msg.sender);
     }
@@ -204,7 +205,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     function _executeSignerTransactions(Signer storage signerData_) internal {
         Transaction[] storage transactions = signerData_.transactions;
 
-        bool success = true;
+        // bool success = true;
         for (uint256 i = 0; i < transactions.length; ) {
             _executeTransaction(transactions[i]);
 
@@ -215,10 +216,10 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     }
 
     function _executeTransaction(
-        Transaction memory transaction
+        Transaction memory transaction_
     ) internal returns (bool) {
-        (bool success, ) = transaction.target.call{value: transaction.value}(
-            transaction.data
+        (bool success, ) = transaction_.target.call{value: transaction_.value}(
+            transaction_.data
         );
 
         return success;
