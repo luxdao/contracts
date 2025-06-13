@@ -98,17 +98,26 @@ describe('CountersignV1', () => {
     await daoToken.mint(mockDAOTreasury.address, ethers.parseEther('100000'));
 
     // preExecution transaction transfer 100,000 DAO tokens from treasury to address zero
-    const preExecutionTransactions = [
-      {
-        target: await daoToken.getAddress(),
-        value: 0,
-        data: daoToken.interface.encodeFunctionData('transferFrom', [
+    const preExecutionTransactions = ethers.solidityPacked(
+      ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+      [
+        0, // operation: CALL
+        await daoToken.getAddress(),
+        0, // value: 0 ETH
+        ethers.dataLength(
+          daoToken.interface.encodeFunctionData('transferFrom', [
+            mockDAOTreasury.address,
+            ethers.ZeroAddress,
+            ethers.parseEther('100000'),
+          ]),
+        ),
+        daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
           ethers.ZeroAddress,
           ethers.parseEther('100000'),
         ]),
-      },
-    ];
+      ],
+    );
 
     // create signer addresses array
     const signerInitializations = [
@@ -116,89 +125,156 @@ describe('CountersignV1', () => {
         account: founder.address,
         required: true,
         weight: 0,
-        transactions: [], // founder: empty array
+        transactions: '0x', // founder: empty bytes
       },
       {
         account: investorAlice.address,
         required: true,
         weight: ethers.parseEther('100'),
-        transactions: [
-          // investor Alice
-          {
-            target: await usdc.getAddress(),
-            value: 0,
-            data: usdc.interface.encodeFunctionData('transferFrom', [
-              investorAlice.address,
-              mockDAOTreasury.address,
-              ethers.parseEther('100'), // 100 USDC
-            ]),
-          },
-          {
-            target: await daoToken.getAddress(),
-            value: 0,
-            data: daoToken.interface.encodeFunctionData('transferFrom', [
-              mockDAOTreasury.address,
-              investorAlice.address,
-              ethers.parseEther('100000'), // 100,000 daoToken
-            ]),
-          },
-        ],
+        transactions: ethers.concat([
+          // First transaction: USDC transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await usdc.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                usdc.interface.encodeFunctionData('transferFrom', [
+                  investorAlice.address,
+                  mockDAOTreasury.address,
+                  ethers.parseEther('100'), // 100 USDC
+                ]),
+              ),
+              usdc.interface.encodeFunctionData('transferFrom', [
+                investorAlice.address,
+                mockDAOTreasury.address,
+                ethers.parseEther('100'), // 100 USDC
+              ]),
+            ],
+          ),
+          // Second transaction: DAO token transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await daoToken.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                daoToken.interface.encodeFunctionData('transferFrom', [
+                  mockDAOTreasury.address,
+                  investorAlice.address,
+                  ethers.parseEther('100000'), // 100,000 daoToken
+                ]),
+              ),
+              daoToken.interface.encodeFunctionData('transferFrom', [
+                mockDAOTreasury.address,
+                investorAlice.address,
+                ethers.parseEther('100000'), // 100,000 daoToken
+              ]),
+            ],
+          ),
+        ]),
       },
       {
         account: investorBob.address,
         required: false,
         weight: ethers.parseEther('50'),
-        transactions: [
-          // investor Bob
-          {
-            target: await usdc.getAddress(),
-            value: 0,
-            data: usdc.interface.encodeFunctionData('transferFrom', [
-              investorBob.address,
-              mockDAOTreasury.address,
-              ethers.parseEther('50'), // 50 USDC
-            ]),
-          },
-          {
-            target: await daoToken.getAddress(),
-            value: 0,
-            data: daoToken.interface.encodeFunctionData('transferFrom', [
-              mockDAOTreasury.address,
-              investorBob.address,
-              ethers.parseEther('50000'), // 50,000 daoToken
-            ]),
-          },
-        ],
+        transactions: ethers.concat([
+          // First transaction: USDC transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await usdc.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                usdc.interface.encodeFunctionData('transferFrom', [
+                  investorBob.address,
+                  mockDAOTreasury.address,
+                  ethers.parseEther('50'), // 50 USDC
+                ]),
+              ),
+              usdc.interface.encodeFunctionData('transferFrom', [
+                investorBob.address,
+                mockDAOTreasury.address,
+                ethers.parseEther('50'), // 50 USDC
+              ]),
+            ],
+          ),
+          // Second transaction: DAO token transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await daoToken.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                daoToken.interface.encodeFunctionData('transferFrom', [
+                  mockDAOTreasury.address,
+                  investorBob.address,
+                  ethers.parseEther('50000'), // 50,000 daoToken
+                ]),
+              ),
+              daoToken.interface.encodeFunctionData('transferFrom', [
+                mockDAOTreasury.address,
+                investorBob.address,
+                ethers.parseEther('50000'), // 50,000 daoToken
+              ]),
+            ],
+          ),
+        ]),
       },
       {
         account: investorCarol.address,
         required: false,
         weight: ethers.parseEther('20'),
-        transactions: [
-          // investor Carol
-          {
-            target: await usdc.getAddress(),
-            value: 0,
-            data: usdc.interface.encodeFunctionData('transferFrom', [
-              investorCarol.address,
-              mockDAOTreasury.address,
-              ethers.parseEther('10'), // 10 USDC
-            ]),
-          },
-          {
-            target: await daoToken.getAddress(),
-            value: 0,
-            data: daoToken.interface.encodeFunctionData('transferFrom', [
-              mockDAOTreasury.address,
-              investorCarol.address,
-              ethers.parseEther('10000'), // 10,000 daoToken
-            ]),
-          },
-        ],
+        transactions: ethers.concat([
+          // First transaction: USDC transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await usdc.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                usdc.interface.encodeFunctionData('transferFrom', [
+                  investorCarol.address,
+                  mockDAOTreasury.address,
+                  ethers.parseEther('10'), // 10 USDC
+                ]),
+              ),
+              usdc.interface.encodeFunctionData('transferFrom', [
+                investorCarol.address,
+                mockDAOTreasury.address,
+                ethers.parseEther('10'), // 10 USDC
+              ]),
+            ],
+          ),
+          // Second transaction: DAO token transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await daoToken.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                daoToken.interface.encodeFunctionData('transferFrom', [
+                  mockDAOTreasury.address,
+                  investorCarol.address,
+                  ethers.parseEther('10000'), // 10,000 daoToken
+                ]),
+              ),
+              daoToken.interface.encodeFunctionData('transferFrom', [
+                mockDAOTreasury.address,
+                investorCarol.address,
+                ethers.parseEther('10000'), // 10,000 daoToken
+              ]),
+            ],
+          ),
+        ]),
       },
     ];
-
-
 
     const currentTime = await time.latest();
     signingDeadline = BigInt(currentTime) + BigInt(7 * 24 * 60 * 60); // one week
@@ -249,8 +325,8 @@ describe('CountersignV1', () => {
           executionDeadline,
           await mockMultisend.getAddress(),
           ethers.parseEther('100'),
-          [],
-          [],
+          '0x', // empty preExecutionTransactions
+          [], // empty signerInitializations
         ),
       ).to.be.revertedWithCustomError(countersign, 'InvalidInitialization');
     });
@@ -305,7 +381,7 @@ describe('CountersignV1', () => {
       void expect(founderExecuted).to.be.false;
       void expect(founderSignedTimestamp).to.equal(0n);
       void expect(founderWeight).to.equal(0n);
-      void expect(founderTransactions).to.deep.equal([]);
+      void expect(founderTransactions).to.equal('0x');
 
       // Alice data: isSigner=true, required=true, signed=false, weight=100, transactions=[2 transactions]
       const [
@@ -323,27 +399,50 @@ describe('CountersignV1', () => {
       void expect(aliceExecuted).to.be.false;
       void expect(aliceBeforeSignedTimestamp).to.equal(0n);
       void expect(aliceWeight).to.equal(ethers.parseEther('100'));
-      void expect(aliceTransactions).to.have.lengthOf(2);
-
-      // Verify Alice's USDC transfer transaction
-      void expect(aliceTransactions[0].target).to.equal(await usdc.getAddress());
-      void expect(aliceTransactions[0].value).to.equal(0n);
-      void expect(aliceTransactions[0].data).to.equal(
-        usdc.interface.encodeFunctionData('transferFrom', [
-          investorAlice.address,
-          mockDAOTreasury.address,
-          ethers.parseEther('100'), // 100 USDC
-        ]),
-      );
-
-      // Verify Alice's DAO token transfer transaction
-      void expect(aliceTransactions[1].target).to.equal(await daoToken.getAddress());
-      void expect(aliceTransactions[1].value).to.equal(0n);
-      void expect(aliceTransactions[1].data).to.equal(
-        daoToken.interface.encodeFunctionData('transferFrom', [
-          mockDAOTreasury.address,
-          investorAlice.address,
-          ethers.parseEther('100000'), // 100,000 daoToken
+      void expect(aliceTransactions).to.equal(
+        ethers.concat([
+          // First transaction: USDC transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await usdc.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                usdc.interface.encodeFunctionData('transferFrom', [
+                  investorAlice.address,
+                  mockDAOTreasury.address,
+                  ethers.parseEther('100'), // 100 USDC
+                ]),
+              ),
+              usdc.interface.encodeFunctionData('transferFrom', [
+                investorAlice.address,
+                mockDAOTreasury.address,
+                ethers.parseEther('100'), // 100 USDC
+              ]),
+            ],
+          ),
+          // Second transaction: DAO token transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await daoToken.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                daoToken.interface.encodeFunctionData('transferFrom', [
+                  mockDAOTreasury.address,
+                  investorAlice.address,
+                  ethers.parseEther('100000'), // 100,000 daoToken
+                ]),
+              ),
+              daoToken.interface.encodeFunctionData('transferFrom', [
+                mockDAOTreasury.address,
+                investorAlice.address,
+                ethers.parseEther('100000'), // 100,000 daoToken
+              ]),
+            ],
+          ),
         ]),
       );
 
@@ -363,27 +462,50 @@ describe('CountersignV1', () => {
       void expect(bobExecuted).to.be.false;
       void expect(bobBeforeSignedTimestamp).to.equal(0n);
       void expect(bobWeight).to.equal(ethers.parseEther('50'));
-      void expect(bobTransactions).to.have.lengthOf(2);
-
-      // Verify Bob's USDC transfer transaction
-      void expect(bobTransactions[0].target).to.equal(await usdc.getAddress());
-      void expect(bobTransactions[0].value).to.equal(0n);
-      void expect(bobTransactions[0].data).to.equal(
-        usdc.interface.encodeFunctionData('transferFrom', [
-          investorBob.address,
-          mockDAOTreasury.address,
-          ethers.parseEther('50'), // 50 USDC
-        ]),
-      );
-
-      // Verify Bob's DAO token transfer transaction
-      void expect(bobTransactions[1].target).to.equal(await daoToken.getAddress());
-      void expect(bobTransactions[1].value).to.equal(0n);
-      void expect(bobTransactions[1].data).to.equal(
-        daoToken.interface.encodeFunctionData('transferFrom', [
-          mockDAOTreasury.address,
-          investorBob.address,
-          ethers.parseEther('50000'), // 50,000 daoToken
+      void expect(bobTransactions).to.equal(
+        ethers.concat([
+          // First transaction: USDC transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await usdc.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                usdc.interface.encodeFunctionData('transferFrom', [
+                  investorBob.address,
+                  mockDAOTreasury.address,
+                  ethers.parseEther('50'), // 50 USDC
+                ]),
+              ),
+              usdc.interface.encodeFunctionData('transferFrom', [
+                investorBob.address,
+                mockDAOTreasury.address,
+                ethers.parseEther('50'), // 50 USDC
+              ]),
+            ],
+          ),
+          // Second transaction: DAO token transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await daoToken.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                daoToken.interface.encodeFunctionData('transferFrom', [
+                  mockDAOTreasury.address,
+                  investorBob.address,
+                  ethers.parseEther('50000'), // 50,000 daoToken
+                ]),
+              ),
+              daoToken.interface.encodeFunctionData('transferFrom', [
+                mockDAOTreasury.address,
+                investorBob.address,
+                ethers.parseEther('50000'), // 50,000 daoToken
+              ]),
+            ],
+          ),
         ]),
       );
 
@@ -403,42 +525,77 @@ describe('CountersignV1', () => {
       void expect(carolExecuted).to.be.false;
       void expect(carolBeforeSignedTimestamp).to.equal(0n);
       void expect(carolWeight).to.equal(ethers.parseEther('20'));
-      void expect(carolTransactions).to.have.lengthOf(2);
-
-      // Verify Carol's USDC transfer transaction
-      void expect(carolTransactions[0].target).to.equal(await usdc.getAddress());
-      void expect(carolTransactions[0].value).to.equal(0n);
-      void expect(carolTransactions[0].data).to.equal(
-        usdc.interface.encodeFunctionData('transferFrom', [
-          investorCarol.address,
-          mockDAOTreasury.address,
-          ethers.parseEther('10'), // 10 USDC
-        ]),
-      );
-
-      // Verify Carol's DAO token transfer transaction
-      void expect(carolTransactions[1].target).to.equal(await daoToken.getAddress());
-      void expect(carolTransactions[1].value).to.equal(0n);
-      void expect(carolTransactions[1].data).to.equal(
-        daoToken.interface.encodeFunctionData('transferFrom', [
-          mockDAOTreasury.address,
-          investorCarol.address,
-          ethers.parseEther('10000'), // 10,000 daoToken
+      void expect(carolTransactions).to.equal(
+        ethers.concat([
+          // First transaction: USDC transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await usdc.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                usdc.interface.encodeFunctionData('transferFrom', [
+                  investorCarol.address,
+                  mockDAOTreasury.address,
+                  ethers.parseEther('10'), // 10 USDC
+                ]),
+              ),
+              usdc.interface.encodeFunctionData('transferFrom', [
+                investorCarol.address,
+                mockDAOTreasury.address,
+                ethers.parseEther('10'), // 10 USDC
+              ]),
+            ],
+          ),
+          // Second transaction: DAO token transfer
+          ethers.solidityPacked(
+            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+            [
+              0, // operation: CALL
+              await daoToken.getAddress(),
+              0, // value: 0 ETH
+              ethers.dataLength(
+                daoToken.interface.encodeFunctionData('transferFrom', [
+                  mockDAOTreasury.address,
+                  investorCarol.address,
+                  ethers.parseEther('10000'), // 10,000 daoToken
+                ]),
+              ),
+              daoToken.interface.encodeFunctionData('transferFrom', [
+                mockDAOTreasury.address,
+                investorCarol.address,
+                ethers.parseEther('10000'), // 10,000 daoToken
+              ]),
+            ],
+          ),
         ]),
       );
     });
 
     it('should return correct preExecutionTransactions', async () => {
       const preExecutionTransactions = await countersign.preExecutionTransactions();
-      void expect(preExecutionTransactions).to.have.lengthOf(1);
-      void expect(preExecutionTransactions[0].target).to.equal(await daoToken.getAddress());
-      void expect(preExecutionTransactions[0].value).to.equal(0n);
-      void expect(preExecutionTransactions[0].data).to.equal(
-        daoToken.interface.encodeFunctionData('transferFrom', [
-          mockDAOTreasury.address,
-          ethers.ZeroAddress,
-          ethers.parseEther('100000'),
-        ]),
+      void expect(preExecutionTransactions).to.equal(
+        ethers.solidityPacked(
+          ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+          [
+            0, // operation: CALL
+            await daoToken.getAddress(),
+            0, // value: 0 ETH
+            ethers.dataLength(
+              daoToken.interface.encodeFunctionData('transferFrom', [
+                mockDAOTreasury.address,
+                ethers.ZeroAddress,
+                ethers.parseEther('100000'),
+              ]),
+            ),
+            daoToken.interface.encodeFunctionData('transferFrom', [
+              mockDAOTreasury.address,
+              ethers.ZeroAddress,
+              ethers.parseEther('100000'),
+            ]),
+          ],
+        ),
       );
     });
   });

@@ -9,7 +9,12 @@ interface ICountersignV1 {
     error SigningDeadlineElapsed();
     error ExecutionDeadlineElapsed();
     error SignerAlreadySigned();
+    error RequiredSignerNotSigned();
     error InvalidKYCSignature();
+    error RequiredSignerTransactionFailed();
+    error MinimumWeightNotMet();
+    error AlreadyExecuted();
+    error InitialExecutionNotCompleted();
 
     // --- Structs ---
 
@@ -93,5 +98,7 @@ interface ICountersignV1 {
 
     function sign() external;
 
-    function execute() external;
+    function initialExecution() external;
+
+    function finalExecution() external;
 }

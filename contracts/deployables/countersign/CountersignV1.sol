@@ -7,12 +7,14 @@ import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-
+// TODO: make this Ownable
+// TODO: add getter for executed
 contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
+    bool internal _executed;
     string internal _agreementUri;
     address internal _kycVerifier;
     uint48 internal _signingDeadline;
@@ -175,34 +177,84 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         emit Signed(msg.sender);
     }
 
-    function execute() public virtual override {
+    // TODO: Make this onlyOwner
+    function initialExecution() public virtual override {
         if (block.timestamp > _executionDeadline) {
             revert ExecutionDeadlineElapsed();
         }
+
+        if (_executed) {
+            revert AlreadyExecuted();
+        }
+
+        uint256 executedWeight;
+
+        for (uint256 i = 0; i < _signerAddresses.length; ) {
+            Signer storage signer = _signerData[_signerAddresses[i]];
+
+            if (!signer.signed) {
+                if (signer.required) revert RequiredSignerNotSigned();
+
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+
+            // delegatecall to multisend
+            (bool success, ) = _multisend.delegatecall(
+                abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
+            );
+
+            if (success) {
+                signer.executed = true;
+                executedWeight += signer.weight;
+                // TODO: emit event
+            } else {
+                if (signer.required) revert RequiredSignerTransactionFailed();
+                // TODO: emit event
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (executedWeight < _minWeight) {
+            revert MinimumWeightNotMet();
+        }
     }
 
-    // function _executeSignerTransactions(Signer storage signerData_) internal {
-    //     Transaction[] storage transactions = signerData_.transactions;
+    function finalExecution() public virtual override {
+        if (!_executed) {
+            revert InitialExecutionNotCompleted();
+        }
 
-    //     // bool success = true;
-    //     for (uint256 i = 0; i < transactions.length; ) {
-    //         _executeTransaction(transactions[i]);
+        for (uint256 i = 0; i < _signerAddresses.length; ) {
+            Signer storage signer = _signerData[_signerAddresses[i]];
 
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
-    // }
+            if (!signer.signed || signer.executed) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
 
-    // function _executeTransaction(
-    //     Transaction memory transaction_
-    // ) internal returns (bool) {
-    //     (bool success, ) = transaction_.target.call{value: transaction_.value}(
-    //         transaction_.data
-    //     );
+            // delegatecall to multisend
+            (bool success, ) = _multisend.delegatecall(
+                abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
+            );
 
-    //     return success;
-    // }
+            if (success) {
+                signer.executed = true;
+                // TODO: emit event
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
 
     // ======================================================================
     // IVersion
