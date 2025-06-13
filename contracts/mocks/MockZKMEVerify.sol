@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IZKMEVerify} from "../interfaces/decent/deployables/IZKMEVerify.sol";
+import {IZKMEVerify} from "../interfaces/zkme/IZKMEVerify.sol";
 
 contract MockZKMEVerify is IZKMEVerify {
     bool public approve;
