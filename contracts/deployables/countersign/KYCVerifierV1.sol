@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1.sol";
-import {IZKMEVerify} from "../../interfaces/decent/deployables/IZKMEVerify.sol";
+import {IZKMEVerify} from "../../interfaces/zkme/IZKMEVerify.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
