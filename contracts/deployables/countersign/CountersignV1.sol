@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+
 
 contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
@@ -12,7 +14,9 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
 
     string internal _agreementUri;
-    address internal _verificationContract;
+    address internal _kycVerifier;
+    uint48 internal _signingDeadline;
+    uint48 internal _executionDeadline;
     uint256 internal _minWeight;
     address[] internal _signerAddresses;
     mapping(address signer => Signer signerData) internal _signerData;
@@ -28,13 +32,17 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
     function initialize(
         string memory agreementUri_,
-        address verificationContract_,
+        address kycVerifier_,
+        uint48 signingDeadline_,
+        uint48 executionDeadline_,
         uint256 minWeight_,
         SignerInitialization[] memory signerInitializations_,
         Transaction[] memory preExecutionTransactions_
     ) public virtual override initializer {
         _agreementUri = agreementUri_;
-        _verificationContract = verificationContract_;
+        _kycVerifier = kycVerifier_;
+        _signingDeadline = signingDeadline_;
+        _executionDeadline = executionDeadline_;
         _minWeight = minWeight_;
 
         for (uint256 i = 0; i < signerInitializations_.length; ) {
@@ -44,7 +52,6 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
             _signerData[signerInit.account].isSigner = true;
             _signerData[signerInit.account].required = signerInit.required;
-            _signerData[signerInit.account].signed = false;
             _signerData[signerInit.account].weight = signerInit.weight;
 
             Transaction[] storage transactions = _signerData[signerInit.account]
@@ -85,14 +92,22 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _agreementUri;
     }
 
-    function verificationContract()
+    function kycVerifier() public view virtual override returns (address) {
+        return _kycVerifier;
+    }
+
+    function signingDeadline() public view virtual override returns (uint48) {
+        return _signingDeadline;
+    }
+
+    function executionDeadline()
         public
         view
         virtual
         override
-        returns (address)
+        returns (uint48)
     {
-        return _verificationContract;
+        return _executionDeadline;
     }
 
     function minWeight() public view virtual override returns (uint256) {
@@ -115,7 +130,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         external
         view
         override
-        returns (bool, bool, bool, uint256, Transaction[] memory)
+        returns (bool, bool, bool, uint48, uint256, Transaction[] memory)
     {
         Signer storage signerData_ = _signerData[signer];
 
@@ -137,6 +152,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             true,
             signerData_.required,
             signerData_.signed,
+            signerData_.signedTimestamp,
             signerData_.weight,
             returnedSignerTransactions
         );
@@ -150,6 +166,33 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         returns (Transaction[] memory)
     {
         return _preExecutionTransactions;
+    }
+
+    // --- State-Changing Functions ---
+
+    function sign() public virtual override {
+        if (block.timestamp > _signingDeadline) {
+            revert SigningDeadlineElapsed();
+        }
+
+        Signer storage signer = _signerData[msg.sender];
+
+        if (!signer.isSigner) {
+            revert InvalidSigner();
+        }
+
+        if (signer.signed) {
+            revert SignerAlreadySigned();
+        }
+
+        if (!IKYCVerifierV1(_kycVerifier).verify(msg.sender)) {
+            revert InvalidKYCSignature();
+        }
+
+        signer.signed = true;
+        signer.signedTimestamp = uint48(block.timestamp);
+
+        emit Signed(msg.sender);
     }
 
     // ======================================================================
