@@ -52,23 +52,23 @@ interface ICountersignV1 {
 
     // --- View Functions ---
 
-    function agreementUri() external view returns (string memory agreementUri_);
+    function agreementUri() external view returns (string memory agreementUri);
 
-    function kycVerifier() external view returns (address kycVerifier_);
+    function kycVerifier() external view returns (address kycVerifier);
 
-    function signingDeadline() external view returns (uint48 signingDeadline_);
+    function signingDeadline() external view returns (uint48 signingDeadline);
 
     function executionDeadline()
         external
         view
-        returns (uint48 executionDeadline_);
+        returns (uint48 executionDeadline);
 
-    function minWeight() external view returns (uint256 minWeight_);
+    function minWeight() external view returns (uint256 minWeight);
 
     function signerAddresses()
         external
         view
-        returns (address[] memory signerAddresses_);
+        returns (address[] memory signerAddresses);
 
     function signerData(
         address signer
@@ -76,18 +76,18 @@ interface ICountersignV1 {
         external
         view
         returns (
-            bool isSigner_,
-            bool required_,
-            bool signed_,
-            uint48 signedTimestamp_,
-            uint256 weight_,
+            bool isSigner,
+            bool required,
+            bool signed,
+            uint48 signedTimestamp,
+            uint256 weight,
             Transaction[] memory transactions
         );
 
     function preExecutionTransactions()
         external
         view
-        returns (Transaction[] memory preExecutionTransactions_);
+        returns (Transaction[] memory preExecutionTransactions);
 
     // --- State-Changing Functions ---
 
