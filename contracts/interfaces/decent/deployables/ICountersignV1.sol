@@ -56,12 +56,12 @@ interface ICountersignV1 {
 
     function kycVerifier() external view returns (address kycVerifier_);
 
-    function signingDeadline() external view returns (uint256 signingDeadline_);
+    function signingDeadline() external view returns (uint48 signingDeadline_);
 
     function executionDeadline()
         external
         view
-        returns (uint256 executionDeadline_);
+        returns (uint48 executionDeadline_);
 
     function minWeight() external view returns (uint256 minWeight_);
 
