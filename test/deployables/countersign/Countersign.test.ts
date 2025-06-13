@@ -143,7 +143,7 @@ describe('CountersignV1', () => {
             value: 0,
             data: daoToken.interface.encodeFunctionData('transferFrom', [
               mockDAOTreasury.address,
-              investorAlice.address,
+              investorBob.address,
               ethers.parseEther('50000'), // 50,000 daoToken
             ]),
           },
@@ -278,6 +278,7 @@ describe('CountersignV1', () => {
         founderIsSigner,
         founderRequired,
         founderSigned,
+        founderExecuted,
         founderSignedTimestamp,
         founderWeight,
         founderTransactions,
@@ -285,6 +286,7 @@ describe('CountersignV1', () => {
       void expect(founderIsSigner).to.be.true;
       void expect(founderRequired).to.be.true;
       void expect(founderSigned).to.be.false;
+      void expect(founderExecuted).to.be.false;
       void expect(founderSignedTimestamp).to.equal(0n);
       void expect(founderWeight).to.equal(0n);
       void expect(founderTransactions).to.deep.equal([]);
@@ -294,6 +296,7 @@ describe('CountersignV1', () => {
         aliceIsSigner,
         aliceRequired,
         aliceSigned,
+        aliceExecuted,
         aliceBeforeSignedTimestamp,
         aliceWeight,
         aliceTransactions,
@@ -301,6 +304,7 @@ describe('CountersignV1', () => {
       void expect(aliceIsSigner).to.be.true;
       void expect(aliceRequired).to.be.true;
       void expect(aliceSigned).to.be.false;
+      void expect(aliceExecuted).to.be.false;
       void expect(aliceBeforeSignedTimestamp).to.equal(0n);
       void expect(aliceWeight).to.equal(ethers.parseEther('100'));
       void expect(aliceTransactions).to.have.lengthOf(2);
@@ -332,6 +336,7 @@ describe('CountersignV1', () => {
         bobIsSigner,
         bobRequired,
         bobSigned,
+        bobExecuted,
         bobBeforeSignedTimestamp,
         bobWeight,
         bobTransactions,
@@ -339,6 +344,7 @@ describe('CountersignV1', () => {
       void expect(bobIsSigner).to.be.true;
       void expect(bobRequired).to.be.false;
       void expect(bobSigned).to.be.false;
+      void expect(bobExecuted).to.be.false;
       void expect(bobBeforeSignedTimestamp).to.equal(0n);
       void expect(bobWeight).to.equal(ethers.parseEther('50'));
       void expect(bobTransactions).to.have.lengthOf(2);
@@ -360,7 +366,7 @@ describe('CountersignV1', () => {
       void expect(bobTransactions[1].data).to.equal(
         daoToken.interface.encodeFunctionData('transferFrom', [
           mockDAOTreasury.address,
-          investorAlice.address,
+          investorBob.address,
           ethers.parseEther('50000'), // 50,000 daoToken
         ]),
       );
@@ -370,6 +376,7 @@ describe('CountersignV1', () => {
         carolIsSigner,
         carolRequired,
         carolSigned,
+        carolExecuted,
         carolBeforeSignedTimestamp,
         carolWeight,
         carolTransactions,
@@ -377,6 +384,7 @@ describe('CountersignV1', () => {
       void expect(carolIsSigner).to.be.true;
       void expect(carolRequired).to.be.false;
       void expect(carolSigned).to.be.false;
+      void expect(carolExecuted).to.be.false;
       void expect(carolBeforeSignedTimestamp).to.equal(0n);
       void expect(carolWeight).to.equal(ethers.parseEther('20'));
       void expect(carolTransactions).to.have.lengthOf(2);
@@ -469,35 +477,41 @@ describe('CountersignV1', () => {
       // set mock KYC verifier to verify all signatures
       await mockKYCVerifier.setVerify(true);
 
-      const [, , aliceBeforeSigned, aliceBeforeSignedTimestamp, ,] = await countersign.signerData(
+      const [, , aliceBeforeSigned, , aliceBeforeSignedTimestamp, ,] = await countersign.signerData(
         investorAlice.address,
       );
       void expect(aliceBeforeSigned).to.be.false;
       void expect(aliceBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorAlice).sign();
-      const [, , aliceAfterSigned, aliceAfterSignedTimestamp, ,] = await countersign.signerData(
+      const [, , aliceAfterSigned, , aliceAfterSignedTimestamp, ,] = await countersign.signerData(
         investorAlice.address,
       );
       void expect(aliceAfterSigned).to.be.true;
       void expect(aliceAfterSignedTimestamp).to.equal(await time.latest());
 
-      const [, , bobBeforeSigned, bobBeforeSignedTimestamp, ,] = await countersign.signerData(
+      const [, , bobBeforeSigned, , bobBeforeSignedTimestamp, ,] = await countersign.signerData(
         investorBob.address,
       );
       void expect(bobBeforeSigned).to.be.false;
       void expect(bobBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorBob).sign();
-      const [, , bobAfterSigned, bobAfterSignedTimestamp, ,] = await countersign.signerData(
+      const [, , bobAfterSigned, , bobAfterSignedTimestamp, ,] = await countersign.signerData(
         investorBob.address,
       );
       void expect(bobAfterSigned).to.be.true;
       void expect(bobAfterSignedTimestamp).to.equal(await time.latest());
 
-      const [, , carolBeforeSigned, ,] = await countersign.signerData(investorCarol.address);
+      const [, , carolBeforeSigned, , carolBeforeSignedTimestamp, ,] = await countersign.signerData(
+        investorCarol.address,
+      );
       void expect(carolBeforeSigned).to.be.false;
+      void expect(carolBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorCarol).sign();
-      const [, , carolAfterSigned, ,] = await countersign.signerData(investorCarol.address);
+      const [, , carolAfterSigned, , carolAfterSignedTimestamp, ,] = await countersign.signerData(
+        investorCarol.address,
+      );
       void expect(carolAfterSigned).to.be.true;
+      void expect(carolAfterSignedTimestamp).to.equal(await time.latest());
     });
 
     it('should not allow signers to sign after the signing deadline', async () => {

@@ -129,7 +129,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         external
         view
         override
-        returns (bool, bool, bool, uint48, uint256, Transaction[] memory)
+        returns (bool, bool, bool, bool, uint48, uint256, Transaction[] memory)
     {
         Signer storage signerData_ = _signerData[signer];
 
@@ -151,6 +151,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             true,
             signerData_.required,
             signerData_.signed,
+            signerData_.executed,
             signerData_.signedTimestamp,
             signerData_.weight,
             returnedSignerTransactions
@@ -192,6 +193,19 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         signerData_.signedTimestamp = uint48(block.timestamp);
 
         emit Signed(msg.sender);
+    }
+
+    function execute() public virtual override {
+        if (block.timestamp > _executionDeadline) {
+            revert ExecutionDeadlineElapsed();
+        }
+
+
+        
+    }
+
+    function _execute(Transaction[] memory transactions) internal {
+
     }
 
     // ======================================================================
