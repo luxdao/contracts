@@ -7,6 +7,7 @@ interface ICountersignV1 {
     error InvalidArrayLengths();
     error InvalidSigner();
     error SigningDeadlineElapsed();
+    error ExecutionDeadlineElapsed();
     error SignerAlreadySigned();
     error InvalidKYCSignature();
 
@@ -29,6 +30,7 @@ interface ICountersignV1 {
         bool isSigner;
         bool required;
         bool signed;
+        bool executed;
         uint48 signedTimestamp;
         uint256 weight;
         Transaction[] transactions;
@@ -79,6 +81,7 @@ interface ICountersignV1 {
             bool isSigner_,
             bool required_,
             bool signed_,
+            bool executed_,
             uint48 signedTimestamp_,
             uint256 weight_,
             Transaction[] memory transactions
@@ -92,4 +95,6 @@ interface ICountersignV1 {
     // --- State-Changing Functions ---
 
     function sign() external;
+
+    function execute() external;
 }
