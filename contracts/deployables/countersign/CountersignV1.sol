@@ -199,13 +199,29 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         if (block.timestamp > _executionDeadline) {
             revert ExecutionDeadlineElapsed();
         }
-
-
-        
     }
 
-    function _execute(Transaction[] memory transactions) internal {
+    function _executeSignerTransactions(Signer storage signerData_) internal {
+        Transaction[] storage transactions = signerData_.transactions;
 
+        bool success = true;
+        for (uint256 i = 0; i < transactions.length; ) {
+            _executeTransaction(transactions[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function _executeTransaction(
+        Transaction memory transaction
+    ) internal returns (bool) {
+        (bool success, ) = transaction.target.call{value: transaction.value}(
+            transaction.data
+        );
+
+        return success;
     }
 
     // ======================================================================
