@@ -13,6 +13,8 @@ import {
   MockERC20Votes__factory,
   MockKYCVerifier,
   MockKYCVerifier__factory,
+  MockMultisend,
+  MockMultisend__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
@@ -24,9 +26,10 @@ async function deployCountersignProxy(
   verificationContract: string,
   signingDeadline: bigint,
   executionDeadline: bigint,
+  multisend: string,
   minWeight: bigint,
+  preExecutionTransactions: any,
   signerInitializations: any[],
-  preExecutionTransactions: any[],
 ): Promise<CountersignV1> {
   // Create initialization data with function selector
 
@@ -35,9 +38,10 @@ async function deployCountersignProxy(
     verificationContract,
     signingDeadline,
     executionDeadline,
+    multisend,
     minWeight,
-    signerInitializations,
     preExecutionTransactions,
+    signerInitializations,
   ]);
 
   // Deploy the proxy with the implementation
@@ -61,6 +65,7 @@ describe('CountersignV1', () => {
   let daoToken: MockERC20Votes;
   let usdc: MockERC20Votes;
   let mockKYCVerifier: MockKYCVerifier;
+  let mockMultisend: MockMultisend;
 
   let signingDeadline: bigint;
   let executionDeadline: bigint;
@@ -72,10 +77,13 @@ describe('CountersignV1', () => {
     [founder, investorAlice, investorBob, investorCarol, anon, mockDAOTreasury] =
       await ethers.getSigners();
 
+    // deploy tokens
     daoToken = await new MockERC20Votes__factory(founder).deploy();
     usdc = await new MockERC20Votes__factory(founder).deploy();
 
+    // deploy mock contracts
     mockKYCVerifier = await new MockKYCVerifier__factory(founder).deploy();
+    mockMultisend = await new MockMultisend__factory(founder).deploy();
 
     // mint Alice 100 USDC
     await usdc.mint(investorAlice.address, ethers.parseEther('100'));
@@ -88,6 +96,19 @@ describe('CountersignV1', () => {
 
     // mint DAO treasury 100,000 DAO tokens
     await daoToken.mint(mockDAOTreasury.address, ethers.parseEther('100000'));
+
+    // preExecution transaction transfer 100,000 DAO tokens from treasury to address zero
+    const preExecutionTransactions = [
+      {
+        target: await daoToken.getAddress(),
+        value: 0,
+        data: daoToken.interface.encodeFunctionData('transferFrom', [
+          mockDAOTreasury.address,
+          ethers.ZeroAddress,
+          ethers.parseEther('100000'),
+        ]),
+      },
+    ];
 
     // create signer addresses array
     const signerInitializations = [
@@ -177,18 +198,7 @@ describe('CountersignV1', () => {
       },
     ];
 
-    // preExecution transaction transfer 100,000 DAO tokens from treasury to address zero
-    const preExecutionTransactions = [
-      {
-        target: await daoToken.getAddress(),
-        value: 0,
-        data: daoToken.interface.encodeFunctionData('transferFrom', [
-          mockDAOTreasury.address,
-          ethers.ZeroAddress,
-          ethers.parseEther('100000'),
-        ]),
-      },
-    ];
+
 
     const currentTime = await time.latest();
     signingDeadline = BigInt(currentTime) + BigInt(7 * 24 * 60 * 60); // one week
@@ -202,9 +212,10 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.getAddress(),
       signingDeadline,
       executionDeadline,
+      await mockMultisend.getAddress(),
       ethers.parseEther('100'), // minWeight
-      signerInitializations,
       preExecutionTransactions,
+      signerInitializations,
     );
 
     // Alice approves countersign to spend her USDC
@@ -236,6 +247,7 @@ describe('CountersignV1', () => {
           await mockKYCVerifier.getAddress(),
           signingDeadline,
           executionDeadline,
+          await mockMultisend.getAddress(),
           ethers.parseEther('100'),
           [],
           [],
@@ -257,6 +269,10 @@ describe('CountersignV1', () => {
 
     it('should return correct execution deadline', async () => {
       expect(await countersign.executionDeadline()).to.equal(executionDeadline);
+    });
+
+    it('should return correct multisend', async () => {
+      expect(await countersign.multisend()).to.equal(await mockMultisend.getAddress());
     });
 
     it('should return correct minWeight', async () => {

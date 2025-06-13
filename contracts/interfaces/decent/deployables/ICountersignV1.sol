@@ -13,17 +13,11 @@ interface ICountersignV1 {
 
     // --- Structs ---
 
-    struct Transaction {
-        address target;
-        uint256 value;
-        bytes data;
-    }
-
     struct SignerInitialization {
         address account;
         bool required;
         uint256 weight;
-        Transaction[] transactions;
+        bytes transactions;
     }
 
     struct Signer {
@@ -33,7 +27,7 @@ interface ICountersignV1 {
         bool executed;
         uint48 signedTimestamp;
         uint256 weight;
-        Transaction[] transactions;
+        bytes transactions;
     }
 
     // --- Events ---
@@ -47,9 +41,10 @@ interface ICountersignV1 {
         address verificationContract_,
         uint48 signingDeadline_,
         uint48 executionDeadline_,
+        address multisend_,
         uint256 minWeight_,
-        SignerInitialization[] memory signerInitializations_,
-        Transaction[] memory preExecutionTransactions_
+        bytes memory preExecutionTransactions_,
+        SignerInitialization[] memory signerInitializations_
     ) external;
 
     // --- View Functions ---
@@ -65,6 +60,8 @@ interface ICountersignV1 {
         view
         returns (uint48 executionDeadline);
 
+    function multisend() external view returns (address multisend);
+
     function minWeight() external view returns (uint256 minWeight);
 
     function signerAddresses()
@@ -78,19 +75,19 @@ interface ICountersignV1 {
         external
         view
         returns (
-            bool isSigner_,
-            bool required_,
-            bool signed_,
-            bool executed_,
-            uint48 signedTimestamp_,
-            uint256 weight_,
-            Transaction[] memory transactions
+            bool isSigner,
+            bool required,
+            bool signed,
+            bool executed,
+            uint48 signedTimestamp,
+            uint256 weight,
+            bytes memory transactions
         );
 
     function preExecutionTransactions()
         external
         view
-        returns (Transaction[] memory preExecutionTransactions);
+        returns (bytes memory preExecutionTransactions);
 
     // --- State-Changing Functions ---
 

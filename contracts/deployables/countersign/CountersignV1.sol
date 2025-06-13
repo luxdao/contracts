@@ -17,10 +17,11 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     address internal _kycVerifier;
     uint48 internal _signingDeadline;
     uint48 internal _executionDeadline;
+    address internal _multisend;
     uint256 internal _minWeight;
     address[] internal _signerAddresses;
     mapping(address signer => Signer signerData) internal _signerData;
-    Transaction[] internal _preExecutionTransactions;
+    bytes internal _preExecutionTransactions;
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -35,15 +36,18 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         address kycVerifier_,
         uint48 signingDeadline_,
         uint48 executionDeadline_,
+        address multisend_,
         uint256 minWeight_,
-        SignerInitialization[] memory signerInitializations_,
-        Transaction[] memory preExecutionTransactions_
+        bytes memory preExecutionTransactions_,
+        SignerInitialization[] memory signerInitializations_
     ) public virtual override initializer {
         _agreementUri = agreementUri_;
         _kycVerifier = kycVerifier_;
         _signingDeadline = signingDeadline_;
         _executionDeadline = executionDeadline_;
+        _multisend = multisend_;
         _minWeight = minWeight_;
+        _preExecutionTransactions = preExecutionTransactions_;
 
         for (uint256 i = 0; i < signerInitializations_.length; ) {
             SignerInitialization memory signerInit = signerInitializations_[i];
@@ -53,23 +57,8 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             _signerData[signerInit.account].isSigner = true;
             _signerData[signerInit.account].required = signerInit.required;
             _signerData[signerInit.account].weight = signerInit.weight;
+            _signerData[signerInit.account].transactions = signerInit.transactions;
 
-            Transaction[] storage transactions = _signerData[signerInit.account]
-                .transactions;
-            for (uint256 j = 0; j < signerInit.transactions.length; ) {
-                transactions.push(signerInit.transactions[j]);
-                unchecked {
-                    ++j;
-                }
-            }
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        for (uint256 i = 0; i < preExecutionTransactions_.length; ) {
-            _preExecutionTransactions.push(preExecutionTransactions_[i]);
             unchecked {
                 ++i;
             }
@@ -110,6 +99,10 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _executionDeadline;
     }
 
+    function multisend() public view virtual override returns (address) {
+        return _multisend;
+    }
+
     function minWeight() public view virtual override returns (uint256) {
         return _minWeight;
     }
@@ -130,23 +123,9 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         external
         view
         override
-        returns (bool, bool, bool, bool, uint48, uint256, Transaction[] memory)
+        returns (bool, bool, bool, bool, uint48, uint256, bytes memory)
     {
         Signer storage signer = _signerData[signer_];
-
-        Transaction[] storage signerTransactions = signer.transactions;
-        uint256 transactionCount = signerTransactions.length;
-
-        Transaction[] memory returnedSignerTransactions = new Transaction[](
-            transactionCount
-        );
-
-        for (uint256 i = 0; i < transactionCount; ) {
-            returnedSignerTransactions[i] = signerTransactions[i];
-            unchecked {
-                ++i;
-            }
-        }
 
         return (
             true,
@@ -155,7 +134,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             signer.executed,
             signer.signedTimestamp,
             signer.weight,
-            returnedSignerTransactions
+            signer.transactions
         );
     }
 
@@ -164,7 +143,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         view
         virtual
         override
-        returns (Transaction[] memory)
+        returns (bytes memory)
     {
         return _preExecutionTransactions;
     }
@@ -202,28 +181,28 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         }
     }
 
-    function _executeSignerTransactions(Signer storage signerData_) internal {
-        Transaction[] storage transactions = signerData_.transactions;
+    // function _executeSignerTransactions(Signer storage signerData_) internal {
+    //     Transaction[] storage transactions = signerData_.transactions;
 
-        // bool success = true;
-        for (uint256 i = 0; i < transactions.length; ) {
-            _executeTransaction(transactions[i]);
+    //     // bool success = true;
+    //     for (uint256 i = 0; i < transactions.length; ) {
+    //         _executeTransaction(transactions[i]);
 
-            unchecked {
-                ++i;
-            }
-        }
-    }
+    //         unchecked {
+    //             ++i;
+    //         }
+    //     }
+    // }
 
-    function _executeTransaction(
-        Transaction memory transaction_
-    ) internal returns (bool) {
-        (bool success, ) = transaction_.target.call{value: transaction_.value}(
-            transaction_.data
-        );
+    // function _executeTransaction(
+    //     Transaction memory transaction_
+    // ) internal returns (bool) {
+    //     (bool success, ) = transaction_.target.call{value: transaction_.value}(
+    //         transaction_.data
+    //     );
 
-        return success;
-    }
+    //     return success;
+    // }
 
     // ======================================================================
     // IVersion
