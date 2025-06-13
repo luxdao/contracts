@@ -5,6 +5,10 @@ interface ICountersignV1 {
     // --- Errors ---
 
     error InvalidArrayLengths();
+    error InvalidSigner();
+    error SigningDeadlineElapsed();
+    error SignerAlreadySigned();
+    error InvalidKYCSignature();
 
     // --- Structs ---
 
@@ -25,17 +29,22 @@ interface ICountersignV1 {
         bool isSigner;
         bool required;
         bool signed;
+        uint48 signedTimestamp;
         uint256 weight;
         Transaction[] transactions;
     }
 
     // --- Events ---
 
+    event Signed(address indexed signer);
+
     // --- Initializer Functions ---
 
     function initialize(
         string memory agreementUri_,
         address verificationContract_,
+        uint48 signingDeadline_,
+        uint48 executionDeadline_,
         uint256 minWeight_,
         SignerInitialization[] memory signerInitializations_,
         Transaction[] memory preExecutionTransactions_
@@ -45,10 +54,14 @@ interface ICountersignV1 {
 
     function agreementUri() external view returns (string memory agreementUri);
 
-    function verificationContract()
+    function kycVerifier() external view returns (address kycVerifier);
+
+    function signingDeadline() external view returns (uint48 signingDeadline);
+
+    function executionDeadline()
         external
         view
-        returns (address verificationContract);
+        returns (uint48 executionDeadline);
 
     function minWeight() external view returns (uint256 minWeight);
 
@@ -66,6 +79,7 @@ interface ICountersignV1 {
             bool isSigner,
             bool required,
             bool signed,
+            uint48 signedTimestamp,
             uint256 weight,
             Transaction[] memory transactions
         );
@@ -74,4 +88,8 @@ interface ICountersignV1 {
         external
         view
         returns (Transaction[] memory preExecutionTransactions);
+
+    // --- State-Changing Functions ---
+
+    function sign() external;
 }
