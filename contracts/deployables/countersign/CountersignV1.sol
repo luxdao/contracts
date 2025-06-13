@@ -175,13 +175,13 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             revert SigningDeadlineElapsed();
         }
 
-        Signer storage signerData_ = _signerData[msg.sender];
+        Signer storage signer = _signerData[msg.sender];
 
-        if (!signerData_.isSigner) {
+        if (!signer.isSigner) {
             revert InvalidSigner();
         }
 
-        if (signerData_.signed) {
+        if (signer.signed) {
             revert SignerAlreadySigned();
         }
 
@@ -189,8 +189,8 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             revert InvalidKYCSignature();
         }
 
-        signerData_.signed = true;
-        signerData_.signedTimestamp = uint48(block.timestamp);
+        signer.signed = true;
+        signer.signedTimestamp = uint48(block.timestamp);
 
         emit Signed(msg.sender);
     }
