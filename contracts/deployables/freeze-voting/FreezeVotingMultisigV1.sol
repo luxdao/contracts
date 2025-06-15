@@ -3,17 +3,16 @@ pragma solidity ^0.8.30;
 
 import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 import {IFreezeVotingMultisigV1} from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
+import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {FreezeVotingBaseV1} from "./FreezeVotingBaseV1.sol";
-import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract FreezeVotingMultisigV1 is
     IFreezeVotingMultisigV1,
     IVersion,
     FreezeVotingBaseV1,
-    VoterResolverV1,
     ERC165
 {
     // ======================================================================
@@ -44,9 +43,9 @@ contract FreezeVotingMultisigV1 is
             owner_,
             freezeProposalPeriod_,
             freezePeriod_,
-            freezeVotesThreshold_
+            freezeVotesThreshold_,
+            lightAccountFactory_
         );
-        __VoterResolverV1_init(lightAccountFactory_);
         _parentSafe = ISafe(parentSafe_);
     }
 
@@ -103,6 +102,7 @@ contract FreezeVotingMultisigV1 is
         return
             interfaceId_ == type(IFreezeVotingMultisigV1).interfaceId ||
             interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
+            interfaceId_ == type(IVoterResolverV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
