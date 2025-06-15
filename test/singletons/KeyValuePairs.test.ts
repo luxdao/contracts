@@ -15,10 +15,13 @@ describe('KeyValuePairs', function () {
 
   describe('updateValues', function () {
     it('should emit ValueUpdated events for each key-value pair', async function () {
-      const keys = ['name', 'age', 'city'];
-      const values = ['Alice', '25', 'New York'];
+      const keyValuePairsData = [
+        { key: 'name', value: 'Alice' },
+        { key: 'age', value: '25' },
+        { key: 'city', value: 'New York' },
+      ];
 
-      await expect(keyValuePairs.connect(user).updateValues(keys, values))
+      await expect(keyValuePairs.connect(user).updateValues(keyValuePairsData))
         .to.emit(keyValuePairs, 'ValueUpdated')
         .withArgs(user.address, 'name', 'Alice')
         .to.emit(keyValuePairs, 'ValueUpdated')
@@ -28,33 +31,17 @@ describe('KeyValuePairs', function () {
     });
 
     it('should work with a single key-value pair', async function () {
-      const keys = ['single'];
-      const values = ['value'];
+      const keyValuePairsData = [{ key: 'single', value: 'value' }];
 
-      await expect(keyValuePairs.connect(user).updateValues(keys, values))
+      await expect(keyValuePairs.connect(user).updateValues(keyValuePairsData))
         .to.emit(keyValuePairs, 'ValueUpdated')
         .withArgs(user.address, 'single', 'value');
     });
 
     it('should work with empty arrays', async function () {
-      const keys: string[] = [];
-      const values: string[] = [];
+      const keyValuePairsData: { key: string; value: string }[] = [];
 
-      await expect(keyValuePairs.connect(user).updateValues(keys, values)).to.not.be.reverted;
-    });
-
-    it('should revert if keys and values arrays have different lengths', async function () {
-      const keys = ['key1', 'key2'];
-      const values = ['value1'];
-
-      await expect(
-        keyValuePairs.connect(user).updateValues(keys, values),
-      ).to.be.revertedWithCustomError(keyValuePairs, 'IncorrectValueCount');
-
-      const moreValues = ['value1', 'value2', 'value3'];
-      await expect(
-        keyValuePairs.connect(user).updateValues(keys, moreValues),
-      ).to.be.revertedWithCustomError(keyValuePairs, 'IncorrectValueCount');
+      await expect(keyValuePairs.connect(user).updateValues(keyValuePairsData)).to.not.be.reverted;
     });
   });
 });
