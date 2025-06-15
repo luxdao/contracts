@@ -63,13 +63,16 @@ interface IStrategyV1 {
     // --- Initializer Functions ---
 
     function initialize(
-        address strategyAdmin_,
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
-        address[] calldata votingAdapters_,
         address[] calldata proposerAdapters_,
         address lightAccountFactory_
+    ) external;
+
+    function initialize2(
+        address strategyAdmin_,
+        address[] calldata votingAdapters_
     ) external;
 
     // --- View Functions ---
