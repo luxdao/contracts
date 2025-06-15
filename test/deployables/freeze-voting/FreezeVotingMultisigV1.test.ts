@@ -10,6 +10,7 @@ import {
   IFreezeVotingBaseV1__factory,
   IFreezeVotingMultisigV1__factory,
   IVersion__factory,
+  IVoterResolverV1__factory,
   MockLightAccount,
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
@@ -518,6 +519,14 @@ describe('FreezeVotingMultisigV1', () => {
       void expect(
         await freezeVoting.supportsInterface(
           calculateInterfaceId(IFreezeVotingBaseV1__factory.createInterface()),
+        ),
+      ).to.be.true;
+    });
+
+    it('should support the IVoterResolverV1 interface', async () => {
+      void expect(
+        await freezeVoting.supportsInterface(
+          calculateInterfaceId(IVoterResolverV1__factory.createInterface()),
         ),
       ).to.be.true;
     });
