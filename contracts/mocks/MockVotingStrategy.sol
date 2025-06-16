@@ -41,27 +41,33 @@ contract MockVotingStrategy is IStrategyV1, VoterResolverV1 {
     }
 
     function initialize(
-        address strategyAdmin_,
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
-        address[] calldata votingAdapters_,
         address[] calldata proposerAdapters_,
         address lightAccountFactory_
     ) external override {
-        mockStrategyAdmin = strategyAdmin_;
         _mockVotingPeriod = votingPeriod_;
         _mockQuorumThreshold = quorumThreshold_;
         _mockBasisNumerator = basisNumerator_;
-        _mockVotingAdapters = votingAdapters_;
         _mockProposerAdapters = proposerAdapters_;
-        for (uint i = 0; i < votingAdapters_.length; i++) {
-            _isVotingAdapterMap[votingAdapters_[i]] = true;
-        }
+
         for (uint i = 0; i < proposerAdapters_.length; i++) {
             _isProposerAdapterMap[proposerAdapters_[i]] = true;
         }
         __VoterResolverV1_init(lightAccountFactory_);
+    }
+
+    function initialize2(
+        address strategyAdmin_,
+        address[] calldata votingAdapters_
+    ) external override {
+        mockStrategyAdmin = strategyAdmin_;
+        _mockVotingAdapters = votingAdapters_;
+
+        for (uint i = 0; i < votingAdapters_.length; i++) {
+            _isVotingAdapterMap[votingAdapters_[i]] = true;
+        }
     }
 
     function strategyAdmin() external view override returns (address) {

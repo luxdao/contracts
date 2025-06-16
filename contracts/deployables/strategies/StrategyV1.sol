@@ -60,18 +60,12 @@ contract StrategyV1 is
     }
 
     function initialize(
-        address strategyAdmin_,
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
         uint256 basisNumerator_,
-        address[] calldata votingAdapters_,
         address[] calldata proposerAdapters_,
         address lightAccountFactory_
     ) public virtual override initializer {
-        if (votingAdapters_.length == 0) {
-            revert NoVotingAdapters();
-        }
-
         if (proposerAdapters_.length == 0) {
             revert NoProposerAdapters();
         }
@@ -82,21 +76,32 @@ contract StrategyV1 is
         ) revert InvalidBasisNumerator();
 
         __VoterResolverV1_init(lightAccountFactory_);
-        _strategyAdmin = strategyAdmin_;
         _votingPeriod = votingPeriod_;
         _quorumThreshold = quorumThreshold_;
         _basisNumerator = basisNumerator_;
-        _votingAdapters = votingAdapters_;
         _proposerAdapters = proposerAdapters_;
 
-        for (uint256 i = 0; i < votingAdapters_.length; ) {
-            _isVotingAdapter[votingAdapters_[i]] = true;
+        for (uint256 i = 0; i < proposerAdapters_.length; ) {
+            _isProposerAdapter[proposerAdapters_[i]] = true;
             unchecked {
                 ++i;
             }
         }
-        for (uint256 i = 0; i < proposerAdapters_.length; ) {
-            _isProposerAdapter[proposerAdapters_[i]] = true;
+    }
+
+    function initialize2(
+        address strategyAdmin_,
+        address[] calldata votingAdapters_
+    ) public virtual override reinitializer(2) {
+        if (votingAdapters_.length == 0) {
+            revert NoVotingAdapters();
+        }
+
+        _strategyAdmin = strategyAdmin_;
+        _votingAdapters = votingAdapters_;
+
+        for (uint256 i = 0; i < votingAdapters_.length; ) {
+            _isVotingAdapter[votingAdapters_[i]] = true;
             unchecked {
                 ++i;
             }

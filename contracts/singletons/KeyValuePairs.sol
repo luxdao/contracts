@@ -3,26 +3,19 @@ pragma solidity ^0.8.30;
 
 import {IKeyValuePairs} from "../interfaces/decent/singletons/IKeyValuePairs.sol";
 
-/**
- * Implementation of [IKeyValuePairs](./interfaces/IKeyValuePairs.md), a utility
- * contract to log key / value pair events for the calling address.
- */
 contract KeyValuePairs is IKeyValuePairs {
-    event ValueUpdated(address indexed theAddress, string key, string value);
+    // ======================================================================
+    // IKeyValuePairs
+    // ======================================================================
 
-    error IncorrectValueCount();
+    // --- State-Changing Functions ---
 
-    /** @inheritdoc IKeyValuePairs*/
-    function updateValues(
-        string[] memory _keys,
-        string[] memory _values
-    ) external {
-        uint256 keyCount = _keys.length;
+    function updateValues(KeyValuePair[] memory keyValuePairs_) external {
+        for (uint256 i; i < keyValuePairs_.length; ) {
+            KeyValuePair memory keyValuePair = keyValuePairs_[i];
 
-        if (keyCount != _values.length) revert IncorrectValueCount();
+            emit ValueUpdated(msg.sender, keyValuePair.key, keyValuePair.value);
 
-        for (uint256 i; i < keyCount; ) {
-            emit ValueUpdated(msg.sender, _keys[i], _values[i]);
             unchecked {
                 ++i;
             }
