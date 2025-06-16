@@ -31,13 +31,13 @@ contract ModuleFractalV1 is
         address avatar_,
         address target_
     ) public virtual override initializer {
-        __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
+        __Ownable_init(owner_);
 
-        setAvatar(avatar_);
-        setTarget(target_);
-
-        _transferOwnership(owner_);
+        avatar = avatar_;
+        target = target_;
+        emit AvatarSet(address(0), avatar_);
+        emit TargetSet(address(0), target_);
     }
 
     function setUp(
