@@ -96,10 +96,7 @@ describe('CountersignV1', () => {
     // mint Carol 10 USDC
     await usdc.mint(investorCarol.address, ethers.parseEther('10'));
 
-    // mint DAO treasury 100,000 DAO tokens
-    await daoToken.mint(mockDAOTreasury.address, ethers.parseEther('100000'));
-
-    // preExecution transaction transfer 100,000 DAO tokens from treasury to address zero
+    // preExecution transaction mints 200,000 DAO tokens into DAO treasury
     const preExecutionTransactions = ethers.solidityPacked(
       ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
       [
@@ -107,21 +104,19 @@ describe('CountersignV1', () => {
         await daoToken.getAddress(),
         0, // value: 0 ETH
         ethers.dataLength(
-          daoToken.interface.encodeFunctionData('transferFrom', [
+          daoToken.interface.encodeFunctionData('mint', [
             mockDAOTreasury.address,
-            ethers.ZeroAddress,
-            ethers.parseEther('100000'),
+            ethers.parseEther('200000'),
           ]),
         ),
-        daoToken.interface.encodeFunctionData('transferFrom', [
+        daoToken.interface.encodeFunctionData('mint', [
           mockDAOTreasury.address,
-          ethers.ZeroAddress,
-          ethers.parseEther('100000'),
+          ethers.parseEther('200000'),
         ]),
       ],
     );
 
-    // create signer addresses array
+    // create signer transactions array
     const signerInitializations = [
       {
         account: founder.address,
@@ -315,7 +310,7 @@ describe('CountersignV1', () => {
     // DAO treasury approves countersign to spend its DAO tokens
     await daoToken
       .connect(mockDAOTreasury)
-      .approve(await countersign.getAddress(), ethers.parseEther('100000'));
+      .approve(await countersign.getAddress(), ethers.parseEther('160000'));
   });
 
   describe('Initialization', () => {
@@ -609,23 +604,6 @@ describe('CountersignV1', () => {
   });
 
   describe('Ownership', () => {
-    // beforeEach(async () => {
-    //   votesERC20Staked = await deployVotesERC20StakedProxy(
-    //     proxyDeployer,
-    //     masterCopy,
-    //     owner,
-    //     'Test Staking Contract',
-    //     'TSC',
-    //     await stakedToken.getAddress(),
-    //     604800n,
-    //     [
-    //       await rewardsTokenA.getAddress(),
-    //       await rewardsTokenB.getAddress(),
-    //       await rewardsTokenC.getAddress(),
-    //     ],
-    //   );
-    // });
-
     it('should set the owner correctly', async () => {
       const currentOwner = await countersign.owner();
       expect(currentOwner).to.equal(founder.address);
@@ -769,6 +747,114 @@ describe('CountersignV1', () => {
         countersign,
         'InvalidKYCSignature',
       );
+    });
+  });
+
+  describe.only('Execution', () => {
+    it('should allow for initial execution', async () => {
+      // set mock KYC verifier to verify all signatures
+      await mockKYCVerifier.setVerify(true);
+
+      await countersign.connect(founder).sign();
+      await countersign.connect(investorAlice).sign();
+      await countersign.connect(investorBob).sign();
+      await countersign.connect(investorCarol).sign();
+
+      // move time to after signing deadline
+      await time.increaseTo(signingDeadline + 1n);
+
+      expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('0'));
+      expect(await usdc.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('100'));
+      expect(await usdc.balanceOf(investorBob.address)).to.equal(ethers.parseEther('50'));
+      expect(await usdc.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('10'));
+
+      expect(await daoToken.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('0'));
+      expect(await daoToken.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('0'));
+      expect(await daoToken.balanceOf(investorBob.address)).to.equal(ethers.parseEther('0'));
+      expect(await daoToken.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('0'));
+
+      let [, , , founderExecuted, , ,] = await countersign.signerData(
+        founder.address,
+      );
+      let [, , , aliceExecuted, , ,] = await countersign.signerData(
+        investorAlice.address,
+      );
+      let [, , , bobExecuted, , ,] = await countersign.signerData(
+        investorBob.address,
+      );
+      let [, , , carolExecuted, , ,] = await countersign.signerData(
+        investorCarol.address,
+      );
+
+      void expect(founderExecuted).to.be.false;
+      void expect(aliceExecuted).to.be.false;
+      void expect(bobExecuted).to.be.false;
+      void expect(carolExecuted).to.be.false;
+
+      await countersign.connect(founder).initialExecution();
+
+      expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('160'));
+      expect(await usdc.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('0'));
+      expect(await usdc.balanceOf(investorBob.address)).to.equal(ethers.parseEther('0'));
+      expect(await usdc.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('0'));
+
+      expect(await daoToken.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('40000'));
+      expect(await daoToken.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('100000'));
+      expect(await daoToken.balanceOf(investorBob.address)).to.equal(ethers.parseEther('50000'));
+      expect(await daoToken.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('10000'));
+
+       [, , , founderExecuted, , ,] = await countersign.signerData(
+        founder.address,
+      );
+      [, , , aliceExecuted, , ,] = await countersign.signerData(
+        investorAlice.address,
+      );
+      [, , , bobExecuted, , ,] = await countersign.signerData(
+        investorBob.address,
+      );
+      [, , , carolExecuted, , ,] = await countersign.signerData(
+        investorCarol.address,
+      );
+      
+      void expect(founderExecuted).to.be.false;
+      void expect(aliceExecuted).to.be.true;
+      void expect(bobExecuted).to.be.true;
+      void expect(carolExecuted).to.be.true;
+    });
+
+    it('should allow for final execution when some non-required signers have not signed', async () => {
+      // set mock KYC verifier to verify all signatures
+      await mockKYCVerifier.setVerify(true);
+
+      // all signers but Carol sign
+      await countersign.connect(founder).sign();
+      await countersign.connect(investorAlice).sign();
+      await countersign.connect(investorBob).sign();
+
+      // move time to after signing deadline
+      await time.increaseTo(signingDeadline + 1n);
+
+      expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('0'));
+      expect(await usdc.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('100'));
+      expect(await usdc.balanceOf(investorBob.address)).to.equal(ethers.parseEther('50'));
+      expect(await usdc.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('10'));
+
+      expect(await daoToken.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('0'));
+      expect(await daoToken.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('0'));
+      expect(await daoToken.balanceOf(investorBob.address)).to.equal(ethers.parseEther('0'));
+      expect(await daoToken.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('0'));
+
+      await countersign.connect(founder).initialExecution();
+
+      expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('150'));
+      expect(await usdc.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('0'));
+      expect(await usdc.balanceOf(investorBob.address)).to.equal(ethers.parseEther('0'));
+      expect(await usdc.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('10'));
+
+      expect(await daoToken.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('50000'));
+      expect(await daoToken.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('100000'));
+      expect(await daoToken.balanceOf(investorBob.address)).to.equal(ethers.parseEther('50000'));
+      expect(await daoToken.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('0'));
     });
   });
 });
