@@ -608,6 +608,47 @@ describe('CountersignV1', () => {
     });
   });
 
+  describe('Ownership', () => {
+    // beforeEach(async () => {
+    //   votesERC20Staked = await deployVotesERC20StakedProxy(
+    //     proxyDeployer,
+    //     masterCopy,
+    //     owner,
+    //     'Test Staking Contract',
+    //     'TSC',
+    //     await stakedToken.getAddress(),
+    //     604800n,
+    //     [
+    //       await rewardsTokenA.getAddress(),
+    //       await rewardsTokenB.getAddress(),
+    //       await rewardsTokenC.getAddress(),
+    //     ],
+    //   );
+    // });
+
+    it('should set the owner correctly', async () => {
+      const currentOwner = await countersign.owner();
+      expect(currentOwner).to.equal(founder.address);
+    });
+
+    it('Should allow owner to transfer ownership', async function () {
+      await countersign.connect(founder).transferOwnership(investorAlice.address);
+      await countersign.connect(investorAlice).acceptOwnership();
+      expect(await countersign.owner()).to.equal(investorAlice.address);
+    });
+
+    it('should allow the owner to call authorized functions', async () => {
+      await countersign.connect(founder).renounceOwnership();
+      expect(await countersign.owner()).to.equal(ethers.ZeroAddress);
+    });
+
+    it('should not allow non-owners to call owner-only functions', async () => {
+      await expect(
+        countersign.connect(investorAlice).renounceOwnership(),
+      ).to.be.revertedWithCustomError(countersign, 'OwnableUnauthorizedAccount');
+    });
+  });
+
   describe('Version', () => {
     it('should return the correct version number', async () => {
       expect(await countersign.version()).to.equal(1);

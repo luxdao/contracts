@@ -5,10 +5,10 @@ import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 // TODO: make this Ownable
-contract CountersignV1 is ICountersignV1, IVersion, ERC165, OwnableUpgradeable {
+contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradeable {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
