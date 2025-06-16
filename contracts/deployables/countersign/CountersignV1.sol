@@ -7,7 +7,6 @@ import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-// TODO: make this Ownable
 contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradeable {
     // ======================================================================
     // STATE VARIABLES
@@ -183,8 +182,11 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
         emit Signed(msg.sender);
     }
 
-    // TODO: Make this onlyOwner
     function initialExecution() public virtual override onlyOwner{
+        if (block.timestamp < _signingDeadline) {
+            revert SigningDeadlineNotMet();
+        }
+
         if (block.timestamp > _executionDeadline) {
             revert ExecutionDeadlineElapsed();
         }
@@ -216,12 +218,12 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
             if (success) {
                 signer.executed = true;
                 executedWeight += signer.weight;
-                emit SignerTxsExecuted(signerAddress);
+                emit SignerTxExecuted(signerAddress);
             } else {
                 if (signer.required) {
-                    revert RequiredSignerTransactionFailed();
+                    revert RequiredSignerTxFailed();
                 } else {
-                    emit SignerTxsFailed(signerAddress);
+                    emit SignerTxFailed(signerAddress);
                 }
             }
 
@@ -233,12 +235,16 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
         if (executedWeight < _minWeight) {
             revert MinimumWeightNotMet();
         }
+
+        _initialExecutionComplete = true;
     }
 
     function finalExecution() public virtual override onlyOwner{
         if (!_initialExecutionComplete) {
             revert InitialExecutionNotCompleted();
         }
+
+        // TODO: should execution deadline be checked here?
 
         for (uint256 i = 0; i < _signerAddresses.length; ) {
             address signerAddress = _signerAddresses[i];
@@ -258,9 +264,9 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
 
             if (success) {
                 signer.executed = true;
-                emit SignerTxsExecuted(signerAddress);
+                emit SignerTxExecuted(signerAddress);
             } else {
-                emit SignerTxsFailed(signerAddress);
+                emit SignerTxFailed(signerAddress);
             }
 
             unchecked {
