@@ -7,7 +7,12 @@ import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradeable {
+contract CountersignV1 is
+    ICountersignV1,
+    IVersion,
+    ERC165,
+    Ownable2StepUpgradeable
+{
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
@@ -172,6 +177,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
             revert SignerAlreadySigned();
         }
 
+
         if (!IKYCVerifierV1(_kycVerifier).verify(msg.sender)) {
             revert InvalidKYCSignature();
         }
@@ -182,7 +188,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
         emit Signed(msg.sender);
     }
 
-    function initialExecution() public virtual override onlyOwner{
+    function initialExecution() public virtual override onlyOwner {
         if (block.timestamp < _signingDeadline) {
             revert SigningDeadlineNotElapsed();
         }
@@ -197,7 +203,10 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
 
         if (_preExecutionTransactions.length > 0) {
             (bool success, ) = _multisend.delegatecall(
-                abi.encodeWithSignature("multiSend(bytes)", _preExecutionTransactions)
+                abi.encodeWithSignature(
+                    "multiSend(bytes)",
+                    _preExecutionTransactions
+                )
             );
 
             if (!success) {
@@ -220,20 +229,25 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
                 continue;
             }
 
-            // delegatecall to multisend
-            (bool success, ) = _multisend.delegatecall(
-                abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
-            );
+            if (signer.transactions.length > 0) {
+                // delegatecall to multisend
+                (bool success, ) = _multisend.delegatecall(
+                    abi.encodeWithSignature(
+                        "multiSend(bytes)",
+                        signer.transactions
+                    )
+                );
 
-            if (success) {
-                signer.executed = true;
-                executedWeight += signer.weight;
-                emit SignerTxExecuted(signerAddress);
-            } else {
-                if (signer.required) {
-                    revert RequiredSignerTxFailed();
+                if (success) {
+                    signer.executed = true;
+                    executedWeight += signer.weight;
+                    emit SignerTxExecuted(signerAddress);
                 } else {
-                    emit SignerTxFailed(signerAddress);
+                    if (signer.required) {
+                        revert RequiredSignerTxFailed();
+                    } else {
+                        emit SignerTxFailed(signerAddress);
+                    }
                 }
             }
 
@@ -249,12 +263,12 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
         _initialExecutionComplete = true;
     }
 
-    function finalExecution() public virtual override onlyOwner{
+    function finalExecution() public virtual override onlyOwner {
         if (!_initialExecutionComplete) {
             revert InitialExecutionNotCompleted();
         }
 
-        // TODO: should execution deadline be checked here?
+        // TODO: should check execution deadline in new public execute function
 
         for (uint256 i = 0; i < _signerAddresses.length; ) {
             address signerAddress = _signerAddresses[i];
@@ -267,16 +281,19 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
                 continue;
             }
 
-            // delegatecall to multisend
-            (bool success, ) = _multisend.delegatecall(
-                abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
-            );
+            if (signer.transactions.length > 0) {
+                // TODO: if transaction length is 1, should we just execute from here?
+                // delegatecall to multisend
+                (bool success, ) = _multisend.delegatecall(
+                    abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
+                );
 
-            if (success) {
-                signer.executed = true;
-                emit SignerTxExecuted(signerAddress);
-            } else {
-                emit SignerTxFailed(signerAddress);
+                if (success) {
+                    signer.executed = true;
+                    emit SignerTxExecuted(signerAddress);
+                } else {
+                    emit SignerTxFailed(signerAddress);
+                }
             }
 
             unchecked {
