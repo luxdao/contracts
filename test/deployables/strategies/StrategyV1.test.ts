@@ -56,11 +56,9 @@ describe('StrategyV1', () => {
     lightAccountFactoryAddress: string,
   ): Promise<StrategyV1> {
     const initializeCalldata = strategyImplementation.interface.encodeFunctionData('initialize', [
-      strategyAdminAddress,
       votingPeriod,
       quorumThreshold,
       basisNumerator,
-      initialVotingAdaptersAddresses,
       initialProposerAdaptersAddresses,
       lightAccountFactoryAddress,
     ]);
@@ -68,7 +66,9 @@ describe('StrategyV1', () => {
       await strategyImplementation.getAddress(),
       initializeCalldata,
     );
-    return StrategyV1__factory.connect(await proxy.getAddress(), deployer);
+    const strategyInstance = StrategyV1__factory.connect(await proxy.getAddress(), deployer);
+    await strategyInstance.initialize2(strategyAdminAddress, initialVotingAdaptersAddresses);
+    return strategyInstance;
   }
 
   beforeEach(async () => {
