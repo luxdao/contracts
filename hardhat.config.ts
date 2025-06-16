@@ -1,6 +1,5 @@
 import '@nomicfoundation/hardhat-toolbox';
 import * as dotenv from 'dotenv';
-import 'hardhat-deploy';
 import { HardhatUserConfig } from 'hardhat/config';
 import 'solidity-docgen';
 
@@ -22,16 +21,6 @@ const config: HardhatUserConfig = {
         },
       },
     ],
-  },
-  namedAccounts: {
-    deployer: {
-      default: 0,
-      mainnet: `privatekey://${process.env.MAINNET_DEPLOYER_PRIVATE_KEY}`,
-      sepolia: `privatekey://${process.env.SEPOLIA_DEPLOYER_PRIVATE_KEY}`,
-      polygon: `privatekey://${process.env.POLYGON_DEPLOYER_PRIVATE_KEY}`,
-      base: `privatekey://${process.env.BASE_DEPLOYER_PRIVATE_KEY}`,
-      optimism: `privatekey://${process.env.OPTIMISM_DEPLOYER_PRIVATE_KEY}`,
-    },
   },
   networks: {
     mainnet: {
@@ -81,9 +70,6 @@ const config: HardhatUserConfig = {
   },
   sourcify: {
     enabled: true,
-  },
-  paths: {
-    deploy: 'deploy/core',
   },
   docgen: {
     pages: 'files',
