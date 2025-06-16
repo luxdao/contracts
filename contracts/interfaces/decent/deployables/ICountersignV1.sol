@@ -15,7 +15,8 @@ interface ICountersignV1 {
     error MinimumWeightNotMet();
     error AlreadyExecuted();
     error InitialExecutionNotCompleted();
-    error SigningDeadlineNotMet();
+    error SigningDeadlineNotElapsed();
+    error PreExecutionTxFailed();
 
     // --- Structs ---
 
