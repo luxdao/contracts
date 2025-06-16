@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-/**
- * A utility contract to log key / value pair events for the calling address.
- */
 interface IKeyValuePairs {
-    /**
-     * Logs the given key / value pairs, along with the caller's address.
-     *
-     * @param _keys the keys
-     * @param _values the values
-     */
-    function updateValues(
-        string[] memory _keys,
-        string[] memory _values
-    ) external;
+    // --- Structs ---
+
+    struct KeyValuePair {
+        string key;
+        string value;
+    }
+
+    // --- Events ---
+
+    event ValueUpdated(address indexed sender, string key, string value);
+
+    // --- State-Changing Functions ---
+
+    function updateValues(KeyValuePair[] memory keyValuePairs_) external;
 }
