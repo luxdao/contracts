@@ -5,16 +5,15 @@ import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 // TODO: make this Ownable
-// TODO: add getter for executed
-contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
+contract CountersignV1 is ICountersignV1, IVersion, ERC165, OwnableUpgradeable {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
-    bool internal _executed;
+    bool internal _initialExecutionComplete;
     string internal _agreementUri;
     address internal _kycVerifier;
     uint48 internal _signingDeadline;
@@ -34,6 +33,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     }
 
     function initialize(
+        address owner_,
         string memory agreementUri_,
         address kycVerifier_,
         uint48 signingDeadline_,
@@ -43,6 +43,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         bytes memory preExecutionTransactions_,
         SignerInitialization[] memory signerInitializations_
     ) public virtual override initializer {
+        __Ownable_init(owner_);
         _agreementUri = agreementUri_;
         _kycVerifier = kycVerifier_;
         _signingDeadline = signingDeadline_;
@@ -59,7 +60,8 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             _signerData[signerInit.account].isSigner = true;
             _signerData[signerInit.account].required = signerInit.required;
             _signerData[signerInit.account].weight = signerInit.weight;
-            _signerData[signerInit.account].transactions = signerInit.transactions;
+            _signerData[signerInit.account].transactions = signerInit
+                .transactions;
 
             unchecked {
                 ++i;
@@ -72,6 +74,16 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     // ======================================================================
 
     // --- View Functions ---
+
+    function initialExecutionComplete()
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return _initialExecutionComplete;
+    }
 
     function agreementUri()
         public
@@ -91,13 +103,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         return _signingDeadline;
     }
 
-    function executionDeadline()
-        public
-        view
-        virtual
-        override
-        returns (uint48)
-    {
+    function executionDeadline() public view virtual override returns (uint48) {
         return _executionDeadline;
     }
 
@@ -178,19 +184,20 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
     }
 
     // TODO: Make this onlyOwner
-    function initialExecution() public virtual override {
+    function initialExecution() public virtual override onlyOwner{
         if (block.timestamp > _executionDeadline) {
             revert ExecutionDeadlineElapsed();
         }
 
-        if (_executed) {
+        if (_initialExecutionComplete) {
             revert AlreadyExecuted();
         }
 
         uint256 executedWeight;
 
         for (uint256 i = 0; i < _signerAddresses.length; ) {
-            Signer storage signer = _signerData[_signerAddresses[i]];
+            address signerAddress = _signerAddresses[i];
+            Signer storage signer = _signerData[signerAddress];
 
             if (!signer.signed) {
                 if (signer.required) revert RequiredSignerNotSigned();
@@ -209,10 +216,13 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
             if (success) {
                 signer.executed = true;
                 executedWeight += signer.weight;
-                // TODO: emit event
+                emit SignerTxsExecuted(signerAddress);
             } else {
-                if (signer.required) revert RequiredSignerTransactionFailed();
-                // TODO: emit event
+                if (signer.required) {
+                    revert RequiredSignerTransactionFailed();
+                } else {
+                    emit SignerTxsFailed(signerAddress);
+                }
             }
 
             unchecked {
@@ -225,13 +235,14 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
         }
     }
 
-    function finalExecution() public virtual override {
-        if (!_executed) {
+    function finalExecution() public virtual override onlyOwner{
+        if (!_initialExecutionComplete) {
             revert InitialExecutionNotCompleted();
         }
 
         for (uint256 i = 0; i < _signerAddresses.length; ) {
-            Signer storage signer = _signerData[_signerAddresses[i]];
+            address signerAddress = _signerAddresses[i];
+            Signer storage signer = _signerData[signerAddress];
 
             if (!signer.signed || signer.executed) {
                 unchecked {
@@ -247,7 +258,9 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Initializable {
 
             if (success) {
                 signer.executed = true;
-                // TODO: emit event
+                emit SignerTxsExecuted(signerAddress);
+            } else {
+                emit SignerTxsFailed(signerAddress);
             }
 
             unchecked {

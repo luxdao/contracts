@@ -22,6 +22,7 @@ import { calculateInterfaceId } from '../../helpers/utils';
 async function deployCountersignProxy(
   proxyDeployer: SignerWithAddress,
   implementation: string,
+  owner: string,
   agreementUri: string,
   verificationContract: string,
   signingDeadline: bigint,
@@ -34,6 +35,7 @@ async function deployCountersignProxy(
   // Create initialization data with function selector
 
   const fullInitData = CountersignV1__factory.createInterface().encodeFunctionData('initialize', [
+    owner,
     agreementUri,
     verificationContract,
     signingDeadline,
@@ -284,6 +286,7 @@ describe('CountersignV1', () => {
     countersign = await deployCountersignProxy(
       founder,
       await countersignImplementation.getAddress(),
+      founder.address,
       agreementUri,
       await mockKYCVerifier.getAddress(),
       signingDeadline,
@@ -319,6 +322,7 @@ describe('CountersignV1', () => {
     it('should not allow reinitialization', async () => {
       await expect(
         countersign.initialize(
+          founder.address,
           agreementUri,
           await mockKYCVerifier.getAddress(),
           signingDeadline,
@@ -329,6 +333,10 @@ describe('CountersignV1', () => {
           [], // empty signerInitializations
         ),
       ).to.be.revertedWithCustomError(countersign, 'InvalidInitialization');
+    });
+
+    it('should return correct owner', async () => {
+      expect(await countersign.owner()).to.equal(founder.address);
     });
 
     it('should return correct agreement URI', async () => {
