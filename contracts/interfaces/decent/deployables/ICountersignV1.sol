@@ -11,10 +11,11 @@ interface ICountersignV1 {
     error SignerAlreadySigned();
     error RequiredSignerNotSigned();
     error InvalidKYCSignature();
-    error RequiredSignerTransactionFailed();
+    error RequiredSignerTxFailed();
     error MinimumWeightNotMet();
     error AlreadyExecuted();
     error InitialExecutionNotCompleted();
+    error SigningDeadlineNotMet();
 
     // --- Structs ---
 
@@ -38,8 +39,8 @@ interface ICountersignV1 {
     // --- Events ---
 
     event Signed(address indexed signer);
-    event SignerTxsExecuted(address indexed signer);
-    event SignerTxsFailed(address indexed signer);
+    event SignerTxExecuted(address indexed signer);
+    event SignerTxFailed(address indexed signer);
 
     // --- Initializer Functions ---
 
