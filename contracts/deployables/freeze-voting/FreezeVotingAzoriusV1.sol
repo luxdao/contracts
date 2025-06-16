@@ -8,7 +8,6 @@ import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzori
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
-import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {FreezeVotingBaseV1} from "./FreezeVotingBaseV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -16,7 +15,6 @@ contract FreezeVotingAzoriusV1 is
     IFreezeVotingAzoriusV1,
     IVersion,
     FreezeVotingBaseV1,
-    VoterResolverV1,
     ERC165
 {
     // ======================================================================
@@ -46,9 +44,9 @@ contract FreezeVotingAzoriusV1 is
             owner_,
             freezeProposalPeriod_,
             freezePeriod_,
-            freezeVotesThreshold_
+            freezeVotesThreshold_,
+            lightAccountFactory_
         );
-        __VoterResolverV1_init(lightAccountFactory_);
         _parentAzorius = IModuleAzoriusV1(parentAzorius_);
     }
 

@@ -2,10 +2,12 @@
 pragma solidity ^0.8.30;
 
 import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
+import {VoterResolverV1} from "../account-abstraction/VoterResolverV1.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 abstract contract FreezeVotingBaseV1 is
     IFreezeVotingBaseV1,
+    VoterResolverV1,
     Ownable2StepUpgradeable
 {
     // ======================================================================
@@ -31,12 +33,14 @@ abstract contract FreezeVotingBaseV1 is
         address owner_,
         uint32 freezeProposalPeriod_,
         uint32 freezePeriod_,
-        uint256 freezeVotesThreshold_
+        uint256 freezeVotesThreshold_,
+        address lightAccountFactory_
     ) internal onlyInitializing {
         __Ownable_init(owner_);
         _freezeVotesThreshold = freezeVotesThreshold_;
         _freezeProposalPeriod = freezeProposalPeriod_;
         _freezePeriod = freezePeriod_;
+        __VoterResolverV1_init(lightAccountFactory_);
     }
 
     // ======================================================================

@@ -1,13 +1,7 @@
 import '@nomicfoundation/hardhat-toolbox';
-import * as dotenv from 'dotenv';
-import 'hardhat-deploy';
-import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-verify';
+import { HardhatUserConfig, vars } from 'hardhat/config';
 import 'solidity-docgen';
-
-dotenv.config();
-
-// first address from `test test test test test test test test test test test junk`
-const dummyPrivateKey = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -23,67 +17,63 @@ const config: HardhatUserConfig = {
       },
     ],
   },
-  namedAccounts: {
-    deployer: {
-      default: 0,
-      mainnet: `privatekey://${process.env.MAINNET_DEPLOYER_PRIVATE_KEY}`,
-      sepolia: `privatekey://${process.env.SEPOLIA_DEPLOYER_PRIVATE_KEY}`,
-      polygon: `privatekey://${process.env.POLYGON_DEPLOYER_PRIVATE_KEY}`,
-      base: `privatekey://${process.env.BASE_DEPLOYER_PRIVATE_KEY}`,
-      optimism: `privatekey://${process.env.OPTIMISM_DEPLOYER_PRIVATE_KEY}`,
-    },
-  },
   networks: {
-    mainnet: {
-      chainId: 1,
-      url: process.env.MAINNET_PROVIDER || 'https://ethereum-rpc.publicnode.com',
-      accounts: process.env.MAINNET_DEPLOYER_PRIVATE_KEY
-        ? [process.env.MAINNET_DEPLOYER_PRIVATE_KEY]
-        : [dummyPrivateKey],
-    },
     sepolia: {
       chainId: 11155111,
-      url: process.env.SEPOLIA_PROVIDER || 'https://ethereum-sepolia-rpc.publicnode.com',
-      accounts: process.env.SEPOLIA_DEPLOYER_PRIVATE_KEY
-        ? [process.env.SEPOLIA_DEPLOYER_PRIVATE_KEY]
-        : [dummyPrivateKey],
+      url: vars.get('SEPOLIA_PROVIDER', ''),
+      accounts: [
+        vars.get(
+          'TESTNET_DEPLOYER_PK',
+          '0x0000000000000000000000000000000000000000000000000000000000000000',
+        ),
+      ],
+    },
+    mainnet: {
+      chainId: 1,
+      url: vars.get('MAINNET_PROVIDER', ''),
+      accounts: [
+        vars.get(
+          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          '0x0000000000000000000000000000000000000000000000000000000000000000',
+        ),
+      ],
     },
     polygon: {
       chainId: 137,
-      url: process.env.POLYGON_PROVIDER || 'https://polygon-bor-rpc.publicnode.com',
-      accounts: process.env.POLYGON_DEPLOYER_PRIVATE_KEY
-        ? [process.env.POLYGON_DEPLOYER_PRIVATE_KEY]
-        : [dummyPrivateKey],
+      url: vars.get('POLYGON_PROVIDER', ''),
+      accounts: [
+        vars.get(
+          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          '0x0000000000000000000000000000000000000000000000000000000000000000',
+        ),
+      ],
     },
     base: {
       chainId: 8453,
-      url: process.env.BASE_PROVIDER || 'https://base-rpc.publicnode.com',
-      accounts: process.env.BASE_DEPLOYER_PRIVATE_KEY
-        ? [process.env.BASE_DEPLOYER_PRIVATE_KEY]
-        : [dummyPrivateKey],
+      url: vars.get('BASE_PROVIDER', ''),
+      accounts: [
+        vars.get(
+          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          '0x0000000000000000000000000000000000000000000000000000000000000000',
+        ),
+      ],
     },
     optimism: {
       chainId: 10,
-      url: process.env.OPTIMISM_PROVIDER || 'https://optimism-rpc.publicnode.com',
-      accounts: process.env.OPTIMISM_DEPLOYER_PRIVATE_KEY
-        ? [process.env.OPTIMISM_DEPLOYER_PRIVATE_KEY]
-        : [dummyPrivateKey],
+      url: vars.get('OPTIMISM_PROVIDER', ''),
+      accounts: [
+        vars.get(
+          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          '0x0000000000000000000000000000000000000000000000000000000000000000',
+        ),
+      ],
     },
   },
   etherscan: {
-    apiKey: {
-      mainnet: process.env.ETHERSCAN_API_KEY || '',
-      sepolia: process.env.ETHERSCAN_API_KEY || '',
-      polygon: process.env.POLYGONSCAN_API_KEY || '',
-      base: process.env.BASESCAN_API_KEY || '',
-      optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_API_KEY || '',
-    },
+    apiKey: vars.get('ETHERSCAN_API_KEY', ''),
   },
   sourcify: {
-    enabled: true,
-  },
-  paths: {
-    deploy: 'deploy/core',
+    enabled: false,
   },
   docgen: {
     pages: 'files',
