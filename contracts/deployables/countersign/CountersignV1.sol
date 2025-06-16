@@ -184,7 +184,7 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
 
     function initialExecution() public virtual override onlyOwner{
         if (block.timestamp < _signingDeadline) {
-            revert SigningDeadlineNotMet();
+            revert SigningDeadlineNotElapsed();
         }
 
         if (block.timestamp > _executionDeadline) {
@@ -193,6 +193,16 @@ contract CountersignV1 is ICountersignV1, IVersion, ERC165, Ownable2StepUpgradea
 
         if (_initialExecutionComplete) {
             revert AlreadyExecuted();
+        }
+
+        if (_preExecutionTransactions.length > 0) {
+            (bool success, ) = _multisend.delegatecall(
+                abi.encodeWithSignature("multiSend(bytes)", _preExecutionTransactions)
+            );
+
+            if (!success) {
+                revert PreExecutionTxFailed();
+            }
         }
 
         uint256 executedWeight;

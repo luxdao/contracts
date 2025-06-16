@@ -13,8 +13,8 @@ import {
   MockERC20Votes__factory,
   MockKYCVerifier,
   MockKYCVerifier__factory,
-  MockMultisend,
-  MockMultisend__factory,
+  MultiSend,
+  MultiSend__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
@@ -67,7 +67,7 @@ describe('CountersignV1', () => {
   let daoToken: MockERC20Votes;
   let usdc: MockERC20Votes;
   let mockKYCVerifier: MockKYCVerifier;
-  let mockMultisend: MockMultisend;
+  let multisend: MultiSend;
 
   let signingDeadline: bigint;
   let executionDeadline: bigint;
@@ -85,7 +85,7 @@ describe('CountersignV1', () => {
 
     // deploy mock contracts
     mockKYCVerifier = await new MockKYCVerifier__factory(founder).deploy();
-    mockMultisend = await new MockMultisend__factory(founder).deploy();
+    multisend = await new MultiSend__factory(founder).deploy();
 
     // mint Alice 100 USDC
     await usdc.mint(investorAlice.address, ethers.parseEther('100'));
@@ -291,7 +291,7 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.getAddress(),
       signingDeadline,
       executionDeadline,
-      await mockMultisend.getAddress(),
+      await multisend.getAddress(),
       ethers.parseEther('100'), // minWeight
       preExecutionTransactions,
       signerInitializations,
@@ -327,7 +327,7 @@ describe('CountersignV1', () => {
           await mockKYCVerifier.getAddress(),
           signingDeadline,
           executionDeadline,
-          await mockMultisend.getAddress(),
+          await multisend.getAddress(),
           ethers.parseEther('100'),
           '0x', // empty preExecutionTransactions
           [], // empty signerInitializations
@@ -356,7 +356,7 @@ describe('CountersignV1', () => {
     });
 
     it('should return correct multisend', async () => {
-      expect(await countersign.multisend()).to.equal(await mockMultisend.getAddress());
+      expect(await countersign.multisend()).to.equal(await multisend.getAddress());
     });
 
     it('should return correct minWeight', async () => {
