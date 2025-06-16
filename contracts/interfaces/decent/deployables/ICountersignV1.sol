@@ -38,10 +38,13 @@ interface ICountersignV1 {
     // --- Events ---
 
     event Signed(address indexed signer);
+    event SignerTxsExecuted(address indexed signer);
+    event SignerTxsFailed(address indexed signer);
 
     // --- Initializer Functions ---
 
     function initialize(
+        address owner_,
         string memory agreementUri_,
         address verificationContract_,
         uint48 signingDeadline_,
@@ -53,6 +56,8 @@ interface ICountersignV1 {
     ) external;
 
     // --- View Functions ---
+
+    function initialExecutionComplete() external view returns (bool);
 
     function agreementUri() external view returns (string memory agreementUri);
 
