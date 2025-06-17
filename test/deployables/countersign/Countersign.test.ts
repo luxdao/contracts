@@ -7,6 +7,7 @@ import {
   CountersignV1__factory,
   ERC1967Proxy__factory,
   ICountersignV1__factory,
+  IDeploymentBlockV1__factory,
   IERC165__factory,
   IVersion__factory,
   MockERC20Votes,
@@ -16,6 +17,7 @@ import {
   MultiSendCallOnly,
   MultiSendCallOnly__factory,
 } from '../../../typechain-types';
+import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
 import { calculateInterfaceId } from '../../helpers/utils';
 
 // Helper function for deploying Countersign instances using ERC1967Proxy
@@ -361,7 +363,7 @@ describe('CountersignV1', () => {
     });
 
     it('should return correct minWeight', async () => {
-      expect(await countersign.minWeight()).to.equal(ethers.parseEther('100'));
+      expect(await countersign.minWeight()).to.equal(ethers.parseEther('150'));
     });
 
     it('should return correct signer addresses', async () => {
@@ -592,16 +594,14 @@ describe('CountersignV1', () => {
             await daoToken.getAddress(),
             0, // value: 0 ETH
             ethers.dataLength(
-              daoToken.interface.encodeFunctionData('transferFrom', [
+              daoToken.interface.encodeFunctionData('mint', [
                 mockDAOTreasury.address,
-                ethers.ZeroAddress,
-                ethers.parseEther('100000'),
+                ethers.parseEther('200000'),
               ]),
             ),
-            daoToken.interface.encodeFunctionData('transferFrom', [
+            daoToken.interface.encodeFunctionData('mint', [
               mockDAOTreasury.address,
-              ethers.ZeroAddress,
-              ethers.parseEther('100000'),
+              ethers.parseEther('200000'),
             ]),
           ],
         ),
@@ -669,6 +669,14 @@ describe('CountersignV1', () => {
     it('Should support IVersion interface', async function () {
       const supported = await countersign.supportsInterface(iVersionInterfaceId);
       void expect(supported).to.be.true;
+    });
+
+    it('Should support IDeploymentBlockV1 interface', async function () {
+      void expect(
+        await countersign.supportsInterface(
+          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
+        ),
+      ).to.be.true;
     });
 
     it('Should not support random interface', async function () {
@@ -756,7 +764,7 @@ describe('CountersignV1', () => {
     });
   });
 
-  describe.only('Execution', () => {
+  describe('Execution', () => {
     it('should revert if signing deadline has not elapsed', async () => {
       // set mock KYC verifier to verify all signatures
       await mockKYCVerifier.setVerify(true);
@@ -1222,6 +1230,12 @@ describe('CountersignV1', () => {
       void expect(carolExecuted).to.be.false;
 
       void expect(await countersign.initialExecutionComplete()).to.be.true;
+    });
+  });
+
+  describe('Deployment Block', () => {
+    runDeploymentBlockTests({
+      getContract: () => countersign,
     });
   });
 });
