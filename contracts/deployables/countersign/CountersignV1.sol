@@ -6,6 +6,7 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {IMultisend} from "../../interfaces/safe/IMultiSend.sol";
 
 contract CountersignV1 is
     ICountersignV1,
@@ -199,17 +200,14 @@ contract CountersignV1 is
         if (!_initialExecutionComplete) {
             _initialExecution();
         } else {
-            _finalExecution();
+            _followUpExecutions();
         }
     }
 
     function _initialExecution() internal {
         if (_preExecutionTransactions.length > 0) {
             (bool success, ) = _multisend.delegatecall(
-                abi.encodeWithSignature(
-                    "multiSend(bytes)",
-                    _preExecutionTransactions
-                )
+                abi.encodeCall(IMultisend.multiSend, _preExecutionTransactions)
             );
 
             if (!success) {
@@ -233,12 +231,8 @@ contract CountersignV1 is
             }
 
             if (signer.transactions.length > 0) {
-                // delegatecall to multisend
                 (bool success, ) = _multisend.delegatecall(
-                    abi.encodeWithSignature(
-                        "multiSend(bytes)",
-                        signer.transactions
-                    )
+                    abi.encodeCall(IMultisend.multiSend, signer.transactions)
                 );
 
                 if (success) {
@@ -247,7 +241,7 @@ contract CountersignV1 is
                     emit SignerTxExecuted(signerAddress);
                 } else {
                     if (signer.required) {
-                        revert RequiredSignerTxFailed();
+                        revert RequiredSignerTxFailed(signerAddress);
                     } else {
                         emit SignerTxFailed(signerAddress);
                     }
@@ -266,7 +260,7 @@ contract CountersignV1 is
         _initialExecutionComplete = true;
     }
 
-    function _finalExecution() internal {
+    function _followUpExecutions() internal {
         for (uint256 i = 0; i < _signerAddresses.length; ) {
             address signerAddress = _signerAddresses[i];
             Signer storage signer = _signerData[signerAddress];
@@ -283,7 +277,7 @@ contract CountersignV1 is
             }
 
             (bool success, ) = _multisend.delegatecall(
-                abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
+                abi.encodeCall(IMultisend.multiSend, signer.transactions)
             );
 
             if (success) {
