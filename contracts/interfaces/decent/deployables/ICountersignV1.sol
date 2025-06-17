@@ -9,7 +9,7 @@ interface ICountersignV1 {
     error SigningDeadlineElapsed();
     error ExecutionDeadlineElapsed();
     error SignerAlreadySigned();
-    error RequiredSignerNotSigned();
+    error RequiredSignerNotSigned(address signer);
     error InvalidKYCSignature();
     error RequiredSignerTxFailed(address signer);
     error MinimumWeightNotMet();
