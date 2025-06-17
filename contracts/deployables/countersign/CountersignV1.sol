@@ -177,7 +177,6 @@ contract CountersignV1 is
             revert SignerAlreadySigned();
         }
 
-
         if (!IKYCVerifierV1(_kycVerifier).verify(msg.sender)) {
             revert InvalidKYCSignature();
         }
@@ -189,10 +188,6 @@ contract CountersignV1 is
     }
 
     function execute() public virtual override onlyOwner {
-
-    }
-
-    function _initialExecution() internal {
         if (block.timestamp < _signingDeadline) {
             revert SigningDeadlineNotElapsed();
         }
@@ -201,10 +196,14 @@ contract CountersignV1 is
             revert ExecutionDeadlineElapsed();
         }
 
-        if (_initialExecutionComplete) {
-            revert AlreadyExecuted();
+        if (!_initialExecutionComplete) {
+            _initialExecution();
+        } else {
+            _finalExecution();
         }
+    }
 
+    function _initialExecution() internal {
         if (_preExecutionTransactions.length > 0) {
             (bool success, ) = _multisend.delegatecall(
                 abi.encodeWithSignature(
@@ -268,12 +267,6 @@ contract CountersignV1 is
     }
 
     function _finalExecution() internal {
-        if (!_initialExecutionComplete) {
-            revert InitialExecutionNotCompleted();
-        }
-
-        // TODO: should check execution deadline in new public execute function
-
         for (uint256 i = 0; i < _signerAddresses.length; ) {
             address signerAddress = _signerAddresses[i];
             Signer storage signer = _signerData[signerAddress];
@@ -289,7 +282,10 @@ contract CountersignV1 is
                 // TODO: if transaction length is 1, should we just execute from here?
                 // delegatecall to multisend
                 (bool success, ) = _multisend.delegatecall(
-                    abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
+                    abi.encodeWithSignature(
+                        "multiSend(bytes)",
+                        signer.transactions
+                    )
                 );
 
                 if (success) {
