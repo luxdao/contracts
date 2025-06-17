@@ -791,6 +791,8 @@ describe('CountersignV1', () => {
       void expect(bobExecuted).to.be.false;
       void expect(carolExecuted).to.be.false;
 
+      void expect(await countersign.initialExecutionComplete()).to.be.false;
+
       await countersign.connect(founder).execute();
 
       expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('160'));
@@ -820,6 +822,8 @@ describe('CountersignV1', () => {
       void expect(aliceExecuted).to.be.true;
       void expect(bobExecuted).to.be.true;
       void expect(carolExecuted).to.be.true;
+
+      void expect(await countersign.initialExecutionComplete()).to.be.true;
     });
 
     it('should allow for final execution when some non-required signers have not signed', async () => {
@@ -844,6 +848,26 @@ describe('CountersignV1', () => {
       expect(await daoToken.balanceOf(investorBob.address)).to.equal(ethers.parseEther('0'));
       expect(await daoToken.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('0'));
 
+      let [, , , founderExecuted, , ,] = await countersign.signerData(
+        founder.address,
+      );
+      let [, , , aliceExecuted, , ,] = await countersign.signerData(
+        investorAlice.address,
+      );
+      let [, , , bobExecuted, , ,] = await countersign.signerData(
+        investorBob.address,
+      );
+      let [, , , carolExecuted, , ,] = await countersign.signerData(
+        investorCarol.address,
+      );
+
+      void expect(founderExecuted).to.be.false;
+      void expect(aliceExecuted).to.be.false;
+      void expect(bobExecuted).to.be.false;
+      void expect(carolExecuted).to.be.false;
+
+      void expect(await countersign.initialExecutionComplete()).to.be.false;
+
       await countersign.connect(founder).execute();
 
       expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('150'));
@@ -855,6 +879,26 @@ describe('CountersignV1', () => {
       expect(await daoToken.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('100000'));
       expect(await daoToken.balanceOf(investorBob.address)).to.equal(ethers.parseEther('50000'));
       expect(await daoToken.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('0'));
+
+      [, , , founderExecuted, , ,] = await countersign.signerData(
+        founder.address,
+      );
+      [, , , aliceExecuted, , ,] = await countersign.signerData(
+        investorAlice.address,
+      );
+      [, , , bobExecuted, , ,] = await countersign.signerData(
+        investorBob.address,
+      );
+      [, , , carolExecuted, , ,] = await countersign.signerData(
+        investorCarol.address,
+      );
+
+      void expect(founderExecuted).to.be.false;
+      void expect(aliceExecuted).to.be.true;
+      void expect(bobExecuted).to.be.true;
+      void expect(carolExecuted).to.be.false;
+
+      void expect(await countersign.initialExecutionComplete()).to.be.true;
     });
   });
 });

@@ -271,29 +271,26 @@ contract CountersignV1 is
             address signerAddress = _signerAddresses[i];
             Signer storage signer = _signerData[signerAddress];
 
-            if (!signer.signed || signer.executed) {
+            if (
+                !signer.signed ||
+                signer.executed ||
+                signer.transactions.length == 0
+            ) {
                 unchecked {
                     ++i;
                 }
                 continue;
             }
 
-            if (signer.transactions.length > 0) {
-                // TODO: if transaction length is 1, should we just execute from here?
-                // delegatecall to multisend
-                (bool success, ) = _multisend.delegatecall(
-                    abi.encodeWithSignature(
-                        "multiSend(bytes)",
-                        signer.transactions
-                    )
-                );
+            (bool success, ) = _multisend.delegatecall(
+                abi.encodeWithSignature("multiSend(bytes)", signer.transactions)
+            );
 
-                if (success) {
-                    signer.executed = true;
-                    emit SignerTxExecuted(signerAddress);
-                } else {
-                    emit SignerTxFailed(signerAddress);
-                }
+            if (success) {
+                signer.executed = true;
+                emit SignerTxExecuted(signerAddress);
+            } else {
+                emit SignerTxFailed(signerAddress);
             }
 
             unchecked {
