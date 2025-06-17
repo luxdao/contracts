@@ -188,7 +188,11 @@ contract CountersignV1 is
         emit Signed(msg.sender);
     }
 
-    function initialExecution() public virtual override onlyOwner {
+    function execute() public virtual override onlyOwner {
+
+    }
+
+    function _initialExecution() internal {
         if (block.timestamp < _signingDeadline) {
             revert SigningDeadlineNotElapsed();
         }
@@ -263,7 +267,7 @@ contract CountersignV1 is
         _initialExecutionComplete = true;
     }
 
-    function finalExecution() public virtual override onlyOwner {
+    function _finalExecution() internal {
         if (!_initialExecutionComplete) {
             revert InitialExecutionNotCompleted();
         }
