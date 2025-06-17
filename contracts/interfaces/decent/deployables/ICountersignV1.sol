@@ -105,7 +105,5 @@ interface ICountersignV1 {
 
     function sign() external;
 
-    function initialExecution() external;
-
-    function finalExecution() external;
+    function execute() external;
 }
