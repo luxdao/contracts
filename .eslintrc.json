@@ -20,6 +20,7 @@
     }
   },
   "rules": {
+    "@typescript-eslint/no-floating-promises": "error",
     "comma-dangle": "off",
     "@typescript-eslint/comma-dangle": "off",
     "indent": "off",
