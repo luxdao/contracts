@@ -222,7 +222,8 @@ contract CountersignV1 is
             Signer storage signer = _signerData[signerAddress];
 
             if (!signer.signed) {
-                if (signer.required) revert RequiredSignerNotSigned();
+                if (signer.required)
+                    revert RequiredSignerNotSigned(signerAddress);
 
                 unchecked {
                     ++i;
