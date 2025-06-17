@@ -791,7 +791,7 @@ describe('CountersignV1', () => {
       void expect(bobExecuted).to.be.false;
       void expect(carolExecuted).to.be.false;
 
-      await countersign.connect(founder).initialExecution();
+      await countersign.connect(founder).execute();
 
       expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('160'));
       expect(await usdc.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('0'));
@@ -844,7 +844,7 @@ describe('CountersignV1', () => {
       expect(await daoToken.balanceOf(investorBob.address)).to.equal(ethers.parseEther('0'));
       expect(await daoToken.balanceOf(investorCarol.address)).to.equal(ethers.parseEther('0'));
 
-      await countersign.connect(founder).initialExecution();
+      await countersign.connect(founder).execute();
 
       expect(await usdc.balanceOf(mockDAOTreasury.address)).to.equal(ethers.parseEther('150'));
       expect(await usdc.balanceOf(investorAlice.address)).to.equal(ethers.parseEther('0'));
