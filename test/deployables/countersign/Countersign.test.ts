@@ -35,7 +35,6 @@ async function deployCountersignProxy(
   signerInitializations: any[],
 ): Promise<CountersignV1> {
   // Create initialization data with function selector
-
   const fullInitData = CountersignV1__factory.createInterface().encodeFunctionData('initialize', [
     owner,
     agreementUri,
@@ -392,7 +391,7 @@ describe('CountersignV1', () => {
       void expect(founderExecuted).to.be.false;
       void expect(founderSignedTimestamp).to.equal(0n);
       void expect(founderWeight).to.equal(0n);
-      void expect(founderTransactions).to.equal('0x');
+      void expect(founderTransactions).to.equal(signerTransactions[0].transactions);
 
       // Alice data: isSigner=true, required=true, signed=false, weight=100, transactions=[2 transactions]
       const [
@@ -410,52 +409,7 @@ describe('CountersignV1', () => {
       void expect(aliceExecuted).to.be.false;
       void expect(aliceBeforeSignedTimestamp).to.equal(0n);
       void expect(aliceWeight).to.equal(ethers.parseEther('100'));
-      void expect(aliceTransactions).to.equal(
-        ethers.concat([
-          // First transaction: USDC transfer
-          ethers.solidityPacked(
-            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
-            [
-              0, // operation: CALL
-              await usdc.getAddress(),
-              0, // value: 0 ETH
-              ethers.dataLength(
-                usdc.interface.encodeFunctionData('transferFrom', [
-                  investorAlice.address,
-                  mockDAOTreasury.address,
-                  ethers.parseEther('100'), // 100 USDC
-                ]),
-              ),
-              usdc.interface.encodeFunctionData('transferFrom', [
-                investorAlice.address,
-                mockDAOTreasury.address,
-                ethers.parseEther('100'), // 100 USDC
-              ]),
-            ],
-          ),
-          // Second transaction: DAO token transfer
-          ethers.solidityPacked(
-            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
-            [
-              0, // operation: CALL
-              await daoToken.getAddress(),
-              0, // value: 0 ETH
-              ethers.dataLength(
-                daoToken.interface.encodeFunctionData('transferFrom', [
-                  mockDAOTreasury.address,
-                  investorAlice.address,
-                  ethers.parseEther('100000'), // 100,000 daoToken
-                ]),
-              ),
-              daoToken.interface.encodeFunctionData('transferFrom', [
-                mockDAOTreasury.address,
-                investorAlice.address,
-                ethers.parseEther('100000'), // 100,000 daoToken
-              ]),
-            ],
-          ),
-        ]),
-      );
+      void expect(aliceTransactions).to.equal(signerTransactions[1].transactions);
 
       // Bob data: isSigner=true, required=false, signed=false, weight=50, transactions=[2 transactions]
       const [
@@ -473,52 +427,7 @@ describe('CountersignV1', () => {
       void expect(bobExecuted).to.be.false;
       void expect(bobBeforeSignedTimestamp).to.equal(0n);
       void expect(bobWeight).to.equal(ethers.parseEther('50'));
-      void expect(bobTransactions).to.equal(
-        ethers.concat([
-          // First transaction: USDC transfer
-          ethers.solidityPacked(
-            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
-            [
-              0, // operation: CALL
-              await usdc.getAddress(),
-              0, // value: 0 ETH
-              ethers.dataLength(
-                usdc.interface.encodeFunctionData('transferFrom', [
-                  investorBob.address,
-                  mockDAOTreasury.address,
-                  ethers.parseEther('50'), // 50 USDC
-                ]),
-              ),
-              usdc.interface.encodeFunctionData('transferFrom', [
-                investorBob.address,
-                mockDAOTreasury.address,
-                ethers.parseEther('50'), // 50 USDC
-              ]),
-            ],
-          ),
-          // Second transaction: DAO token transfer
-          ethers.solidityPacked(
-            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
-            [
-              0, // operation: CALL
-              await daoToken.getAddress(),
-              0, // value: 0 ETH
-              ethers.dataLength(
-                daoToken.interface.encodeFunctionData('transferFrom', [
-                  mockDAOTreasury.address,
-                  investorBob.address,
-                  ethers.parseEther('50000'), // 50,000 daoToken
-                ]),
-              ),
-              daoToken.interface.encodeFunctionData('transferFrom', [
-                mockDAOTreasury.address,
-                investorBob.address,
-                ethers.parseEther('50000'), // 50,000 daoToken
-              ]),
-            ],
-          ),
-        ]),
-      );
+      void expect(bobTransactions).to.equal(signerTransactions[2].transactions);
 
       // Carol data: isSigner=true, required=false, signed=false, weight=20, transactions=[2 transactions]
       const [
@@ -536,76 +445,12 @@ describe('CountersignV1', () => {
       void expect(carolExecuted).to.be.false;
       void expect(carolBeforeSignedTimestamp).to.equal(0n);
       void expect(carolWeight).to.equal(ethers.parseEther('20'));
-      void expect(carolTransactions).to.equal(
-        ethers.concat([
-          // First transaction: USDC transfer
-          ethers.solidityPacked(
-            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
-            [
-              0, // operation: CALL
-              await usdc.getAddress(),
-              0, // value: 0 ETH
-              ethers.dataLength(
-                usdc.interface.encodeFunctionData('transferFrom', [
-                  investorCarol.address,
-                  mockDAOTreasury.address,
-                  ethers.parseEther('10'), // 10 USDC
-                ]),
-              ),
-              usdc.interface.encodeFunctionData('transferFrom', [
-                investorCarol.address,
-                mockDAOTreasury.address,
-                ethers.parseEther('10'), // 10 USDC
-              ]),
-            ],
-          ),
-          // Second transaction: DAO token transfer
-          ethers.solidityPacked(
-            ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
-            [
-              0, // operation: CALL
-              await daoToken.getAddress(),
-              0, // value: 0 ETH
-              ethers.dataLength(
-                daoToken.interface.encodeFunctionData('transferFrom', [
-                  mockDAOTreasury.address,
-                  investorCarol.address,
-                  ethers.parseEther('10000'), // 10,000 daoToken
-                ]),
-              ),
-              daoToken.interface.encodeFunctionData('transferFrom', [
-                mockDAOTreasury.address,
-                investorCarol.address,
-                ethers.parseEther('10000'), // 10,000 daoToken
-              ]),
-            ],
-          ),
-        ]),
-      );
+      void expect(carolTransactions).to.equal(signerTransactions[3].transactions);
     });
 
     it('should return correct preExecutionTransactions', async () => {
       const returnedPreExecutionTransactions = await countersign.preExecutionTransactions();
-      void expect(returnedPreExecutionTransactions).to.equal(
-        ethers.solidityPacked(
-          ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
-          [
-            0, // operation: CALL
-            await daoToken.getAddress(),
-            0, // value: 0 ETH
-            ethers.dataLength(
-              daoToken.interface.encodeFunctionData('mint', [
-                mockDAOTreasury.address,
-                ethers.parseEther('200000'),
-              ]),
-            ),
-            daoToken.interface.encodeFunctionData('mint', [
-              mockDAOTreasury.address,
-              ethers.parseEther('200000'),
-            ]),
-          ],
-        ),
-      );
+      void expect(returnedPreExecutionTransactions).to.equal(preExecutionTransactions);
     });
   });
 
