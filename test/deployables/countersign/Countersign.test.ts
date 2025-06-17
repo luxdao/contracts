@@ -13,8 +13,8 @@ import {
   MockERC20Votes__factory,
   MockKYCVerifier,
   MockKYCVerifier__factory,
-  MultiSend,
-  MultiSend__factory,
+  MultiSendCallOnly,
+  MultiSendCallOnly__factory,
 } from '../../../typechain-types';
 import { calculateInterfaceId } from '../../helpers/utils';
 
@@ -63,14 +63,20 @@ describe('CountersignV1', () => {
   let mockDAOTreasury: SignerWithAddress;
 
   // contracts
+  let countersignImplementation: CountersignV1;
   let countersign: CountersignV1;
   let daoToken: MockERC20Votes;
   let usdc: MockERC20Votes;
   let mockKYCVerifier: MockKYCVerifier;
-  let multisend: MultiSend;
+  let multisend: MultiSendCallOnly;
 
+  // deadlines
   let signingDeadline: bigint;
   let executionDeadline: bigint;
+
+  // transaction encodings
+  let preExecutionTransactions: any;
+  let signerTransactions: any[];
 
   const agreementUri = 'ipfs://the-agreement-uri';
 
@@ -85,7 +91,7 @@ describe('CountersignV1', () => {
 
     // deploy mock contracts
     mockKYCVerifier = await new MockKYCVerifier__factory(founder).deploy();
-    multisend = await new MultiSend__factory(founder).deploy();
+    multisend = await new MultiSendCallOnly__factory(founder).deploy();
 
     // mint Alice 100 USDC
     await usdc.mint(investorAlice.address, ethers.parseEther('100'));
@@ -97,7 +103,7 @@ describe('CountersignV1', () => {
     await usdc.mint(investorCarol.address, ethers.parseEther('10'));
 
     // preExecution transaction mints 200,000 DAO tokens into DAO treasury
-    const preExecutionTransactions = ethers.solidityPacked(
+    preExecutionTransactions = ethers.solidityPacked(
       ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
       [
         0, // operation: CALL
@@ -117,7 +123,7 @@ describe('CountersignV1', () => {
     );
 
     // create signer transactions array
-    const signerInitializations = [
+    signerTransactions = [
       {
         account: founder.address,
         required: true,
@@ -277,7 +283,7 @@ describe('CountersignV1', () => {
     signingDeadline = BigInt(currentTime) + BigInt(7 * 24 * 60 * 60); // one week
     executionDeadline = BigInt(currentTime) + BigInt(14 * 24 * 60 * 60); // two weeks
 
-    const countersignImplementation = await new CountersignV1__factory(founder).deploy();
+    countersignImplementation = await new CountersignV1__factory(founder).deploy();
     countersign = await deployCountersignProxy(
       founder,
       await countersignImplementation.getAddress(),
@@ -289,7 +295,7 @@ describe('CountersignV1', () => {
       await multisend.getAddress(),
       ethers.parseEther('100'), // minWeight
       preExecutionTransactions,
-      signerInitializations,
+      signerTransactions,
     );
 
     // Alice approves countersign to spend her USDC
@@ -577,8 +583,8 @@ describe('CountersignV1', () => {
     });
 
     it('should return correct preExecutionTransactions', async () => {
-      const preExecutionTransactions = await countersign.preExecutionTransactions();
-      void expect(preExecutionTransactions).to.equal(
+      const returnedPreExecutionTransactions = await countersign.preExecutionTransactions();
+      void expect(returnedPreExecutionTransactions).to.equal(
         ethers.solidityPacked(
           ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
           [
@@ -751,6 +757,96 @@ describe('CountersignV1', () => {
   });
 
   describe.only('Execution', () => {
+    it('should revert if signing deadline has not elapsed', async () => {
+      // set mock KYC verifier to verify all signatures
+      await mockKYCVerifier.setVerify(true);
+
+      // all signers sign
+      await countersign.connect(founder).sign();
+      await countersign.connect(investorAlice).sign();
+      await countersign.connect(investorBob).sign();
+      await countersign.connect(investorCarol).sign();
+
+      // move time to before signing deadline
+      await time.increaseTo(signingDeadline - 2n);
+
+      await expect(countersign.connect(founder).execute()).to.be.revertedWithCustomError(
+        countersign,
+        'SigningDeadlineNotElapsed',
+      );
+    });
+
+    it('should revert if execution deadline has elapsed', async () => {
+      // set mock KYC verifier to verify all signatures
+      await mockKYCVerifier.setVerify(true);
+
+      // all signers sign
+      await countersign.connect(founder).sign();
+      await countersign.connect(investorAlice).sign();
+      await countersign.connect(investorBob).sign();
+      await countersign.connect(investorCarol).sign();
+
+      // move time to before signing deadline
+      await time.increaseTo(executionDeadline + 1n);
+
+      await expect(countersign.connect(founder).execute()).to.be.revertedWithCustomError(
+        countersign,
+        'ExecutionDeadlineElapsed',
+      );
+    });
+
+    it('should revert if preExecutionTransactions fail', async () => {
+      // set mock KYC verifier to verify all signatures
+      await mockKYCVerifier.setVerify(true);
+
+      // preExecution transaction burns 200,000 DAO tokens from DAO treasury, which should fail
+    preExecutionTransactions = ethers.solidityPacked(
+      ['uint8', 'address', 'uint256', 'uint256', 'bytes'],
+      [
+        0, // operation: CALL
+        await daoToken.getAddress(),
+        0, // value: 0 ETH
+        ethers.dataLength(
+          daoToken.interface.encodeFunctionData('burn', [
+            mockDAOTreasury.address,
+            ethers.parseEther('200000'),
+          ]),
+        ),
+        daoToken.interface.encodeFunctionData('burn', [
+          mockDAOTreasury.address,
+          ethers.parseEther('200000'),
+        ]),
+      ],
+    );
+
+    countersign = await deployCountersignProxy(
+      founder,
+      await countersignImplementation.getAddress(),
+      founder.address,
+      agreementUri,
+      await mockKYCVerifier.getAddress(),
+      signingDeadline,
+      executionDeadline,
+      await multisend.getAddress(),
+      ethers.parseEther('100'), // minWeight
+      preExecutionTransactions,
+      signerTransactions,
+    );
+
+      await countersign.connect(founder).sign();
+      await countersign.connect(investorAlice).sign();
+      await countersign.connect(investorBob).sign();
+      await countersign.connect(investorCarol).sign();
+
+      // move time to after signing deadline
+      await time.increaseTo(signingDeadline + 1n);
+
+      await expect(countersign.connect(founder).execute()).to.be.revertedWithCustomError(
+        countersign,
+        'PreExecutionTxFailed',
+      );
+    });
+
     it('should allow for initial execution', async () => {
       // set mock KYC verifier to verify all signatures
       await mockKYCVerifier.setVerify(true);
@@ -901,4 +997,32 @@ describe('CountersignV1', () => {
       void expect(await countersign.initialExecutionComplete()).to.be.true;
     });
   });
+
+  // it('should skip execution for signers with no transactions', async () => {
+  //   // set mock KYC verifier to verify all signatures
+  //   await mockKYCVerifier.setVerify(true);
+
+  //   await countersign.connect(founder).sign();
+  //   await countersign.connect(investorAlice).sign();
+  //   await countersign.connect(investorBob).sign();
+  //   await countersign.connect(investorCarol).sign();
+
+  //   // move time to after signing deadline
+  //   await time.increaseTo(signingDeadline + 1n);
+
+  //   let [, , , founderExecuted, , ,] = await countersign.signerData(
+  //     founder.address,
+  //   );
+
+  //   void expect(founderExecuted).to.be.false;
+
+  //   await countersign.connect(founder).execute();
+
+
+  //    [, , , founderExecuted, , ,] = await countersign.signerData(
+  //     founder.address,
+  //   );
+
+  //   void expect(founderExecuted).to.be.true;
+  // });
 });
