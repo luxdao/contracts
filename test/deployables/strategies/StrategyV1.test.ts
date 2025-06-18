@@ -20,8 +20,8 @@ import {
   StrategyV1,
   StrategyV1__factory,
 } from '../../../typechain-types';
-import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../helpers/utils';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 describe('StrategyV1', () => {
   // Signers
@@ -1081,54 +1081,17 @@ describe('StrategyV1', () => {
     });
   });
 
-  describe('ERC165 Supports Interface', () => {
-    it('Should support IStrategyV1 interface', async () => {
-      void expect(
-        await strategy.supportsInterface(
-          calculateInterfaceId(IStrategyV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IVoterResolverV1 interface', async () => {
-      void expect(
-        await strategy.supportsInterface(
-          calculateInterfaceId(IVoterResolverV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support ISmartAccountValidationV1 interface', async () => {
-      void expect(
-        await strategy.supportsInterface(
-          calculateInterfaceId(ISmartAccountValidationV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IERC165 interface', async () => {
-      void expect(
-        await strategy.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('Should support IVersion interface', async () => {
-      void expect(
-        await strategy.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('Should support IDeploymentBlockV1 interface', async () => {
-      void expect(
-        await strategy.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should not support a random interface', async () => {
-      const randomInterfaceId = '0x12345678';
-      void expect(await strategy.supportsInterface(randomInterfaceId)).to.be.false;
+  describe('ERC165 supportsInterface', () => {
+    runSupportsInterfaceTests({
+      getContract: () => strategy,
+      supportedInterfaceFactories: [
+        IStrategyV1__factory,
+        IVoterResolverV1__factory,
+        ISmartAccountValidationV1__factory,
+        IERC165__factory,
+        IVersion__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 

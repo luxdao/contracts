@@ -12,8 +12,8 @@ import {
   MockZKMEVerify,
   MockZKMEVerify__factory,
 } from '../../../typechain-types';
-import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../helpers/utils';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 // Helper function for deploying Countersign instances using ERC1967Proxy
 async function deployKYCVerifierProxy(
@@ -84,50 +84,15 @@ describe('KYCVerifierV1', () => {
     });
   });
 
-  describe('ERC165', function () {
-    // Interface IDs
-    let iVersionInterfaceId: string;
-    let iKYCVerifierV1InterfaceId: string;
-    let iERC165InterfaceId: string;
-    beforeEach(async function () {
-      // Calculate interface IDs
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const IKYCVerifierV1Interface = IKYCVerifierV1__factory.createInterface();
-      iKYCVerifierV1InterfaceId = calculateInterfaceId(IKYCVerifierV1Interface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-    });
-
-    it('Should support IERC165 interface', async function () {
-      const supported = await kycVerifier.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IKYCVerifierV1 interface', async function () {
-      const supported = await kycVerifier.supportsInterface(iKYCVerifierV1InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported = await kycVerifier.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IDeploymentBlockV1 interface', async function () {
-      void expect(
-        await kycVerifier.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      const supported = await kycVerifier.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
+  describe('ERC165 supportsInterface', function () {
+    runSupportsInterfaceTests({
+      getContract: () => kycVerifier,
+      supportedInterfaceFactories: [
+        IERC165__factory,
+        IKYCVerifierV1__factory,
+        IVersion__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 

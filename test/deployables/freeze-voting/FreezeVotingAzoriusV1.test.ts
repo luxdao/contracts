@@ -22,8 +22,8 @@ import {
   MockVotingStrategy,
   MockVotingStrategy__factory,
 } from '../../../typechain-types';
-import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../helpers/utils';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 async function deployAzoriusFreezeVotingProxy(
   proxyDeployer: SignerWithAddress,
@@ -337,57 +337,26 @@ describe('FreezeVotingAzoriusV1', () => {
     });
   });
 
-  describe('Version and ERC165 supportsInterface', () => {
+  describe('Version', () => {
     it('should return the correct version', async () => {
       void expect(await azoriusFreezeVoting.version()).to.equal(1);
     });
+  });
 
-    it('should support IFreezeVotingAzoriusV1', async () => {
-      void expect(
-        await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IFreezeVotingAzoriusV1__factory.createInterface(), [
-            IFreezeVotingBaseV1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-    it('should support IFreezeVotingBaseV1', async () => {
-      void expect(
-        await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IFreezeVotingBaseV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-    it('should support IVersion', async () => {
-      void expect(
-        await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IVersion__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-    it('should support IERC165', async () => {
-      void expect(
-        await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IERC165__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-    it('should support IVoterResolverV1', async () => {
-      void expect(
-        await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IVoterResolverV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-    it('should support IDeploymentBlockV1', async () => {
-      void expect(
-        await azoriusFreezeVoting.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-    it('should not support a random interfaceId', async () => {
-      void expect(await azoriusFreezeVoting.supportsInterface('0x12345678')).to.be.false;
+  describe('ERC165 supportsInterface', () => {
+    runSupportsInterfaceTests({
+      getContract: () => azoriusFreezeVoting,
+      supportedInterfaceFactories: [
+        {
+          factory: IFreezeVotingAzoriusV1__factory,
+          inheritedFactories: [IFreezeVotingBaseV1__factory],
+        },
+        IFreezeVotingBaseV1__factory,
+        IVersion__factory,
+        IERC165__factory,
+        IVoterResolverV1__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 
