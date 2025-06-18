@@ -8,8 +8,8 @@ import {
   IDecentPaymasterV1__factory,
   IDeploymentBlockV1__factory,
   IERC165__factory,
+  ILightAccountValidatorV1__factory,
   IPaymaster__factory,
-  ISmartAccountValidationV1__factory,
   IVersion__factory,
   MockEntryPoint,
   MockEntryPoint__factory,
@@ -370,7 +370,7 @@ describe('DecentPaymasterV1', function () {
         IPaymaster__factory,
         IDecentPaymasterV1__factory,
         IVersion__factory,
-        ISmartAccountValidationV1__factory,
+        ILightAccountValidatorV1__factory,
         IDeploymentBlockV1__factory,
       ],
     });
