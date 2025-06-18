@@ -22,9 +22,25 @@ contract FreezeVotingMultisigV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    ISafe internal _parentSafe;
-    mapping(uint48 freezeProposalCreated => mapping(address voter => bool hasFreezeVoted))
-        internal _accountHasFreezeVoted;
+    /// @custom:storage-location erc7201:Decent.FreezeVotingMultisig.main
+    struct FreezeVotingMultisigStorage {
+        ISafe parentSafe;
+        mapping(uint48 freezeProposalCreated => mapping(address voter => bool hasFreezeVoted)) accountHasFreezeVoted;
+    }
+
+    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.FreezeVotingMultisig.main")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 internal constant FREEZE_VOTING_MULTISIG_STORAGE_LOCATION =
+        0x03420cdda0f62079c98c6fb6a90eb9dcb80ca14f81a2a84283aa39b5ef26ab00;
+
+    function _getFreezeVotingMultisigStorage()
+        internal
+        pure
+        returns (FreezeVotingMultisigStorage storage $)
+    {
+        assembly {
+            $.slot := FREEZE_VOTING_MULTISIG_STORAGE_LOCATION
+        }
+    }
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -50,7 +66,10 @@ contract FreezeVotingMultisigV1 is
             lightAccountFactory_
         );
         __DeploymentBlockV1_init();
-        _parentSafe = ISafe(parentSafe_);
+
+        FreezeVotingMultisigStorage
+            storage $ = _getFreezeVotingMultisigStorage();
+        $.parentSafe = ISafe(parentSafe_);
     }
 
     // ======================================================================
@@ -60,14 +79,18 @@ contract FreezeVotingMultisigV1 is
     // --- View Functions ---
 
     function parentSafe() public view virtual override returns (address) {
-        return address(_parentSafe);
+        FreezeVotingMultisigStorage
+            storage $ = _getFreezeVotingMultisigStorage();
+        return address($.parentSafe);
     }
 
     function accountHasFreezeVoted(
         uint48 freezeProposalCreated_,
         address account_
     ) public view virtual override returns (bool) {
-        return _accountHasFreezeVoted[freezeProposalCreated_][account_];
+        FreezeVotingMultisigStorage
+            storage $ = _getFreezeVotingMultisigStorage();
+        return $.accountHasFreezeVoted[freezeProposalCreated_][account_];
     }
 
     // --- State-Changing Functions ---
@@ -75,7 +98,12 @@ contract FreezeVotingMultisigV1 is
     function castFreezeVote() public virtual override {
         address resolvedVoter = voter(msg.sender);
 
-        if (block.timestamp > _freezeProposalCreated + _freezeProposalPeriod) {
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
+
+        if (
+            block.timestamp >
+            $base.freezeProposalCreated + $base.freezeProposalPeriod
+        ) {
             _initializeFreezeVote();
             emit FreezeProposalCreated(resolvedVoter);
         }
@@ -119,15 +147,20 @@ contract FreezeVotingMultisigV1 is
     function _getVotesAndUpdateHasVoted(
         address voter_
     ) internal virtual returns (uint256) {
-        if (!_parentSafe.isOwner(voter_)) {
+        FreezeVotingMultisigStorage
+            storage $ = _getFreezeVotingMultisigStorage();
+
+        if (!$.parentSafe.isOwner(voter_)) {
             return 0;
         }
 
-        if (_accountHasFreezeVoted[_freezeProposalCreated][voter_]) {
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
+
+        if ($.accountHasFreezeVoted[$base.freezeProposalCreated][voter_]) {
             return 0;
         }
 
-        _accountHasFreezeVoted[_freezeProposalCreated][voter_] = true;
+        $.accountHasFreezeVoted[$base.freezeProposalCreated][voter_] = true;
 
         return 1;
     }

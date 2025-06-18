@@ -15,7 +15,24 @@ abstract contract SmartAccountValidationV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    ILightAccountFactory internal _lightAccountFactory;
+    /// @custom:storage-location erc7201:Decent.SmartAccountValidation.main
+    struct SmartAccountValidationStorage {
+        ILightAccountFactory lightAccountFactory;
+    }
+
+    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.SmartAccountValidation.main")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 internal constant SMART_ACCOUNT_VALIDATION_STORAGE_LOCATION =
+        0x568d143de11f3fce0a7f79d63a29e7883a7d0c6cd1aea20082c2ea951d7b4e00;
+
+    function _getSmartAccountValidationStorage()
+        internal
+        pure
+        returns (SmartAccountValidationStorage storage $)
+    {
+        assembly {
+            $.slot := SMART_ACCOUNT_VALIDATION_STORAGE_LOCATION
+        }
+    }
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -28,7 +45,9 @@ abstract contract SmartAccountValidationV1 is
     function __SmartAccountValidationV1_init(
         address lightAccountFactory_
     ) internal onlyInitializing {
-        _lightAccountFactory = ILightAccountFactory(lightAccountFactory_);
+        SmartAccountValidationStorage
+            storage $ = _getSmartAccountValidationStorage();
+        $.lightAccountFactory = ILightAccountFactory(lightAccountFactory_);
     }
 
     // ======================================================================
@@ -44,7 +63,9 @@ abstract contract SmartAccountValidationV1 is
         override
         returns (address)
     {
-        return address(_lightAccountFactory);
+        SmartAccountValidationStorage
+            storage $ = _getSmartAccountValidationStorage();
+        return address($.lightAccountFactory);
     }
 
     // ======================================================================
@@ -68,8 +89,11 @@ abstract contract SmartAccountValidationV1 is
         try ILightAccount(smartAccount_).owner() returns (
             address lightAccountOwner_
         ) {
+            SmartAccountValidationStorage
+                storage $ = _getSmartAccountValidationStorage();
+
             // Regenerate the expected light account address
-            address lightAccountAddress = _lightAccountFactory.getAddress(
+            address lightAccountAddress = $.lightAccountFactory.getAddress(
                 lightAccountOwner_,
                 0 // we assume that Decent App is only creating one account per user
             );
