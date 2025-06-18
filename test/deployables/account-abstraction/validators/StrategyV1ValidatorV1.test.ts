@@ -13,8 +13,8 @@ import {
   StrategyV1ValidatorV1,
   StrategyV1ValidatorV1__factory,
 } from '../../../../typechain-types';
-import { runDeploymentBlockTests } from '../../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../../helpers/utils';
+import { runDeploymentBlockTests } from '../../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../../shared/supportsInterfaceTests';
 
 describe('StrategyV1ValidatorV1', function () {
   // contracts
@@ -218,34 +218,15 @@ describe('StrategyV1ValidatorV1', function () {
     });
   });
 
-  describe('ERC165', function () {
-    it('Should support IFunctionValidator interface', async function () {
-      const iFunctionValidatorInterfaceId = calculateInterfaceId(
-        IFunctionValidator__factory.createInterface(),
-      );
-      void expect(await validator.supportsInterface(iFunctionValidatorInterfaceId)).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const iVersionInterfaceId = calculateInterfaceId(IVersion__factory.createInterface());
-      void expect(await validator.supportsInterface(iVersionInterfaceId)).to.be.true;
-    });
-
-    it('Should support IDeploymentBlockV1 interface', async function () {
-      const iDeploymentBlockV1InterfaceId = calculateInterfaceId(
-        IDeploymentBlockV1__factory.createInterface(),
-      );
-      void expect(await validator.supportsInterface(iDeploymentBlockV1InterfaceId)).to.be.true;
-    });
-
-    it('Should support IERC165 interface', async function () {
-      const iERC165InterfaceId = calculateInterfaceId(IERC165__factory.createInterface());
-      void expect(await validator.supportsInterface(iERC165InterfaceId)).to.be.true;
-    });
-
-    it('Should not support a random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      void expect(await validator.supportsInterface(randomInterfaceId)).to.be.false;
+  describe('ERC165 supportsInterface', function () {
+    runSupportsInterfaceTests({
+      getContract: () => validator,
+      supportedInterfaceFactories: [
+        IFunctionValidator__factory,
+        IVersion__factory,
+        IDeploymentBlockV1__factory,
+        IERC165__factory,
+      ],
     });
   });
 

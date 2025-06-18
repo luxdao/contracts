@@ -19,8 +19,8 @@ import {
   MockSafe,
   MockSafe__factory,
 } from '../../../typechain-types';
-import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../helpers/utils';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 // Helper function for deploying MultisigFreezeVotingV1 proxy instances using ERC1967Proxy
 async function deployMultisigFreezeVotingProxy(
@@ -506,59 +506,20 @@ describe('FreezeVotingMultisigV1', () => {
     });
   });
 
-  describe('ERC165', () => {
-    it('should support the IFreezeVotingMultisigV1 interface', async () => {
-      void expect(
-        await freezeVoting.supportsInterface(
-          calculateInterfaceId(IFreezeVotingMultisigV1__factory.createInterface(), [
-            IFreezeVotingBaseV1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support the IFreezeVotingBaseV1 interface', async () => {
-      void expect(
-        await freezeVoting.supportsInterface(
-          calculateInterfaceId(IFreezeVotingBaseV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support the IVoterResolverV1 interface', async () => {
-      void expect(
-        await freezeVoting.supportsInterface(
-          calculateInterfaceId(IVoterResolverV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support the IERC165 interface', async () => {
-      void expect(
-        await freezeVoting.supportsInterface(
-          calculateInterfaceId(IERC165__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support the IVersion interface', async () => {
-      void expect(
-        await freezeVoting.supportsInterface(
-          calculateInterfaceId(IVersion__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support the IDeploymentBlockV1 interface', async () => {
-      void expect(
-        await freezeVoting.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should not support a random interface', async () => {
-      void expect(await freezeVoting.supportsInterface('0x12345678')).to.be.false;
+  describe('ERC165 supportsInterface', () => {
+    runSupportsInterfaceTests({
+      getContract: () => freezeVoting,
+      supportedInterfaceFactories: [
+        {
+          factory: IFreezeVotingMultisigV1__factory,
+          inheritedFactories: [IFreezeVotingBaseV1__factory],
+        },
+        IFreezeVotingBaseV1__factory,
+        IVoterResolverV1__factory,
+        IERC165__factory,
+        IVersion__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 
