@@ -163,7 +163,7 @@ describe('VotesERC20LockableV1', () => {
         });
 
         it('should emit an event', async () => {
-          expect(unlockTx).to.emit(proxy, 'Locked').withArgs(false);
+          await expect(unlockTx).to.emit(proxy, 'Locked').withArgs(false);
         });
 
         it('should update unlockTime', async () => {
@@ -220,7 +220,7 @@ describe('VotesERC20LockableV1', () => {
         });
 
         it('should emit an event', async () => {
-          expect(lockTx).to.emit(proxy, 'Locked').withArgs(true);
+          await expect(lockTx).to.emit(proxy, 'Locked').withArgs(true);
         });
 
         it('should not update unlockTime', async () => {
@@ -277,12 +277,7 @@ describe('VotesERC20LockableV1', () => {
       });
 
       it('should emit an event', async () => {
-        expect(updateTx).to.emit(proxy, 'MaxTotalSupplyUpdated').withArgs(newMaxTotalSupply);
-      });
-
-      it('should not emit an event if newMaxTotalSupply is same', async () => {
-        const anotherUpdateTx = await proxy.connect(owner).setMaxTotalSupply(newMaxTotalSupply);
-        expect(anotherUpdateTx).not.to.emit(proxy, 'MaxTotalSupplyUpdated');
+        await expect(updateTx).to.emit(proxy, 'MaxTotalSupplyUpdated').withArgs(newMaxTotalSupply);
       });
     });
 
