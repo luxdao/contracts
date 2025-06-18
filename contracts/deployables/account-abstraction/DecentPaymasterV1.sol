@@ -3,11 +3,11 @@ pragma solidity ^0.8.30;
 
 import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
 import {IFunctionValidator} from "../../interfaces/decent/deployables/IFunctionValidator.sol";
-import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
+import {ILightAccountValidatorV1} from "../../interfaces/decent/deployables/ILightAccountValidatorV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
 import {BasePaymasterV1} from "./BasePaymasterV1.sol";
-import {SmartAccountValidationV1} from "./SmartAccountValidationV1.sol";
+import {LightAccountValidatorV1} from "./LightAccountValidatorV1.sol";
 import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {PackedUserOperation, IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
@@ -21,7 +21,7 @@ contract DecentPaymasterV1 is
     IDecentPaymasterV1,
     IVersion,
     BasePaymasterV1,
-    SmartAccountValidationV1,
+    LightAccountValidatorV1,
     DeploymentBlockV1,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
@@ -64,7 +64,7 @@ contract DecentPaymasterV1 is
         address lightAccountFactory_
     ) public virtual override initializer {
         __BasePaymasterV1_init(owner_, IEntryPoint(entryPoint_));
-        __SmartAccountValidationV1_init(lightAccountFactory_);
+        __LightAccountValidatorV1_init(lightAccountFactory_);
         __DeploymentBlockV1_init();
     }
 
@@ -213,7 +213,7 @@ contract DecentPaymasterV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId_ == type(IDecentPaymasterV1).interfaceId ||
-            interfaceId_ == type(ISmartAccountValidationV1).interfaceId ||
+            interfaceId_ == type(ILightAccountValidatorV1).interfaceId ||
             interfaceId_ == type(IPaymaster).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlockV1).interfaceId ||

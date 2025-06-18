@@ -4,11 +4,10 @@ pragma solidity ^0.8.30;
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingAdapterBaseV1.sol";
 import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
-import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
-import {ISmartAccountValidationV1} from "../../interfaces/decent/deployables/ISmartAccountValidationV1.sol";
+import {ILightAccountValidatorV1} from "../../interfaces/decent/deployables/ILightAccountValidatorV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
-import {VoterResolverV1} from "./VoterResolverV1.sol";
+import {LightAccountValidatorV1} from "../account-abstraction/LightAccountValidatorV1.sol";
 import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -16,7 +15,7 @@ contract StrategyV1 is
     IStrategyV1,
     IVersion,
     DeploymentBlockV1,
-    VoterResolverV1,
+    LightAccountValidatorV1,
     ERC165
 {
     // ======================================================================
@@ -89,7 +88,7 @@ contract StrategyV1 is
             basisNumerator_ < BASIS_DENOMINATOR / 2
         ) revert InvalidBasisNumerator();
 
-        __VoterResolverV1_init(lightAccountFactory_);
+        __LightAccountValidatorV1_init(lightAccountFactory_);
         __DeploymentBlockV1_init();
 
         StrategyStorage storage $ = _getStrategyStorage();
@@ -413,7 +412,7 @@ contract StrategyV1 is
             revert NoVotingAdapters();
         }
 
-        address resolvedVoter = voter(msg.sender);
+        address resolvedVoter = potentialLightAccountResolvedOwner(msg.sender);
 
         StrategyStorage storage $ = _getStrategyStorage();
         ProposalVotingDetails storage proposal = $.proposalVotingDetails[
@@ -544,8 +543,7 @@ contract StrategyV1 is
     ) public view virtual override returns (bool) {
         return
             interfaceId_ == type(IStrategyV1).interfaceId ||
-            interfaceId_ == type(IVoterResolverV1).interfaceId ||
-            interfaceId_ == type(ISmartAccountValidationV1).interfaceId ||
+            interfaceId_ == type(ILightAccountValidatorV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
             super.supportsInterface(interfaceId_);

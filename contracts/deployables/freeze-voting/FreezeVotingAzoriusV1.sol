@@ -7,7 +7,7 @@ import {IVotingAdapterBaseV1} from "../../interfaces/decent/deployables/IVotingA
 import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
+import {ILightAccountValidatorV1} from "../../interfaces/decent/deployables/ILightAccountValidatorV1.sol";
 import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
 import {FreezeVotingBaseV1} from "./FreezeVotingBaseV1.sol";
 import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
@@ -100,7 +100,7 @@ contract FreezeVotingAzoriusV1 is
     function castFreezeVote(
         VotingAdapterVoteData[] calldata votingAdaptersToUse_
     ) public virtual override {
-        address resolvedVoter = voter(msg.sender);
+        address resolvedVoter = potentialLightAccountResolvedOwner(msg.sender);
 
         FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
@@ -152,7 +152,7 @@ contract FreezeVotingAzoriusV1 is
         return
             interfaceId_ == type(IFreezeVotingAzoriusV1).interfaceId ||
             interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
-            interfaceId_ == type(IVoterResolverV1).interfaceId ||
+            interfaceId_ == type(ILightAccountValidatorV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
             super.supportsInterface(interfaceId_);

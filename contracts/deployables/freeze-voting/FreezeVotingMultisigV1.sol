@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IFreezeVotingBaseV1} from "../../interfaces/decent/deployables/IFreezeVotingBaseV1.sol";
 import {IFreezeVotingMultisigV1} from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
-import {IVoterResolverV1} from "../../interfaces/decent/deployables/IVoterResolverV1.sol";
+import {ILightAccountValidatorV1} from "../../interfaces/decent/deployables/ILightAccountValidatorV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
@@ -96,7 +96,7 @@ contract FreezeVotingMultisigV1 is
     // --- State-Changing Functions ---
 
     function castFreezeVote() public virtual override {
-        address resolvedVoter = voter(msg.sender);
+        address resolvedVoter = potentialLightAccountResolvedOwner(msg.sender);
 
         FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
 
@@ -134,7 +134,7 @@ contract FreezeVotingMultisigV1 is
         return
             interfaceId_ == type(IFreezeVotingMultisigV1).interfaceId ||
             interfaceId_ == type(IFreezeVotingBaseV1).interfaceId ||
-            interfaceId_ == type(IVoterResolverV1).interfaceId ||
+            interfaceId_ == type(ILightAccountValidatorV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
             super.supportsInterface(interfaceId_);

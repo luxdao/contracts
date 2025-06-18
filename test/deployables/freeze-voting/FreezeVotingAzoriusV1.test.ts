@@ -11,8 +11,8 @@ import {
   IFreezeVotingAzoriusV1,
   IFreezeVotingAzoriusV1__factory,
   IFreezeVotingBaseV1__factory,
+  ILightAccountValidatorV1__factory,
   IVersion__factory,
-  IVoterResolverV1__factory,
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
   MockModuleAzoriusV1,
@@ -354,7 +354,7 @@ describe('FreezeVotingAzoriusV1', () => {
         IFreezeVotingBaseV1__factory,
         IVersion__factory,
         IERC165__factory,
-        IVoterResolverV1__factory,
+        ILightAccountValidatorV1__factory,
         IDeploymentBlockV1__factory,
       ],
     });
