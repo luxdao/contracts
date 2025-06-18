@@ -9,10 +9,10 @@ contract MockKYCVerifier is IKYCVerifierV1, IVersion, ERC165 {
     bool internal _verify;
 
     constructor() {
-        initialize(address(0), address(0));
+        initialize();
     }
 
-    function initialize(address, address) public {}
+    function initialize() public {}
 
     function setVerify(bool verify_) public {
         _verify = verify_;
@@ -20,14 +20,6 @@ contract MockKYCVerifier is IKYCVerifierV1, IVersion, ERC165 {
 
     function verify(address) public view virtual override returns (bool) {
         return _verify;
-    }
-
-    function zkMeVerify() public view virtual override returns (address) {
-        return address(0);
-    }
-
-    function cooperator() public view virtual override returns (address) {
-        return address(0);
     }
 
     function version() public pure virtual override returns (uint16) {
