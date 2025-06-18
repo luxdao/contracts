@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 interface ICountersignV1 {
     // --- Errors ---
 
-    error InvalidArrayLengths();
     error InvalidSigner();
     error SigningDeadlineElapsed();
     error ExecutionDeadlineElapsed();
