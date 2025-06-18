@@ -56,7 +56,7 @@ interface ICountersignV1 {
 
     // --- View Functions ---
 
-    function initialExecutionComplete() external view returns (bool);
+    function initialExecutionComplete() external view returns (bool isComplete);
 
     function agreementUri() external view returns (string memory agreementUri);
 
@@ -79,7 +79,7 @@ interface ICountersignV1 {
         returns (address[] memory signerAddresses);
 
     function signerData(
-        address signer
+        address signer_
     )
         external
         view
