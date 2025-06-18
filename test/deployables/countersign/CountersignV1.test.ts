@@ -446,6 +446,24 @@ describe('CountersignV1', () => {
       void expect(carolBeforeSignedTimestamp).to.equal(0n);
       void expect(carolWeight).to.equal(ethers.parseEther('20'));
       void expect(carolTransactions).to.equal(signerTransactions[3].transactions);
+
+      // Invalid signer
+      const [
+        invalidSignerIsSigner,
+        invalidSignerRequired,
+        invalidSignerSigned,
+        invalidSignerExecuted,
+        invalidSignerBeforeSignedTimestamp,
+        invalidSignerWeight,
+        invalidSignerTransactions,
+      ] = await countersign.signerData(anon.address);
+      void expect(invalidSignerIsSigner).to.be.false;
+      void expect(invalidSignerRequired).to.be.false;
+      void expect(invalidSignerSigned).to.be.false;
+      void expect(invalidSignerExecuted).to.be.false;
+      void expect(invalidSignerBeforeSignedTimestamp).to.equal(0n);
+      void expect(invalidSignerWeight).to.equal(0n);
+      void expect(invalidSignerTransactions).to.equal(signerTransactions[0].transactions);
     });
 
     it('should return correct preExecutionTransactions', async () => {
