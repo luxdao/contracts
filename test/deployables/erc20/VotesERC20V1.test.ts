@@ -14,9 +14,9 @@ import {
   VotesERC20V1,
   VotesERC20V1__factory,
 } from '../../../typechain-types';
-import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
+import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
 // Helper function for deploying VotesERC20V1 instances using ERC1967Proxy
 async function deployVotesERC20Proxy(
@@ -217,7 +217,7 @@ describe('VotesERC20V1', () => {
     });
   });
 
-  describe('ERC165', function () {
+  describe('ERC165 supportsInterface', function () {
     beforeEach(async function () {
       votesERC20 = await deployVotesERC20Proxy(
         proxyDeployer,
@@ -230,61 +230,17 @@ describe('VotesERC20V1', () => {
       );
     });
 
-    it('Should support IERC165 interface', async function () {
-      void expect(
-        await votesERC20.supportsInterface(
-          calculateInterfaceId(IERC165__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      void expect(
-        await votesERC20.supportsInterface(
-          calculateInterfaceId(IVersion__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IERC20 interface', async function () {
-      void expect(
-        await votesERC20.supportsInterface(calculateInterfaceId(IERC20__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('Should support IVotesERC20V1 interface', async function () {
-      void expect(
-        await votesERC20.supportsInterface(
-          calculateInterfaceId(IVotesERC20V1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IERC20Permit interface', async function () {
-      void expect(
-        await votesERC20.supportsInterface(
-          calculateInterfaceId(IERC20Permit__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IVotes interface', async function () {
-      void expect(
-        await votesERC20.supportsInterface(calculateInterfaceId(IVotes__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('Should support IDeploymentBlockV1 interface', async function () {
-      void expect(
-        await votesERC20.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      void expect(await votesERC20.supportsInterface(randomInterfaceId)).to.be.false;
+    runSupportsInterfaceTests({
+      getContract: () => votesERC20,
+      supportedInterfaceFactories: [
+        IERC165__factory,
+        IVersion__factory,
+        IERC20__factory,
+        IVotesERC20V1__factory,
+        IERC20Permit__factory,
+        IVotes__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 

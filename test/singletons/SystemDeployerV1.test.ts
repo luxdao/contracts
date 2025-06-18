@@ -48,8 +48,8 @@ import {
   VotingAdapterERC721V1,
   VotingAdapterERC721V1__factory,
 } from '../../typechain-types';
-import { runDeploymentBlockTests } from '../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../helpers/utils';
+import { runDeploymentBlockTests } from '../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
 
 // Helper function to create default setupSafe parameters with optional overrides
 function createSetupSafeParams(overrides?: {
@@ -5062,40 +5062,14 @@ describe('SystemDeployerV1', () => {
   });
 
   describe('ERC165 supportsInterface', () => {
-    it('should support ISystemDeployerV1 interface', async () => {
-      void expect(
-        await fixtureData.systemDeployer.supportsInterface(
-          calculateInterfaceId(ISystemDeployerV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IVersion interface', async () => {
-      void expect(
-        await fixtureData.systemDeployer.supportsInterface(
-          calculateInterfaceId(IVersion__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IDeploymentBlockV1 interface', async () => {
-      void expect(
-        await fixtureData.systemDeployer.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support ERC165 interface', async () => {
-      void expect(
-        await fixtureData.systemDeployer.supportsInterface(
-          calculateInterfaceId(ERC165__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should not support random interface', async () => {
-      void expect(await fixtureData.systemDeployer.supportsInterface('0x12345678')).to.be.false;
+    runSupportsInterfaceTests({
+      getContract: () => fixtureData.systemDeployer,
+      supportedInterfaceFactories: [
+        ISystemDeployerV1__factory,
+        IVersion__factory,
+        IDeploymentBlockV1__factory,
+        ERC165__factory,
+      ],
     });
   });
 

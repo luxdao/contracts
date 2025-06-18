@@ -16,8 +16,8 @@ import {
   VotingAdapterERC721V1,
   VotingAdapterERC721V1__factory,
 } from '../../../../../typechain-types';
-import { runDeploymentBlockTests } from '../../../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../../../helpers/utils';
+import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
 
 async function deployERC721AdapterProxy(
   proxyDeployer: SignerWithAddress,
@@ -936,48 +936,15 @@ describe('VotingAdapterERC721V1', () => {
       erc721Adapter = adapter;
     });
 
-    it('should support IVotingAdapterERC721V1', async () => {
-      void expect(
-        await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterERC721V1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IVotingAdapterBaseV1', async () => {
-      void expect(
-        await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IVotingAdapterBaseV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IVersion', async () => {
-      void expect(
-        await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IVersion__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IERC165', async () => {
-      void expect(
-        await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IERC165__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IDeploymentBlockV1', async () => {
-      void expect(
-        await erc721Adapter.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should not support a random interfaceId', async () => {
-      void expect(await erc721Adapter.supportsInterface('0x12345678')).to.be.false;
+    runSupportsInterfaceTests({
+      getContract: () => erc721Adapter,
+      supportedInterfaceFactories: [
+        IVotingAdapterERC721V1__factory,
+        IVotingAdapterBaseV1__factory,
+        IVersion__factory,
+        IERC165__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 

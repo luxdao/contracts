@@ -14,8 +14,8 @@ import {
   VotesERC20LockableV1,
   VotesERC20LockableV1__factory,
 } from '../../../typechain-types';
-import { calculateInterfaceId } from '../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
+import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
 async function deployVotesERC20Lockable(
   deployer: SignerWithAddress,
@@ -856,7 +856,7 @@ describe('VotesERC20LockableV1', () => {
     });
   });
 
-  describe('ERC165', function () {
+  describe('ERC165 supportsInterface', function () {
     let proxy: VotesERC20LockableV1;
 
     beforeEach(async function () {
@@ -873,53 +873,19 @@ describe('VotesERC20LockableV1', () => {
       );
     });
 
-    it('Should support IERC165 interface', async function () {
-      void expect(
-        await proxy.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      void expect(
-        await proxy.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('Should support IVotesERC20LockableV1 interface', async function () {
-      void expect(
-        await proxy.supportsInterface(
-          calculateInterfaceId(IVotesERC20LockableV1__factory.createInterface(), [
-            IVotesERC20V1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IVotesERC20V1 interface', async function () {
-      void expect(
-        await proxy.supportsInterface(
-          calculateInterfaceId(IVotesERC20V1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IERC20 interface', async function () {
-      void expect(
-        await proxy.supportsInterface(calculateInterfaceId(IERC20__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('Should support IAccessControl interface', async function () {
-      void expect(
-        await proxy.supportsInterface(
-          calculateInterfaceId(IAccessControl__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      void expect(await proxy.supportsInterface(randomInterfaceId)).to.be.false;
+    runSupportsInterfaceTests({
+      getContract: () => proxy,
+      supportedInterfaceFactories: [
+        IERC165__factory,
+        IVersion__factory,
+        {
+          factory: IVotesERC20LockableV1__factory,
+          inheritedFactories: [IVotesERC20V1__factory],
+        },
+        IVotesERC20V1__factory,
+        IERC20__factory,
+        IAccessControl__factory,
+      ],
     });
   });
 

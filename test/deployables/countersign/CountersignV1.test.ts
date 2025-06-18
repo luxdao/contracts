@@ -17,8 +17,8 @@ import {
   MultiSendCallOnly,
   MultiSendCallOnly__factory,
 } from '../../../typechain-types';
-import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../helpers/utils';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 // Helper function for deploying Countersign instances using ERC1967Proxy
 async function deployCountersignProxy(
@@ -502,50 +502,15 @@ describe('CountersignV1', () => {
     });
   });
 
-  describe('ERC165', function () {
-    // Interface IDs
-    let iVersionInterfaceId: string;
-    let iCountersignV1InterfaceId: string;
-    let iERC165InterfaceId: string;
-    beforeEach(async function () {
-      // Calculate interface IDs
-      const IVersionInterface = IVersion__factory.createInterface();
-      iVersionInterfaceId = calculateInterfaceId(IVersionInterface);
-
-      const ICountersignV1Interface = ICountersignV1__factory.createInterface();
-      iCountersignV1InterfaceId = calculateInterfaceId(ICountersignV1Interface);
-
-      const IERC165Interface = IERC165__factory.createInterface();
-      iERC165InterfaceId = calculateInterfaceId(IERC165Interface);
-    });
-
-    it('Should support IERC165 interface', async function () {
-      const supported = await countersign.supportsInterface(iERC165InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support ICountersignV1 interface', async function () {
-      const supported = await countersign.supportsInterface(iCountersignV1InterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      const supported = await countersign.supportsInterface(iVersionInterfaceId);
-      void expect(supported).to.be.true;
-    });
-
-    it('Should support IDeploymentBlockV1 interface', async function () {
-      void expect(
-        await countersign.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      const supported = await countersign.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
+  describe('ERC165 supportsInterface', function () {
+    runSupportsInterfaceTests({
+      getContract: () => countersign,
+      supportedInterfaceFactories: [
+        IERC165__factory,
+        ICountersignV1__factory,
+        IVersion__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 

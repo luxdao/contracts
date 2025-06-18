@@ -13,8 +13,8 @@ import {
   ProposerAdapterERC20V1,
   ProposerAdapterERC20V1__factory,
 } from '../../../../../typechain-types';
-import { runDeploymentBlockTests } from '../../../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../../../helpers/utils';
+import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
 
 async function deployERC20ProposerAdapterProxy(
   deployer: SignerWithAddress,
@@ -144,46 +144,18 @@ describe('ProposerAdapterERC20V1', () => {
   });
 
   describe('ERC165 supportsInterface', () => {
-    it('should support IProposerAdapterERC20V1', async () => {
-      void expect(
-        await adapter.supportsInterface(
-          calculateInterfaceId(IProposerAdapterERC20V1__factory.createInterface(), [
-            IProposerAdapterBaseV1__factory.createInterface(),
-          ]),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IProposerAdapterBaseV1', async () => {
-      void expect(
-        await adapter.supportsInterface(
-          calculateInterfaceId(IProposerAdapterBaseV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should support IVersion', async () => {
-      void expect(
-        await adapter.supportsInterface(calculateInterfaceId(IVersion__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('should support IERC165', async () => {
-      void expect(
-        await adapter.supportsInterface(calculateInterfaceId(IERC165__factory.createInterface())),
-      ).to.be.true;
-    });
-
-    it('should support IDeploymentBlockV1', async () => {
-      void expect(
-        await adapter.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('should not support a random interfaceId', async () => {
-      void expect(await adapter.supportsInterface('0x12345678')).to.be.false;
+    runSupportsInterfaceTests({
+      getContract: () => adapter,
+      supportedInterfaceFactories: [
+        {
+          factory: IProposerAdapterERC20V1__factory,
+          inheritedFactories: [IProposerAdapterBaseV1__factory],
+        },
+        IProposerAdapterBaseV1__factory,
+        IVersion__factory,
+        IERC165__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 
