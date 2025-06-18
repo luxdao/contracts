@@ -5,22 +5,32 @@ import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
+import {IMultisend} from "../../interfaces/safe/IMultiSend.sol";
 import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
+contract CountersignV1 is
+    ICountersignV1,
+    IVersion,
+    DeploymentBlockV1,
+    ERC165,
+    Ownable2StepUpgradeable
+{
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
+    bool internal _initialExecutionComplete;
     string internal _agreementUri;
     address internal _kycVerifier;
     uint48 internal _signingDeadline;
     uint48 internal _executionDeadline;
+    address internal _multisend;
     uint256 internal _minWeight;
     address[] internal _signerAddresses;
     mapping(address signer => Signer signerData) internal _signerData;
-    Transaction[] internal _preExecutionTransactions;
+    bytes internal _preExecutionTransactions;
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -31,46 +41,38 @@ contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
     }
 
     function initialize(
+        address owner_,
         string memory agreementUri_,
         address kycVerifier_,
         uint48 signingDeadline_,
         uint48 executionDeadline_,
+        address multisend_,
         uint256 minWeight_,
-        SignerInitialization[] memory signerInitializations_,
-        Transaction[] memory preExecutionTransactions_
+        bytes memory preExecutionTransactions_,
+        SignerInitialization[] memory signerInitializations_
     ) public virtual override initializer {
+        __Ownable_init(owner_);
         __DeploymentBlockV1_init();
         _agreementUri = agreementUri_;
         _kycVerifier = kycVerifier_;
         _signingDeadline = signingDeadline_;
         _executionDeadline = executionDeadline_;
+        _multisend = multisend_;
         _minWeight = minWeight_;
+        _preExecutionTransactions = preExecutionTransactions_;
 
         for (uint256 i = 0; i < signerInitializations_.length; ) {
             SignerInitialization memory signerInit = signerInitializations_[i];
 
             _signerAddresses.push(signerInit.account);
 
-            _signerData[signerInit.account].isSigner = true;
-            _signerData[signerInit.account].required = signerInit.required;
-            _signerData[signerInit.account].weight = signerInit.weight;
+            Signer storage signer = _signerData[signerInit.account];
 
-            Transaction[] storage transactions = _signerData[signerInit.account]
-                .transactions;
-            for (uint256 j = 0; j < signerInit.transactions.length; ) {
-                transactions.push(signerInit.transactions[j]);
-                unchecked {
-                    ++j;
-                }
-            }
+            signer.isSigner = true;
+            signer.required = signerInit.required;
+            signer.weight = signerInit.weight;
+            signer.transactions = signerInit.transactions;
 
-            unchecked {
-                ++i;
-            }
-        }
-
-        for (uint256 i = 0; i < preExecutionTransactions_.length; ) {
-            _preExecutionTransactions.push(preExecutionTransactions_[i]);
             unchecked {
                 ++i;
             }
@@ -82,6 +84,16 @@ contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
     // ======================================================================
 
     // --- View Functions ---
+
+    function initialExecutionComplete()
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return _initialExecutionComplete;
+    }
 
     function agreementUri()
         public
@@ -105,6 +117,10 @@ contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
         return _executionDeadline;
     }
 
+    function multisend() public view virtual override returns (address) {
+        return _multisend;
+    }
+
     function minWeight() public view virtual override returns (uint256) {
         return _minWeight;
     }
@@ -120,36 +136,23 @@ contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
     }
 
     function signerData(
-        address signer
+        address signer_
     )
-        external
+        public
         view
         override
-        returns (bool, bool, bool, uint48, uint256, Transaction[] memory)
+        returns (bool, bool, bool, bool, uint48, uint256, bytes memory)
     {
-        Signer storage signerData_ = _signerData[signer];
-
-        Transaction[] storage signerTransactions = signerData_.transactions;
-        uint256 transactionCount = signerTransactions.length;
-
-        Transaction[] memory returnedSignerTransactions = new Transaction[](
-            transactionCount
-        );
-
-        for (uint256 i = 0; i < transactionCount; ) {
-            returnedSignerTransactions[i] = signerTransactions[i];
-            unchecked {
-                ++i;
-            }
-        }
+        Signer storage signer = _signerData[signer_];
 
         return (
-            true,
-            signerData_.required,
-            signerData_.signed,
-            signerData_.signedTimestamp,
-            signerData_.weight,
-            returnedSignerTransactions
+            signer.isSigner,
+            signer.required,
+            signer.signed,
+            signer.executed,
+            signer.signedTimestamp,
+            signer.weight,
+            signer.transactions
         );
     }
 
@@ -158,7 +161,7 @@ contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
         view
         virtual
         override
-        returns (Transaction[] memory)
+        returns (bytes memory)
     {
         return _preExecutionTransactions;
     }
@@ -190,6 +193,22 @@ contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
         emit Signed(msg.sender);
     }
 
+    function execute() public virtual override onlyOwner {
+        if (block.timestamp < _signingDeadline) {
+            revert SigningDeadlineNotElapsed();
+        }
+
+        if (block.timestamp > _executionDeadline) {
+            revert ExecutionDeadlineElapsed();
+        }
+
+        if (!_initialExecutionComplete) {
+            _initialExecution();
+        } else {
+            _followUpExecutions();
+        }
+    }
+
     // ======================================================================
     // IVersion
     // ======================================================================
@@ -214,5 +233,99 @@ contract CountersignV1 is ICountersignV1, IVersion, DeploymentBlockV1, ERC165 {
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
             super.supportsInterface(interfaceId_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
+    function _initialExecution() internal {
+        if (_preExecutionTransactions.length > 0) {
+            (bool success, ) = _multisend.delegatecall(
+                abi.encodeCall(IMultisend.multiSend, _preExecutionTransactions)
+            );
+
+            if (!success) {
+                revert PreExecutionTxFailed();
+            }
+        }
+
+        uint256 executedWeight;
+
+        for (uint256 i = 0; i < _signerAddresses.length; ) {
+            address signerAddress = _signerAddresses[i];
+            Signer storage signer = _signerData[signerAddress];
+
+            if (!signer.signed) {
+                if (signer.required)
+                    revert RequiredSignerNotSigned(signerAddress);
+
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+
+            if (signer.transactions.length > 0) {
+                (bool success, ) = _multisend.delegatecall(
+                    abi.encodeCall(IMultisend.multiSend, signer.transactions)
+                );
+
+                if (success) {
+                    signer.executed = true;
+                    executedWeight += signer.weight;
+                    emit SignerTxExecuted(signerAddress);
+                } else {
+                    if (signer.required) {
+                        revert RequiredSignerTxFailed(signerAddress);
+                    } else {
+                        emit SignerTxFailed(signerAddress);
+                    }
+                }
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (executedWeight < _minWeight) {
+            revert MinimumWeightNotMet();
+        }
+
+        _initialExecutionComplete = true;
+    }
+
+    function _followUpExecutions() internal {
+        for (uint256 i = 0; i < _signerAddresses.length; ) {
+            address signerAddress = _signerAddresses[i];
+            Signer storage signer = _signerData[signerAddress];
+
+            if (
+                !signer.signed ||
+                signer.executed ||
+                signer.transactions.length == 0
+            ) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+
+            (bool success, ) = _multisend.delegatecall(
+                abi.encodeCall(IMultisend.multiSend, signer.transactions)
+            );
+
+            if (success) {
+                signer.executed = true;
+                emit SignerTxExecuted(signerAddress);
+            } else {
+                emit SignerTxFailed(signerAddress);
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 }
