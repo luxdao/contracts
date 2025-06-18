@@ -250,13 +250,15 @@ contract SystemDeployerV1 is
 
             address votesERC20V1ProxyAddress = deployProxy(
                 votesERC20V1Param.implementation,
-                abi.encodeWithSelector(
-                    IVotesERC20V1.initialize.selector,
-                    votesERC20V1Param.metadata,
-                    totalAllocations,
-                    address(this),
-                    votesERC20V1Param.locked,
-                    votesERC20V1Param.maxTotalSupply
+                abi.encodeCall(
+                    IVotesERC20V1.initialize,
+                    (
+                        votesERC20V1Param.metadata,
+                        totalAllocations,
+                        address(this),
+                        votesERC20V1Param.locked,
+                        votesERC20V1Param.maxTotalSupply
+                    )
                 ),
                 salt_
             );
@@ -357,10 +359,12 @@ contract SystemDeployerV1 is
 
             proposerAdapterAddresses[i] = deployProxy(
                 proposerAdapterERC20V1Param.implementation,
-                abi.encodeWithSelector(
-                    IProposerAdapterERC20V1.initialize.selector,
-                    tokenAddress,
-                    proposerAdapterERC20V1Param.proposerThreshold
+                abi.encodeCall(
+                    IProposerAdapterERC20V1.initialize,
+                    (
+                        tokenAddress,
+                        proposerAdapterERC20V1Param.proposerThreshold
+                    )
                 ),
                 salt_
             );
@@ -388,10 +392,12 @@ contract SystemDeployerV1 is
                 proposerAdapterERC20V1ParamsLength + i
             ] = deployProxy(
                 proposerAdapterERC721V1Param.implementation,
-                abi.encodeWithSelector(
-                    IProposerAdapterERC721V1.initialize.selector,
-                    proposerAdapterERC721V1Param.token,
-                    proposerAdapterERC721V1Param.proposerThreshold
+                abi.encodeCall(
+                    IProposerAdapterERC721V1.initialize,
+                    (
+                        proposerAdapterERC721V1Param.token,
+                        proposerAdapterERC721V1Param.proposerThreshold
+                    )
                 ),
                 salt_
             );
@@ -422,10 +428,12 @@ contract SystemDeployerV1 is
                     i
             ] = deployProxy(
                 proposerAdapterHatsV1Param.implementation,
-                abi.encodeWithSelector(
-                    IProposerAdapterHatsV1.initialize.selector,
-                    proposerAdapterHatsV1Param.hatsContract,
-                    proposerAdapterHatsV1Param.whitelistedHatIds
+                abi.encodeCall(
+                    IProposerAdapterHatsV1.initialize,
+                    (
+                        proposerAdapterHatsV1Param.hatsContract,
+                        proposerAdapterHatsV1Param.whitelistedHatIds
+                    )
                 ),
                 salt_
             );
@@ -444,13 +452,15 @@ contract SystemDeployerV1 is
         return
             deployProxy(
                 strategyV1Params.implementation,
-                abi.encodeWithSelector(
-                    IStrategyV1.initialize.selector,
-                    strategyV1Params.votingPeriod,
-                    strategyV1Params.quorumThreshold,
-                    strategyV1Params.basisNumerator,
-                    proposerAdapterAddresses,
-                    strategyV1Params.lightAccountFactory
+                abi.encodeCall(
+                    IStrategyV1.initialize,
+                    (
+                        strategyV1Params.votingPeriod,
+                        strategyV1Params.quorumThreshold,
+                        strategyV1Params.basisNumerator,
+                        proposerAdapterAddresses,
+                        strategyV1Params.lightAccountFactory
+                    )
                 ),
                 salt_
             );
@@ -529,11 +539,13 @@ contract SystemDeployerV1 is
 
             votingAdapterAddresses[i] = deployProxy(
                 votingAdapterERC20V1Param.implementation,
-                abi.encodeWithSelector(
-                    IVotingAdapterERC20V1.initialize.selector,
-                    tokenAddress,
-                    strategyProxyAddress,
-                    votingAdapterERC20V1Param.weightPerToken
+                abi.encodeCall(
+                    IVotingAdapterERC20V1.initialize,
+                    (
+                        tokenAddress,
+                        strategyProxyAddress,
+                        votingAdapterERC20V1Param.weightPerToken
+                    )
                 ),
                 salt_
             );
@@ -562,11 +574,13 @@ contract SystemDeployerV1 is
                 votingAdapterERC20V1ParamsLength + i
             ] = deployProxy(
                 votingAdapterERC721V1Param.implementation,
-                abi.encodeWithSelector(
-                    IVotingAdapterERC721V1.initialize.selector,
-                    votingAdapterERC721V1Param.token,
-                    strategyProxyAddress,
-                    votingAdapterERC721V1Param.weightPerToken
+                abi.encodeCall(
+                    IVotingAdapterERC721V1.initialize,
+                    (
+                        votingAdapterERC721V1Param.token,
+                        strategyProxyAddress,
+                        votingAdapterERC721V1Param.weightPerToken
+                    )
                 ),
                 salt_
             );
@@ -585,14 +599,16 @@ contract SystemDeployerV1 is
         return
             deployProxy(
                 moduleAzoriusV1Params.implementation,
-                abi.encodeWithSelector(
-                    IModuleAzoriusV1.initialize.selector,
-                    address(this),
-                    address(this),
-                    address(this),
-                    strategyProxyAddress,
-                    moduleAzoriusV1Params.timelockPeriod,
-                    moduleAzoriusV1Params.executionPeriod
+                abi.encodeCall(
+                    IModuleAzoriusV1.initialize,
+                    (
+                        address(this),
+                        address(this),
+                        address(this),
+                        strategyProxyAddress,
+                        moduleAzoriusV1Params.timelockPeriod,
+                        moduleAzoriusV1Params.executionPeriod
+                    )
                 ),
                 salt_
             );
@@ -605,11 +621,9 @@ contract SystemDeployerV1 is
         if (moduleFractalV1Params_.implementation != address(0)) {
             address moduleFractalProxyAddress = deployProxy(
                 moduleFractalV1Params_.implementation,
-                abi.encodeWithSelector(
-                    IModuleFractalV1.initialize.selector,
-                    moduleFractalV1Params_.owner,
-                    address(this),
-                    address(this)
+                abi.encodeCall(
+                    IModuleFractalV1.initialize,
+                    (moduleFractalV1Params_.owner, address(this), address(this))
                 ),
                 salt_
             );
@@ -661,14 +675,16 @@ contract SystemDeployerV1 is
         if (freezeVotingMultisigV1Params.implementation != address(0)) {
             freezeVotingAddress = deployProxy(
                 freezeVotingMultisigV1Params.implementation,
-                abi.encodeWithSelector(
-                    IFreezeVotingMultisigV1.initialize.selector,
-                    freezeVotingMultisigV1Params.owner,
-                    freezeVotingMultisigV1Params.freezeVotesThreshold,
-                    freezeVotingMultisigV1Params.freezeProposalPeriod,
-                    freezeVotingMultisigV1Params.freezePeriod,
-                    freezeVotingMultisigV1Params.parentSafe,
-                    freezeVotingMultisigV1Params.lightAccountFactory
+                abi.encodeCall(
+                    IFreezeVotingMultisigV1.initialize,
+                    (
+                        freezeVotingMultisigV1Params.owner,
+                        freezeVotingMultisigV1Params.freezeVotesThreshold,
+                        freezeVotingMultisigV1Params.freezeProposalPeriod,
+                        freezeVotingMultisigV1Params.freezePeriod,
+                        freezeVotingMultisigV1Params.parentSafe,
+                        freezeVotingMultisigV1Params.lightAccountFactory
+                    )
                 ),
                 salt_
             );
@@ -677,14 +693,16 @@ contract SystemDeployerV1 is
         if (freezeVotingAzoriusV1Params.implementation != address(0)) {
             freezeVotingAddress = deployProxy(
                 freezeVotingAzoriusV1Params.implementation,
-                abi.encodeWithSelector(
-                    IFreezeVotingAzoriusV1.initialize.selector,
-                    freezeVotingAzoriusV1Params.owner,
-                    freezeVotingAzoriusV1Params.freezeVotesThreshold,
-                    freezeVotingAzoriusV1Params.freezeProposalPeriod,
-                    freezeVotingAzoriusV1Params.freezePeriod,
-                    freezeVotingAzoriusV1Params.parentAzorius,
-                    freezeVotingAzoriusV1Params.lightAccountFactory
+                abi.encodeCall(
+                    IFreezeVotingAzoriusV1.initialize,
+                    (
+                        freezeVotingAzoriusV1Params.owner,
+                        freezeVotingAzoriusV1Params.freezeVotesThreshold,
+                        freezeVotingAzoriusV1Params.freezeProposalPeriod,
+                        freezeVotingAzoriusV1Params.freezePeriod,
+                        freezeVotingAzoriusV1Params.parentAzorius,
+                        freezeVotingAzoriusV1Params.lightAccountFactory
+                    )
                 ),
                 salt_
             );
@@ -733,13 +751,15 @@ contract SystemDeployerV1 is
 
             address multisigFreezeGuardAddress = deployProxy(
                 freezeGuardMultisigV1Params.implementation,
-                abi.encodeWithSelector(
-                    IFreezeGuardMultisigV1.initialize.selector,
-                    freezeGuardMultisigV1Params.timelockPeriod,
-                    freezeGuardMultisigV1Params.executionPeriod,
-                    freezeGuardMultisigV1Params.owner,
-                    freezeVotingAddress,
-                    address(this)
+                abi.encodeCall(
+                    IFreezeGuardMultisigV1.initialize,
+                    (
+                        freezeGuardMultisigV1Params.timelockPeriod,
+                        freezeGuardMultisigV1Params.executionPeriod,
+                        freezeGuardMultisigV1Params.owner,
+                        freezeVotingAddress,
+                        address(this)
+                    )
                 ),
                 salt_
             );
@@ -766,10 +786,9 @@ contract SystemDeployerV1 is
 
             address azoriusFreezeGuardAddress = deployProxy(
                 freezeGuardAzoriusV1Params.implementation,
-                abi.encodeWithSelector(
-                    IFreezeGuardAzoriusV1.initialize.selector,
-                    freezeGuardAzoriusV1Params.owner,
-                    freezeVotingAddress
+                abi.encodeCall(
+                    IFreezeGuardAzoriusV1.initialize,
+                    (freezeGuardAzoriusV1Params.owner, freezeVotingAddress)
                 ),
                 salt_
             );
