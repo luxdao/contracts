@@ -8,9 +8,7 @@ import {
   IKYCVerifierV1__factory,
   IVersion__factory,
   KYCVerifierV1,
-  KYCVerifierV1__factory,
-  MockZKMEVerify,
-  MockZKMEVerify__factory,
+  KYCVerifierV1__factory
 } from '../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -19,14 +17,9 @@ import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 async function deployKYCVerifierProxy(
   proxyDeployer: SignerWithAddress,
   implementation: string,
-  zkMeVerify: string,
-  cooperator: string,
 ): Promise<KYCVerifierV1> {
   // Create initialization data with function selector
-  const fullInitData = KYCVerifierV1__factory.createInterface().encodeFunctionData('initialize', [
-    zkMeVerify,
-    cooperator,
-  ]);
+  const fullInitData = KYCVerifierV1__factory.createInterface().encodeFunctionData('initialize');
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
@@ -38,43 +31,28 @@ async function deployKYCVerifierProxy(
 describe('KYCVerifierV1', () => {
   // signers
   let investorAlice: SignerWithAddress;
-  let cooperator: SignerWithAddress;
   let deployer: SignerWithAddress;
 
   // contracts
   let kycVerifier: KYCVerifierV1;
-  let mockZKMEVerify: MockZKMEVerify;
 
   beforeEach(async () => {
     // Get signers
-    [investorAlice, cooperator, deployer] = await ethers.getSigners();
-
-    // deploy mock ZKMEVerify
-    mockZKMEVerify = await new MockZKMEVerify__factory(deployer).deploy();
+    [investorAlice, deployer] = await ethers.getSigners();
 
     // deploy KYC verifier
     const implementation = await new KYCVerifierV1__factory(deployer).deploy();
     kycVerifier = await deployKYCVerifierProxy(
       deployer,
       await implementation.getAddress(),
-      await mockZKMEVerify.getAddress(),
-      cooperator.address,
     );
   });
 
   describe('Initialization', () => {
     it('should not allow reinitialization', async () => {
       await expect(
-        kycVerifier.initialize(await mockZKMEVerify.getAddress(), cooperator.address),
+        kycVerifier.initialize(),
       ).to.be.revertedWithCustomError(kycVerifier, 'InvalidInitialization');
-    });
-
-    it('should return correct zkMeVerify', async () => {
-      expect(await kycVerifier.zkMeVerify()).to.equal(await mockZKMEVerify.getAddress());
-    });
-
-    it('should return correct cooperator', async () => {
-      expect(await kycVerifier.cooperator()).to.equal(cooperator.address);
     });
   });
 
@@ -97,14 +75,8 @@ describe('KYCVerifierV1', () => {
   });
 
   describe('Verifications', () => {
-    it('should verify if zkMeVerify has approved', async () => {
-      await mockZKMEVerify.setApproved(true);
+    it('should verify', async () => {
       void expect(await kycVerifier.verify(investorAlice.address)).to.be.true;
-    });
-
-    it('should not verify if zkMeVerify has not approved', async () => {
-      await mockZKMEVerify.setApproved(false);
-      void expect(await kycVerifier.verify(investorAlice.address)).to.be.false;
     });
   });
 
