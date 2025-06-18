@@ -138,7 +138,7 @@ contract CountersignV1 is
     function signerData(
         address signer_
     )
-        external
+        public
         view
         override
         returns (bool, bool, bool, bool, uint48, uint256, bytes memory)
@@ -146,7 +146,7 @@ contract CountersignV1 is
         Signer storage signer = _signerData[signer_];
 
         return (
-            true,
+            signer.isSigner,
             signer.required,
             signer.signed,
             signer.executed,
@@ -208,6 +208,36 @@ contract CountersignV1 is
             _followUpExecutions();
         }
     }
+
+    // ======================================================================
+    // IVersion
+    // ======================================================================
+
+    // --- Pure Functions ---
+
+    function version() public pure virtual override returns (uint16) {
+        return 1;
+    }
+
+    // ======================================================================
+    // ERC165
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function supportsInterface(
+        bytes4 interfaceId_
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId_ == type(ICountersignV1).interfaceId ||
+            interfaceId_ == type(IVersion).interfaceId ||
+            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            super.supportsInterface(interfaceId_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
 
     function _initialExecution() internal {
         if (_preExecutionTransactions.length > 0) {
@@ -297,31 +327,5 @@ contract CountersignV1 is
                 ++i;
             }
         }
-    }
-
-    // ======================================================================
-    // IVersion
-    // ======================================================================
-
-    // --- Pure Functions ---
-
-    function version() public pure virtual override returns (uint16) {
-        return 1;
-    }
-
-    // ======================================================================
-    // ERC165
-    // ======================================================================
-
-    // --- View Functions ---
-
-    function supportsInterface(
-        bytes4 interfaceId_
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId_ == type(ICountersignV1).interfaceId ||
-            interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
-            super.supportsInterface(interfaceId_);
     }
 }
