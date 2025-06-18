@@ -31,20 +31,6 @@ contract SystemDeployerV1 is
     ERC165
 {
     // ======================================================================
-    // STATE VARIABLES
-    // ======================================================================
-
-    address internal _systemDeployerEventEmitter;
-
-    // ======================================================================
-    // CONSTRUCTOR
-    // ======================================================================
-
-    constructor(address systemDeployerEventEmitter_) {
-        _systemDeployerEventEmitter = systemDeployerEventEmitter_;
-    }
-
-    // ======================================================================
     // ISystemDeployer
     // ======================================================================
 
@@ -79,16 +65,6 @@ contract SystemDeployerV1 is
         return address(uint160(uint256(hash)));
     }
 
-    function systemDeployerEventEmitter()
-        public
-        view
-        virtual
-        override
-        returns (address)
-    {
-        return _systemDeployerEventEmitter;
-    }
-
     // --- State-Changing Functions ---
 
     function deployProxy(
@@ -110,8 +86,9 @@ contract SystemDeployerV1 is
     }
 
     function setupSafe(
-        address safeProxyFactory_,
         bytes32 salt_,
+        address safeProxyFactory_,
+        address systemDeployerEventEmitter_,
         VotesERC20Params calldata votesERC20Params_,
         AzoriusGovernanceParams calldata azoriusGovernanceParams_,
         ModuleFractalV1Params calldata moduleFractalV1Params_,
@@ -143,7 +120,7 @@ contract SystemDeployerV1 is
             freezeParams_
         );
 
-        ISystemDeployerEventEmitterV1(_systemDeployerEventEmitter)
+        ISystemDeployerEventEmitterV1(systemDeployerEventEmitter_)
             .emitSystemDeployed(safeProxyFactory_, salt_, initData);
 
         emit SystemDeployed(safeProxyFactory_, salt_, initData);

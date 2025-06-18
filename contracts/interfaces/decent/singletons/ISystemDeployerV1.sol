@@ -175,16 +175,12 @@ interface ISystemDeployerV1 {
         address deployer_
     ) external view returns (address proxy);
 
-    function systemDeployerEventEmitter()
-        external
-        view
-        returns (address systemDeployerEventEmitter);
-
     // --- State-Changing Functions ---
 
     function setupSafe(
-        address safeProxyFactory_,
         bytes32 salt_,
+        address safeProxyFactory_,
+        address systemDeployerEventEmitter_,
         VotesERC20Params calldata votesERC20Params_,
         AzoriusGovernanceParams calldata azoriusGovernanceParams_,
         ModuleFractalV1Params calldata moduleFractalV1Params_,

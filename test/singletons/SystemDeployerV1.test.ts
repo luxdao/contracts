@@ -31,6 +31,7 @@ import {
   SafeProxyFactory__factory,
   StrategyV1,
   StrategyV1__factory,
+  SystemDeployerEventEmitterV1,
   SystemDeployerEventEmitterV1__factory,
   SystemDeployerV1,
   SystemDeployerV1__factory,
@@ -155,6 +156,7 @@ async function deploySafeWithSetup(params: {
     safe: Safe;
     safeProxyFactory: SafeProxyFactory;
     deployer: SignerWithAddress;
+    systemDeployerEventEmitter: SystemDeployerEventEmitterV1;
   };
   owners: string[];
   threshold: number;
@@ -173,8 +175,9 @@ async function deploySafeWithSetup(params: {
 
   // Encode setupSafe function call
   const setupSafeData = fixtureData.systemDeployer.interface.encodeFunctionData('setupSafe', [
-    await fixtureData.safeProxyFactory.getAddress(),
     salt,
+    await fixtureData.safeProxyFactory.getAddress(),
+    await fixtureData.systemDeployerEventEmitter.getAddress(),
     setupSafeParams.votesERC20Params,
     setupSafeParams.azoriusGovernanceParams,
     setupSafeParams.moduleFractalV1Params,
@@ -1074,12 +1077,105 @@ function verifyNumberOfNewContractsDeployed(params: {
   expect(events).to.have.lengthOf(numberOfNewContracts);
 }
 
+// Helper function to find and verify the SystemDeployed event
+async function findAndVerifySystemDeployedEvent(params: {
+  fixtureData: {
+    systemDeployer: SystemDeployerV1;
+    systemDeployerEventEmitter: SystemDeployerEventEmitterV1;
+    safeProxyFactory: SafeProxyFactory;
+  };
+  receipt: ContractTransactionReceipt;
+  salt: string;
+}) {
+  const { fixtureData, receipt, salt } = params;
+
+  const systemDeployedEvent = receipt.logs.find(log => {
+    try {
+      const parsedLog = fixtureData.systemDeployer.interface.parseLog({
+        topics: log.topics,
+        data: log.data,
+      });
+      return parsedLog?.name === 'SystemDeployed';
+    } catch {
+      return false;
+    }
+  });
+
+  void expect(systemDeployedEvent).to.not.be.undefined;
+
+  if (!systemDeployedEvent) {
+    throw new Error('SystemDeployed event not found');
+  }
+
+  const parsedSystemDeployedEvent = fixtureData.systemDeployer.interface.parseLog({
+    topics: systemDeployedEvent.topics,
+    data: systemDeployedEvent.data,
+  });
+
+  if (!parsedSystemDeployedEvent) {
+    throw new Error('SystemDeployed event not found');
+  }
+
+  expect(parsedSystemDeployedEvent.args[0]).to.equal(
+    await fixtureData.safeProxyFactory.getAddress(),
+  );
+  expect(parsedSystemDeployedEvent.args[1]).to.equal(salt);
+}
+
+// Helper function to find and verify the SystemDeployed event emitter event
+async function findAndVerifySystemDeployedEventEmitterEvent(params: {
+  fixtureData: {
+    systemDeployerEventEmitter: SystemDeployerEventEmitterV1;
+    safeProxyFactory: SafeProxyFactory;
+  };
+  receipt: ContractTransactionReceipt;
+  safeAddress: string;
+  salt: string;
+}) {
+  const { fixtureData, receipt, safeAddress, salt } = params;
+
+  const systemDeployedEventEmitterEvent = receipt.logs.find(log => {
+    try {
+      const parsedLog = fixtureData.systemDeployerEventEmitter.interface.parseLog({
+        topics: log.topics,
+        data: log.data,
+      });
+      return parsedLog?.name === 'SystemDeployed';
+    } catch {
+      return false;
+    }
+  });
+
+  void expect(systemDeployedEventEmitterEvent).to.not.be.undefined;
+
+  if (!systemDeployedEventEmitterEvent) {
+    throw new Error('SystemDeployed event emitter event not found');
+  }
+
+  const parsedSystemDeployedEventEmitterEvent =
+    fixtureData.systemDeployerEventEmitter.interface.parseLog({
+      topics: systemDeployedEventEmitterEvent.topics,
+      data: systemDeployedEventEmitterEvent.data,
+    });
+
+  if (!parsedSystemDeployedEventEmitterEvent) {
+    throw new Error('SystemDeployed event emitter event not found');
+  }
+
+  expect(parsedSystemDeployedEventEmitterEvent.args[0]).to.equal(safeAddress);
+  expect(parsedSystemDeployedEventEmitterEvent.args[1]).to.equal(
+    await fixtureData.safeProxyFactory.getAddress(),
+  );
+  expect(parsedSystemDeployedEventEmitterEvent.args[2]).to.equal(salt);
+}
+
 // Helper function to find and verify the base Azorius Governance setup
 async function findAndVerifySafe(params: {
   fixtureData: {
     safeProxyFactory: SafeProxyFactory;
     safe: Safe;
     systemDeployer: SystemDeployerV1;
+    systemDeployerEventEmitter: SystemDeployerEventEmitterV1;
     deployer: SignerWithAddress;
     proposerAdapterERC20V1: ProposerAdapterERC20V1;
     proposerAdapterERC721V1: ProposerAdapterERC721V1;
@@ -1160,37 +1256,19 @@ async function findAndVerifySafe(params: {
     owners,
     threshold,
   });
-  const systemDeployedEvent = receipt.logs.find(log => {
-    try {
-      const parsedLog = fixtureData.systemDeployer.interface.parseLog({
-        topics: log.topics,
-        data: log.data,
-      });
-      return parsedLog?.name === 'SystemDeployed';
-    } catch {
-      return false;
-    }
+
+  await findAndVerifySystemDeployedEvent({
+    fixtureData,
+    receipt,
+    salt,
   });
 
-  void expect(systemDeployedEvent).to.not.be.undefined;
-
-  if (!systemDeployedEvent) {
-    throw new Error('SystemDeployed event not found');
-  }
-
-  const parsedSystemDeployedEvent = fixtureData.systemDeployer.interface.parseLog({
-    topics: systemDeployedEvent.topics,
-    data: systemDeployedEvent.data,
+  await findAndVerifySystemDeployedEventEmitterEvent({
+    fixtureData,
+    receipt,
+    safeAddress,
+    salt,
   });
-
-  if (!parsedSystemDeployedEvent) {
-    throw new Error('SystemDeployed event not found');
-  }
-
-  expect(parsedSystemDeployedEvent.args[0]).to.equal(
-    await fixtureData.safeProxyFactory.getAddress(),
-  );
-  expect(parsedSystemDeployedEvent.args[1]).to.equal(salt);
 
   if (moduleFractalV1Params) {
     await findAndVerifyModuleFractalV1({
@@ -1502,9 +1580,7 @@ async function setupState() {
   const systemDeployerEventEmitter = await new SystemDeployerEventEmitterV1__factory(
     deployer,
   ).deploy();
-  const systemDeployer = await new SystemDeployerV1__factory(deployer).deploy(
-    await systemDeployerEventEmitter.getAddress(),
-  );
+  const systemDeployer = await new SystemDeployerV1__factory(deployer).deploy();
 
   const moduleFractalV1 = await new ModuleFractalV1__factory(deployer).deploy();
   const freezeGuardMultisigV1 = await new FreezeGuardMultisigV1__factory(deployer).deploy();
