@@ -22,9 +22,9 @@ import {
   MockValidator,
   MockValidator__factory,
 } from '../../../typechain-types';
-import { runDeploymentBlockTests } from '../../helpers/deploymentBlockTests';
-import { calculateInterfaceId } from '../../helpers/utils';
-import { runUUPSUpgradeabilityTests } from '../../helpers/uupsUpgradeabilityTests';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
+import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
 interface PackedUserOperation {
   sender: string;
@@ -362,59 +362,17 @@ describe('DecentPaymasterV1', function () {
     });
   });
 
-  describe('ERC165', function () {
-    it('Should support IERC165 interface', async function () {
-      void expect(
-        await decentPaymaster.supportsInterface(
-          calculateInterfaceId(IERC165__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IPaymaster interface', async function () {
-      void expect(
-        await decentPaymaster.supportsInterface(
-          calculateInterfaceId(IPaymaster__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IDecentPaymaster interface', async function () {
-      void expect(
-        await decentPaymaster.supportsInterface(
-          calculateInterfaceId(IDecentPaymasterV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IVersion interface', async function () {
-      void expect(
-        await decentPaymaster.supportsInterface(
-          calculateInterfaceId(IVersion__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support ISmartAccountValidationV1 interface', async function () {
-      void expect(
-        await decentPaymaster.supportsInterface(
-          calculateInterfaceId(ISmartAccountValidationV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should support IDeploymentBlockV1 interface', async function () {
-      void expect(
-        await decentPaymaster.supportsInterface(
-          calculateInterfaceId(IDeploymentBlockV1__factory.createInterface()),
-        ),
-      ).to.be.true;
-    });
-
-    it('Should not support random interface', async function () {
-      const randomInterfaceId = '0x12345678';
-      const supported = await decentPaymaster.supportsInterface(randomInterfaceId);
-      void expect(supported).to.be.false;
+  describe('ERC165 supportsInterface', () => {
+    runSupportsInterfaceTests({
+      getContract: () => decentPaymaster,
+      supportedInterfaceFactories: [
+        IERC165__factory,
+        IPaymaster__factory,
+        IDecentPaymasterV1__factory,
+        IVersion__factory,
+        ISmartAccountValidationV1__factory,
+        IDeploymentBlockV1__factory,
+      ],
     });
   });
 
