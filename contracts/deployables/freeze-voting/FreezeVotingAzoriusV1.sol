@@ -24,8 +24,25 @@ contract FreezeVotingAzoriusV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    IModuleAzoriusV1 internal _parentAzorius;
-    address internal _freezeProposalStrategy;
+    /// @custom:storage-location erc7201:Decent.FreezeVotingAzorius.main
+    struct FreezeVotingAzoriusStorage {
+        IModuleAzoriusV1 parentAzorius;
+        address freezeProposalStrategy;
+    }
+
+    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.FreezeVotingAzorius.main")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 internal constant FREEZE_VOTING_AZORIUS_STORAGE_LOCATION =
+        0x9d1b207d938f3e5b6e54413a914efe44171cda038c387334c00ec1729143ba00;
+
+    function _getFreezeVotingAzoriusStorage()
+        internal
+        pure
+        returns (FreezeVotingAzoriusStorage storage $)
+    {
+        assembly {
+            $.slot := FREEZE_VOTING_AZORIUS_STORAGE_LOCATION
+        }
+    }
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -51,7 +68,9 @@ contract FreezeVotingAzoriusV1 is
             lightAccountFactory_
         );
         __DeploymentBlockV1_init();
-        _parentAzorius = IModuleAzoriusV1(parentAzorius_);
+
+        FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+        $.parentAzorius = IModuleAzoriusV1(parentAzorius_);
     }
 
     // ======================================================================
@@ -61,7 +80,8 @@ contract FreezeVotingAzoriusV1 is
     // --- View Functions ---
 
     function parentAzorius() public view virtual override returns (address) {
-        return address(_parentAzorius);
+        FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+        return address($.parentAzorius);
     }
 
     function freezeProposalStrategy()
@@ -71,7 +91,8 @@ contract FreezeVotingAzoriusV1 is
         override
         returns (address)
     {
-        return _freezeProposalStrategy;
+        FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+        return $.freezeProposalStrategy;
     }
 
     // --- State-Changing Functions ---
@@ -81,10 +102,16 @@ contract FreezeVotingAzoriusV1 is
     ) public virtual override {
         address resolvedVoter = voter(msg.sender);
 
-        if (block.timestamp > _freezeProposalCreated + _freezeProposalPeriod) {
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
+        FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+
+        if (
+            block.timestamp >
+            $base.freezeProposalCreated + $base.freezeProposalPeriod
+        ) {
             _initializeFreezeVote();
-            _freezeProposalStrategy = _parentAzorius.strategy();
-            emit FreezeProposalCreated(resolvedVoter, _freezeProposalStrategy);
+            $.freezeProposalStrategy = $.parentAzorius.strategy();
+            emit FreezeProposalCreated(resolvedVoter, $.freezeProposalStrategy);
         }
 
         _recordFreezeVote(
@@ -100,7 +127,8 @@ contract FreezeVotingAzoriusV1 is
     // --- State-Changing Functions ---
 
     function unfreeze() public virtual override onlyOwner {
-        _freezeProposalStrategy = address(0);
+        FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+        $.freezeProposalStrategy = address(0);
         super.unfreeze();
     }
 
@@ -140,20 +168,25 @@ contract FreezeVotingAzoriusV1 is
     ) internal virtual returns (uint256) {
         uint256 userVotes = 0;
 
+        FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+
         for (uint256 i = 0; i < votingAdaptersToUse_.length; ) {
             address adapterAddress = votingAdaptersToUse_[i].votingAdapter;
 
             if (
-                !IStrategyV1(_freezeProposalStrategy).isVotingAdapter(
+                !IStrategyV1($.freezeProposalStrategy).isVotingAdapter(
                     adapterAddress
                 )
             ) {
                 revert InvalidVotingAdapter();
             }
 
+            FreezeVotingBaseStorage
+                storage $base = _getFreezeVotingBaseStorage();
+
             userVotes += IVotingAdapterBaseV1(adapterAddress).recordFreezeVote(
                 voter_,
-                _freezeProposalCreated,
+                $base.freezeProposalCreated,
                 votingAdaptersToUse_[i].adapterVoteData
             );
 
