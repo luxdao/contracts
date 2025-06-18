@@ -39,8 +39,6 @@ import {
   UpgradeContractV1__factory,
   UpgradeContractV2__factory,
   UpgradeContractV3__factory,
-  VotesERC20LockableV1,
-  VotesERC20LockableV1__factory,
   VotesERC20V1,
   VotesERC20V1__factory,
   VotingAdapterERC20V1,
@@ -53,7 +51,7 @@ import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
 
 // Helper function to create default setupSafe parameters with optional overrides
 function createSetupSafeParams(overrides?: {
-  votesERC20Params?: Partial<ISystemDeployerV1.VotesERC20ParamsStruct>;
+  votesERC20Params?: Partial<ISystemDeployerV1.VotesERC20V1ParamsStruct>[];
   azoriusGovernanceParams?: Partial<ISystemDeployerV1.AzoriusGovernanceParamsStruct>;
   moduleFractalParams?: Partial<ISystemDeployerV1.ModuleFractalV1ParamsStruct>;
   freezeGuardMultisigParams?: Partial<ISystemDeployerV1.FreezeGuardMultisigV1ParamsStruct>;
@@ -62,11 +60,20 @@ function createSetupSafeParams(overrides?: {
   freezeVotingAzoriusParams?: Partial<ISystemDeployerV1.FreezeVotingAzoriusV1ParamsStruct>;
 }) {
   // Default Votes ERC20 params (all empty/zero)
-  const votesERC20Params: ISystemDeployerV1.VotesERC20ParamsStruct = {
-    votesERC20V1Params: [],
-    votesERC20LockableV1Params: [],
-    ...overrides?.votesERC20Params,
-  };
+  const votesERC20Params: ISystemDeployerV1.VotesERC20V1ParamsStruct[] = overrides?.votesERC20Params
+    ? overrides.votesERC20Params.map(params => ({
+        implementation: ethers.ZeroAddress,
+        metadata: {
+          name: '',
+          symbol: '',
+        },
+        allocations: [],
+        locked: false,
+        maxTotalSupply: 0,
+        safeSupply: 0,
+        ...params,
+      }))
+    : [];
 
   // Default Azorius governance params (all empty/zero)
   const azoriusGovernanceParams: ISystemDeployerV1.AzoriusGovernanceParamsStruct = {
@@ -161,7 +168,7 @@ async function deploySafeWithSetup(params: {
   owners: string[];
   threshold: number;
   setupSafeParams: {
-    votesERC20Params: ISystemDeployerV1.VotesERC20ParamsStruct;
+    votesERC20Params: ISystemDeployerV1.VotesERC20V1ParamsStruct[];
     azoriusGovernanceParams: ISystemDeployerV1.AzoriusGovernanceParamsStruct;
     moduleFractalV1Params: ISystemDeployerV1.ModuleFractalV1ParamsStruct;
     freezeParams: ISystemDeployerV1.FreezeParamsStruct;
@@ -383,6 +390,8 @@ async function findAndVerifyVotesERC20V1s(params: {
       amount: BigNumberish;
     }[];
     safeSupply: BigNumberish;
+    locked: boolean;
+    maxTotalSupply: BigNumberish;
   }[];
 }) {
   const { fixtureData, receipt, implementation, safeAddress, votesERC20V1Datas } = params;
@@ -408,7 +417,17 @@ async function findAndVerifyVotesERC20V1s(params: {
 
     expect(await votesERC20V1Proxy.name()).to.equal(votesERC20V1Data.metadata.name);
     expect(await votesERC20V1Proxy.symbol()).to.equal(votesERC20V1Data.metadata.symbol);
-    expect(await votesERC20V1Proxy.owner()).to.equal(safeAddress);
+    void expect(
+      await votesERC20V1Proxy.hasRole(await votesERC20V1Proxy.DEFAULT_ADMIN_ROLE(), safeAddress),
+    ).to.be.true;
+    void expect(await votesERC20V1Proxy.hasRole(await votesERC20V1Proxy.MINTER_ROLE(), safeAddress))
+      .to.be.true;
+    void expect(
+      await votesERC20V1Proxy.hasRole(await votesERC20V1Proxy.TRANSFER_FROM_ROLE(), safeAddress),
+    ).to.be.true;
+    expect(await votesERC20V1Proxy.locked()).to.equal(votesERC20V1Data.locked);
+    expect(await votesERC20V1Proxy.maxTotalSupply()).to.equal(votesERC20V1Data.maxTotalSupply);
+
     for (const allocation of votesERC20V1Data.allocations) {
       expect(await votesERC20V1Proxy.balanceOf(allocation.to)).to.equal(allocation.amount);
     }
@@ -417,70 +436,6 @@ async function findAndVerifyVotesERC20V1s(params: {
 
   return votesERC20Addresses.map(address =>
     VotesERC20V1__factory.connect(address, fixtureData.deployer),
-  );
-}
-
-// Helper function to find and verify VotesERC20V1 deployment and configuration
-async function findAndVerifyVotesERC20LockableV1s(params: {
-  fixtureData: {
-    systemDeployer: SystemDeployerV1;
-    deployer: SignerWithAddress;
-  };
-  receipt: ContractTransactionReceipt;
-  implementation: string;
-  safeAddress: string;
-  votesERC20LockableV1Datas: {
-    metadata: {
-      name: string;
-      symbol: string;
-    };
-    allocations: {
-      to: AddressLike;
-      amount: BigNumberish;
-    }[];
-    locked: boolean;
-    maxTotalSupply: BigNumberish;
-    safeSupply: BigNumberish;
-  }[];
-}) {
-  const { fixtureData, receipt, implementation, safeAddress, votesERC20LockableV1Datas } = params;
-
-  const votesERC20LockableAddresses = await findProxiesDeployed({
-    fixtureData,
-    receipt,
-    implementation,
-  });
-
-  if (votesERC20LockableAddresses.length !== votesERC20LockableV1Datas.length) {
-    throw new Error(
-      `Number of votes ERC20 lockables does not match number of votes ERC20 lockable datas`,
-    );
-  }
-
-  for (let i = 0; i < votesERC20LockableAddresses.length; i++) {
-    const votesERC20V1LockableAddress = votesERC20LockableAddresses[i];
-    const votesERC20V1LockableData = votesERC20LockableV1Datas[i];
-
-    const votesERC20LockableV1Proxy = VotesERC20LockableV1__factory.connect(
-      votesERC20V1LockableAddress,
-      fixtureData.deployer,
-    );
-
-    expect(await votesERC20LockableV1Proxy.name()).to.equal(votesERC20V1LockableData.metadata.name);
-    expect(await votesERC20LockableV1Proxy.symbol()).to.equal(
-      votesERC20V1LockableData.metadata.symbol,
-    );
-    expect(await votesERC20LockableV1Proxy.owner()).to.equal(safeAddress);
-    for (const allocation of votesERC20V1LockableData.allocations) {
-      expect(await votesERC20LockableV1Proxy.balanceOf(allocation.to)).to.equal(allocation.amount);
-    }
-    expect(await votesERC20LockableV1Proxy.balanceOf(safeAddress)).to.equal(
-      votesERC20V1LockableData.safeSupply,
-    );
-  }
-
-  return votesERC20LockableAddresses.map(address =>
-    VotesERC20LockableV1__factory.connect(address, fixtureData.deployer),
   );
 }
 
@@ -1185,7 +1140,6 @@ async function findAndVerifySafe(params: {
     votingAdapterERC20V1: VotingAdapterERC20V1;
     votingAdapterERC721V1: VotingAdapterERC721V1;
     votesERC20V1: VotesERC20V1;
-    votesERC20LockableV1: VotesERC20LockableV1;
   };
   receipt: ContractTransactionReceipt;
   salt: string;
@@ -1193,10 +1147,7 @@ async function findAndVerifySafe(params: {
   owners: string[];
   threshold: number;
   moduleFractalV1Params?: ISystemDeployerV1.ModuleFractalV1ParamsStruct;
-  votesERC20Datas?: [
-    ISystemDeployerV1.VotesERC20V1ParamsStruct[],
-    ISystemDeployerV1.VotesERC20LockableV1ParamsStruct[],
-  ];
+  votesERC20V1Datas?: ISystemDeployerV1.VotesERC20V1ParamsStruct[];
   proposerAdapterERC20V1Datas?: {
     params: ISystemDeployerV1.ProposerAdapterERC20V1ParamsStruct;
     token?: string;
@@ -1236,7 +1187,7 @@ async function findAndVerifySafe(params: {
     owners,
     threshold,
     moduleFractalV1Params,
-    votesERC20Datas,
+    votesERC20V1Datas,
     proposerAdapterERC20V1Datas,
     proposerAdapterERC721V1Datas,
     proposerAdapterHatsV1Datas,
@@ -1279,32 +1230,15 @@ async function findAndVerifySafe(params: {
     });
   }
 
-  let votesERC20Tokens: [VotesERC20V1[], VotesERC20LockableV1[]];
-  if (votesERC20Datas) {
-    let votesERC20V1s: VotesERC20V1[] = [];
-    let votesERC20LockableV1s: VotesERC20LockableV1[] = [];
-
-    if (votesERC20Datas[0].length > 0) {
-      votesERC20V1s = await findAndVerifyVotesERC20V1s({
-        fixtureData,
-        receipt,
-        implementation: await fixtureData.votesERC20V1.getAddress(),
-        votesERC20V1Datas: votesERC20Datas[0],
-        safeAddress,
-      });
-    }
-
-    if (votesERC20Datas[1].length > 0) {
-      votesERC20LockableV1s = await findAndVerifyVotesERC20LockableV1s({
-        fixtureData,
-        receipt,
-        implementation: await fixtureData.votesERC20LockableV1.getAddress(),
-        votesERC20LockableV1Datas: votesERC20Datas[1],
-        safeAddress,
-      });
-    }
-
-    votesERC20Tokens = [votesERC20V1s, votesERC20LockableV1s];
+  let votesERC20V1Tokens: VotesERC20V1[];
+  if (votesERC20V1Datas && votesERC20V1Datas.length > 0) {
+    votesERC20V1Tokens = await findAndVerifyVotesERC20V1s({
+      fixtureData,
+      receipt,
+      implementation: await fixtureData.votesERC20V1.getAddress(),
+      votesERC20V1Datas,
+      safeAddress,
+    });
   }
 
   let proposerAdapterERC20s: ProposerAdapterERC20V1[] = [];
@@ -1318,9 +1252,7 @@ async function findAndVerifySafe(params: {
           ...data,
           token:
             data.token ??
-            (await votesERC20Tokens[Number(data.params.index.typeI)][
-              Number(data.params.index.tokenI)
-            ].getAddress()),
+            (await votesERC20V1Tokens[Number(data.params.newTokenIndex)].getAddress()),
         })),
       ),
     });
@@ -1390,9 +1322,7 @@ async function findAndVerifySafe(params: {
           },
           token:
             data.token ??
-            (await votesERC20Tokens[Number(data.params.index.typeI)][
-              Number(data.params.index.tokenI)
-            ].getAddress()),
+            (await votesERC20V1Tokens[Number(data.params.newTokenIndex)].getAddress()),
         })),
       ),
     });
@@ -1590,7 +1520,6 @@ async function setupState() {
   const moduleAzoriusV1 = await new ModuleAzoriusV1__factory(deployer).deploy();
   const strategyV1 = await new StrategyV1__factory(deployer).deploy();
   const votesERC20V1 = await new VotesERC20V1__factory(deployer).deploy();
-  const votesERC20LockableV1 = await new VotesERC20LockableV1__factory(deployer).deploy();
   const proposerAdapterERC20V1 = await new ProposerAdapterERC20V1__factory(deployer).deploy();
   const proposerAdapterERC721V1 = await new ProposerAdapterERC721V1__factory(deployer).deploy();
   const proposerAdapterHatsV1 = await new ProposerAdapterHatsV1__factory(deployer).deploy();
@@ -1646,7 +1575,6 @@ async function setupState() {
     moduleAzoriusV1,
     strategyV1,
     votesERC20V1,
-    votesERC20LockableV1,
     proposerAdapterERC20V1,
     proposerAdapterERC721V1,
     proposerAdapterHatsV1,
@@ -1673,9 +1601,7 @@ describe('SystemDeployerV1', () => {
 
   describe('setupSafe', () => {
     let votesERC20V1Params1: ISystemDeployerV1.VotesERC20V1ParamsStruct;
-    let votesERC20LockableV1Params1: ISystemDeployerV1.VotesERC20LockableV1ParamsStruct;
     let votesERC20V1Params2: ISystemDeployerV1.VotesERC20V1ParamsStruct;
-    let votesERC20LockableV1Params2: ISystemDeployerV1.VotesERC20LockableV1ParamsStruct;
 
     let moduleFractalV1Params: ISystemDeployerV1.ModuleFractalV1ParamsStruct;
 
@@ -1697,24 +1623,9 @@ describe('SystemDeployerV1', () => {
             amount: ethers.parseEther('100'),
           },
         ],
-        safeSupply: ethers.parseEther('100'),
-      };
-
-      votesERC20LockableV1Params1 = {
-        implementation: await fixtureData.votesERC20LockableV1.getAddress(),
-        metadata: {
-          name: 'Locked Token',
-          symbol: 'LOCK',
-        },
-        allocations: [
-          {
-            to: fixtureData.user1.address,
-            amount: ethers.parseEther('500'),
-          },
-        ],
         locked: true,
         maxTotalSupply: ethers.parseEther('10000'),
-        safeSupply: ethers.parseEther('1000'),
+        safeSupply: ethers.parseEther('100'),
       };
 
       votesERC20V1Params2 = {
@@ -1729,24 +1640,9 @@ describe('SystemDeployerV1', () => {
             amount: ethers.parseEther('50'),
           },
         ],
+        locked: false,
+        maxTotalSupply: ethers.parseEther('10030'),
         safeSupply: ethers.parseEther('150'),
-      };
-
-      votesERC20LockableV1Params2 = {
-        implementation: await fixtureData.votesERC20LockableV1.getAddress(),
-        metadata: {
-          name: 'Locked Token 2',
-          symbol: 'LOCK2',
-        },
-        allocations: [
-          {
-            to: fixtureData.user2.address,
-            amount: ethers.parseEther('50'),
-          },
-        ],
-        locked: true,
-        maxTotalSupply: ethers.parseEther('10000'),
-        safeSupply: ethers.parseEther('1000'),
       };
 
       moduleFractalV1Params = {
@@ -1956,13 +1852,10 @@ describe('SystemDeployerV1', () => {
         });
       });
 
-      describe('with VotesERC20V1 and VotesERC20LockableV1 tokens', () => {
+      describe('with VotesERC20V1 tokens', () => {
         it('deploys successfully with one VotesERC20V1 token', async () => {
           const setupSafeParams = createSetupSafeParams({
-            votesERC20Params: {
-              votesERC20V1Params: [votesERC20V1Params1],
-              votesERC20LockableV1Params: [],
-            },
+            votesERC20Params: [votesERC20V1Params1],
           });
 
           await findAndVerifySafe({
@@ -1975,17 +1868,14 @@ describe('SystemDeployerV1', () => {
             fixtureData,
             owners,
             threshold,
-            votesERC20Datas: [[votesERC20V1Params1], []],
+            votesERC20V1Datas: [votesERC20V1Params1],
             numberOfNewContracts: 1,
           });
         });
 
         it('deploys successfully with multiple VotesERC20V1 tokens', async () => {
           const setupSafeParams = createSetupSafeParams({
-            votesERC20Params: {
-              votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-              votesERC20LockableV1Params: [],
-            },
+            votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
           });
 
           await findAndVerifySafe({
@@ -1998,109 +1888,8 @@ describe('SystemDeployerV1', () => {
             fixtureData,
             owners,
             threshold,
-            votesERC20Datas: [[votesERC20V1Params1, votesERC20V1Params2], []],
+            votesERC20V1Datas: [votesERC20V1Params1, votesERC20V1Params2],
             numberOfNewContracts: 2,
-          });
-        });
-
-        it('deploys successfully with one VotesERC20LockableV1 token', async () => {
-          const setupSafeParams = createSetupSafeParams({
-            votesERC20Params: {
-              votesERC20V1Params: [],
-              votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-            },
-          });
-
-          await findAndVerifySafe({
-            ...(await deploySafeWithSetup({
-              fixtureData,
-              owners,
-              threshold,
-              setupSafeParams,
-            })),
-            fixtureData,
-            owners,
-            threshold,
-            votesERC20Datas: [[], [votesERC20LockableV1Params1]],
-            numberOfNewContracts: 1,
-          });
-        });
-
-        it('deploys successfully with multiple VotesERC20LockableV1 tokens', async () => {
-          const setupSafeParams = createSetupSafeParams({
-            votesERC20Params: {
-              votesERC20V1Params: [],
-              votesERC20LockableV1Params: [
-                votesERC20LockableV1Params1,
-                votesERC20LockableV1Params2,
-              ],
-            },
-          });
-
-          await findAndVerifySafe({
-            ...(await deploySafeWithSetup({
-              fixtureData,
-              owners,
-              threshold,
-              setupSafeParams,
-            })),
-            fixtureData,
-            owners,
-            threshold,
-            votesERC20Datas: [[], [votesERC20LockableV1Params1, votesERC20LockableV1Params2]],
-            numberOfNewContracts: 2,
-          });
-        });
-
-        it('deploys successfully with one VotesERC20V1 and one VotesERC20LockableV1 token', async () => {
-          const setupSafeParams = createSetupSafeParams({
-            votesERC20Params: {
-              votesERC20V1Params: [votesERC20V1Params1],
-              votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-            },
-          });
-
-          await findAndVerifySafe({
-            ...(await deploySafeWithSetup({
-              fixtureData,
-              owners,
-              threshold,
-              setupSafeParams,
-            })),
-            fixtureData,
-            owners,
-            threshold,
-            votesERC20Datas: [[votesERC20V1Params1], [votesERC20LockableV1Params1]],
-            numberOfNewContracts: 2,
-          });
-        });
-
-        it('deploys successfully with multiple VotesERC20V1 and VotesERC20LockableV1 tokens', async () => {
-          const setupSafeParams = createSetupSafeParams({
-            votesERC20Params: {
-              votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-              votesERC20LockableV1Params: [
-                votesERC20LockableV1Params1,
-                votesERC20LockableV1Params2,
-              ],
-            },
-          });
-
-          await findAndVerifySafe({
-            ...(await deploySafeWithSetup({
-              fixtureData,
-              owners,
-              threshold,
-              setupSafeParams,
-            })),
-            fixtureData,
-            owners,
-            threshold,
-            votesERC20Datas: [
-              [votesERC20V1Params1, votesERC20V1Params2],
-              [votesERC20LockableV1Params1, votesERC20LockableV1Params2],
-            ],
-            numberOfNewContracts: 4,
           });
         });
       });
@@ -2138,14 +1927,14 @@ describe('SystemDeployerV1', () => {
           implementation: await fixtureData.proposerAdapterERC20V1.getAddress(),
           token: randomVotesERC20Contract,
           proposerThreshold: 100000,
-          index: { typeI: 0, tokenI: 0 },
+          newTokenIndex: 0,
         };
 
         proposerAdapterERC20V1Params2 = {
           implementation: await fixtureData.proposerAdapterERC20V1.getAddress(),
           token: randomVotesERC20Contract,
           proposerThreshold: 874512,
-          index: { typeI: 0, tokenI: 0 },
+          newTokenIndex: 0,
         };
 
         proposerAdapterERC721V1Params1 = {
@@ -2176,14 +1965,14 @@ describe('SystemDeployerV1', () => {
           implementation: await fixtureData.votingAdapterERC20V1.getAddress(),
           token: randomVotesERC20Contract,
           weightPerToken: 14,
-          index: { typeI: 0, tokenI: 0 },
+          newTokenIndex: 0,
         };
 
         votingAdapterERC20V1Params2 = {
           implementation: await fixtureData.votingAdapterERC20V1.getAddress(),
           token: randomVotesERC20Contract,
           weightPerToken: 343,
-          index: { typeI: 0, tokenI: 0 },
+          newTokenIndex: 0,
         };
 
         votingAdapterERC721V1Params1 = {
@@ -2314,14 +2103,11 @@ describe('SystemDeployerV1', () => {
           threshold = 1;
         });
 
-        describe('With VotesERC20 & VotesERC20Lockable tokens', () => {
+        describe('With VotesERC20 tokens', () => {
           describe('With VotesERC20V1 tokens', () => {
             it('deploys with a single VotesERC20V1 token', async () => {
               const setupSafeParams = createSetupSafeParams({
-                votesERC20Params: {
-                  votesERC20V1Params: [votesERC20V1Params1],
-                  votesERC20LockableV1Params: [],
-                },
+                votesERC20Params: [votesERC20V1Params1],
                 azoriusGovernanceParams: {
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2347,7 +2133,7 @@ describe('SystemDeployerV1', () => {
                 fixtureData,
                 owners,
                 threshold,
-                votesERC20Datas: [[votesERC20V1Params1], []],
+                votesERC20V1Datas: [votesERC20V1Params1],
                 proposerAdapterERC20V1Datas: [
                   {
                     params: proposerAdapterERC20V1Params1,
@@ -2368,10 +2154,7 @@ describe('SystemDeployerV1', () => {
 
             it('deploys with multiple VotesERC20V1 tokens', async () => {
               const setupSafeParams = createSetupSafeParams({
-                votesERC20Params: {
-                  votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                  votesERC20LockableV1Params: [],
-                },
+                votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                 azoriusGovernanceParams: {
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2397,164 +2180,7 @@ describe('SystemDeployerV1', () => {
                 fixtureData,
                 owners,
                 threshold,
-                votesERC20Datas: [[votesERC20V1Params1, votesERC20V1Params2], []],
-                proposerAdapterERC20V1Datas: [
-                  {
-                    params: proposerAdapterERC20V1Params1,
-                    token: randomVotesERC20Contract,
-                  },
-                ],
-                strategyV1Params,
-                moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  {
-                    params: votingAdapterERC20V1Params1,
-                    token: randomVotesERC20Contract,
-                  },
-                ],
-                numberOfNewContracts: 6,
-              });
-            });
-          });
-
-          describe('With VotesERC20LockableV1 tokens', () => {
-            it('deploys with a single VotesERC20LockableV1 token', async () => {
-              const setupSafeParams = createSetupSafeParams({
-                votesERC20Params: {
-                  votesERC20V1Params: [],
-                  votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                },
-                azoriusGovernanceParams: {
-                  proposerAdapterParams: {
-                    proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                    proposerAdapterERC721V1Params: [],
-                    proposerAdapterHatsV1Params: [],
-                  },
-                  strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
-                  },
-                  moduleAzoriusV1Params,
-                },
-              });
-
-              await findAndVerifySafe({
-                ...(await deploySafeWithSetup({
-                  fixtureData,
-                  owners,
-                  threshold,
-                  setupSafeParams,
-                })),
-                fixtureData,
-                owners,
-                threshold,
-                votesERC20Datas: [[], [votesERC20LockableV1Params1]],
-                proposerAdapterERC20V1Datas: [
-                  {
-                    params: proposerAdapterERC20V1Params1,
-                    token: randomVotesERC20Contract,
-                  },
-                ],
-                strategyV1Params,
-                moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  {
-                    params: votingAdapterERC20V1Params1,
-                    token: randomVotesERC20Contract,
-                  },
-                ],
-                numberOfNewContracts: 5,
-              });
-            });
-
-            it('deploys with multiple VotesERC20LockableV1 tokens', async () => {
-              const setupSafeParams = createSetupSafeParams({
-                votesERC20Params: {
-                  votesERC20V1Params: [],
-                  votesERC20LockableV1Params: [
-                    votesERC20LockableV1Params1,
-                    votesERC20LockableV1Params2,
-                  ],
-                },
-                azoriusGovernanceParams: {
-                  proposerAdapterParams: {
-                    proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                    proposerAdapterERC721V1Params: [],
-                    proposerAdapterHatsV1Params: [],
-                  },
-                  strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
-                  },
-                  moduleAzoriusV1Params,
-                },
-              });
-
-              await findAndVerifySafe({
-                ...(await deploySafeWithSetup({
-                  fixtureData,
-                  owners,
-                  threshold,
-                  setupSafeParams,
-                })),
-                fixtureData,
-                owners,
-                threshold,
-                votesERC20Datas: [[], [votesERC20LockableV1Params1, votesERC20LockableV1Params2]],
-                proposerAdapterERC20V1Datas: [
-                  {
-                    params: proposerAdapterERC20V1Params1,
-                    token: randomVotesERC20Contract,
-                  },
-                ],
-                strategyV1Params,
-                moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  {
-                    params: votingAdapterERC20V1Params1,
-                    token: randomVotesERC20Contract,
-                  },
-                ],
-                numberOfNewContracts: 6,
-              });
-            });
-          });
-
-          describe('With VotesERC20V1 and VotesERC20LockableV1 tokens', () => {
-            it('deploys with a mix of VotesERC20V1 and VotesERC20LockableV1 tokens', async () => {
-              const setupSafeParams = createSetupSafeParams({
-                votesERC20Params: {
-                  votesERC20V1Params: [votesERC20V1Params1],
-                  votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                },
-                azoriusGovernanceParams: {
-                  proposerAdapterParams: {
-                    proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                    proposerAdapterERC721V1Params: [],
-                    proposerAdapterHatsV1Params: [],
-                  },
-                  strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
-                  },
-                  moduleAzoriusV1Params,
-                },
-              });
-
-              await findAndVerifySafe({
-                ...(await deploySafeWithSetup({
-                  fixtureData,
-                  owners,
-                  threshold,
-                  setupSafeParams,
-                })),
-                fixtureData,
-                owners,
-                threshold,
-                votesERC20Datas: [[votesERC20V1Params1], [votesERC20LockableV1Params1]],
+                votesERC20V1Datas: [votesERC20V1Params1, votesERC20V1Params2],
                 proposerAdapterERC20V1Datas: [
                   {
                     params: proposerAdapterERC20V1Params1,
@@ -2681,14 +2307,11 @@ describe('SystemDeployerV1', () => {
                 votingAdapterERC20V1Params1 = {
                   ...votingAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -2714,7 +2337,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1], []],
+                  votesERC20V1Datas: [votesERC20V1Params1],
                   proposerAdapterERC20V1Datas: [
                     {
                       params: proposerAdapterERC20V1Params1,
@@ -2732,20 +2355,17 @@ describe('SystemDeployerV1', () => {
                 votingAdapterERC20V1Params1 = {
                   ...votingAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 votingAdapterERC20V1Params2 = {
                   ...votingAdapterERC20V1Params2,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [
@@ -2774,7 +2394,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1], []],
+                  votesERC20V1Datas: [votesERC20V1Params1],
                   proposerAdapterERC20V1Datas: [
                     {
                       params: proposerAdapterERC20V1Params1,
@@ -2793,10 +2413,7 @@ describe('SystemDeployerV1', () => {
 
               it('reverts if the VotingAdapterERC20 points to an invalid new token index', async () => {
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -2824,8 +2441,7 @@ describe('SystemDeployerV1', () => {
 
                 // now updating the setupSafeParams to include an invalid index should fail
                 // also the default votingAdapterERC20V1Params1 token is an external token, so set it to zero address so index is used
-                data.setupSafeParams.azoriusGovernanceParams.votingAdapterParams.votingAdapterERC20V1Params[0].index =
-                  { typeI: 0, tokenI: 1 };
+                data.setupSafeParams.azoriusGovernanceParams.votingAdapterParams.votingAdapterERC20V1Params[0].newTokenIndex = 1;
                 data.setupSafeParams.azoriusGovernanceParams.votingAdapterParams.votingAdapterERC20V1Params[0].token =
                   ethers.ZeroAddress;
 
@@ -2838,14 +2454,11 @@ describe('SystemDeployerV1', () => {
                 votingAdapterERC20V1Params1 = {
                   ...votingAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 1 },
+                  newTokenIndex: 1,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -2871,7 +2484,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1, votesERC20V1Params2], []],
+                  votesERC20V1Datas: [votesERC20V1Params1, votesERC20V1Params2],
                   proposerAdapterERC20V1Datas: [
                     {
                       params: proposerAdapterERC20V1Params1,
@@ -2889,20 +2502,17 @@ describe('SystemDeployerV1', () => {
                 votingAdapterERC20V1Params1 = {
                   ...votingAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 1 },
+                  newTokenIndex: 1,
                 };
 
                 votingAdapterERC20V1Params2 = {
                   ...votingAdapterERC20V1Params2,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [
@@ -2931,7 +2541,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1, votesERC20V1Params2], []],
+                  votesERC20V1Datas: [votesERC20V1Params1, votesERC20V1Params2],
                   proposerAdapterERC20V1Datas: [
                     {
                       params: proposerAdapterERC20V1Params1,
@@ -2945,413 +2555,6 @@ describe('SystemDeployerV1', () => {
                     { params: votingAdapterERC20V1Params2 },
                   ],
                   numberOfNewContracts: 7,
-                });
-              });
-            });
-
-            describe('One new VotesERC20Lockable token', () => {
-              it('deploys a VotingAdapterERC20V1 pointing to the new token', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1]],
-                  proposerAdapterERC20V1Datas: [
-                    {
-                      params: proposerAdapterERC20V1Params1,
-                      token: randomVotesERC20Contract,
-                    },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [{ params: votingAdapterERC20V1Params1 }],
-                  numberOfNewContracts: 5,
-                });
-              });
-
-              it('deploys multiple VotingAdapterERC20V1s pointing to the same new token', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                votingAdapterERC20V1Params2 = {
-                  ...votingAdapterERC20V1Params2,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [
-                        votingAdapterERC20V1Params1,
-                        votingAdapterERC20V1Params2,
-                      ],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1]],
-                  proposerAdapterERC20V1Datas: [
-                    {
-                      params: proposerAdapterERC20V1Params1,
-                      token: randomVotesERC20Contract,
-                    },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1 },
-                    { params: votingAdapterERC20V1Params2 },
-                  ],
-                  numberOfNewContracts: 6,
-                });
-              });
-
-              it('reverts if the VotingAdapterERC20 points to an invalid new token index', async () => {
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                const data = {
-                  fixtureData,
-                  owners,
-                  threshold,
-                  setupSafeParams,
-                };
-
-                // initial deployment should succeed
-                await deploySafeWithSetup(data);
-
-                // now updating the setupSafeParams to include an invalid index should fail
-                // also the default votingAdapterERC20V1Params1 token is an external token, so set it to zero address so index is used
-                data.setupSafeParams.azoriusGovernanceParams.votingAdapterParams.votingAdapterERC20V1Params[0].index =
-                  { typeI: 1, tokenI: 1 };
-                data.setupSafeParams.azoriusGovernanceParams.votingAdapterParams.votingAdapterERC20V1Params[0].token =
-                  ethers.ZeroAddress;
-
-                await expect(deploySafeWithSetup(data)).to.be.reverted;
-              });
-            });
-
-            describe('Multiple new VotesERC20Lockable tokens', () => {
-              it('deploys a VotingAdapterERC20V1 pointing to one of the new tokens', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1, votesERC20LockableV1Params2]],
-                  proposerAdapterERC20V1Datas: [
-                    {
-                      params: proposerAdapterERC20V1Params1,
-                      token: randomVotesERC20Contract,
-                    },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [{ params: votingAdapterERC20V1Params1 }],
-                  numberOfNewContracts: 6,
-                });
-              });
-
-              it('deploys multiple VotingAdapterERC20V1s, each pointing to one of the new tokens', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                votingAdapterERC20V1Params2 = {
-                  ...votingAdapterERC20V1Params2,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [
-                        votingAdapterERC20V1Params1,
-                        votingAdapterERC20V1Params2,
-                      ],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1, votesERC20LockableV1Params2]],
-                  proposerAdapterERC20V1Datas: [
-                    {
-                      params: proposerAdapterERC20V1Params1,
-                      token: randomVotesERC20Contract,
-                    },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1 },
-                    { params: votingAdapterERC20V1Params2 },
-                  ],
-                  numberOfNewContracts: 7,
-                });
-              });
-            });
-
-            describe('New VotesERC20 and VotesERC20Lockable tokens', () => {
-              it('deploys a VotingAdapterERC20V1 pointing to one of the new tokens', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [
-                    [votesERC20V1Params1, votesERC20V1Params2],
-                    [votesERC20LockableV1Params1, votesERC20LockableV1Params2],
-                  ],
-                  proposerAdapterERC20V1Datas: [
-                    {
-                      params: proposerAdapterERC20V1Params1,
-                      token: randomVotesERC20Contract,
-                    },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [{ params: votingAdapterERC20V1Params1 }],
-                  numberOfNewContracts: 8,
-                });
-              });
-
-              it('deploys multiple VotingAdapterERC20V1s, each pointing to one of the new tokens', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                votingAdapterERC20V1Params2 = {
-                  ...votingAdapterERC20V1Params2,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [
-                        votingAdapterERC20V1Params1,
-                        votingAdapterERC20V1Params2,
-                      ],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [
-                    [votesERC20V1Params1, votesERC20V1Params2],
-                    [votesERC20LockableV1Params1, votesERC20LockableV1Params2],
-                  ],
-                  proposerAdapterERC20V1Datas: [
-                    {
-                      params: proposerAdapterERC20V1Params1,
-                      token: randomVotesERC20Contract,
-                    },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1 },
-                    { params: votingAdapterERC20V1Params2 },
-                  ],
-                  numberOfNewContracts: 9,
                 });
               });
             });
@@ -3598,14 +2801,11 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterERC20V1Params1 = {
                   ...proposerAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -3631,7 +2831,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1], []],
+                  votesERC20V1Datas: [votesERC20V1Params1],
                   proposerAdapterERC20V1Datas: [{ params: proposerAdapterERC20V1Params1 }],
                   strategyV1Params,
                   moduleAzoriusV1Params,
@@ -3646,20 +2846,17 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterERC20V1Params1 = {
                   ...proposerAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 proposerAdapterERC20V1Params2 = {
                   ...proposerAdapterERC20V1Params2,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -3688,7 +2885,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1], []],
+                  votesERC20V1Datas: [votesERC20V1Params1],
                   proposerAdapterERC20V1Datas: [
                     { params: proposerAdapterERC20V1Params1 },
                     { params: proposerAdapterERC20V1Params2 },
@@ -3704,10 +2901,7 @@ describe('SystemDeployerV1', () => {
 
               it('reverts if the ProposerAdapterERC20 points to an invalid new token index', async () => {
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -3735,8 +2929,7 @@ describe('SystemDeployerV1', () => {
 
                 // now updating the setupSafeParams to include an invalid index should fail
                 // also the default proposerAdapterERC20V1Params1 token is an external token, so set it to zero address so index is used
-                data.setupSafeParams.azoriusGovernanceParams.proposerAdapterParams.proposerAdapterERC20V1Params[0].index =
-                  { typeI: 0, tokenI: 1 };
+                data.setupSafeParams.azoriusGovernanceParams.proposerAdapterParams.proposerAdapterERC20V1Params[0].newTokenIndex = 1;
                 data.setupSafeParams.azoriusGovernanceParams.proposerAdapterParams.proposerAdapterERC20V1Params[0].token =
                   ethers.ZeroAddress;
 
@@ -3749,14 +2942,11 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterERC20V1Params1 = {
                   ...proposerAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 1 },
+                  newTokenIndex: 1,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -3782,7 +2972,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1, votesERC20V1Params2], []],
+                  votesERC20V1Datas: [votesERC20V1Params1, votesERC20V1Params2],
                   proposerAdapterERC20V1Datas: [{ params: proposerAdapterERC20V1Params1 }],
                   strategyV1Params,
                   moduleAzoriusV1Params,
@@ -3797,20 +2987,17 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterERC20V1Params1 = {
                   ...proposerAdapterERC20V1Params1,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 1 },
+                  newTokenIndex: 1,
                 };
 
                 proposerAdapterERC20V1Params2 = {
                   ...proposerAdapterERC20V1Params2,
                   token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
+                  newTokenIndex: 0,
                 };
 
                 const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [],
-                  },
+                  votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
                     votingAdapterParams: {
                       votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
@@ -3839,7 +3026,7 @@ describe('SystemDeployerV1', () => {
                   fixtureData,
                   owners,
                   threshold,
-                  votesERC20Datas: [[votesERC20V1Params1, votesERC20V1Params2], []],
+                  votesERC20V1Datas: [votesERC20V1Params1, votesERC20V1Params2],
                   proposerAdapterERC20V1Datas: [
                     { params: proposerAdapterERC20V1Params1 },
                     { params: proposerAdapterERC20V1Params2 },
@@ -3850,395 +3037,6 @@ describe('SystemDeployerV1', () => {
                     { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
                   ],
                   numberOfNewContracts: 7,
-                });
-              });
-            });
-
-            describe('One new VotesERC20Lockable token', () => {
-              it('deploys a ProposerAdapterERC20V1 pointing to the new token', async () => {
-                proposerAdapterERC20V1Params1 = {
-                  ...proposerAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1]],
-                  proposerAdapterERC20V1Datas: [{ params: proposerAdapterERC20V1Params1 }],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
-                  ],
-                  numberOfNewContracts: 5,
-                });
-              });
-
-              it('deploys multiple ProposerAdapterERC20V1s pointing to the same new token', async () => {
-                proposerAdapterERC20V1Params1 = {
-                  ...proposerAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                proposerAdapterERC20V1Params2 = {
-                  ...proposerAdapterERC20V1Params2,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [
-                        proposerAdapterERC20V1Params1,
-                        proposerAdapterERC20V1Params2,
-                      ],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1]],
-                  proposerAdapterERC20V1Datas: [
-                    { params: proposerAdapterERC20V1Params1 },
-                    { params: proposerAdapterERC20V1Params2 },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
-                  ],
-                  numberOfNewContracts: 6,
-                });
-              });
-
-              it('reverts if the ProposerAdapterERC20 points to an invalid new token index', async () => {
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [votesERC20LockableV1Params1],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                const data = {
-                  fixtureData,
-                  owners,
-                  threshold,
-                  setupSafeParams,
-                };
-
-                // initial deployment should succeed
-                await deploySafeWithSetup(data);
-
-                // now updating the setupSafeParams to include an invalid index should fail
-                // also the default proposerAdapterERC20V1Params1 token is an external token, so set it to zero address so index is used
-                data.setupSafeParams.azoriusGovernanceParams.proposerAdapterParams.proposerAdapterERC20V1Params[0].index =
-                  { typeI: 1, tokenI: 1 };
-                data.setupSafeParams.azoriusGovernanceParams.proposerAdapterParams.proposerAdapterERC20V1Params[0].token =
-                  ethers.ZeroAddress;
-
-                await expect(deploySafeWithSetup(data)).to.be.reverted;
-              });
-            });
-
-            describe('Multiple new VotesERC20Lockable tokens', () => {
-              it('deploys a ProposerAdapterERC20V1 pointing to one of the new tokens', async () => {
-                proposerAdapterERC20V1Params1 = {
-                  ...proposerAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1, votesERC20LockableV1Params2]],
-                  proposerAdapterERC20V1Datas: [{ params: proposerAdapterERC20V1Params1 }],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
-                  ],
-                  numberOfNewContracts: 6,
-                });
-              });
-
-              it('deploys multiple ProposerAdapterERC20V1s, each pointing to one of the new tokens', async () => {
-                proposerAdapterERC20V1Params1 = {
-                  ...proposerAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                proposerAdapterERC20V1Params2 = {
-                  ...proposerAdapterERC20V1Params2,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [
-                        proposerAdapterERC20V1Params1,
-                        proposerAdapterERC20V1Params2,
-                      ],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [[], [votesERC20LockableV1Params1, votesERC20LockableV1Params2]],
-                  proposerAdapterERC20V1Datas: [
-                    { params: proposerAdapterERC20V1Params1 },
-                    { params: proposerAdapterERC20V1Params2 },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
-                  ],
-                  numberOfNewContracts: 7,
-                });
-              });
-            });
-
-            describe('New VotesERC20 and VotesERC20Lockable tokens', () => {
-              it('deploys a ProposerAdapterERC20V1 pointing to one of the new tokens', async () => {
-                proposerAdapterERC20V1Params1 = {
-                  ...proposerAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [
-                    [votesERC20V1Params1, votesERC20V1Params2],
-                    [votesERC20LockableV1Params1, votesERC20LockableV1Params2],
-                  ],
-                  proposerAdapterERC20V1Datas: [{ params: proposerAdapterERC20V1Params1 }],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
-                  ],
-                  numberOfNewContracts: 8,
-                });
-              });
-
-              it('deploys multiple ProposerAdapterERC20V1s, each pointing to one of the new tokens', async () => {
-                proposerAdapterERC20V1Params1 = {
-                  ...proposerAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 1, tokenI: 1 },
-                };
-
-                proposerAdapterERC20V1Params2 = {
-                  ...proposerAdapterERC20V1Params2,
-                  token: ethers.ZeroAddress,
-                  index: { typeI: 0, tokenI: 0 },
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: {
-                    votesERC20V1Params: [votesERC20V1Params1, votesERC20V1Params2],
-                    votesERC20LockableV1Params: [
-                      votesERC20LockableV1Params1,
-                      votesERC20LockableV1Params2,
-                    ],
-                  },
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [
-                        proposerAdapterERC20V1Params1,
-                        proposerAdapterERC20V1Params2,
-                      ],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20Datas: [
-                    [votesERC20V1Params1, votesERC20V1Params2],
-                    [votesERC20LockableV1Params1, votesERC20LockableV1Params2],
-                  ],
-                  proposerAdapterERC20V1Datas: [
-                    { params: proposerAdapterERC20V1Params1 },
-                    { params: proposerAdapterERC20V1Params2 },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
-                  ],
-                  numberOfNewContracts: 9,
                 });
               });
             });
