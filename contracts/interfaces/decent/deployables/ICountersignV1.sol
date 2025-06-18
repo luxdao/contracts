@@ -12,7 +12,6 @@ interface ICountersignV1 {
     error InvalidKYCSignature();
     error RequiredSignerTxFailed(address signer);
     error MinimumWeightNotMet();
-    error InitialExecutionNotCompleted();
     error SigningDeadlineNotElapsed();
     error PreExecutionTxFailed();
 
