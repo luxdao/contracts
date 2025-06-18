@@ -8,7 +8,7 @@ import {
   IKYCVerifierV1__factory,
   IVersion__factory,
   KYCVerifierV1,
-  KYCVerifierV1__factory
+  KYCVerifierV1__factory,
 } from '../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -42,17 +42,15 @@ describe('KYCVerifierV1', () => {
 
     // deploy KYC verifier
     const implementation = await new KYCVerifierV1__factory(deployer).deploy();
-    kycVerifier = await deployKYCVerifierProxy(
-      deployer,
-      await implementation.getAddress(),
-    );
+    kycVerifier = await deployKYCVerifierProxy(deployer, await implementation.getAddress());
   });
 
   describe('Initialization', () => {
     it('should not allow reinitialization', async () => {
-      await expect(
-        kycVerifier.initialize(),
-      ).to.be.revertedWithCustomError(kycVerifier, 'InvalidInitialization');
+      await expect(kycVerifier.initialize()).to.be.revertedWithCustomError(
+        kycVerifier,
+        'InvalidInitialization',
+      );
     });
   });
 
