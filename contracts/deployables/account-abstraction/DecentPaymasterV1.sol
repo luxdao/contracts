@@ -31,8 +31,24 @@ contract DecentPaymasterV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    mapping(address target => mapping(bytes4 selector => address validator))
-        internal _functionValidators;
+    /// @custom:storage-location erc7201:Decent.DecentPaymaster.main
+    struct DecentPaymasterStorage {
+        mapping(address target => mapping(bytes4 selector => address validator)) functionValidators;
+    }
+
+    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.DecentPaymaster.main")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 internal constant DECENT_PAYMASTER_STORAGE_LOCATION =
+        0x9864cc6d2ebb52de6c6d593dbda2be2b4542b9f136a6d2b6285312464a440f00;
+
+    function _getDecentPaymasterStorage()
+        internal
+        pure
+        returns (DecentPaymasterStorage storage $)
+    {
+        assembly {
+            $.slot := DECENT_PAYMASTER_STORAGE_LOCATION
+        }
+    }
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -72,7 +88,8 @@ contract DecentPaymasterV1 is
         address target_,
         bytes4 selector_
     ) public view virtual override returns (address) {
-        return _functionValidators[target_][selector_];
+        DecentPaymasterStorage storage $ = _getDecentPaymasterStorage();
+        return $.functionValidators[target_][selector_];
     }
 
     // --- State-Changing Functions ---
@@ -92,7 +109,9 @@ contract DecentPaymasterV1 is
             revert InvalidValidator();
         }
 
-        _functionValidators[target_][selector_] = validator_;
+        DecentPaymasterStorage storage $ = _getDecentPaymasterStorage();
+        $.functionValidators[target_][selector_] = validator_;
+
         emit FunctionValidatorSet(target_, selector_, validator_);
     }
 
@@ -100,7 +119,9 @@ contract DecentPaymasterV1 is
         address target_,
         bytes4 selector_
     ) public virtual override onlyOwner {
-        _functionValidators[target_][selector_] = address(0);
+        DecentPaymasterStorage storage $ = _getDecentPaymasterStorage();
+        $.functionValidators[target_][selector_] = address(0);
+
         emit FunctionValidatorRemoved(target_, selector_);
     }
 
@@ -123,8 +144,10 @@ contract DecentPaymasterV1 is
 
         bytes4 selector = bytes4(innerCallData);
 
+        DecentPaymasterStorage storage $ = _getDecentPaymasterStorage();
+
         // Check if function has a validator
-        address validator = _functionValidators[target][selector];
+        address validator = $.functionValidators[target][selector];
         if (validator == address(0)) {
             revert NoValidatorSet(target, selector);
         }

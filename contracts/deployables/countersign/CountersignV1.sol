@@ -21,16 +21,33 @@ contract CountersignV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    bool internal _initialExecutionComplete;
-    string internal _agreementUri;
-    address internal _kycVerifier;
-    uint48 internal _signingDeadline;
-    uint48 internal _executionDeadline;
-    address internal _multisend;
-    uint256 internal _minWeight;
-    address[] internal _signerAddresses;
-    mapping(address signer => Signer signerData) internal _signerData;
-    bytes internal _preExecutionTransactions;
+    /// @custom:storage-location erc7201:Decent.Countersign.main
+    struct CountersignStorage {
+        bool initialExecutionComplete;
+        string agreementUri;
+        address kycVerifier;
+        uint48 signingDeadline;
+        uint48 executionDeadline;
+        address multisend;
+        uint256 minWeight;
+        address[] signerAddresses;
+        mapping(address signer => Signer signerData) signerData;
+        bytes preExecutionTransactions;
+    }
+
+    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.Countersign.main")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 internal constant COUNTERSIGN_STORAGE_LOCATION =
+        0x17e3324905ecbcdb5282616f8444afa635592330380c984274eec8eac2a85400;
+
+    function _getCountersignStorage()
+        internal
+        pure
+        returns (CountersignStorage storage $)
+    {
+        assembly {
+            $.slot := COUNTERSIGN_STORAGE_LOCATION
+        }
+    }
 
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -53,21 +70,22 @@ contract CountersignV1 is
     ) public virtual override initializer {
         __Ownable_init(owner_);
         __DeploymentBlockV1_init();
-        _agreementUri = agreementUri_;
-        _kycVerifier = kycVerifier_;
-        _signingDeadline = signingDeadline_;
-        _executionDeadline = executionDeadline_;
-        _multisend = multisend_;
-        _minWeight = minWeight_;
-        _preExecutionTransactions = preExecutionTransactions_;
+
+        CountersignStorage storage $ = _getCountersignStorage();
+        $.agreementUri = agreementUri_;
+        $.kycVerifier = kycVerifier_;
+        $.signingDeadline = signingDeadline_;
+        $.executionDeadline = executionDeadline_;
+        $.multisend = multisend_;
+        $.minWeight = minWeight_;
+        $.preExecutionTransactions = preExecutionTransactions_;
 
         for (uint256 i = 0; i < signerInitializations_.length; ) {
             SignerInitialization memory signerInit = signerInitializations_[i];
 
-            _signerAddresses.push(signerInit.account);
+            $.signerAddresses.push(signerInit.account);
 
-            Signer storage signer = _signerData[signerInit.account];
-
+            Signer storage signer = $.signerData[signerInit.account];
             signer.isSigner = true;
             signer.required = signerInit.required;
             signer.weight = signerInit.weight;
@@ -92,7 +110,8 @@ contract CountersignV1 is
         override
         returns (bool)
     {
-        return _initialExecutionComplete;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.initialExecutionComplete;
     }
 
     function agreementUri()
@@ -102,27 +121,33 @@ contract CountersignV1 is
         override
         returns (string memory)
     {
-        return _agreementUri;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.agreementUri;
     }
 
     function kycVerifier() public view virtual override returns (address) {
-        return _kycVerifier;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.kycVerifier;
     }
 
     function signingDeadline() public view virtual override returns (uint48) {
-        return _signingDeadline;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.signingDeadline;
     }
 
     function executionDeadline() public view virtual override returns (uint48) {
-        return _executionDeadline;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.executionDeadline;
     }
 
     function multisend() public view virtual override returns (address) {
-        return _multisend;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.multisend;
     }
 
     function minWeight() public view virtual override returns (uint256) {
-        return _minWeight;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.minWeight;
     }
 
     function signerAddresses()
@@ -132,7 +157,8 @@ contract CountersignV1 is
         override
         returns (address[] memory)
     {
-        return _signerAddresses;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.signerAddresses;
     }
 
     function signerData(
@@ -143,7 +169,8 @@ contract CountersignV1 is
         override
         returns (bool, bool, bool, bool, uint48, uint256, bytes memory)
     {
-        Signer storage signer = _signerData[signer_];
+        CountersignStorage storage $ = _getCountersignStorage();
+        Signer storage signer = $.signerData[signer_];
 
         return (
             signer.isSigner,
@@ -163,17 +190,19 @@ contract CountersignV1 is
         override
         returns (bytes memory)
     {
-        return _preExecutionTransactions;
+        CountersignStorage storage $ = _getCountersignStorage();
+        return $.preExecutionTransactions;
     }
 
     // --- State-Changing Functions ---
 
     function sign() public virtual override {
-        if (block.timestamp > _signingDeadline) {
+        CountersignStorage storage $ = _getCountersignStorage();
+        if (block.timestamp > $.signingDeadline) {
             revert SigningDeadlineElapsed();
         }
 
-        Signer storage signer = _signerData[msg.sender];
+        Signer storage signer = $.signerData[msg.sender];
 
         if (!signer.isSigner) {
             revert InvalidSigner();
@@ -183,7 +212,7 @@ contract CountersignV1 is
             revert SignerAlreadySigned();
         }
 
-        if (!IKYCVerifierV1(_kycVerifier).verify(msg.sender)) {
+        if (!IKYCVerifierV1($.kycVerifier).verify(msg.sender)) {
             revert InvalidKYCSignature();
         }
 
@@ -194,18 +223,20 @@ contract CountersignV1 is
     }
 
     function execute() public virtual override onlyOwner {
-        if (block.timestamp < _signingDeadline) {
+        CountersignStorage storage $ = _getCountersignStorage();
+
+        if (block.timestamp < $.signingDeadline) {
             revert SigningDeadlineNotElapsed();
         }
 
-        if (block.timestamp > _executionDeadline) {
+        if (block.timestamp > $.executionDeadline) {
             revert ExecutionDeadlineElapsed();
         }
 
-        if (!_initialExecutionComplete) {
-            _initialExecution();
+        if (!$.initialExecutionComplete) {
+            _initialExecution($);
         } else {
-            _followUpExecutions();
+            _followUpExecutions($);
         }
     }
 
@@ -239,10 +270,10 @@ contract CountersignV1 is
     // INTERNAL HELPERS
     // ======================================================================
 
-    function _initialExecution() internal {
-        if (_preExecutionTransactions.length > 0) {
-            (bool success, ) = _multisend.delegatecall(
-                abi.encodeCall(IMultisend.multiSend, _preExecutionTransactions)
+    function _initialExecution(CountersignStorage storage $) internal {
+        if ($.preExecutionTransactions.length > 0) {
+            (bool success, ) = $.multisend.delegatecall(
+                abi.encodeCall(IMultisend.multiSend, $.preExecutionTransactions)
             );
 
             if (!success) {
@@ -252,9 +283,9 @@ contract CountersignV1 is
 
         uint256 executedWeight;
 
-        for (uint256 i = 0; i < _signerAddresses.length; ) {
-            address signerAddress = _signerAddresses[i];
-            Signer storage signer = _signerData[signerAddress];
+        for (uint256 i = 0; i < $.signerAddresses.length; ) {
+            address signerAddress = $.signerAddresses[i];
+            Signer storage signer = $.signerData[signerAddress];
 
             if (!signer.signed) {
                 if (signer.required)
@@ -267,7 +298,7 @@ contract CountersignV1 is
             }
 
             if (signer.transactions.length > 0) {
-                (bool success, ) = _multisend.delegatecall(
+                (bool success, ) = $.multisend.delegatecall(
                     abi.encodeCall(IMultisend.multiSend, signer.transactions)
                 );
 
@@ -289,17 +320,17 @@ contract CountersignV1 is
             }
         }
 
-        if (executedWeight < _minWeight) {
+        if (executedWeight < $.minWeight) {
             revert MinimumWeightNotMet();
         }
 
-        _initialExecutionComplete = true;
+        $.initialExecutionComplete = true;
     }
 
-    function _followUpExecutions() internal {
-        for (uint256 i = 0; i < _signerAddresses.length; ) {
-            address signerAddress = _signerAddresses[i];
-            Signer storage signer = _signerData[signerAddress];
+    function _followUpExecutions(CountersignStorage storage $) internal {
+        for (uint256 i = 0; i < $.signerAddresses.length; ) {
+            address signerAddress = $.signerAddresses[i];
+            Signer storage signer = $.signerData[signerAddress];
 
             if (
                 !signer.signed ||
@@ -312,7 +343,7 @@ contract CountersignV1 is
                 continue;
             }
 
-            (bool success, ) = _multisend.delegatecall(
+            (bool success, ) = $.multisend.delegatecall(
                 abi.encodeCall(IMultisend.multiSend, signer.transactions)
             );
 
