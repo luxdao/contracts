@@ -66,11 +66,12 @@ contract CountersignV1 is
 
             _signerAddresses.push(signerInit.account);
 
-            _signerData[signerInit.account].isSigner = true;
-            _signerData[signerInit.account].required = signerInit.required;
-            _signerData[signerInit.account].weight = signerInit.weight;
-            _signerData[signerInit.account].transactions = signerInit
-                .transactions;
+            Signer storage signer = _signerData[signerInit.account];
+
+            signer.isSigner = true;
+            signer.required = signerInit.required;
+            signer.weight = signerInit.weight;
+            signer.transactions = signerInit.transactions;
 
             unchecked {
                 ++i;
