@@ -18,22 +18,40 @@ contract VotesERC20LockableV1 is
     // STATE VARIABLES
     // ======================================================================
 
+    /// @custom:storage-location erc7201:Decent.VotesERC20Lockable.main
+    struct VotesERC20LockableStorage {
+        bool locked;
+        uint256 maxTotalSupply;
+        uint48 unlockTime;
+    }
+
+    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.VotesERC20Lockable.main")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 internal constant VOTES_ERC20_LOCKABLE_STORAGE_LOCATION =
+        0x92ca3baf4d957868103ca789b850a5c1ad32aca3d4ea82a1a77d487427517900;
+
+    function _getVotesERC20LockableStorage()
+        internal
+        pure
+        returns (VotesERC20LockableStorage storage $)
+    {
+        assembly {
+            $.slot := VOTES_ERC20_LOCKABLE_STORAGE_LOCATION
+        }
+    }
+
     bytes32 public constant TRANSFER_FROM_ROLE =
         keccak256("TRANSFER_FROM_ROLE");
     bytes32 public constant TRANSFER_TO_ROLE = keccak256("TRANSFER_TO_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
-    bool internal _locked;
-    uint256 internal _maxTotalSupply;
-    uint48 internal _unlockTime;
 
     // ======================================================================
     // MODIFIERS
     // ======================================================================
 
     modifier isTransferable(address from_, address to_) {
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
         if (
-            _locked &&
+            $.locked &&
             // overrides while locked
             !hasRole(TRANSFER_FROM_ROLE, from_) && // whitelisted addresses can always transfer
             !hasRole(TRANSFER_TO_ROLE, to_)
@@ -73,8 +91,9 @@ contract VotesERC20LockableV1 is
         // can always burn when locked
         _grantRole(TRANSFER_TO_ROLE, address(0));
 
-        _locked = locked_;
-        _maxTotalSupply = maxTotalSupply_;
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
+        $.locked = locked_;
+        $.maxTotalSupply = maxTotalSupply_;
     }
 
     // ======================================================================
@@ -84,15 +103,18 @@ contract VotesERC20LockableV1 is
     // --- View Functions ---
 
     function locked() public view virtual override returns (bool) {
-        return _locked;
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
+        return $.locked;
     }
 
     function maxTotalSupply() public view virtual override returns (uint256) {
-        return _maxTotalSupply;
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
+        return $.maxTotalSupply;
     }
 
     function getUnlockTime() public view virtual override returns (uint48) {
-        return _unlockTime;
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
+        return $.unlockTime;
     }
 
     // --- State-Changing Functions ---
@@ -100,11 +122,12 @@ contract VotesERC20LockableV1 is
     function lock(
         bool locked_
     ) public virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
         if (!locked_) {
-            _unlockTime = uint48(block.timestamp);
+            $.unlockTime = uint48(block.timestamp);
         }
-        _locked = locked_;
-        emit Locked(_locked);
+        $.locked = locked_;
+        emit Locked(locked_);
     }
 
     function setMaxTotalSupply(
@@ -113,7 +136,9 @@ contract VotesERC20LockableV1 is
         if (newMaxTotalSupply_ < totalSupply()) {
             revert InvalidMaxTotalSupply();
         }
-        _maxTotalSupply = newMaxTotalSupply_;
+
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
+        $.maxTotalSupply = newMaxTotalSupply_;
         emit MaxTotalSupplyUpdated(newMaxTotalSupply_);
     }
 
@@ -122,9 +147,12 @@ contract VotesERC20LockableV1 is
         uint256 amount_
     ) public virtual override onlyRole(MINTER_ROLE) {
         uint256 newTotalSupply = totalSupply() + amount_;
-        if (newTotalSupply > _maxTotalSupply) {
+
+        VotesERC20LockableStorage storage $ = _getVotesERC20LockableStorage();
+        if (newTotalSupply > $.maxTotalSupply) {
             revert ExceedMaxTotalSupply();
         }
+
         _mint(to_, amount_);
     }
 
