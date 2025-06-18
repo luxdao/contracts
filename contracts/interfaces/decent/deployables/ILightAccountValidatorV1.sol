@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-interface ISmartAccountValidationV1 {
+interface ILightAccountValidatorV1 {
     // --- Errors ---
 
-    error InvalidSmartAccount();
+    error InvalidLightAccount();
     error InvalidUserOpCallDataLength();
     error InvalidCallData();
     error InvalidInnerCallDataLength();
@@ -15,4 +15,8 @@ interface ISmartAccountValidationV1 {
         external
         view
         returns (address lightAccountFactory);
+
+    function potentialLightAccountResolvedOwner(
+        address potentialLightAccount_
+    ) external view returns (address potentialLightAccountResolvedOwner);
 }

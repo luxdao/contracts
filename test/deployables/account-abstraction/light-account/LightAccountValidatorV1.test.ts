@@ -2,8 +2,8 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  ConcreteSmartAccountValidation,
-  ConcreteSmartAccountValidation__factory,
+  ConcreteLightAccountValidator,
+  ConcreteLightAccountValidator__factory,
   ERC1967Proxy__factory,
   MockGaslessTarget,
   MockGaslessTarget__factory,
@@ -13,7 +13,7 @@ import {
   MockLightAccount__factory,
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
-} from '../../../typechain-types';
+} from '../../../../typechain-types';
 
 interface PackedUserOperation {
   sender: string;
@@ -27,13 +27,13 @@ interface PackedUserOperation {
   signature: string;
 }
 
-async function deploySmartAccountValidation(
+async function deployLightAccountValidator(
   deployer: SignerWithAddress,
-  implementation: ConcreteSmartAccountValidation,
+  implementation: ConcreteLightAccountValidator,
   mockLightAccountFactoryAddress: string,
 ) {
   // Create full initialization data with function selector
-  const fullInitData = ConcreteSmartAccountValidation__factory.createInterface().encodeFunctionData(
+  const fullInitData = ConcreteLightAccountValidator__factory.createInterface().encodeFunctionData(
     'initialize',
     [mockLightAccountFactoryAddress],
   );
@@ -41,12 +41,12 @@ async function deploySmartAccountValidation(
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(deployer).deploy(implementation, fullInitData);
 
-  return ConcreteSmartAccountValidation__factory.connect(await proxy.getAddress(), deployer);
+  return ConcreteLightAccountValidator__factory.connect(await proxy.getAddress(), deployer);
 }
 
-describe('SmartAccountValidationV1', function () {
+describe('LightAccountValidatorV1', function () {
   // contracts
-  let concreteSmartAccountValidation: ConcreteSmartAccountValidation;
+  let concreteLightAccountValidator: ConcreteLightAccountValidator;
   let mockLightAccount: MockLightAccount;
   let mockInvalidLightAccount: MockInvalidLightAccount;
   let mockLightAccountFactory: MockLightAccountFactory;
@@ -54,10 +54,11 @@ describe('SmartAccountValidationV1', function () {
   // signers
   let deployer: SignerWithAddress;
   let owner: SignerWithAddress;
+  let user: SignerWithAddress;
 
   beforeEach(async function () {
     // Get signers
-    [deployer, owner] = await ethers.getSigners();
+    [deployer, owner, user] = await ethers.getSigners();
 
     // Deploy MockLightAccount
     mockLightAccount = await new MockLightAccount__factory(deployer).deploy(owner.address);
@@ -69,19 +70,19 @@ describe('SmartAccountValidationV1', function () {
     mockLightAccountFactory = await new MockLightAccountFactory__factory(deployer).deploy();
 
     // Deploy ConcreteSmartAccountValidation
-    const concreteValidationImplementation = await new ConcreteSmartAccountValidation__factory(
+    const concreteValidationImplementation = await new ConcreteLightAccountValidator__factory(
       deployer,
     ).deploy();
 
-    concreteSmartAccountValidation = await deploySmartAccountValidation(
+    concreteLightAccountValidator = await deployLightAccountValidator(
       deployer,
       concreteValidationImplementation,
       mockLightAccountFactory.target.toString(),
     );
   });
 
-  describe('validateSmartAccount', function () {
-    describe('When the smart account is valid', function () {
+  describe('validateLightAccount', function () {
+    describe('When the light account is valid', function () {
       it('should return true and the owner address', async function () {
         // set up the mock factory contract to return the correct address to `validateSmartAccount`
         await mockLightAccountFactory.setAccountAddress(
@@ -91,7 +92,7 @@ describe('SmartAccountValidationV1', function () {
         );
 
         const [isValid, lightAccountOwner] =
-          await concreteSmartAccountValidation.validateSmartAccountPublic(
+          await concreteLightAccountValidator.validateLightAccountPublic(
             await mockLightAccount.getAddress(),
           );
         void expect(isValid).to.be.true;
@@ -99,14 +100,14 @@ describe('SmartAccountValidationV1', function () {
       });
     });
 
-    describe('When the smart account is invalid', function () {
+    describe('When the light account is invalid', function () {
       describe('When the address is not a contract', function () {
         it('should return false and the zero address', async function () {
           const randomAddress = ethers.Wallet.createRandom().address;
 
           // Should return false since the address won't have the owner() function
           const [isValid, lightAccountOwner] =
-            await concreteSmartAccountValidation.validateSmartAccountPublic(randomAddress);
+            await concreteLightAccountValidator.validateLightAccountPublic(randomAddress);
           void expect(isValid).to.be.false;
           expect(lightAccountOwner).to.equal(ethers.ZeroAddress);
         });
@@ -118,7 +119,7 @@ describe('SmartAccountValidationV1', function () {
           // return the zero address when calling `getAddress` for a given owner and salt
           // (which is implemented in the SmartAccountValidation validateSmartAccount function).
           const [isValid, lightAccountOwner] =
-            await concreteSmartAccountValidation.validateSmartAccountPublic(
+            await concreteLightAccountValidator.validateLightAccountPublic(
               await mockLightAccount.getAddress(),
             );
           void expect(isValid).to.be.false;
@@ -128,7 +129,7 @@ describe('SmartAccountValidationV1', function () {
         it('should return false when owner() call reverts', async function () {
           // Hits the "catch" block in the `validateSmartAccount` function
           const [isValid, lightAccountOwner] =
-            await concreteSmartAccountValidation.validateSmartAccountPublic(
+            await concreteLightAccountValidator.validateLightAccountPublic(
               await mockInvalidLightAccount.getAddress(),
             );
           void expect(isValid).to.be.false;
@@ -185,20 +186,20 @@ describe('SmartAccountValidationV1', function () {
       );
 
       const [lightAccountOwner, target, returnedInnerCallData] =
-        await concreteSmartAccountValidation.validateUserOpPublic(mockUserOp);
+        await concreteLightAccountValidator.validateUserOpPublic(mockUserOp);
       expect(lightAccountOwner).to.equal(await mockLightAccount.owner());
       expect(target).to.equal(await mockTarget.getAddress());
       expect(returnedInnerCallData.slice(0, 10)).to.equal(FOO_SELECTOR);
       expect(returnedInnerCallData).to.equal(expectedInnerCallData);
     });
 
-    it('should revert when the sender is not a valid smart account', async function () {
+    it('should revert when the sender is not a valid light account', async function () {
       // Not setting up the mock factory to return the correct address
       // This will make validateSmartAccount return false, triggering InvalidSmartAccount
 
       await expect(
-        concreteSmartAccountValidation.validateUserOpPublic(mockUserOp),
-      ).to.be.revertedWithCustomError(concreteSmartAccountValidation, 'InvalidSmartAccount');
+        concreteLightAccountValidator.validateUserOpPublic(mockUserOp),
+      ).to.be.revertedWithCustomError(concreteLightAccountValidator, 'InvalidLightAccount');
     });
 
     it('should revert when calldata length is invalid', async function () {
@@ -213,11 +214,8 @@ describe('SmartAccountValidationV1', function () {
       const invalidUserOp = { ...mockUserOp, callData: invalidCallData };
 
       await expect(
-        concreteSmartAccountValidation.validateUserOpPublic(invalidUserOp),
-      ).to.be.revertedWithCustomError(
-        concreteSmartAccountValidation,
-        'InvalidUserOpCallDataLength',
-      );
+        concreteLightAccountValidator.validateUserOpPublic(invalidUserOp),
+      ).to.be.revertedWithCustomError(concreteLightAccountValidator, 'InvalidUserOpCallDataLength');
     });
 
     it('should revert when the calldata function selector is not authorized', async function () {
@@ -237,8 +235,8 @@ describe('SmartAccountValidationV1', function () {
       const unauthorizedUserOp = { ...mockUserOp, callData: unauthorizedCallData };
 
       await expect(
-        concreteSmartAccountValidation.validateUserOpPublic(unauthorizedUserOp),
-      ).to.be.revertedWithCustomError(concreteSmartAccountValidation, 'InvalidCallData');
+        concreteLightAccountValidator.validateUserOpPublic(unauthorizedUserOp),
+      ).to.be.revertedWithCustomError(concreteLightAccountValidator, 'InvalidCallData');
     });
 
     it('should revert when inner calldata length is invalid', async function () {
@@ -259,8 +257,52 @@ describe('SmartAccountValidationV1', function () {
       const userOp = { ...mockUserOp, callData: executeCalldata };
 
       await expect(
-        concreteSmartAccountValidation.validateUserOpPublic(userOp),
-      ).to.be.revertedWithCustomError(concreteSmartAccountValidation, 'InvalidInnerCallDataLength');
+        concreteLightAccountValidator.validateUserOpPublic(userOp),
+      ).to.be.revertedWithCustomError(concreteLightAccountValidator, 'InvalidInnerCallDataLength');
+    });
+  });
+
+  describe('lightAccountOwner', () => {
+    // Set up the mock light account factory to return our mock account
+    beforeEach(async function () {
+      await mockLightAccountFactory.setAccountAddress(
+        await mockLightAccount.owner(),
+        0n,
+        await mockLightAccount.getAddress(),
+      );
+    });
+
+    describe('light accounts', function () {
+      it('should return the owner of the light account', async () => {
+        // Test with our mock ownership contract
+        const lightAccountOwner =
+          await concreteLightAccountValidator.potentialLightAccountResolvedOwner(
+            await mockLightAccount.getAddress(),
+          );
+        expect(lightAccountOwner).to.equal(owner.address);
+      });
+    });
+
+    describe('non-light accounts', function () {
+      describe('when the msgSender is an EOA', () => {
+        it('should return the msgSender', async () => {
+          // For EOAs, the voter function should just return the address itself
+          const eoaAddress = user.address;
+          const voter =
+            await concreteLightAccountValidator.potentialLightAccountResolvedOwner(eoaAddress);
+          expect(voter).to.equal(eoaAddress);
+        });
+      });
+
+      describe('when the msgSender is a contract that does not implement IOwnership', () => {
+        it('should return the contract address', async () => {
+          // Use the ConcreteLightAccountValidator contract itself as a contract that doesn't implement IOwnership
+          const contractAddress = await concreteLightAccountValidator.getAddress();
+          const voter =
+            await concreteLightAccountValidator.potentialLightAccountResolvedOwner(contractAddress);
+          expect(voter).to.equal(contractAddress);
+        });
+      });
     });
   });
 });
