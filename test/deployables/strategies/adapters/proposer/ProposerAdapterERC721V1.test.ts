@@ -89,7 +89,7 @@ describe('ProposerAdapterERC721V1', () => {
         await mockNft.connect(deployer).mint(user1.address);
       }
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
-      void expect(canPropose).to.be.true;
+      expect(canPropose).to.be.true;
     });
 
     it('should return true if user exceeds the proposer threshold', async () => {
@@ -97,7 +97,7 @@ describe('ProposerAdapterERC721V1', () => {
         await mockNft.connect(deployer).mint(user1.address);
       }
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
-      void expect(canPropose).to.be.true;
+      expect(canPropose).to.be.true;
     });
 
     it('should return false if user is below the proposer threshold', async () => {
@@ -105,12 +105,12 @@ describe('ProposerAdapterERC721V1', () => {
         await mockNft.connect(deployer).mint(user1.address);
       }
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
-      void expect(canPropose).to.be.false;
+      expect(canPropose).to.be.false;
     });
 
     it('should return false if user has no NFTs', async () => {
       const canPropose = await adapter.isProposer(user1.address, ethers.ZeroHash);
-      void expect(canPropose).to.be.false;
+      expect(canPropose).to.be.false;
     });
 
     it('should return true if proposerThreshold is 0, even with zero NFTs', async () => {
@@ -121,7 +121,7 @@ describe('ProposerAdapterERC721V1', () => {
         0n,
       );
       const canPropose = await localAdapter.isProposer(user1.address, ethers.ZeroHash);
-      void expect(canPropose).to.be.true;
+      expect(canPropose).to.be.true;
     });
   });
 

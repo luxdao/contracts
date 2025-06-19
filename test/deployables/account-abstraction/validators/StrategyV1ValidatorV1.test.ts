@@ -60,7 +60,7 @@ describe('StrategyV1ValidatorV1', function () {
         await mockStrategy.getAddress(),
         wrongCalldata,
       );
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('Should return true when the underlying strategy vote is valid', async function () {
@@ -80,7 +80,7 @@ describe('StrategyV1ValidatorV1', function () {
         calldata,
       );
 
-      void expect(isValid).to.be.true;
+      expect(isValid).to.be.true;
     });
 
     it('Should return false when the underlying strategy vote is invalid', async function () {
@@ -100,7 +100,7 @@ describe('StrategyV1ValidatorV1', function () {
         calldata,
       );
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should correctly decode and pass parameters to the strategy', async function () {
@@ -133,7 +133,7 @@ describe('StrategyV1ValidatorV1', function () {
         await mockStrategy.getAddress(),
         calldata,
       );
-      void expect(isValid).to.be.true;
+      expect(isValid).to.be.true;
     });
 
     it('should cause a revert if the validator decodes and passes the wrong params', async function () {
@@ -238,7 +238,7 @@ describe('StrategyV1ValidatorV1', function () {
 
   describe('Version', function () {
     it('Should return correct version', async function () {
-      void expect(await validator.version()).to.equal(1);
+      expect(await validator.version()).to.equal(1);
     });
   });
 

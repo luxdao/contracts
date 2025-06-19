@@ -127,7 +127,7 @@ export function runSupportsInterfaceTests(params: SupportsInterfaceTestParams): 
           )
         : calculateInterfaceId(factory.createInterface());
 
-      void expect(await contract.supportsInterface(interfaceId)).to.be.true;
+      expect(await contract.supportsInterface(interfaceId)).to.be.true;
     });
   });
 
@@ -135,6 +135,6 @@ export function runSupportsInterfaceTests(params: SupportsInterfaceTestParams): 
     const contract = params.getContract();
     const randomInterfaceId = '0x12345678';
 
-    void expect(await contract.supportsInterface(randomInterfaceId)).to.be.false;
+    expect(await contract.supportsInterface(randomInterfaceId)).to.be.false;
   });
 }
