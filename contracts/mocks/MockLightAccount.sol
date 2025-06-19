@@ -35,7 +35,7 @@ contract MockLightAccount is ILightAccount {
     ) external {
         // msg.sender here is the EOA calling MockLightAccount (e.g., relayer)
         // When strategy.vote is called, msg.sender from StrategyV1's perspective will be address(this)
-        strategy.vote(
+        strategy.castVote(
             proposalId,
             voteType,
             votingAdaptersData,
