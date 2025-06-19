@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IKYCVerifierV1} from "../../interfaces/decent/deployables/IKYCVerifierV1.sol";
+import {IKYCVerifierV1} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
