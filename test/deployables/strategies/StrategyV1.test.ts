@@ -511,7 +511,7 @@ describe('StrategyV1', () => {
     it('should revert if proposal is not initialized (votingEndTimestamp is 0)', async () => {
       const uninitializedProposalId = 999;
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           uninitializedProposalId,
           1,
           [
@@ -530,7 +530,7 @@ describe('StrategyV1', () => {
       await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
 
       // First call after period ends should emit event and not revert immediately
-      const tx = await strategy.connect(user1).vote(
+      const tx = await strategy.connect(user1).castVote(
         proposalId,
         1,
         [
@@ -546,7 +546,7 @@ describe('StrategyV1', () => {
 
       // Subsequent calls should revert
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           1,
           [
@@ -565,7 +565,7 @@ describe('StrategyV1', () => {
       await time.increaseTo(proposalDetailsBefore.votingEndTimestamp + 1n);
 
       // First call after voting period ends
-      const tx = await strategy.connect(user1).vote(
+      const tx = await strategy.connect(user1).castVote(
         proposalId,
         1 /* YES */,
         [
@@ -587,7 +587,7 @@ describe('StrategyV1', () => {
 
       // Further calls should revert
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           1 /* YES */,
           [
@@ -604,7 +604,7 @@ describe('StrategyV1', () => {
     it('should revert if single adapter has zero vote weight', async () => {
       await mockAdapter1.setWeight(user1.address, 0);
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           1,
           [
@@ -637,7 +637,7 @@ describe('StrategyV1', () => {
       await mockAdapter2.setWeight(user1.address, 0);
 
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           1,
           [
@@ -661,7 +661,7 @@ describe('StrategyV1', () => {
       const invalidVoteType = 3; // VoteType enum is 0, 1, 2
       await mockAdapter1.setWeight(user1.address, 10);
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           invalidVoteType,
           [
@@ -693,7 +693,7 @@ describe('StrategyV1', () => {
         },
       ];
 
-      await expect(strategy.connect(user1).vote(proposalId, 1 /* YES */, adapterData, 0n))
+      await expect(strategy.connect(user1).castVote(proposalId, 1 /* YES */, adapterData, 0n))
         .to.be.revertedWithCustomError(strategy, 'InvalidVotingAdapter')
         .withArgs(unconfiguredAdapterAddress);
     });
@@ -702,7 +702,7 @@ describe('StrategyV1', () => {
       const voteWeight = 100;
       await mockAdapter1.setWeight(user1.address, voteWeight);
 
-      const tx = await strategy.connect(user1).vote(
+      const tx = await strategy.connect(user1).castVote(
         proposalId,
         1 /* YES */,
         [
@@ -739,7 +739,7 @@ describe('StrategyV1', () => {
       await mockAdapter1.setWeight(user1.address, voteWeight);
 
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           0 /* NO */,
           [
@@ -765,7 +765,7 @@ describe('StrategyV1', () => {
       await mockAdapter1.setWeight(user1.address, voteWeight);
 
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           2 /* ABSTAIN */,
           [
@@ -815,7 +815,7 @@ describe('StrategyV1', () => {
       ];
 
       await expect(
-        multiAdapterStrategy.connect(user1).vote(proposalId, 1 /* YES */, adapterData, 0n),
+        multiAdapterStrategy.connect(user1).castVote(proposalId, 1 /* YES */, adapterData, 0n),
       )
         .to.emit(multiAdapterStrategy, 'Voted')
         .withArgs(user1.address, proposalId, 1 /* YES */, weight1 + weight2);
@@ -872,7 +872,7 @@ describe('StrategyV1', () => {
       await mockAdapter1.setShouldRevertOnRecordVote(true);
 
       await expect(
-        strategy.connect(user1).vote(
+        strategy.connect(user1).castVote(
           proposalId,
           1 /* YES */,
           [
@@ -921,7 +921,7 @@ describe('StrategyV1', () => {
       ];
 
       await expect(
-        multiAdapterStrategy.connect(user1).vote(proposalId, 1 /* YES */, adapterData, 0n),
+        multiAdapterStrategy.connect(user1).castVote(proposalId, 1 /* YES */, adapterData, 0n),
       ).to.be.revertedWith('MockVotingAdapter: recordVote forced revert');
 
       const proposalDetails = await multiAdapterStrategy.proposalVotingDetails(proposalId);
@@ -936,7 +936,7 @@ describe('StrategyV1', () => {
 
     it('should revert if attempting to vote with no voting adapters', async () => {
       await expect(
-        strategy.connect(user1).vote(proposalId, 1 /* YES */, [], 0n),
+        strategy.connect(user1).castVote(proposalId, 1 /* YES */, [], 0n),
       ).to.be.revertedWithCustomError(strategy, 'NoVotingAdapters');
     });
   });
@@ -957,7 +957,7 @@ describe('StrategyV1', () => {
 
     it('should return false if voting period is not over', async () => {
       await mockAdapter1.setWeight(voter1.address, DEFAULT_QUORUM_THRESHOLD + 10n);
-      await strategy.connect(voter1).vote(
+      await strategy.connect(voter1).castVote(
         PROPOSAL_ID,
         1 /* YES */,
         [
@@ -973,7 +973,7 @@ describe('StrategyV1', () => {
 
     it('should return true if quorum and basis are met and voting is over', async () => {
       await mockAdapter1.setWeight(voter1.address, DEFAULT_QUORUM_THRESHOLD + 10n);
-      await strategy.connect(voter1).vote(
+      await strategy.connect(voter1).castVote(
         PROPOSAL_ID,
         1 /* YES */,
         [
@@ -1007,7 +1007,7 @@ describe('StrategyV1', () => {
       await mockAdapter1.setWeight(voter2.address, 50n);
       await mockAdapter1.setWeight(voter3.address, 10n);
 
-      await specificStrategy.connect(voter1).vote(
+      await specificStrategy.connect(voter1).castVote(
         PROPOSAL_ID,
         1 /* YES */,
         [
@@ -1018,7 +1018,7 @@ describe('StrategyV1', () => {
         ],
         0n,
       );
-      await specificStrategy.connect(voter2).vote(
+      await specificStrategy.connect(voter2).castVote(
         PROPOSAL_ID,
         0 /* NO */,
         [
@@ -1029,7 +1029,7 @@ describe('StrategyV1', () => {
         ],
         0n,
       );
-      await specificStrategy.connect(voter3).vote(
+      await specificStrategy.connect(voter3).castVote(
         PROPOSAL_ID,
         2 /* ABSTAIN */,
         [
@@ -1062,7 +1062,7 @@ describe('StrategyV1', () => {
       await mockAdapter1.setWeight(voter1.address, 60n); // YES
       await mockAdapter1.setWeight(voter2.address, 10n); // NO
 
-      await specificStrategy.connect(voter1).vote(
+      await specificStrategy.connect(voter1).castVote(
         PROPOSAL_ID,
         1 /* YES */,
         [
@@ -1073,7 +1073,7 @@ describe('StrategyV1', () => {
         ],
         0n,
       );
-      await specificStrategy.connect(voter2).vote(
+      await specificStrategy.connect(voter2).castVote(
         PROPOSAL_ID,
         0 /* NO */,
         [
@@ -1124,7 +1124,7 @@ describe('StrategyV1', () => {
       await time.increaseTo(
         (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
       );
-      await strategy.connect(voter1).vote(
+      await strategy.connect(voter1).castVote(
         PROPOSAL_ID,
         1 /* YES */,
         [
@@ -1144,7 +1144,7 @@ describe('StrategyV1', () => {
       await time.increaseTo(
         (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
       );
-      await strategy.connect(voter1).vote(
+      await strategy.connect(voter1).castVote(
         PROPOSAL_ID,
         1 /* YES */,
         [
@@ -1165,7 +1165,7 @@ describe('StrategyV1', () => {
 
     it('should not emit VotingPeriodEnded event when casting a vote before voting period ends', async () => {
       await expect(
-        strategy.connect(voter1).vote(
+        strategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1184,7 +1184,7 @@ describe('StrategyV1', () => {
         (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
       );
       await expect(
-        strategy.connect(voter1).vote(
+        strategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1250,7 +1250,7 @@ describe('StrategyV1', () => {
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 40n);
-        await qStrategy.connect(voter1).vote(
+        await qStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1261,7 +1261,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await qStrategy.connect(voter2).vote(
+        await qStrategy.connect(voter2).castVote(
           PROPOSAL_ID,
           2 /* ABSTAIN */,
           [
@@ -1290,7 +1290,7 @@ describe('StrategyV1', () => {
 
         await mockAdapter1.setWeight(voter1.address, 60n);
         await mockAdapter1.setWeight(voter2.address, 41n); // Exceeds
-        await qStrategy.connect(voter1).vote(
+        await qStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1301,7 +1301,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await qStrategy.connect(voter2).vote(
+        await qStrategy.connect(voter2).castVote(
           PROPOSAL_ID,
           2 /* ABSTAIN */,
           [
@@ -1330,7 +1330,7 @@ describe('StrategyV1', () => {
 
         await mockAdapter1.setWeight(voter1.address, 50n);
         await mockAdapter1.setWeight(voter2.address, 40n); // 90 total, < 100
-        await qStrategy.connect(voter1).vote(
+        await qStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1341,7 +1341,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await qStrategy.connect(voter2).vote(
+        await qStrategy.connect(voter2).castVote(
           PROPOSAL_ID,
           2 /* ABSTAIN */,
           [
@@ -1369,7 +1369,7 @@ describe('StrategyV1', () => {
         await qStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 10n); // Only NO votes
-        await qStrategy.connect(voter1).vote(
+        await qStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1386,7 +1386,7 @@ describe('StrategyV1', () => {
 
       it('should return false if only NO votes are cast and quorum threshold > 0', async () => {
         await mockAdapter1.setWeight(voter1.address, 150n);
-        await strategy.connect(voter1).vote(
+        await strategy.connect(voter1).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1412,7 +1412,7 @@ describe('StrategyV1', () => {
       it('should return true if basis is met (yes > no for >50% basis)', async () => {
         await mockAdapter1.setWeight(voter1.address, 101n);
         await mockAdapter1.setWeight(voter2.address, 100n);
-        await strategy.connect(voter1).vote(
+        await strategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1423,7 +1423,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await strategy.connect(voter2).vote(
+        await strategy.connect(voter2).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1440,7 +1440,7 @@ describe('StrategyV1', () => {
       it('should return false if basis is not met (yes == no for >50% basis)', async () => {
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 100n);
-        await strategy.connect(voter1).vote(
+        await strategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1451,7 +1451,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await strategy.connect(voter2).vote(
+        await strategy.connect(voter2).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1468,7 +1468,7 @@ describe('StrategyV1', () => {
       it('should return false if basis is not met (yes < no for >50% basis)', async () => {
         await mockAdapter1.setWeight(voter1.address, 99n);
         await mockAdapter1.setWeight(voter2.address, 100n);
-        await strategy.connect(voter1).vote(
+        await strategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1479,7 +1479,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await strategy.connect(voter2).vote(
+        await strategy.connect(voter2).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1495,7 +1495,7 @@ describe('StrategyV1', () => {
 
       it('should return false if totalYesAndNoVotes is 0 (only abstain)', async () => {
         await mockAdapter1.setWeight(voter1.address, 100n);
-        await strategy.connect(voter1).vote(
+        await strategy.connect(voter1).castVote(
           PROPOSAL_ID,
           2 /* ABSTAIN */,
           [
@@ -1524,7 +1524,7 @@ describe('StrategyV1', () => {
 
         await mockAdapter1.setWeight(voter1.address, 101n);
         await mockAdapter1.setWeight(voter2.address, 100n);
-        await bStrategy.connect(voter1).vote(
+        await bStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1535,7 +1535,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await bStrategy.connect(voter2).vote(
+        await bStrategy.connect(voter2).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1563,7 +1563,7 @@ describe('StrategyV1', () => {
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 100n);
-        await bStrategy.connect(voter1).vote(
+        await bStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1574,7 +1574,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await bStrategy.connect(voter2).vote(
+        await bStrategy.connect(voter2).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1602,7 +1602,7 @@ describe('StrategyV1', () => {
         await bStrategy.connect(strategyAdmin).initializeProposal(PROPOSAL_ID);
 
         await mockAdapter1.setWeight(voter1.address, 100n);
-        await bStrategy.connect(voter1).vote(
+        await bStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1631,7 +1631,7 @@ describe('StrategyV1', () => {
 
         await mockAdapter1.setWeight(voter1.address, 100n);
         await mockAdapter1.setWeight(voter2.address, 1n);
-        await bStrategy.connect(voter1).vote(
+        await bStrategy.connect(voter1).castVote(
           PROPOSAL_ID,
           1 /* YES */,
           [
@@ -1642,7 +1642,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        await bStrategy.connect(voter2).vote(
+        await bStrategy.connect(voter2).castVote(
           PROPOSAL_ID,
           0 /* NO */,
           [
@@ -1888,7 +1888,7 @@ describe('StrategyV1', () => {
       await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
 
       // Trigger the end of the voting period
-      await strategy.connect(voter1).vote(
+      await strategy.connect(voter1).castVote(
         PROPOSAL_ID,
         1,
         [

@@ -403,7 +403,7 @@ contract StrategyV1 is
         );
     }
 
-    function vote(
+    function castVote(
         uint32 proposalId_,
         uint8 voteType_,
         VotingAdapterVoteData[] calldata votingAdaptersData,
