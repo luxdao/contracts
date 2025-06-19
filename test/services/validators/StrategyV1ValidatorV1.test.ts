@@ -12,9 +12,9 @@ import {
   MockVotingStrategy__factory,
   StrategyV1ValidatorV1,
   StrategyV1ValidatorV1__factory,
-} from '../../../../typechain-types';
-import { runDeploymentBlockTests } from '../../../shared/deploymentBlockTests';
-import { runSupportsInterfaceTests } from '../../../shared/supportsInterfaceTests';
+} from '../../../typechain-types';
+import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 describe('StrategyV1ValidatorV1', function () {
   // contracts
