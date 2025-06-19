@@ -70,6 +70,7 @@ describe('StrategyV1ValidatorV1', function () {
         proposalId,
         voteType,
         votingAdaptersData,
+        0, // lightAccountIndex
       ]);
 
       const isValid = await validator.validateOperation(
@@ -89,6 +90,7 @@ describe('StrategyV1ValidatorV1', function () {
         proposalId,
         voteType,
         votingAdaptersData,
+        0, // lightAccountIndex
       ]);
 
       const isValid = await validator.validateOperation(
@@ -113,6 +115,7 @@ describe('StrategyV1ValidatorV1', function () {
         proposalId,
         voteType,
         votingAdaptersData,
+        0, // lightAccountIndex
       ]);
 
       await expect(
@@ -148,6 +151,7 @@ describe('StrategyV1ValidatorV1', function () {
         wrongProposalId, // encoded with 999
         voteType,
         votingAdaptersData,
+        0, // lightAccountIndex
       ]);
 
       // The validator should decode 999 and pass it to the mock.
@@ -175,6 +179,7 @@ describe('StrategyV1ValidatorV1', function () {
         proposalId,
         wrongVoteType, // But encoded with NO (0)
         votingAdaptersData,
+        0, // lightAccountIndex
       ]);
 
       await expect(
@@ -205,6 +210,7 @@ describe('StrategyV1ValidatorV1', function () {
         proposalId,
         voteType,
         wrongVotingAdaptersData, // But encoded with different data
+        0, // lightAccountIndex
       ]);
 
       await expect(

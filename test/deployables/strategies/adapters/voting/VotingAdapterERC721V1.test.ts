@@ -229,7 +229,12 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }]);
+        .vote(
+          proposalId,
+          1,
+          [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }],
+          0n,
+        );
 
       // Then, try to get weightOf for the same token
       const adapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -372,7 +377,12 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }]);
+        .vote(
+          proposalId,
+          1,
+          [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }],
+          0n,
+        );
       // await adapter
       //   .connect(strategySigner)
       //   .recordVote(user1.address, proposalId, initialAdapterVoteData);
@@ -401,9 +411,12 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(proposalId2, 1, [
-          { votingAdapter: adapter, adapterVoteData: initialAdapterVoteData },
-        ]);
+        .vote(
+          proposalId2,
+          1,
+          [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }],
+          0n,
+        );
       // await adapter
       //   .connect(strategySigner)
       //   .recordVote(user1.address, proposalId2, initialAdapterVoteData);
@@ -489,12 +502,17 @@ describe('VotingAdapterERC721V1', () => {
 
     it('should return 0 weight and empty array for a mix of invalid (unowned, used) and non-existent tokens', async () => {
       const usedToken = user1TokenIds[0];
-      await strategy.connect(user1).vote(proposalId, 1, [
-        {
-          votingAdapter: adapter,
-          adapterVoteData: ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[usedToken]]),
-        },
-      ]);
+      await strategy.connect(user1).vote(
+        proposalId,
+        1,
+        [
+          {
+            votingAdapter: adapter,
+            adapterVoteData: ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[usedToken]]),
+          },
+        ],
+        0n,
+      );
       // await adapter
       //   .connect(strategySigner)
       //   .recordVote(
@@ -572,7 +590,9 @@ describe('VotingAdapterERC721V1', () => {
       const expectedWeight = BigInt(tokenIdsToVoteWith.length) * DEFAULT_WEIGHT_PER_NFT;
 
       await expect(
-        strategy.connect(user1).vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }]),
+        strategy
+          .connect(user1)
+          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
       )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(user1.address, proposalId, expectedWeight, adapterVoteData);
@@ -595,13 +615,13 @@ describe('VotingAdapterERC721V1', () => {
       // First vote
       await strategy
         .connect(user1)
-        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }]);
+        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }], 0n);
 
       // Attempt second vote with same token - should revert
       await expect(
         strategy
           .connect(user1)
-          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }]),
+          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }], 0n),
       )
         .to.be.revertedWithCustomError(adapter, 'TokenIdAlreadyUsedForVote')
         .withArgs(tokenToUse);
@@ -612,7 +632,7 @@ describe('VotingAdapterERC721V1', () => {
       await expect(
         strategy
           .connect(user1)
-          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: emptyVoteData }]),
+          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: emptyVoteData }], 0n),
       )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(user1.address, proposalId, 0n, emptyVoteData);
@@ -626,7 +646,9 @@ describe('VotingAdapterERC721V1', () => {
       );
 
       await expect(
-        strategy.connect(user1).vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }]),
+        strategy
+          .connect(user1)
+          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
       )
         .to.be.revertedWithCustomError(adapter, 'TokenIdNotOwnedByVoter')
         .withArgs(tokenIdsNotOwnedByUser1[0]);
@@ -674,7 +696,7 @@ describe('VotingAdapterERC721V1', () => {
       await expect(
         localStrategy
           .connect(localUser1)
-          .vote(proposalId, 1, [{ votingAdapter: customAdapter, adapterVoteData }]),
+          .vote(proposalId, 1, [{ votingAdapter: customAdapter, adapterVoteData }], 0n),
       )
         .to.emit(customAdapter, 'VoteRecorded')
         .withArgs(localUser1.address, proposalId, expectedWeight, adapterVoteData);
@@ -691,7 +713,9 @@ describe('VotingAdapterERC721V1', () => {
       );
 
       await expect(
-        strategy.connect(user1).vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }]),
+        strategy
+          .connect(user1)
+          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
       )
         .to.be.revertedWithCustomError(adapter, 'TokenIdAlreadyUsedForVote')
         .withArgs(tokenIdsToVoteWith[0]);
@@ -774,6 +798,7 @@ describe('VotingAdapterERC721V1', () => {
               adapterVoteData: adapterVoteData,
             },
           ],
+          0n,
         );
 
         // Check the state
@@ -802,6 +827,7 @@ describe('VotingAdapterERC721V1', () => {
               adapterVoteData: adapterVoteData,
             },
           ],
+          0n,
         );
 
         // Check the original proposal/token ID
@@ -1537,7 +1563,7 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataForRecord }]);
+        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataForRecord }], 0n);
 
       // 3. Check for FALSE when the used token is included
       const finalAdapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(

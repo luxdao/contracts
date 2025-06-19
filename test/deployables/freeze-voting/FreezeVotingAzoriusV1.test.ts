@@ -225,7 +225,7 @@ describe('FreezeVotingAzoriusV1', () => {
       const initialFreezeProposalCreated = await azoriusFreezeVoting.freezeProposalCreated();
       void expect(initialFreezeProposalCreated).to.equal(0); // Should be 0 before first vote
 
-      const txPromise = azoriusFreezeVoting.connect(voter1).castFreezeVote(votingAdapterData);
+      const txPromise = azoriusFreezeVoting.connect(voter1).castFreezeVote(votingAdapterData, 0n);
 
       const blockNumBefore = await ethers.provider.getBlockNumber();
       await (await txPromise).wait();
@@ -259,7 +259,7 @@ describe('FreezeVotingAzoriusV1', () => {
 
     it('should use an existing active freeze proposal period', async () => {
       // First vote to establish a period
-      await azoriusFreezeVoting.connect(voter1).castFreezeVote(votingAdapterData);
+      await azoriusFreezeVoting.connect(voter1).castFreezeVote(votingAdapterData, 0n);
       const firstProposalCreatedTimestamp = await azoriusFreezeVoting.freezeProposalCreated();
       const firstVoteCount = await azoriusFreezeVoting.freezeProposalVoteCount();
 
@@ -269,7 +269,7 @@ describe('FreezeVotingAzoriusV1', () => {
       const newVoteWeight = 30n;
       await mockAdapter1.setWeightToReturnOnRecord(newVoteWeight);
 
-      const txPromise = azoriusFreezeVoting.connect(voter2).castFreezeVote(votingAdapterData); // voter2 casts a vote
+      const txPromise = azoriusFreezeVoting.connect(voter2).castFreezeVote(votingAdapterData, 0n); // voter2 casts a vote
 
       // Should NOT emit FreezeProposalCreated again
       await expect(txPromise).to.not.emit(azoriusFreezeVoting, 'FreezeProposalCreated');
@@ -291,7 +291,7 @@ describe('FreezeVotingAzoriusV1', () => {
 
     it('should start a new proposal period if current one has expired', async () => {
       // First vote
-      await azoriusFreezeVoting.connect(voter1).castFreezeVote(votingAdapterData);
+      await azoriusFreezeVoting.connect(voter1).castFreezeVote(votingAdapterData, 0n);
       const firstProposalCreatedTimestamp = await azoriusFreezeVoting.freezeProposalCreated();
 
       // Expire the proposal period
@@ -300,7 +300,7 @@ describe('FreezeVotingAzoriusV1', () => {
       const newVoteWeight = 70n;
       await mockAdapter1.setWeightToReturnOnRecord(newVoteWeight);
 
-      const txPromise = azoriusFreezeVoting.connect(voter2).castFreezeVote(votingAdapterData);
+      const txPromise = azoriusFreezeVoting.connect(voter2).castFreezeVote(votingAdapterData, 0n);
 
       const blockNumBefore = await ethers.provider.getBlockNumber();
       await (await txPromise).wait();
