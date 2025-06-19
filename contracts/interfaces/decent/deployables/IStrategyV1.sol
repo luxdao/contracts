@@ -161,7 +161,8 @@ interface IStrategyV1 {
     function vote(
         uint32 proposalId_,
         uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData_
+        VotingAdapterVoteData[] calldata votingAdaptersData_,
+        uint256 lightAccountIndex_
     ) external;
 
     function addAuthorizedFreezeVoter(address freezeVoterContract_) external;

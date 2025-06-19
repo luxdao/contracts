@@ -26,20 +26,21 @@ contract StrategyV1ValidatorV1 is
         address strategy_,
         bytes calldata callData_
     ) public view virtual override returns (bool) {
-        // confirm here that the calldata selector is correct: `vote(uint32,uint8,(tuple(address,bytes))[])`
+        // confirm here that the calldata selector is correct: `vote(uint32,uint8,(address,bytes)[],uint256)`
         if (bytes4(callData_) != IStrategyV1.vote.selector) {
             return false;
         }
 
         // Decode vote parameters from callData
-        // vote(uint32 proposalId_, uint8 voteType_, (tuple(address,bytes))[] votingAdaptersData_)
+        // vote(uint32 proposalId_, uint8 voteType_, (tuple(address,bytes))[] votingAdaptersData_, uint256 lightAccountIndex_)
         (
             uint32 proposalId,
             uint8 voteType,
-            IStrategyV1.VotingAdapterVoteData[] memory votingAdaptersData
+            IStrategyV1.VotingAdapterVoteData[] memory votingAdaptersData,
+
         ) = abi.decode(
                 callData_[4:], // skip selector
-                (uint32, uint8, IStrategyV1.VotingAdapterVoteData[])
+                (uint32, uint8, IStrategyV1.VotingAdapterVoteData[], uint256)
             );
 
         return

@@ -272,6 +272,7 @@ describe('VotingAdapterERC20V1', () => {
             adapterVoteData: mockExtraData,
           },
         ],
+        0n,
       );
       const weight = await adapter.weightOf(user1Signer.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
@@ -340,6 +341,7 @@ describe('VotingAdapterERC20V1', () => {
               adapterVoteData: mockExtraData,
             },
           ],
+          0n,
         ),
       )
         .to.emit(adapter, 'VoteRecorded')
@@ -376,6 +378,7 @@ describe('VotingAdapterERC20V1', () => {
               adapterVoteData: mockExtraData,
             },
           ],
+          0n,
         ),
       )
         .to.emit(adapter, 'VoteRecorded')
@@ -400,6 +403,7 @@ describe('VotingAdapterERC20V1', () => {
             adapterVoteData: mockExtraData,
           },
         ],
+        0n,
       );
       await expect(
         strategy.connect(voter).vote(
@@ -411,6 +415,7 @@ describe('VotingAdapterERC20V1', () => {
               adapterVoteData: mockExtraData,
             },
           ],
+          0n,
         ),
       ).to.be.revertedWithCustomError(adapter, 'AlreadyVoted');
     });
@@ -433,6 +438,7 @@ describe('VotingAdapterERC20V1', () => {
             adapterVoteData: mockExtraData,
           },
         ],
+        0n,
       );
       const weight = await adapter.weightOf(voter.address, proposalId, mockExtraData);
       expect(weight).to.equal(0);
@@ -451,6 +457,7 @@ describe('VotingAdapterERC20V1', () => {
               adapterVoteData: mockExtraData,
             },
           ],
+          0n,
         ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotInitialized');
     });
@@ -468,6 +475,7 @@ describe('VotingAdapterERC20V1', () => {
               adapterVoteData: mockExtraData,
             },
           ],
+          0n,
         ),
       ).to.be.revertedWithCustomError(adapter, 'ProposalNotInitialized');
     });
@@ -538,6 +546,7 @@ describe('VotingAdapterERC20V1', () => {
               adapterVoteData: ZERO_EXTRA_DATA,
             },
           ],
+          0n,
         );
 
         // Check the state
@@ -572,6 +581,7 @@ describe('VotingAdapterERC20V1', () => {
               adapterVoteData: ZERO_EXTRA_DATA,
             },
           ],
+          0n,
         );
 
         // Check states
@@ -1015,6 +1025,7 @@ describe('VotingAdapterERC20V1', () => {
             adapterVoteData: mockExtraData,
           },
         ],
+        0n,
       );
 
       // 3. Check for FALSE after voting

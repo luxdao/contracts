@@ -406,13 +406,17 @@ contract StrategyV1 is
     function vote(
         uint32 proposalId_,
         uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData
+        VotingAdapterVoteData[] calldata votingAdaptersData,
+        uint256 lightAccountIndex_
     ) public virtual override {
         if (votingAdaptersData.length == 0) {
             revert NoVotingAdapters();
         }
 
-        address resolvedVoter = potentialLightAccountResolvedOwner(msg.sender);
+        address resolvedVoter = potentialLightAccountResolvedOwner(
+            msg.sender,
+            lightAccountIndex_
+        );
 
         StrategyStorage storage $ = _getStrategyStorage();
         ProposalVotingDetails storage proposal = $.proposalVotingDetails[

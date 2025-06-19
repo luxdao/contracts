@@ -10,9 +10,10 @@ contract ConcreteLightAccountValidator is LightAccountValidatorV1 {
     }
 
     function validateLightAccountPublic(
-        address lightAccount
+        address lightAccount,
+        uint256 index
     ) public view returns (bool, address) {
-        return _validateLightAccount(lightAccount);
+        return _validateLightAccount(lightAccount, index);
     }
 
     function validateUserOpPublic(

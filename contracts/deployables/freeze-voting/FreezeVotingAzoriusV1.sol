@@ -98,9 +98,13 @@ contract FreezeVotingAzoriusV1 is
     // --- State-Changing Functions ---
 
     function castFreezeVote(
-        VotingAdapterVoteData[] calldata votingAdaptersToUse_
+        VotingAdapterVoteData[] calldata votingAdaptersToUse_,
+        uint256 lightAccountIndex_
     ) public virtual override {
-        address resolvedVoter = potentialLightAccountResolvedOwner(msg.sender);
+        address resolvedVoter = potentialLightAccountResolvedOwner(
+            msg.sender,
+            lightAccountIndex_
+        );
 
         FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
