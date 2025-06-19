@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
-import {IFunctionValidator} from "../../interfaces/decent/deployables/IFunctionValidator.sol";
+import {IFunctionValidator} from "../../interfaces/decent/services/IFunctionValidator.sol";
 import {ILightAccountValidatorV1} from "../../interfaces/decent/deployables/ILightAccountValidatorV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
