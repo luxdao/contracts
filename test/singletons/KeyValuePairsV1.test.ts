@@ -55,7 +55,7 @@ describe('KeyValuePairsV1', function () {
 
   describe('version', function () {
     it('should return the correct version', async function () {
-      void expect(await keyValuePairs.version()).to.equal(1);
+      expect(await keyValuePairs.version()).to.equal(1);
     });
   });
 

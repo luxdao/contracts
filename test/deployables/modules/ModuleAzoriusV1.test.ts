@@ -1127,7 +1127,7 @@ describe('ModuleAzoriusV1', () => {
         const hashData = await azorius.generateTxHashData(txParams, nonce);
         expect(hashData).to.be.a('string');
         expect(hashData).to.not.equal('0x');
-        void expect(ethers.isHexString(hashData)).to.be.true;
+        expect(ethers.isHexString(hashData)).to.be.true;
       });
 
       it('should produce different hash data for different nonces', async () => {
