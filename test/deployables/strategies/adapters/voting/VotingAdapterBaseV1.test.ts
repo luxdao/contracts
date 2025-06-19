@@ -122,6 +122,7 @@ describe('VotingAdapterBaseV1', () => {
               adapterVoteData: adapterVoteData,
             },
           ],
+          0n, // lightAccountIndex
         ),
       ).to.not.be.reverted; // Primary check: the call succeeds
     });
