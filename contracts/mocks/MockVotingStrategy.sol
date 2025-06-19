@@ -183,10 +183,12 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidatorV1 {
     function vote(
         uint32 _proposalId,
         uint8 _voteType,
-        IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData
+        IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData,
+        uint256 lightAccountIndex_
     ) external virtual override {
         address resolvedLightAccountOwner = potentialLightAccountResolvedOwner(
-            msg.sender
+            msg.sender,
+            lightAccountIndex_
         );
         ProposalVotingDetails storage proposal = proposalVotingDetailsMap[
             _proposalId

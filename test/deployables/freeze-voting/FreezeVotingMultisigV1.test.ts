@@ -148,7 +148,7 @@ describe('FreezeVotingMultisigV1', () => {
   describe('Freeze Voting Process', () => {
     it('should reject votes from users not in the parent Safe', async () => {
       await expect(
-        freezeVoting.connect(nonSafeOwner).castFreezeVote(),
+        freezeVoting.connect(nonSafeOwner).castFreezeVote(0n),
       ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
     });
 
@@ -157,7 +157,7 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // Cast the first vote
-      await expect(freezeVoting.connect(safeOwner1).castFreezeVote())
+      await expect(freezeVoting.connect(safeOwner1).castFreezeVote(0n))
         .to.emit(freezeVoting, 'FreezeProposalCreated')
         .withArgs(safeOwner1.address)
         .and.to.emit(freezeVoting, 'FreezeVoteCast')
@@ -173,14 +173,14 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
 
       // Change Safe owner for second vote
       await mockSafe.setOwner(safeOwner2.address);
 
       // Second vote
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
+      await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(2);
     });
 
@@ -189,13 +189,12 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Attempting to vote again should fail with NoVotes as the internal logic will return 0 votes
-      await expect(freezeVoting.connect(safeOwner1).castFreezeVote()).to.be.revertedWithCustomError(
-        freezeVoting,
-        'NoVotes',
-      );
+      await expect(
+        freezeVoting.connect(safeOwner1).castFreezeVote(0n),
+      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
     });
 
     it('should create a new proposal after proposal period expiry', async () => {
@@ -203,7 +202,7 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First proposal
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
       const firstProposalTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Increase time to pass the freeze proposal period
@@ -213,7 +212,7 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner2.address);
 
       // Second vote should create a new proposal
-      await expect(freezeVoting.connect(safeOwner2).castFreezeVote())
+      await expect(freezeVoting.connect(safeOwner2).castFreezeVote(0n))
         .to.emit(freezeVoting, 'FreezeProposalCreated')
         .withArgs(safeOwner2.address);
 
@@ -228,7 +227,7 @@ describe('FreezeVotingMultisigV1', () => {
     it('should prevent a removed owner from re-contributing to the same proposal (effectively NoVotes)', async () => {
       // Initial owner: safeOwner1
       await mockSafe.setOwner(safeOwner1.address);
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
       const initialVoteCount = await freezeVoting.freezeProposalVoteCount();
       expect(initialVoteCount).to.equal(1);
       const proposalTimestamp = await freezeVoting.freezeProposalCreated();
@@ -237,10 +236,9 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner2.address);
 
       // safeOwner1 (no longer an owner) tries to vote again on the same proposal
-      await expect(freezeVoting.connect(safeOwner1).castFreezeVote()).to.be.revertedWithCustomError(
-        freezeVoting,
-        'NoVotes',
-      );
+      await expect(
+        freezeVoting.connect(safeOwner1).castFreezeVote(0n),
+      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
       // Vote count should not change
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(initialVoteCount);
       // Proposal timestamp should not change as it's within the same proposal period
@@ -250,7 +248,7 @@ describe('FreezeVotingMultisigV1', () => {
     it('should allow a newly added owner to vote on an existing proposal', async () => {
       // Initial owner: safeOwner1
       await mockSafe.setOwner(safeOwner1.address);
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
       let currentVoteCount = await freezeVoting.freezeProposalVoteCount();
       expect(currentVoteCount).to.equal(1);
       const proposalTimestamp = await freezeVoting.freezeProposalCreated();
@@ -259,7 +257,7 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner2.address);
 
       // Newly added safeOwner2 votes on the existing proposal
-      await expect(freezeVoting.connect(safeOwner2).castFreezeVote())
+      await expect(freezeVoting.connect(safeOwner2).castFreezeVote(0n))
         .to.emit(freezeVoting, 'FreezeVoteCast')
         .withArgs(safeOwner2.address, 1);
 
@@ -272,7 +270,7 @@ describe('FreezeVotingMultisigV1', () => {
     it('should allow a re-added owner (who previously voted) to vote again IF a NEW proposal starts', async () => {
       // Initial owner: safeOwner1
       await mockSafe.setOwner(safeOwner1.address);
-      await freezeVoting.connect(safeOwner1).castFreezeVote(); // Vote 1 for proposal 1
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n); // Vote 1 for proposal 1
       const firstProposalTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Simulate safeOwner1 being removed and then re-added later, or simply a new proposal period starting
@@ -282,7 +280,7 @@ describe('FreezeVotingMultisigV1', () => {
       // Ensure mockSafe still considers safeOwner1 an owner for this vote
       await mockSafe.setOwner(safeOwner1.address);
 
-      await expect(freezeVoting.connect(safeOwner1).castFreezeVote())
+      await expect(freezeVoting.connect(safeOwner1).castFreezeVote(0n))
         .to.emit(freezeVoting, 'FreezeProposalCreated')
         .withArgs(safeOwner1.address); // New proposal
 
@@ -302,7 +300,7 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // Cast first vote - not enough to reach threshold of 2
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Total votes: 1, below threshold of 2
       void expect(await freezeVoting.isFrozen()).to.be.false;
@@ -313,13 +311,13 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Change Safe owner for second vote
       await mockSafe.setOwner(safeOwner2.address);
 
       // Second vote to reach threshold
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
+      await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // Total votes: 2, equal to threshold of 2
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -330,13 +328,13 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Change Safe owner for second vote
       await mockSafe.setOwner(safeOwner2.address);
 
       // Second vote to reach threshold
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
+      await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // Should be frozen initially
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -353,13 +351,13 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Change Safe owner for second vote
       await mockSafe.setOwner(safeOwner2.address);
 
       // Second vote to reach threshold
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
+      await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // Should be frozen
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -380,13 +378,13 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Change Safe owner for second vote
       await mockSafe.setOwner(safeOwner2.address);
 
       // Second vote to reach threshold
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
+      await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // Non-owner tries to unfreeze
       await expect(freezeVoting.connect(nonSafeOwner).unfreeze()).to.be.revertedWithCustomError(
@@ -403,13 +401,13 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Change Safe owner for second vote
       await mockSafe.setOwner(safeOwner2.address);
 
       // Second vote to reach threshold
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
+      await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // DAO should be frozen
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -424,14 +422,14 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // First vote
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // DAO should not be frozen with only one vote
       void expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Second vote to reach threshold
       await mockSafe.setOwner(safeOwner2.address);
-      await freezeVoting.connect(safeOwner2).castFreezeVote();
+      await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // DAO should be frozen again
       void expect(await freezeVoting.isFrozen()).to.be.true;
@@ -449,7 +447,7 @@ describe('FreezeVotingMultisigV1', () => {
         .be.false;
 
       // User votes
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Get the new created timestamp
       const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
@@ -468,7 +466,7 @@ describe('FreezeVotingMultisigV1', () => {
       await mockSafe.setOwner(safeOwner1.address);
 
       // User votes
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Get the created timestamp
       const createdTimestamp = await freezeVoting.freezeProposalCreated();
@@ -487,7 +485,7 @@ describe('FreezeVotingMultisigV1', () => {
       void expect(await freezeVoting.accountHasFreezeVoted(0, safeOwner1.address)).to.be.false;
 
       // User should be able to vote again (this will create a new proposal timestamp)
-      await freezeVoting.connect(safeOwner1).castFreezeVote();
+      await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
       const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // User has voted on the new proposal
@@ -573,7 +571,7 @@ describe('FreezeVotingMultisigV1', () => {
     });
 
     it('should allow vote via smart account if SA owner is a Safe owner, attributing vote to SA owner', async () => {
-      const castVoteCalldata = freezeVotingSA.interface.encodeFunctionData('castFreezeVote');
+      const castVoteCalldata = freezeVotingSA.interface.encodeFunctionData('castFreezeVote', [0n]);
 
       await expect(
         mockSmartAccount
@@ -594,7 +592,7 @@ describe('FreezeVotingMultisigV1', () => {
 
     it('should reject vote via smart account if SA owner is NOT a Safe owner', async () => {
       await mockSafeSA.setOwner(safeOwner2.address);
-      const castVoteCalldata = freezeVotingSA.interface.encodeFunctionData('castFreezeVote');
+      const castVoteCalldata = freezeVotingSA.interface.encodeFunctionData('castFreezeVote', [0n]);
 
       await expect(
         mockSmartAccount

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {ILightAccountValidatorV1} from "../../interfaces/decent/deployables/ILightAccountValidatorV1.sol";
 import {ILightAccount} from "../../interfaces/light-account/ILightAccount.sol";
 import {ILightAccountFactory} from "../../interfaces/light-account/ILightAccountFactory.sol";
-import {ILightAccountValidatorV1} from "../../interfaces/decent/deployables/ILightAccountValidatorV1.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
@@ -69,10 +69,12 @@ abstract contract LightAccountValidatorV1 is
     }
 
     function potentialLightAccountResolvedOwner(
-        address potentialLightAccount_
+        address potentialLightAccount_,
+        uint256 lightAccountIndex_
     ) public view virtual override returns (address) {
         (bool _isValid, address _lightAccountOwner) = _validateLightAccount(
-            potentialLightAccount_
+            potentialLightAccount_,
+            lightAccountIndex_
         );
 
         if (!_isValid) {
@@ -87,7 +89,8 @@ abstract contract LightAccountValidatorV1 is
     // ======================================================================
 
     function _validateLightAccount(
-        address lightAccount_
+        address lightAccount_,
+        uint256 lightAccountIndex_
     ) internal view virtual returns (bool, address) {
         // First check if the address has code (is a contract)
         uint256 size;
@@ -109,7 +112,7 @@ abstract contract LightAccountValidatorV1 is
             // Regenerate the expected light account address
             address lightAccountAddress = $.lightAccountFactory.getAddress(
                 lightAccountOwner_,
-                0 // we assume that Decent App is only creating one account per user
+                lightAccountIndex_
             );
 
             // If the given `lightAccount` address is the same as the derived
@@ -126,9 +129,16 @@ abstract contract LightAccountValidatorV1 is
     function _validateUserOp(
         PackedUserOperation calldata userOp_
     ) internal view virtual returns (address, address, bytes memory) {
-        (bool _isValid, address _lightAccountOwner) = _validateLightAccount(
-            userOp_.sender
+        // Extract the light account index from paymaster data if present
+        uint256 lightAccountIndex = _extractLightAccountIndex(
+            userOp_.paymasterAndData
         );
+
+        (bool _isValid, address _lightAccountOwner) = _validateLightAccount(
+            userOp_.sender,
+            lightAccountIndex
+        );
+
         if (!_isValid) {
             revert InvalidLightAccount();
         }
@@ -165,5 +175,21 @@ abstract contract LightAccountValidatorV1 is
         }
 
         return (_lightAccountOwner, target, innerCallData);
+    }
+
+    function _extractLightAccountIndex(
+        bytes calldata paymasterAndData_
+    ) internal pure virtual returns (uint256) {
+        // Check if we have paymaster data beyond the standard fields
+        // Standard fields take up 52 bytes (20 + 16 + 16)
+        // 52 (standard fields) + 32 (index) = 84
+        // so if the length is >= 84, we can extract the index without an out of bounds error
+        if (paymasterAndData_.length >= 84) {
+            // The index is encoded as the first 32 bytes after the standard fields
+            return uint256(bytes32(paymasterAndData_[52:84]));
+        }
+
+        // Default to 0 for backward compatibility
+        return 0;
     }
 }

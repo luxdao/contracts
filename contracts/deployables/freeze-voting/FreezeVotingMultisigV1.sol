@@ -95,8 +95,13 @@ contract FreezeVotingMultisigV1 is
 
     // --- State-Changing Functions ---
 
-    function castFreezeVote() public virtual override {
-        address resolvedVoter = potentialLightAccountResolvedOwner(msg.sender);
+    function castFreezeVote(
+        uint256 lightAccountIndex_
+    ) public virtual override {
+        address resolvedVoter = potentialLightAccountResolvedOwner(
+            msg.sender,
+            lightAccountIndex_
+        );
 
         FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
 

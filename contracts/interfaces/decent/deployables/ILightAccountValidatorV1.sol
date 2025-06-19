@@ -17,6 +17,7 @@ interface ILightAccountValidatorV1 {
         returns (address lightAccountFactory);
 
     function potentialLightAccountResolvedOwner(
-        address potentialLightAccount_
+        address potentialLightAccount_,
+        uint256 lightAccountIndex_
     ) external view returns (address potentialLightAccountResolvedOwner);
 }
