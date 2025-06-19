@@ -180,7 +180,7 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidatorV1 {
         );
     }
 
-    function vote(
+    function castVote(
         uint32 _proposalId,
         uint8 _voteType,
         IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData,

@@ -229,7 +229,7 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(
+        .castVote(
           proposalId,
           1,
           [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }],
@@ -377,7 +377,7 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(
+        .castVote(
           proposalId,
           1,
           [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }],
@@ -411,7 +411,7 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(
+        .castVote(
           proposalId2,
           1,
           [{ votingAdapter: adapter, adapterVoteData: initialAdapterVoteData }],
@@ -502,7 +502,7 @@ describe('VotingAdapterERC721V1', () => {
 
     it('should return 0 weight and empty array for a mix of invalid (unowned, used) and non-existent tokens', async () => {
       const usedToken = user1TokenIds[0];
-      await strategy.connect(user1).vote(
+      await strategy.connect(user1).castVote(
         proposalId,
         1,
         [
@@ -592,7 +592,7 @@ describe('VotingAdapterERC721V1', () => {
       await expect(
         strategy
           .connect(user1)
-          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
+          .castVote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
       )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(user1.address, proposalId, expectedWeight, adapterVoteData);
@@ -615,13 +615,18 @@ describe('VotingAdapterERC721V1', () => {
       // First vote
       await strategy
         .connect(user1)
-        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }], 0n);
+        .castVote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }], 0n);
 
       // Attempt second vote with same token - should revert
       await expect(
         strategy
           .connect(user1)
-          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }], 0n),
+          .castVote(
+            proposalId,
+            1,
+            [{ votingAdapter: adapter, adapterVoteData: voteDataSingle }],
+            0n,
+          ),
       )
         .to.be.revertedWithCustomError(adapter, 'TokenIdAlreadyUsedForVote')
         .withArgs(tokenToUse);
@@ -632,7 +637,12 @@ describe('VotingAdapterERC721V1', () => {
       await expect(
         strategy
           .connect(user1)
-          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: emptyVoteData }], 0n),
+          .castVote(
+            proposalId,
+            1,
+            [{ votingAdapter: adapter, adapterVoteData: emptyVoteData }],
+            0n,
+          ),
       )
         .to.emit(adapter, 'VoteRecorded')
         .withArgs(user1.address, proposalId, 0n, emptyVoteData);
@@ -648,7 +658,7 @@ describe('VotingAdapterERC721V1', () => {
       await expect(
         strategy
           .connect(user1)
-          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
+          .castVote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
       )
         .to.be.revertedWithCustomError(adapter, 'TokenIdNotOwnedByVoter')
         .withArgs(tokenIdsNotOwnedByUser1[0]);
@@ -696,7 +706,7 @@ describe('VotingAdapterERC721V1', () => {
       await expect(
         localStrategy
           .connect(localUser1)
-          .vote(proposalId, 1, [{ votingAdapter: customAdapter, adapterVoteData }], 0n),
+          .castVote(proposalId, 1, [{ votingAdapter: customAdapter, adapterVoteData }], 0n),
       )
         .to.emit(customAdapter, 'VoteRecorded')
         .withArgs(localUser1.address, proposalId, expectedWeight, adapterVoteData);
@@ -715,7 +725,7 @@ describe('VotingAdapterERC721V1', () => {
       await expect(
         strategy
           .connect(user1)
-          .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
+          .castVote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData }], 0n),
       )
         .to.be.revertedWithCustomError(adapter, 'TokenIdAlreadyUsedForVote')
         .withArgs(tokenIdsToVoteWith[0]);
@@ -789,7 +799,7 @@ describe('VotingAdapterERC721V1', () => {
 
         // Vote through the strategy instead of directly calling the adapter
         // Using connect(voter1) because MockVotingStrategy passes msg.sender as the voter
-        await mockStrategy.connect(voter1).vote(
+        await mockStrategy.connect(voter1).castVote(
           proposalId,
           0, // voteType
           [
@@ -818,7 +828,7 @@ describe('VotingAdapterERC721V1', () => {
 
         // Vote through the strategy instead of directly calling the adapter
         // Using connect(voter1) because MockVotingStrategy passes msg.sender as the voter
-        await mockStrategy.connect(voter1).vote(
+        await mockStrategy.connect(voter1).castVote(
           proposalId,
           0, // voteType
           [
@@ -1563,7 +1573,12 @@ describe('VotingAdapterERC721V1', () => {
       );
       await strategy
         .connect(user1)
-        .vote(proposalId, 1, [{ votingAdapter: adapter, adapterVoteData: voteDataForRecord }], 0n);
+        .castVote(
+          proposalId,
+          1,
+          [{ votingAdapter: adapter, adapterVoteData: voteDataForRecord }],
+          0n,
+        );
 
       // 3. Check for FALSE when the used token is included
       const finalAdapterVoteData = ethers.AbiCoder.defaultAbiCoder().encode(
