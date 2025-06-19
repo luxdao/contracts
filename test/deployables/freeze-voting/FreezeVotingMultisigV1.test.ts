@@ -292,7 +292,7 @@ describe('FreezeVotingMultisigV1', () => {
 
   describe('Freeze State', () => {
     it('should not be frozen initially', async () => {
-      void expect(await freezeVoting.isFrozen()).to.be.false;
+      expect(await freezeVoting.isFrozen()).to.be.false;
     });
 
     it('should not be frozen when below threshold', async () => {
@@ -303,7 +303,7 @@ describe('FreezeVotingMultisigV1', () => {
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // Total votes: 1, below threshold of 2
-      void expect(await freezeVoting.isFrozen()).to.be.false;
+      expect(await freezeVoting.isFrozen()).to.be.false;
     });
 
     it('should be frozen once threshold is met', async () => {
@@ -320,7 +320,7 @@ describe('FreezeVotingMultisigV1', () => {
       await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // Total votes: 2, equal to threshold of 2
-      void expect(await freezeVoting.isFrozen()).to.be.true;
+      expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
     it('should automatically unfreeze after freeze period', async () => {
@@ -337,13 +337,13 @@ describe('FreezeVotingMultisigV1', () => {
       await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // Should be frozen initially
-      void expect(await freezeVoting.isFrozen()).to.be.true;
+      expect(await freezeVoting.isFrozen()).to.be.true;
 
       // Increase time to pass the freeze period
       await time.increase(FREEZE_PERIOD + 1);
 
       // Should no longer be frozen
-      void expect(await freezeVoting.isFrozen()).to.be.false;
+      expect(await freezeVoting.isFrozen()).to.be.false;
     });
 
     it('should allow owner to unfreeze manually', async () => {
@@ -360,13 +360,13 @@ describe('FreezeVotingMultisigV1', () => {
       await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // Should be frozen
-      void expect(await freezeVoting.isFrozen()).to.be.true;
+      expect(await freezeVoting.isFrozen()).to.be.true;
 
       // Owner unfreezes manually
       await freezeVoting.connect(owner).unfreeze();
 
       // Should no longer be frozen
-      void expect(await freezeVoting.isFrozen()).to.be.false;
+      expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Check that state was reset
       expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
@@ -393,7 +393,7 @@ describe('FreezeVotingMultisigV1', () => {
       );
 
       // Should still be frozen
-      void expect(await freezeVoting.isFrozen()).to.be.true;
+      expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
     it('should track freeze status across multiple proposals', async () => {
@@ -410,13 +410,13 @@ describe('FreezeVotingMultisigV1', () => {
       await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // DAO should be frozen
-      void expect(await freezeVoting.isFrozen()).to.be.true;
+      expect(await freezeVoting.isFrozen()).to.be.true;
 
       // Owner unfreezes manually
       await freezeVoting.connect(owner).unfreeze();
 
       // DAO should not be frozen
-      void expect(await freezeVoting.isFrozen()).to.be.false;
+      expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Start new proposal
       await mockSafe.setOwner(safeOwner1.address);
@@ -425,14 +425,14 @@ describe('FreezeVotingMultisigV1', () => {
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
       // DAO should not be frozen with only one vote
-      void expect(await freezeVoting.isFrozen()).to.be.false;
+      expect(await freezeVoting.isFrozen()).to.be.false;
 
       // Second vote to reach threshold
       await mockSafe.setOwner(safeOwner2.address);
       await freezeVoting.connect(safeOwner2).castFreezeVote(0n);
 
       // DAO should be frozen again
-      void expect(await freezeVoting.isFrozen()).to.be.true;
+      expect(await freezeVoting.isFrozen()).to.be.true;
     });
   });
 
@@ -443,8 +443,8 @@ describe('FreezeVotingMultisigV1', () => {
 
       // Initial state - user has not voted
       const createdTimestamp = await freezeVoting.freezeProposalCreated();
-      void expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address)).to
-        .be.false;
+      expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address)).to.be
+        .false;
 
       // User votes
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
@@ -453,11 +453,11 @@ describe('FreezeVotingMultisigV1', () => {
       const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Updated state - user has voted for the new proposal timestamp
-      void expect(await freezeVoting.accountHasFreezeVoted(newCreatedTimestamp, safeOwner1.address))
-        .to.be.true;
+      expect(await freezeVoting.accountHasFreezeVoted(newCreatedTimestamp, safeOwner1.address)).to
+        .be.true;
       if (createdTimestamp !== newCreatedTimestamp) {
-        void expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address))
-          .to.be.false;
+        expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address)).to.be
+          .false;
       }
     });
 
@@ -472,8 +472,8 @@ describe('FreezeVotingMultisigV1', () => {
       const createdTimestamp = await freezeVoting.freezeProposalCreated();
 
       // Check that user has voted for this proposal timestamp
-      void expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address)).to
-        .be.true;
+      expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address)).to.be
+        .true;
 
       // Owner unfreezes
       await freezeVoting.connect(owner).unfreeze();
@@ -482,18 +482,18 @@ describe('FreezeVotingMultisigV1', () => {
       // but the state for a *new* proposal (which will get a new timestamp) should be clear.
       expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
       // Check for the new (zero) proposal timestamp - should be false
-      void expect(await freezeVoting.accountHasFreezeVoted(0, safeOwner1.address)).to.be.false;
+      expect(await freezeVoting.accountHasFreezeVoted(0, safeOwner1.address)).to.be.false;
 
       // User should be able to vote again (this will create a new proposal timestamp)
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
       const newCreatedTimestamp = await freezeVoting.freezeProposalCreated();
 
       // User has voted on the new proposal
-      void expect(await freezeVoting.accountHasFreezeVoted(newCreatedTimestamp, safeOwner1.address))
-        .to.be.true;
+      expect(await freezeVoting.accountHasFreezeVoted(newCreatedTimestamp, safeOwner1.address)).to
+        .be.true;
       if (createdTimestamp > 0 && createdTimestamp !== newCreatedTimestamp) {
-        void expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address))
-          .to.be.true;
+        expect(await freezeVoting.accountHasFreezeVoted(createdTimestamp, safeOwner1.address)).to.be
+          .true;
       }
     });
   });
@@ -585,7 +585,7 @@ describe('FreezeVotingMultisigV1', () => {
 
       expect(await freezeVotingSA.freezeProposalVoteCount()).to.equal(1);
       const proposalTimestamp = await freezeVotingSA.freezeProposalCreated();
-      void expect(
+      expect(
         await freezeVotingSA.accountHasFreezeVoted(proposalTimestamp, smartAccountOwnerSA.address),
       ).to.be.true;
     });

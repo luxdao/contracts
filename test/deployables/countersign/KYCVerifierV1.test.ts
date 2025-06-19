@@ -74,7 +74,7 @@ describe('KYCVerifierV1', () => {
 
   describe('Verifications', () => {
     it('should verify', async () => {
-      void expect(await kycVerifier.verify(investorAlice.address)).to.be.true;
+      expect(await kycVerifier.verify(investorAlice.address)).to.be.true;
     });
   });
 

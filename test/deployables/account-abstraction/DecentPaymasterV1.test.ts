@@ -186,7 +186,7 @@ describe('DecentPaymasterV1', function () {
         .to.emit(decentPaymaster, 'FunctionValidatorSet')
         .withArgs(await mockTarget.getAddress(), FOO_SELECTOR, await mockValidator.getAddress());
 
-      void expect(
+      expect(
         await decentPaymaster.getFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR),
       ).to.be.equal(await mockValidator.getAddress());
     });
@@ -197,7 +197,7 @@ describe('DecentPaymasterV1', function () {
         FOO_SELECTOR,
         await mockValidator.getAddress(),
       );
-      void expect(
+      expect(
         await decentPaymaster.getFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR),
       ).to.be.equal(await mockValidator.getAddress());
 
@@ -207,7 +207,7 @@ describe('DecentPaymasterV1', function () {
         .to.emit(decentPaymaster, 'FunctionValidatorRemoved')
         .withArgs(await mockTarget.getAddress(), FOO_SELECTOR);
 
-      void expect(
+      expect(
         await decentPaymaster.getFunctionValidator(await mockTarget.getAddress(), FOO_SELECTOR),
       ).to.be.equal(ethers.ZeroAddress);
     });

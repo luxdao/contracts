@@ -140,18 +140,18 @@ describe('FreezeVotingAzoriusV1', () => {
 
   describe('Initialization', () => {
     it('should initialize with correct parameters', async () => {
-      void expect(await azoriusFreezeVoting.owner()).to.equal(owner.address);
-      void expect(await azoriusFreezeVoting.freezeVotesThreshold()).to.equal(
+      expect(await azoriusFreezeVoting.owner()).to.equal(owner.address);
+      expect(await azoriusFreezeVoting.freezeVotesThreshold()).to.equal(
         DEFAULT_FREEZE_VOTES_THRESHOLD,
       );
-      void expect(await azoriusFreezeVoting.freezeProposalPeriod()).to.equal(
+      expect(await azoriusFreezeVoting.freezeProposalPeriod()).to.equal(
         DEFAULT_FREEZE_PROPOSAL_PERIOD,
       );
-      void expect(await azoriusFreezeVoting.freezePeriod()).to.equal(DEFAULT_FREEZE_PERIOD);
-      void expect(await azoriusFreezeVoting.parentAzorius()).to.equal(
+      expect(await azoriusFreezeVoting.freezePeriod()).to.equal(DEFAULT_FREEZE_PERIOD);
+      expect(await azoriusFreezeVoting.parentAzorius()).to.equal(
         await mockParentAzorius.getAddress(),
       );
-      void expect(await azoriusFreezeVoting.lightAccountFactory()).to.equal(
+      expect(await azoriusFreezeVoting.lightAccountFactory()).to.equal(
         mockLightAccountFactory.target as string,
       );
     });
@@ -189,7 +189,7 @@ describe('FreezeVotingAzoriusV1', () => {
 
   describe('parentAzorius()', () => {
     it('should return the correct parent Azorius contract address', async () => {
-      void expect(await azoriusFreezeVoting.parentAzorius()).to.equal(
+      expect(await azoriusFreezeVoting.parentAzorius()).to.equal(
         await mockParentAzorius.getAddress(),
       );
     });
@@ -223,7 +223,7 @@ describe('FreezeVotingAzoriusV1', () => {
 
     it('should initiate a new freeze proposal period if none active and record a vote', async () => {
       const initialFreezeProposalCreated = await azoriusFreezeVoting.freezeProposalCreated();
-      void expect(initialFreezeProposalCreated).to.equal(0); // Should be 0 before first vote
+      expect(initialFreezeProposalCreated).to.equal(0); // Should be 0 before first vote
 
       const txPromise = azoriusFreezeVoting.connect(voter1).castFreezeVote(votingAdapterData, 0n);
 
@@ -240,19 +240,17 @@ describe('FreezeVotingAzoriusV1', () => {
         .to.emit(azoriusFreezeVoting, 'FreezeVoteCast')
         .withArgs(voter1.address, voteWeightFromAdapter);
 
-      void expect(await azoriusFreezeVoting.freezeProposalCreated()).to.equal(txTimestamp);
-      void expect(await azoriusFreezeVoting.freezeProposalVoteCount()).to.equal(
-        voteWeightFromAdapter,
-      );
-      void expect(await azoriusFreezeVoting.freezeProposalStrategy()).to.equal(
+      expect(await azoriusFreezeVoting.freezeProposalCreated()).to.equal(txTimestamp);
+      expect(await azoriusFreezeVoting.freezeProposalVoteCount()).to.equal(voteWeightFromAdapter);
+      expect(await azoriusFreezeVoting.freezeProposalStrategy()).to.equal(
         await mockStrategy.getAddress(),
       );
 
       // Verify adapter was called correctly
-      void expect(await mockAdapter1.recordVoteCalled()).to.be.true;
-      void expect(await mockAdapter1.lastVoterForRecord()).to.equal(voter1.address);
-      void expect(await mockAdapter1.lastSnapshotAndIdForRecord()).to.equal(txTimestamp);
-      void expect(await mockAdapter1.lastAdapterDataForRecord()).to.equal(
+      expect(await mockAdapter1.recordVoteCalled()).to.be.true;
+      expect(await mockAdapter1.lastVoterForRecord()).to.equal(voter1.address);
+      expect(await mockAdapter1.lastSnapshotAndIdForRecord()).to.equal(txTimestamp);
+      expect(await mockAdapter1.lastAdapterDataForRecord()).to.equal(
         votingAdapterData[0].adapterVoteData,
       );
     });
@@ -277,14 +275,14 @@ describe('FreezeVotingAzoriusV1', () => {
         .to.emit(azoriusFreezeVoting, 'FreezeVoteCast')
         .withArgs(voter2.address, newVoteWeight);
 
-      void expect(await azoriusFreezeVoting.freezeProposalCreated()).to.equal(
+      expect(await azoriusFreezeVoting.freezeProposalCreated()).to.equal(
         firstProposalCreatedTimestamp,
       );
-      void expect(await azoriusFreezeVoting.freezeProposalVoteCount()).to.equal(
+      expect(await azoriusFreezeVoting.freezeProposalVoteCount()).to.equal(
         firstVoteCount + newVoteWeight,
       );
-      void expect(await mockAdapter1.lastVoterForRecord()).to.equal(voter2.address);
-      void expect(await mockAdapter1.lastSnapshotAndIdForRecord()).to.equal(
+      expect(await mockAdapter1.lastVoterForRecord()).to.equal(voter2.address);
+      expect(await mockAdapter1.lastSnapshotAndIdForRecord()).to.equal(
         firstProposalCreatedTimestamp,
       );
     });
@@ -315,9 +313,9 @@ describe('FreezeVotingAzoriusV1', () => {
         .withArgs(voter2.address, newVoteWeight);
 
       const newProposalCreatedTimestamp = await azoriusFreezeVoting.freezeProposalCreated();
-      void expect(newProposalCreatedTimestamp).to.not.equal(firstProposalCreatedTimestamp);
-      void expect(newProposalCreatedTimestamp).to.equal(newTxTimestamp);
-      void expect(await azoriusFreezeVoting.freezeProposalVoteCount()).to.equal(newVoteWeight);
+      expect(newProposalCreatedTimestamp).to.not.equal(firstProposalCreatedTimestamp);
+      expect(newProposalCreatedTimestamp).to.equal(newTxTimestamp);
+      expect(await azoriusFreezeVoting.freezeProposalVoteCount()).to.equal(newVoteWeight);
     });
 
     // Add more tests for reverts and other conditions here
@@ -339,7 +337,7 @@ describe('FreezeVotingAzoriusV1', () => {
 
   describe('Version', () => {
     it('should return the correct version', async () => {
-      void expect(await azoriusFreezeVoting.version()).to.equal(1);
+      expect(await azoriusFreezeVoting.version()).to.equal(1);
     });
   });
 
