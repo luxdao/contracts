@@ -95,7 +95,7 @@ describe('ProposerAdapterHatsV1', () => {
         user1.address,
         ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
       );
-      void expect(canPropose).to.be.true;
+      expect(canPropose).to.be.true;
     });
 
     it('should return false if user does not wear any whitelisted hat', async () => {
@@ -105,7 +105,7 @@ describe('ProposerAdapterHatsV1', () => {
         user1.address,
         ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
       );
-      void expect(canPropose).to.be.false;
+      expect(canPropose).to.be.false;
     });
 
     it('should return false if user wears a hat that is not whitelisted', async () => {
@@ -114,7 +114,7 @@ describe('ProposerAdapterHatsV1', () => {
         user1.address,
         ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_2]),
       );
-      void expect(canPropose).to.be.false;
+      expect(canPropose).to.be.false;
     });
 
     it('should return false if user wears no hats', async () => {
@@ -122,7 +122,7 @@ describe('ProposerAdapterHatsV1', () => {
         user1.address,
         ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
       );
-      void expect(canPropose).to.be.false;
+      expect(canPropose).to.be.false;
     });
 
     it('should work with multiple whitelisted hats', async () => {
@@ -138,7 +138,7 @@ describe('ProposerAdapterHatsV1', () => {
         user1.address,
         ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_2]),
       );
-      void expect(canPropose).to.be.true;
+      expect(canPropose).to.be.true;
     });
 
     it('should return false if adapter was initialized with no whitelisted hats', async () => {
@@ -153,7 +153,7 @@ describe('ProposerAdapterHatsV1', () => {
         user1.address,
         ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [HAT_ID_1]),
       );
-      void expect(canPropose).to.be.false;
+      expect(canPropose).to.be.false;
     });
 
     it('should revert if data is not a valid abi-encoded uint256', async () => {
@@ -188,11 +188,11 @@ describe('ProposerAdapterHatsV1', () => {
 
     describe('hatIdIsWhitelisted()', () => {
       it('should return true for a whitelisted hat ID', async () => {
-        void expect(await adapter.hatIdIsWhitelisted(HAT_ID_1)).to.be.true;
+        expect(await adapter.hatIdIsWhitelisted(HAT_ID_1)).to.be.true;
       });
 
       it('should return false for a non-whitelisted hat ID', async () => {
-        void expect(await adapter.hatIdIsWhitelisted(HAT_ID_2)).to.be.false;
+        expect(await adapter.hatIdIsWhitelisted(HAT_ID_2)).to.be.false;
       });
 
       it('should return false for any hat ID if initialized with no hats', async () => {
@@ -202,8 +202,8 @@ describe('ProposerAdapterHatsV1', () => {
           await mockHats.getAddress(),
           [], // empty array
         );
-        void expect(await localAdapter.hatIdIsWhitelisted(HAT_ID_1)).to.be.false;
-        void expect(await localAdapter.hatIdIsWhitelisted(HAT_ID_2)).to.be.false;
+        expect(await localAdapter.hatIdIsWhitelisted(HAT_ID_1)).to.be.false;
+        expect(await localAdapter.hatIdIsWhitelisted(HAT_ID_2)).to.be.false;
       });
     });
   });

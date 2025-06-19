@@ -268,11 +268,11 @@ describe('StrategyV1', () => {
   describe('isVotingAdapter', () => {
     it('should return true for a configured voting adapter', async () => {
       const configuredAdapter = defaultInitialVotingAdapters[0];
-      void expect(await strategy.isVotingAdapter(configuredAdapter)).to.be.true;
+      expect(await strategy.isVotingAdapter(configuredAdapter)).to.be.true;
     });
 
     it('should return false for an unconfigured address', async () => {
-      void expect(await strategy.isVotingAdapter(nonOwner.address)).to.be.false;
+      expect(await strategy.isVotingAdapter(nonOwner.address)).to.be.false;
     });
 
     it('should return false for a configured proposer adapter that is not a voting adapter', async () => {
@@ -287,7 +287,7 @@ describe('StrategyV1', () => {
         [await proposerOnlyAdapter.getAddress()],
         lightAccountFactoryMockAddress,
       );
-      void expect(await testStrategy.isVotingAdapter(await proposerOnlyAdapter.getAddress())).to.be
+      expect(await testStrategy.isVotingAdapter(await proposerOnlyAdapter.getAddress())).to.be
         .false;
     });
   });
@@ -295,11 +295,11 @@ describe('StrategyV1', () => {
   describe('isProposerAdapter', () => {
     it('should return true for a configured proposer adapter', async () => {
       const configuredAdapter = defaultInitialProposerAdapters[0];
-      void expect(await strategy.isProposerAdapter(configuredAdapter)).to.be.true;
+      expect(await strategy.isProposerAdapter(configuredAdapter)).to.be.true;
     });
 
     it('should return false for an unconfigured address', async () => {
-      void expect(await strategy.isProposerAdapter(nonOwner.address)).to.be.false;
+      expect(await strategy.isProposerAdapter(nonOwner.address)).to.be.false;
     });
 
     it('should return false for a configured voting adapter that is not a proposer adapter', async () => {
@@ -314,7 +314,7 @@ describe('StrategyV1', () => {
         defaultInitialProposerAdapters, // mockProposerAdapter1
         lightAccountFactoryMockAddress,
       );
-      void expect(await testStrategy.isProposerAdapter(await votingOnlyAdapter.getAddress())).to.be
+      expect(await testStrategy.isProposerAdapter(await votingOnlyAdapter.getAddress())).to.be
         .false;
     });
   });
@@ -389,7 +389,7 @@ describe('StrategyV1', () => {
       await mockProposerAdapter2.setProposerStatus(user1.address, true);
 
       // Check against adapter 1 (should be false)
-      void expect(
+      expect(
         await multiProposerStrategy.isProposer(
           user1.address,
           mockProposerAdapter1Address,
@@ -398,7 +398,7 @@ describe('StrategyV1', () => {
       ).to.be.false;
 
       // Check against adapter 2 (should be true)
-      void expect(
+      expect(
         await multiProposerStrategy.isProposer(
           user1.address,
           mockProposerAdapter2Address,
@@ -410,9 +410,8 @@ describe('StrategyV1', () => {
     it('should return false if no configured adapter identifies the address as a proposer', async () => {
       const mockProposerAdapter1Address = await mockProposerAdapter1.getAddress();
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
-      void expect(
-        await strategy.isProposer(user1.address, mockProposerAdapter1Address, ethers.ZeroHash),
-      ).to.be.false;
+      expect(await strategy.isProposer(user1.address, mockProposerAdapter1Address, ethers.ZeroHash))
+        .to.be.false;
 
       const mockProposerAdapter2Address = await mockProposerAdapter2.getAddress();
       const multiProposerStrategy = await deployStrategyProxy(
@@ -426,14 +425,14 @@ describe('StrategyV1', () => {
       );
       await mockProposerAdapter1.setProposerStatus(user1.address, false);
       await mockProposerAdapter2.setProposerStatus(user1.address, false);
-      void expect(
+      expect(
         await multiProposerStrategy.isProposer(
           user1.address,
           mockProposerAdapter1Address,
           ethers.ZeroHash,
         ),
       ).to.be.false;
-      void expect(
+      expect(
         await multiProposerStrategy.isProposer(
           user1.address,
           mockProposerAdapter2Address,
@@ -445,9 +444,8 @@ describe('StrategyV1', () => {
     it('should return true if the first configured adapter identifies the address as a proposer', async () => {
       const mockProposerAdapter1Address = await mockProposerAdapter1.getAddress();
       await mockProposerAdapter1.setProposerStatus(user1.address, true);
-      void expect(
-        await strategy.isProposer(user1.address, mockProposerAdapter1Address, ethers.ZeroHash),
-      ).to.be.true;
+      expect(await strategy.isProposer(user1.address, mockProposerAdapter1Address, ethers.ZeroHash))
+        .to.be.true;
     });
 
     it('should revert with InvalidProposerAdapter if the adapter is not configured', async () => {
@@ -930,8 +928,8 @@ describe('StrategyV1', () => {
       expect(proposalDetails.abstainVotes).to.equal(0);
 
       const dataHashAdapter1 = ethers.keccak256(adapter1DataForVoter1);
-      void expect(await mockAdapter1.hasRecordedVote(user1.address, proposalId, dataHashAdapter1))
-        .to.be.false;
+      expect(await mockAdapter1.hasRecordedVote(user1.address, proposalId, dataHashAdapter1)).to.be
+        .false;
     });
 
     it('should revert if attempting to vote with no voting adapters', async () => {
@@ -968,7 +966,7 @@ describe('StrategyV1', () => {
         ],
         0n,
       );
-      void expect(await strategy.isPassed(PROPOSAL_ID)).to.be.false; // Voting not over
+      expect(await strategy.isPassed(PROPOSAL_ID)).to.be.false; // Voting not over
     });
 
     it('should return true if quorum and basis are met and voting is over', async () => {
@@ -988,7 +986,7 @@ describe('StrategyV1', () => {
       const proposalDetails = await strategy.proposalVotingDetails(PROPOSAL_ID);
       await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
 
-      void expect(await strategy.isPassed(PROPOSAL_ID)).to.be.true;
+      expect(await strategy.isPassed(PROPOSAL_ID)).to.be.true;
     });
 
     it('should return false if quorum is met but basis is not, after voting period', async () => {
@@ -1044,7 +1042,7 @@ describe('StrategyV1', () => {
       const proposalDetails = await specificStrategy.proposalVotingDetails(PROPOSAL_ID);
       await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
 
-      void expect(await specificStrategy.isPassed(PROPOSAL_ID)).to.be.false;
+      expect(await specificStrategy.isPassed(PROPOSAL_ID)).to.be.false;
     });
 
     it('should return false if basis is met but quorum is not, after voting period', async () => {
@@ -1088,7 +1086,7 @@ describe('StrategyV1', () => {
       const proposalDetails = await specificStrategy.proposalVotingDetails(PROPOSAL_ID);
       await time.increaseTo(proposalDetails.votingEndTimestamp + 1n);
 
-      void expect(await specificStrategy.isPassed(PROPOSAL_ID)).to.be.false;
+      expect(await specificStrategy.isPassed(PROPOSAL_ID)).to.be.false;
     });
   });
 
@@ -1105,7 +1103,7 @@ describe('StrategyV1', () => {
 
     it('should initially return false for any proposal', async () => {
       const result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
-      void expect(result).to.be.false;
+      expect(result).to.be.false;
     });
 
     it('should still return false if voting period is over but no vote has been cast', async () => {
@@ -1113,13 +1111,13 @@ describe('StrategyV1', () => {
         (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
       );
       const result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
-      void expect(result).to.be.false;
+      expect(result).to.be.false;
     });
 
     it('should get set to true after casting a vote after voting period ends', async () => {
       // Initially false
       let result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
-      void expect(result).to.be.false;
+      expect(result).to.be.false;
 
       await time.increaseTo(
         (await strategy.proposalVotingDetails(PROPOSAL_ID)).votingEndTimestamp + 1n,
@@ -1137,7 +1135,7 @@ describe('StrategyV1', () => {
       );
 
       result = await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID);
-      void expect(result).to.be.true;
+      expect(result).to.be.true;
     });
 
     it('should maintain separate states for different proposal IDs', async () => {
@@ -1155,12 +1153,12 @@ describe('StrategyV1', () => {
         ],
         0n,
       );
-      void expect(await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID)).to.be.true;
+      expect(await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID)).to.be.true;
 
       await time.increaseTo(
         (await strategy.proposalVotingDetails(PROPOSAL_ID_2)).votingEndTimestamp + 1n,
       );
-      void expect(await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID_2)).to.be.false;
+      expect(await strategy.voteCastedAfterVotingPeriodEnded(PROPOSAL_ID_2)).to.be.false;
     });
 
     it('should not emit VotingPeriodEnded event when casting a vote before voting period ends', async () => {
@@ -1216,7 +1214,7 @@ describe('StrategyV1', () => {
 
   describe('Version', () => {
     it('should return the correct version', async () => {
-      void expect(await strategy.version()).to.equal(1);
+      expect(await strategy.version()).to.equal(1);
     });
   });
 
@@ -1272,7 +1270,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.true;
+        expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.true;
       });
 
       it('should return true if quorum is exceeded (yes + abstain > threshold)', async () => {
@@ -1312,7 +1310,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.true;
+        expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.true;
       });
 
       it('should return false if quorum is not met (yes + abstain < threshold)', async () => {
@@ -1353,7 +1351,7 @@ describe('StrategyV1', () => {
           0n,
         );
 
-        void expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.false;
+        expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.false;
       });
 
       it('should return true if quorum threshold is 0, even with no votes contributing to quorum count', async () => {
@@ -1381,7 +1379,7 @@ describe('StrategyV1', () => {
           0n,
         );
 
-        void expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.true;
+        expect(await qStrategy.isQuorumMet(PROPOSAL_ID)).to.be.true;
       });
 
       it('should return false if only NO votes are cast and quorum threshold > 0', async () => {
@@ -1397,7 +1395,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await strategy.isQuorumMet(PROPOSAL_ID)).to.be.false;
+        expect(await strategy.isQuorumMet(PROPOSAL_ID)).to.be.false;
       });
     });
 
@@ -1434,7 +1432,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.true;
+        expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.true;
       });
 
       it('should return false if basis is not met (yes == no for >50% basis)', async () => {
@@ -1462,7 +1460,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.false;
+        expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.false;
       });
 
       it('should return false if basis is not met (yes < no for >50% basis)', async () => {
@@ -1490,7 +1488,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.false;
+        expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.false;
       });
 
       it('should return false if totalYesAndNoVotes is 0 (only abstain)', async () => {
@@ -1507,7 +1505,7 @@ describe('StrategyV1', () => {
           0n,
         );
 
-        void expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.false;
+        expect(await strategy.isBasisMet(PROPOSAL_ID)).to.be.false;
       });
 
       it('should return true if basisNumerator is 500,000 (50%) and yes > no', async () => {
@@ -1546,7 +1544,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.true;
+        expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.true;
       });
 
       it('should return false if basisNumerator is 500,000 (50%) and yes == no', async () => {
@@ -1585,7 +1583,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.false;
+        expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.false;
       });
 
       it('should return true if basisNumerator is max valid (DENOMINATOR - 1) and yes > 0, no == 0', async () => {
@@ -1613,7 +1611,7 @@ describe('StrategyV1', () => {
           ],
           0n,
         );
-        void expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.true;
+        expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.true;
       });
 
       it('should return false if basisNumerator is max valid (DENOMINATOR - 1) and yes > 0, no > 0', async () => {
@@ -1654,7 +1652,7 @@ describe('StrategyV1', () => {
           0n,
         );
 
-        void expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.false;
+        expect(await bStrategy.isBasisMet(PROPOSAL_ID)).to.be.false;
       });
     });
   });
@@ -1677,7 +1675,7 @@ describe('StrategyV1', () => {
         await expect(strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address))
           .to.emit(strategy, 'FreezeVoterAuthorizationChanged')
           .withArgs(freezeVoter1.address, true);
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
         expect(await strategy.authorizedFreezeVoters()).to.include(freezeVoter1.address);
         expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(1);
       });
@@ -1687,15 +1685,15 @@ describe('StrategyV1', () => {
         await expect(strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address)) // Second add
           .to.emit(strategy, 'FreezeVoterAuthorizationChanged')
           .withArgs(freezeVoter1.address, true);
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
         expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(1); // Length should still be 1
       });
 
       it('should allow adding multiple distinct freeze voters', async () => {
         await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
         await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter2.address);
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter2.address)).to.be.true;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter2.address)).to.be.true;
         const votersArray = await strategy.authorizedFreezeVoters();
         expect(votersArray).to.include(freezeVoter1.address);
         expect(votersArray).to.include(freezeVoter2.address);
@@ -1726,7 +1724,7 @@ describe('StrategyV1', () => {
           .to.emit(strategy, 'FreezeVoterAuthorizationChanged')
           .withArgs(freezeVoter1.address, false);
 
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
         expect(await strategy.authorizedFreezeVoters()).to.have.lengthOf(0);
         expect(await strategy.authorizedFreezeVoters()).to.not.include(freezeVoter1.address);
       });
@@ -1738,8 +1736,8 @@ describe('StrategyV1', () => {
 
         await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address);
 
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter2.address)).to.be.true;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter2.address)).to.be.true;
         const votersArray = await strategy.authorizedFreezeVoters();
         expect(votersArray).to.have.lengthOf(1);
         expect(votersArray).to.include(freezeVoter2.address);
@@ -1747,7 +1745,7 @@ describe('StrategyV1', () => {
       });
 
       it('should emit event even if removing a non-authorized address', async () => {
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false; // Pre-condition
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false; // Pre-condition
         await expect(
           strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address),
         )
@@ -1773,21 +1771,21 @@ describe('StrategyV1', () => {
     describe('isAuthorizedFreezeVoter', () => {
       it('should return true for an authorized address', async () => {
         await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.true;
       });
 
       it('should return false for a non-authorized address', async () => {
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
       });
 
       it('should return false for an address that was removed', async () => {
         await strategy.connect(strategyAdmin).addAuthorizedFreezeVoter(freezeVoter1.address);
         await strategy.connect(strategyAdmin).removeAuthorizedFreezeVoter(freezeVoter1.address);
-        void expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
+        expect(await strategy.isAuthorizedFreezeVoter(freezeVoter1.address)).to.be.false;
       });
 
       it('should return false for address(0)', async () => {
-        void expect(await strategy.isAuthorizedFreezeVoter(ethers.ZeroAddress)).to.be.false;
+        expect(await strategy.isAuthorizedFreezeVoter(ethers.ZeroAddress)).to.be.false;
       });
     });
 
@@ -1866,7 +1864,7 @@ describe('StrategyV1', () => {
         { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
       ]);
 
-      void expect(isValid).to.be.true;
+      expect(isValid).to.be.true;
     });
 
     it('should return false if the proposal is not initialized', async () => {
@@ -1880,7 +1878,7 @@ describe('StrategyV1', () => {
         [{ votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA }],
       );
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should return false if the voting period has ended', async () => {
@@ -1904,7 +1902,7 @@ describe('StrategyV1', () => {
         { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
       ]);
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should return false for an invalid vote type', async () => {
@@ -1918,7 +1916,7 @@ describe('StrategyV1', () => {
         [{ votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA }],
       );
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should return false if the voting adapter is not attached to the strategy', async () => {
@@ -1933,7 +1931,7 @@ describe('StrategyV1', () => {
         },
       ]);
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should return false if the adapter considers the vote invalid', async () => {
@@ -1944,7 +1942,7 @@ describe('StrategyV1', () => {
         { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
       ]);
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should return false if total voting weight is zero', async () => {
@@ -1955,7 +1953,7 @@ describe('StrategyV1', () => {
         { votingAdapter: await mockAdapter1.getAddress(), adapterVoteData: ADAPTER_VOTE_DATA },
       ]);
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should return true with multiple valid adapters', async () => {
@@ -1988,7 +1986,7 @@ describe('StrategyV1', () => {
           },
         ],
       );
-      void expect(isValid).to.be.true;
+      expect(isValid).to.be.true;
     });
 
     it('should return false if one of multiple adapters is invalid', async () => {
@@ -2021,7 +2019,7 @@ describe('StrategyV1', () => {
           },
         ],
       );
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
 
     it('should return false if no voting adapters are provided', async () => {
@@ -2035,7 +2033,7 @@ describe('StrategyV1', () => {
         [], // Empty array is the reason for returning false
       );
 
-      void expect(isValid).to.be.false;
+      expect(isValid).to.be.false;
     });
   });
 

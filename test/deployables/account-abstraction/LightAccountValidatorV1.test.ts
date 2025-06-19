@@ -96,7 +96,7 @@ describe('LightAccountValidatorV1', function () {
             await mockLightAccount.getAddress(),
             0n,
           );
-        void expect(isValid).to.be.true;
+        expect(isValid).to.be.true;
         expect(lightAccountOwner).to.equal(await mockLightAccount.owner());
       });
     });
@@ -109,7 +109,7 @@ describe('LightAccountValidatorV1', function () {
           // Should return false since the address won't have the owner() function
           const [isValid, lightAccountOwner] =
             await concreteLightAccountValidator.validateLightAccountPublic(randomAddress, 0n);
-          void expect(isValid).to.be.false;
+          expect(isValid).to.be.false;
           expect(lightAccountOwner).to.equal(ethers.ZeroAddress);
         });
       });
@@ -124,7 +124,7 @@ describe('LightAccountValidatorV1', function () {
               await mockLightAccount.getAddress(),
               0n,
             );
-          void expect(isValid).to.be.false;
+          expect(isValid).to.be.false;
           expect(lightAccountOwner).to.equal(await mockLightAccount.owner());
         });
 
@@ -135,7 +135,7 @@ describe('LightAccountValidatorV1', function () {
               await mockInvalidLightAccount.getAddress(),
               0n,
             );
-          void expect(isValid).to.be.false;
+          expect(isValid).to.be.false;
           expect(lightAccountOwner).to.equal(ethers.ZeroAddress);
         });
       });
@@ -408,7 +408,7 @@ describe('LightAccountValidatorV1', function () {
             await mockLightAccount.getAddress(),
             0n,
           );
-        void expect(isValid0).to.be.true;
+        expect(isValid0).to.be.true;
         expect(lightAccountOwner0).to.equal(owner.address);
 
         // Validate index 1
@@ -417,7 +417,7 @@ describe('LightAccountValidatorV1', function () {
             await mockLightAccount2.getAddress(),
             1n,
           );
-        void expect(isValid1).to.be.true;
+        expect(isValid1).to.be.true;
         expect(lightAccountOwner1).to.equal(owner.address);
       });
 
@@ -440,7 +440,7 @@ describe('LightAccountValidatorV1', function () {
             await mockLightAccount.getAddress(),
             1n,
           );
-        void expect(isValid).to.be.false;
+        expect(isValid).to.be.false;
         expect(lightAccountOwner).to.equal(owner.address);
       });
     });

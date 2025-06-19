@@ -275,7 +275,7 @@ async function verifySafeConfiguration(params: {
     }
   });
 
-  void expect(proxyCreationEvent).to.not.be.undefined;
+  expect(proxyCreationEvent).to.not.be.undefined;
 
   if (!proxyCreationEvent) {
     throw new Error('Proxy creation event not found');
@@ -417,12 +417,12 @@ async function findAndVerifyVotesERC20V1s(params: {
 
     expect(await votesERC20V1Proxy.name()).to.equal(votesERC20V1Data.metadata.name);
     expect(await votesERC20V1Proxy.symbol()).to.equal(votesERC20V1Data.metadata.symbol);
-    void expect(
+    expect(
       await votesERC20V1Proxy.hasRole(await votesERC20V1Proxy.DEFAULT_ADMIN_ROLE(), safeAddress),
     ).to.be.true;
-    void expect(await votesERC20V1Proxy.hasRole(await votesERC20V1Proxy.MINTER_ROLE(), safeAddress))
-      .to.be.true;
-    void expect(
+    expect(await votesERC20V1Proxy.hasRole(await votesERC20V1Proxy.MINTER_ROLE(), safeAddress)).to
+      .be.true;
+    expect(
       await votesERC20V1Proxy.hasRole(await votesERC20V1Proxy.TRANSFER_FROM_ROLE(), safeAddress),
     ).to.be.true;
     expect(await votesERC20V1Proxy.locked()).to.equal(votesERC20V1Data.locked);
@@ -457,7 +457,7 @@ async function findAndVerifyModuleFractalV1(params: {
   // Verify the module is enabled on the Safe
   const safeProxy = Safe__factory.connect(safeAddress, fixtureData.deployer);
   const isModuleEnabled = await safeProxy.isModuleEnabled(moduleFractalAddress);
-  void expect(isModuleEnabled).to.be.true;
+  expect(isModuleEnabled).to.be.true;
 
   // Connect to the deployed ModuleFractal proxy
   const moduleFractalProxy = ModuleFractalV1__factory.connect(
@@ -507,7 +507,7 @@ async function findAndVerifyModuleAzoriusV1(params: {
   // Verify the module is enabled on the Safe
   const safeProxy = Safe__factory.connect(safeAddress, fixtureData.deployer);
   const isModuleEnabled = await safeProxy.isModuleEnabled(azoriusAddress);
-  void expect(isModuleEnabled).to.be.true;
+  expect(isModuleEnabled).to.be.true;
 
   const azoriusProxy = ModuleAzoriusV1__factory.connect(azoriusAddress, fixtureData.deployer);
 
@@ -859,7 +859,7 @@ async function findAndVerifyFreezeGuardMultisigV1(params: {
       ethers.keccak256(ethers.toUtf8Bytes('guard_manager.guard.address')),
     ),
   )[0];
-  void expect(guardAddress).to.equal(freezeGuardMultisigAddress);
+  expect(guardAddress).to.equal(freezeGuardMultisigAddress);
 
   // Connect to the deployed FreezeGuardMultisig proxy
   const freezeGuardMultisigProxy = FreezeGuardMultisigV1__factory.connect(
@@ -902,7 +902,7 @@ async function findAndVerifyFreezeGuardAzoriusV1(params: {
     fixtureData.deployer,
   );
   const guard = await azoriusModule.getGuard();
-  void expect(guard).to.equal(freezeGuardAzoriusAddress);
+  expect(guard).to.equal(freezeGuardAzoriusAddress);
 
   // Connect to the deployed FreezeGuardAzorius proxy
   const freezeGuardAzoriusProxy = FreezeGuardAzoriusV1__factory.connect(
@@ -1056,7 +1056,7 @@ async function findAndVerifySystemDeployedEvent(params: {
     }
   });
 
-  void expect(systemDeployedEvent).to.not.be.undefined;
+  expect(systemDeployedEvent).to.not.be.undefined;
 
   if (!systemDeployedEvent) {
     throw new Error('SystemDeployed event not found');
@@ -1101,7 +1101,7 @@ async function findAndVerifySystemDeployedEventEmitterEvent(params: {
     }
   });
 
-  void expect(systemDeployedEventEmitterEvent).to.not.be.undefined;
+  expect(systemDeployedEventEmitterEvent).to.not.be.undefined;
 
   if (!systemDeployedEventEmitterEvent) {
     throw new Error('SystemDeployed event emitter event not found');
@@ -4263,7 +4263,7 @@ describe('SystemDeployerV1', () => {
             fixtureData.upgradeableContractOwner,
           );
 
-          void expect(await minimalContract.isInitialized()).to.be.true;
+          expect(await minimalContract.isInitialized()).to.be.true;
         });
 
         it('should handle very large initialization data', async () => {
@@ -4299,7 +4299,7 @@ describe('SystemDeployerV1', () => {
             fixtureData.upgradeableContractOwner,
           );
 
-          void expect(await minimalContract.isInitialized()).to.be.true;
+          expect(await minimalContract.isInitialized()).to.be.true;
           expect(await minimalContract.largeData()).to.equal(largeString);
         });
       });
@@ -4537,7 +4537,7 @@ describe('SystemDeployerV1', () => {
           await contractV3.migrateState();
 
           // Verify migration was successful
-          void expect(await contractV3.migrationPerformed()).to.be.true;
+          expect(await contractV3.migrationPerformed()).to.be.true;
         });
       });
 

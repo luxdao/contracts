@@ -385,13 +385,13 @@ describe('CountersignV1', () => {
         founderWeight,
         founderTransactions,
       ] = await countersign.signerData(founder.address);
-      void expect(founderIsSigner).to.be.true;
-      void expect(founderRequired).to.be.true;
-      void expect(founderSigned).to.be.false;
-      void expect(founderExecuted).to.be.false;
-      void expect(founderSignedTimestamp).to.equal(0n);
-      void expect(founderWeight).to.equal(0n);
-      void expect(founderTransactions).to.equal(signerTransactions[0].transactions);
+      expect(founderIsSigner).to.be.true;
+      expect(founderRequired).to.be.true;
+      expect(founderSigned).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(founderSignedTimestamp).to.equal(0n);
+      expect(founderWeight).to.equal(0n);
+      expect(founderTransactions).to.equal(signerTransactions[0].transactions);
 
       // Alice data: isSigner=true, required=true, signed=false, weight=100, transactions=[2 transactions]
       const [
@@ -403,13 +403,13 @@ describe('CountersignV1', () => {
         aliceWeight,
         aliceTransactions,
       ] = await countersign.signerData(investorAlice.address);
-      void expect(aliceIsSigner).to.be.true;
-      void expect(aliceRequired).to.be.true;
-      void expect(aliceSigned).to.be.false;
-      void expect(aliceExecuted).to.be.false;
-      void expect(aliceBeforeSignedTimestamp).to.equal(0n);
-      void expect(aliceWeight).to.equal(ethers.parseEther('100'));
-      void expect(aliceTransactions).to.equal(signerTransactions[1].transactions);
+      expect(aliceIsSigner).to.be.true;
+      expect(aliceRequired).to.be.true;
+      expect(aliceSigned).to.be.false;
+      expect(aliceExecuted).to.be.false;
+      expect(aliceBeforeSignedTimestamp).to.equal(0n);
+      expect(aliceWeight).to.equal(ethers.parseEther('100'));
+      expect(aliceTransactions).to.equal(signerTransactions[1].transactions);
 
       // Bob data: isSigner=true, required=false, signed=false, weight=50, transactions=[2 transactions]
       const [
@@ -421,13 +421,13 @@ describe('CountersignV1', () => {
         bobWeight,
         bobTransactions,
       ] = await countersign.signerData(investorBob.address);
-      void expect(bobIsSigner).to.be.true;
-      void expect(bobRequired).to.be.false;
-      void expect(bobSigned).to.be.false;
-      void expect(bobExecuted).to.be.false;
-      void expect(bobBeforeSignedTimestamp).to.equal(0n);
-      void expect(bobWeight).to.equal(ethers.parseEther('50'));
-      void expect(bobTransactions).to.equal(signerTransactions[2].transactions);
+      expect(bobIsSigner).to.be.true;
+      expect(bobRequired).to.be.false;
+      expect(bobSigned).to.be.false;
+      expect(bobExecuted).to.be.false;
+      expect(bobBeforeSignedTimestamp).to.equal(0n);
+      expect(bobWeight).to.equal(ethers.parseEther('50'));
+      expect(bobTransactions).to.equal(signerTransactions[2].transactions);
 
       // Carol data: isSigner=true, required=false, signed=false, weight=20, transactions=[2 transactions]
       const [
@@ -439,13 +439,13 @@ describe('CountersignV1', () => {
         carolWeight,
         carolTransactions,
       ] = await countersign.signerData(investorCarol.address);
-      void expect(carolIsSigner).to.be.true;
-      void expect(carolRequired).to.be.false;
-      void expect(carolSigned).to.be.false;
-      void expect(carolExecuted).to.be.false;
-      void expect(carolBeforeSignedTimestamp).to.equal(0n);
-      void expect(carolWeight).to.equal(ethers.parseEther('20'));
-      void expect(carolTransactions).to.equal(signerTransactions[3].transactions);
+      expect(carolIsSigner).to.be.true;
+      expect(carolRequired).to.be.false;
+      expect(carolSigned).to.be.false;
+      expect(carolExecuted).to.be.false;
+      expect(carolBeforeSignedTimestamp).to.equal(0n);
+      expect(carolWeight).to.equal(ethers.parseEther('20'));
+      expect(carolTransactions).to.equal(signerTransactions[3].transactions);
 
       // Invalid signer
       const [
@@ -457,18 +457,18 @@ describe('CountersignV1', () => {
         invalidSignerWeight,
         invalidSignerTransactions,
       ] = await countersign.signerData(anon.address);
-      void expect(invalidSignerIsSigner).to.be.false;
-      void expect(invalidSignerRequired).to.be.false;
-      void expect(invalidSignerSigned).to.be.false;
-      void expect(invalidSignerExecuted).to.be.false;
-      void expect(invalidSignerBeforeSignedTimestamp).to.equal(0n);
-      void expect(invalidSignerWeight).to.equal(0n);
-      void expect(invalidSignerTransactions).to.equal(signerTransactions[0].transactions);
+      expect(invalidSignerIsSigner).to.be.false;
+      expect(invalidSignerRequired).to.be.false;
+      expect(invalidSignerSigned).to.be.false;
+      expect(invalidSignerExecuted).to.be.false;
+      expect(invalidSignerBeforeSignedTimestamp).to.equal(0n);
+      expect(invalidSignerWeight).to.equal(0n);
+      expect(invalidSignerTransactions).to.equal(signerTransactions[0].transactions);
     });
 
     it('should return correct preExecutionTransactions', async () => {
       const returnedPreExecutionTransactions = await countersign.preExecutionTransactions();
-      void expect(returnedPreExecutionTransactions).to.equal(preExecutionTransactions);
+      expect(returnedPreExecutionTransactions).to.equal(preExecutionTransactions);
     });
   });
 
@@ -522,38 +522,38 @@ describe('CountersignV1', () => {
       const [, , aliceBeforeSigned, , aliceBeforeSignedTimestamp, ,] = await countersign.signerData(
         investorAlice.address,
       );
-      void expect(aliceBeforeSigned).to.be.false;
-      void expect(aliceBeforeSignedTimestamp).to.equal(0n);
+      expect(aliceBeforeSigned).to.be.false;
+      expect(aliceBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorAlice).sign();
       const [, , aliceAfterSigned, , aliceAfterSignedTimestamp, ,] = await countersign.signerData(
         investorAlice.address,
       );
-      void expect(aliceAfterSigned).to.be.true;
-      void expect(aliceAfterSignedTimestamp).to.equal(await time.latest());
+      expect(aliceAfterSigned).to.be.true;
+      expect(aliceAfterSignedTimestamp).to.equal(await time.latest());
 
       const [, , bobBeforeSigned, , bobBeforeSignedTimestamp, ,] = await countersign.signerData(
         investorBob.address,
       );
-      void expect(bobBeforeSigned).to.be.false;
-      void expect(bobBeforeSignedTimestamp).to.equal(0n);
+      expect(bobBeforeSigned).to.be.false;
+      expect(bobBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorBob).sign();
       const [, , bobAfterSigned, , bobAfterSignedTimestamp, ,] = await countersign.signerData(
         investorBob.address,
       );
-      void expect(bobAfterSigned).to.be.true;
-      void expect(bobAfterSignedTimestamp).to.equal(await time.latest());
+      expect(bobAfterSigned).to.be.true;
+      expect(bobAfterSignedTimestamp).to.equal(await time.latest());
 
       const [, , carolBeforeSigned, , carolBeforeSignedTimestamp, ,] = await countersign.signerData(
         investorCarol.address,
       );
-      void expect(carolBeforeSigned).to.be.false;
-      void expect(carolBeforeSignedTimestamp).to.equal(0n);
+      expect(carolBeforeSigned).to.be.false;
+      expect(carolBeforeSignedTimestamp).to.equal(0n);
       await countersign.connect(investorCarol).sign();
       const [, , carolAfterSigned, , carolAfterSignedTimestamp, ,] = await countersign.signerData(
         investorCarol.address,
       );
-      void expect(carolAfterSigned).to.be.true;
-      void expect(carolAfterSignedTimestamp).to.equal(await time.latest());
+      expect(carolAfterSigned).to.be.true;
+      expect(carolAfterSignedTimestamp).to.equal(await time.latest());
     });
 
     it('should not allow signers to sign after the signing deadline', async () => {
@@ -712,11 +712,11 @@ describe('CountersignV1', () => {
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
 
-      void expect(await countersign.initialExecutionComplete()).to.be.false;
+      expect(await countersign.initialExecutionComplete()).to.be.false;
 
       await countersign.connect(founder).execute();
 
-      void expect(await countersign.initialExecutionComplete()).to.be.true;
+      expect(await countersign.initialExecutionComplete()).to.be.true;
     });
 
     it('should execute even if a non-required signer tx fails', async () => {
@@ -732,7 +732,7 @@ describe('CountersignV1', () => {
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
 
-      void expect(await countersign.initialExecutionComplete()).to.be.false;
+      expect(await countersign.initialExecutionComplete()).to.be.false;
 
       // Carol unapproves the USDC transfer from the DAO treasury
       await usdc.connect(investorCarol).approve(await countersign.getAddress(), 0);
@@ -744,12 +744,12 @@ describe('CountersignV1', () => {
       let [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       let [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.true;
-      void expect(bobExecuted).to.be.true;
-      void expect(carolExecuted).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.true;
+      expect(bobExecuted).to.be.true;
+      expect(carolExecuted).to.be.false;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.true;
+      expect(await countersign.initialExecutionComplete()).to.be.true;
     });
 
     it('should revert if a required signer tx fails', async () => {
@@ -765,7 +765,7 @@ describe('CountersignV1', () => {
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
 
-      void expect(await countersign.initialExecutionComplete()).to.be.false;
+      expect(await countersign.initialExecutionComplete()).to.be.false;
 
       // Alice unapproves the USDC transfer from the DAO treasury
       await usdc.connect(investorAlice).approve(await countersign.getAddress(), 0);
@@ -819,12 +819,12 @@ describe('CountersignV1', () => {
       let [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       let [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.false;
-      void expect(bobExecuted).to.be.false;
-      void expect(carolExecuted).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.false;
+      expect(bobExecuted).to.be.false;
+      expect(carolExecuted).to.be.false;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.false;
+      expect(await countersign.initialExecutionComplete()).to.be.false;
 
       await countersign.connect(founder).execute();
 
@@ -845,12 +845,12 @@ describe('CountersignV1', () => {
       [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.true;
-      void expect(bobExecuted).to.be.true;
-      void expect(carolExecuted).to.be.true;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.true;
+      expect(bobExecuted).to.be.true;
+      expect(carolExecuted).to.be.true;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.true;
+      expect(await countersign.initialExecutionComplete()).to.be.true;
     });
 
     it('should allow for follow up execution when some non-required signers have not signed', async () => {
@@ -880,12 +880,12 @@ describe('CountersignV1', () => {
       let [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       let [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.false;
-      void expect(bobExecuted).to.be.false;
-      void expect(carolExecuted).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.false;
+      expect(bobExecuted).to.be.false;
+      expect(carolExecuted).to.be.false;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.false;
+      expect(await countersign.initialExecutionComplete()).to.be.false;
 
       await countersign.connect(founder).execute();
 
@@ -906,12 +906,12 @@ describe('CountersignV1', () => {
       [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.true;
-      void expect(bobExecuted).to.be.true;
-      void expect(carolExecuted).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.true;
+      expect(bobExecuted).to.be.true;
+      expect(carolExecuted).to.be.false;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.true;
+      expect(await countersign.initialExecutionComplete()).to.be.true;
     });
 
     it('should skip non-required signers that have not signed in follow up execution', async () => {
@@ -941,12 +941,12 @@ describe('CountersignV1', () => {
       let [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       let [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.false;
-      void expect(bobExecuted).to.be.false;
-      void expect(carolExecuted).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.false;
+      expect(bobExecuted).to.be.false;
+      expect(carolExecuted).to.be.false;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.false;
+      expect(await countersign.initialExecutionComplete()).to.be.false;
 
       await countersign.connect(founder).execute();
 
@@ -967,12 +967,12 @@ describe('CountersignV1', () => {
       [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.true;
-      void expect(bobExecuted).to.be.true;
-      void expect(carolExecuted).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.true;
+      expect(bobExecuted).to.be.true;
+      expect(carolExecuted).to.be.false;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.true;
+      expect(await countersign.initialExecutionComplete()).to.be.true;
 
       // execute again, Carol still has not signed
       await countersign.connect(founder).execute();
@@ -994,12 +994,12 @@ describe('CountersignV1', () => {
       [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
       [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
-      void expect(founderExecuted).to.be.false;
-      void expect(aliceExecuted).to.be.true;
-      void expect(bobExecuted).to.be.true;
-      void expect(carolExecuted).to.be.false;
+      expect(founderExecuted).to.be.false;
+      expect(aliceExecuted).to.be.true;
+      expect(bobExecuted).to.be.true;
+      expect(carolExecuted).to.be.false;
 
-      void expect(await countersign.initialExecutionComplete()).to.be.true;
+      expect(await countersign.initialExecutionComplete()).to.be.true;
     });
   });
 
