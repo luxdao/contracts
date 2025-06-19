@@ -263,7 +263,7 @@ describe('VotingAdapterERC20V1', () => {
         votingStartTimestamp,
         ethers.parseUnits('10', 18),
       );
-      await mockStrategy.connect(user1Signer).vote(
+      await mockStrategy.connect(user1Signer).castVote(
         proposalId,
         0, // voteType
         [
@@ -332,7 +332,7 @@ describe('VotingAdapterERC20V1', () => {
       const expectedWeightCasted = expectedRawVotes * DEFAULT_WEIGHT_PER_TOKEN;
 
       await expect(
-        strategy.connect(voter).vote(
+        strategy.connect(voter).castVote(
           proposalId,
           0, // voteType
           [
@@ -369,7 +369,7 @@ describe('VotingAdapterERC20V1', () => {
       const expectedWeightCasted = expectedRawVotes * customWeight;
 
       await expect(
-        strategy.connect(voter).vote(
+        strategy.connect(voter).castVote(
           proposalId,
           0, // voteType
           [
@@ -394,7 +394,7 @@ describe('VotingAdapterERC20V1', () => {
         votingStartTimestamp,
         votingStartTimestamp + 1000,
       );
-      await strategy.connect(voter).vote(
+      await strategy.connect(voter).castVote(
         proposalId,
         0, // voteType
         [
@@ -406,7 +406,7 @@ describe('VotingAdapterERC20V1', () => {
         0n,
       );
       await expect(
-        strategy.connect(voter).vote(
+        strategy.connect(voter).castVote(
           proposalId,
           0, // voteType
           [
@@ -429,7 +429,7 @@ describe('VotingAdapterERC20V1', () => {
         votingStartTimestamp,
         votingStartTimestamp + 1000,
       );
-      await strategy.connect(voter).vote(
+      await strategy.connect(voter).castVote(
         proposalId,
         0, // voteType
         [
@@ -448,7 +448,7 @@ describe('VotingAdapterERC20V1', () => {
       await setupAdapterForRecordVote(0);
       await strategy.setVotingTimestamps(proposalId, 0, 1000);
       await expect(
-        strategy.connect(voter).vote(
+        strategy.connect(voter).castVote(
           proposalId,
           0, // voteType
           [
@@ -466,7 +466,7 @@ describe('VotingAdapterERC20V1', () => {
       await setupAdapterForRecordVote(1);
       await strategy.setVotingStartBlock(proposalId, 0);
       await expect(
-        strategy.connect(voter).vote(
+        strategy.connect(voter).castVote(
           proposalId,
           0, // voteType
           [
@@ -537,7 +537,7 @@ describe('VotingAdapterERC20V1', () => {
         );
 
         // Record a vote
-        await strategy.connect(voter).vote(
+        await strategy.connect(voter).castVote(
           proposalId,
           0, // voteType
           [
@@ -572,7 +572,7 @@ describe('VotingAdapterERC20V1', () => {
         );
 
         // Record a vote for proposalId/voter
-        await strategy.connect(voter).vote(
+        await strategy.connect(voter).castVote(
           proposalId,
           0, // voteType
           [
@@ -1016,7 +1016,7 @@ describe('VotingAdapterERC20V1', () => {
       expect(initialWeight).to.equal(voteWeight);
 
       // 2. Record a vote
-      await strategy.connect(voter).vote(
+      await strategy.connect(voter).castVote(
         proposalId,
         0, // voteType
         [

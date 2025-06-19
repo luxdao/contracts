@@ -66,7 +66,7 @@ describe('StrategyV1ValidatorV1', function () {
     it('Should return true when the underlying strategy vote is valid', async function () {
       await mockStrategy.setValidStrategyVoteResult(true);
 
-      const calldata = mockStrategy.interface.encodeFunctionData('vote', [
+      const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
         votingAdaptersData,
@@ -86,7 +86,7 @@ describe('StrategyV1ValidatorV1', function () {
     it('Should return false when the underlying strategy vote is invalid', async function () {
       await mockStrategy.setValidStrategyVoteResult(false);
 
-      const calldata = mockStrategy.interface.encodeFunctionData('vote', [
+      const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
         votingAdaptersData,
@@ -111,7 +111,7 @@ describe('StrategyV1ValidatorV1', function () {
         votingAdaptersData,
       );
 
-      const calldata = mockStrategy.interface.encodeFunctionData('vote', [
+      const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
         votingAdaptersData,
@@ -147,7 +147,7 @@ describe('StrategyV1ValidatorV1', function () {
       );
 
       // But create calldata with the *wrong* proposalId
-      const calldata = mockStrategy.interface.encodeFunctionData('vote', [
+      const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         wrongProposalId, // encoded with 999
         voteType,
         votingAdaptersData,
@@ -175,7 +175,7 @@ describe('StrategyV1ValidatorV1', function () {
         votingAdaptersData,
       );
 
-      const calldata = mockStrategy.interface.encodeFunctionData('vote', [
+      const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         wrongVoteType, // But encoded with NO (0)
         votingAdaptersData,
@@ -206,7 +206,7 @@ describe('StrategyV1ValidatorV1', function () {
         votingAdaptersData, // Expecting original data
       );
 
-      const calldata = mockStrategy.interface.encodeFunctionData('vote', [
+      const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
         wrongVotingAdaptersData, // But encoded with different data
