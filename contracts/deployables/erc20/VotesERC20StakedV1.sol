@@ -7,6 +7,7 @@ import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol
 import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20VotesUpgradeable, VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -67,23 +68,32 @@ contract VotesERC20StakedV1 is
     }
 
     function initialize(
-        Metadata calldata metadata_,
         address owner_,
-        address stakedToken_,
-        uint256 minimumStakingPeriod_,
-        address[] calldata rewardsTokens_
+        address stakedToken_
     ) public virtual override initializer {
-        __ERC20_init(metadata_.name, metadata_.symbol);
+        __ERC20_init(
+            string(
+                abi.encodePacked("Staked ", IERC20Metadata(stakedToken_).name())
+            ),
+            string(
+                abi.encodePacked("st", IERC20Metadata(stakedToken_).symbol())
+            )
+        );
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
         __DeploymentBlockV1_init();
 
-        _updateMinimumStakingPeriod(minimumStakingPeriod_);
-        _addRewardsTokens(rewardsTokens_);
-
         VotesERC20StakedStorage storage $ = _getVotesERC20StakedStorage();
         $.stakedToken = IERC20(stakedToken_);
+    }
+
+    function initialize2(
+        uint256 minimumStakingPeriod_,
+        address[] calldata rewardsTokens_
+    ) public virtual override reinitializer(2) {
+        _updateMinimumStakingPeriod(minimumStakingPeriod_);
+        _addRewardsTokens(rewardsTokens_);
     }
 
     // ======================================================================

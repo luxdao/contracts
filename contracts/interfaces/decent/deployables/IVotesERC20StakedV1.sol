@@ -54,10 +54,9 @@ interface IVotesERC20StakedV1 {
 
     // --- Initializer Functions ---
 
-    function initialize(
-        Metadata calldata metadata_,
-        address owner_,
-        address stakedToken_,
+    function initialize(address owner_, address stakedToken_) external;
+
+    function initialize2(
         uint256 minimumStakingPeriod_,
         address[] calldata rewardsTokens_
     ) external;
