@@ -5,6 +5,28 @@ import {ISystemDeployerEventEmitterV1} from "../interfaces/decent/singletons/ISy
 import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title SystemDeployerEventEmitterV1
+ * @author Decent Labs
+ * @notice Implementation of event emission service for DAO deployments
+ * @dev This contract implements ISystemDeployerEventEmitterV1, providing a
+ * singleton event emission service for consistent deployment tracking.
+ *
+ * Implementation details:
+ * - Deployed once per chain as a singleton
+ * - Non-upgradeable deployment pattern
+ * - Emits events from a consistent address for indexing
+ * - Called by SystemDeployerV1 during DAO deployment
+ * - Minimal gas overhead for event emission
+ *
+ * Event emission pattern:
+ * - SystemDeployerV1 is called via delegatecall from Safe
+ * - SystemDeployerV1 calls this contract directly
+ * - Events are emitted from this contract's address
+ * - msg.sender (the Safe) is included in the event
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract SystemDeployerEventEmitterV1 is
     ISystemDeployerEventEmitterV1,
     IVersion,
@@ -16,6 +38,11 @@ contract SystemDeployerEventEmitterV1 is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc ISystemDeployerEventEmitterV1
+     * @dev The msg.sender is the newly deployed Safe proxy, which becomes
+     * the indexed safeProxy parameter in the event.
+     */
     function emitSystemDeployed(
         address safeProxyFactory_,
         bytes32 salt_,
@@ -30,6 +57,9 @@ contract SystemDeployerEventEmitterV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -40,6 +70,10 @@ contract SystemDeployerEventEmitterV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports ISystemDeployerEventEmitterV1, IVersion, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {

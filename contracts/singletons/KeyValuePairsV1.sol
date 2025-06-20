@@ -7,6 +7,33 @@ import {IDeploymentBlockV1} from "../interfaces/decent/IDeploymentBlockV1.sol";
 import {DeploymentBlockV1NonUpgradeable} from "../DeploymentBlockV1NonUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title KeyValuePairsV1
+ * @author Decent Labs
+ * @notice Implementation of on-chain metadata storage via events
+ * @dev This contract implements IKeyValuePairsV1, providing a stateless
+ * metadata storage service through event emission.
+ *
+ * Implementation details:
+ * - Deployed once per chain as a singleton
+ * - Non-upgradeable deployment pattern
+ * - Zero storage usage - all data in events
+ * - Permissionless - any address can emit metadata
+ * - Gas efficient for metadata publication
+ *
+ * Event-based storage pattern:
+ * - Metadata is stored in events, not contract storage
+ * - Off-chain services index events to build current state
+ * - Updates overwrite previous values for same key/sender
+ * - Historical data preserved in event logs
+ *
+ * Common usage:
+ * - DAO names, descriptions, and links
+ * - Configuration parameters for frontends
+ * - Any metadata that should be publicly queryable
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract KeyValuePairsV1 is
     IKeyValuePairsV1,
     IVersion,
@@ -19,6 +46,10 @@ contract KeyValuePairsV1 is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc IKeyValuePairsV1
+     * @dev Iterates through the array and emits an event for each pair.
+     */
     function updateValues(
         KeyValuePair[] calldata keyValuePairs_
     ) public virtual override {
@@ -39,6 +70,9 @@ contract KeyValuePairsV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -49,6 +83,10 @@ contract KeyValuePairsV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IKeyValuePairsV1, IVersion, IDeploymentBlockV1, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
