@@ -489,3 +489,39 @@ function castVote(
 - See `/tmp/natspec-documentation-plan.md` for comprehensive documentation tracking and additional examples
 - Run `npm run docgen` after modifying contracts to update documentation
 - Always cross-reference with test files to ensure documentation accuracy
+
+## Git Commit Messages and Linear Tickets
+
+When asked to create git commit messages or Linear tickets, follow these guidelines:
+
+### Git Commit Messages & GitHub PRs
+
+This project follows a one-commit-per-PR workflow. The first line of the commit message becomes the PR title, and the rest becomes the PR description.
+
+**Format:**
+
+- **Subject Line**: Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification
+  - Format: `<type>(<scope>): <subject>`
+  - Example: `feat(contracts): Implement new proxy factory`
+- **Message Body**:
+  - **Motivation**: High-level description of _what_ changed and _why_
+  - **Change Summary**: Comprehensive, bulleted list of key changes
+
+### Linear Tickets
+
+**Format:**
+
+- **Title**: Concise summary of the work
+- **Description**: Always in **future tense** (as if work is about to start)
+  - Clear goals and specific tasks as checklist items
+
+### Output Location
+
+When generating commit messages and Linear tickets:
+
+1. Create files in `./tmp/commit-and-ticket-messages/`
+2. Use descriptive filenames like `<feature-name>-<action>.md`
+3. Include both git commit message and Linear ticket in the same file
+4. Wrap each section in markdown code blocks for easy copying
+
+Example: `./tmp/commit-and-ticket-messages/autonomous-admin-systemdeployer-refactor.md`
