@@ -23,7 +23,7 @@ const config: HardhatUserConfig = {
       url: vars.get('SEPOLIA_PROVIDER', ''),
       accounts: [
         vars.get(
-          'TESTNET_DEPLOYER_PK',
+          'DECENT_TESTNET_DEPLOYER_PK',
           '0x0000000000000000000000000000000000000000000000000000000000000000',
         ),
       ],
@@ -33,7 +33,7 @@ const config: HardhatUserConfig = {
       url: vars.get('MAINNET_PROVIDER', ''),
       accounts: [
         vars.get(
-          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          'DECENT_PRODUCTION_DEPLOYER_PK',
           '0x0000000000000000000000000000000000000000000000000000000000000000',
         ),
       ],
@@ -43,7 +43,7 @@ const config: HardhatUserConfig = {
       url: vars.get('POLYGON_PROVIDER', ''),
       accounts: [
         vars.get(
-          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          'DECENT_PRODUCTION_DEPLOYER_PK',
           '0x0000000000000000000000000000000000000000000000000000000000000000',
         ),
       ],
@@ -53,7 +53,7 @@ const config: HardhatUserConfig = {
       url: vars.get('BASE_PROVIDER', ''),
       accounts: [
         vars.get(
-          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          'DECENT_PRODUCTION_DEPLOYER_PK',
           '0x0000000000000000000000000000000000000000000000000000000000000000',
         ),
       ],
@@ -63,7 +63,7 @@ const config: HardhatUserConfig = {
       url: vars.get('OPTIMISM_PROVIDER', ''),
       accounts: [
         vars.get(
-          'FRACTAL_PRODUCTION_DEPLOYER_PK',
+          'DECENT_PRODUCTION_DEPLOYER_PK',
           '0x0000000000000000000000000000000000000000000000000000000000000000',
         ),
       ],
