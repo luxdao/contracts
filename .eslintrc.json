@@ -43,7 +43,7 @@
   },
   "overrides": [
     {
-      "files": ["**/*.test.ts", "test/shared/**/*.ts"],
+      "files": ["test/**/*.ts"],
       "rules": {
         "@typescript-eslint/no-unused-expressions": "off"
       }
