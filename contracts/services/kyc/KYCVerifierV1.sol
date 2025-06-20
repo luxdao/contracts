@@ -7,6 +7,28 @@ import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol
 import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title KYCVerifierV1
+ * @author Decent Labs
+ * @notice Mock implementation of KYC verification service
+ * @dev This contract implements IKYCVerifierV1, providing a simple KYC
+ * verification service that always returns true.
+ *
+ * Implementation details:
+ * - Mock implementation for testing and development
+ * - Always returns true for any address verification
+ * - Deployed as singleton service per chain
+ * - Upgradeable using UUPS pattern via proxy
+ * - Production implementations would integrate with real KYC providers
+ *
+ * Production considerations:
+ * - Real implementations would check on-chain attestations
+ * - Could integrate with identity protocols or oracles
+ * - May use merkle trees or signature verification
+ * - Should implement proper access controls for updates
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract KYCVerifierV1 is IKYCVerifierV1, IVersion, DeploymentBlockV1, ERC165 {
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
@@ -16,6 +38,11 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, DeploymentBlockV1, ERC165 {
         _disableInitializers();
     }
 
+    /**
+     * @inheritdoc IKYCVerifierV1
+     * @dev Initializes the deployment block tracking. In production implementations,
+     * this would also initialize KYC provider integrations and access controls.
+     */
     function initialize() public virtual override initializer {
         __DeploymentBlockV1_init();
     }
@@ -26,6 +53,11 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, DeploymentBlockV1, ERC165 {
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IKYCVerifierV1
+     * @dev Mock implementation that always returns true. Production implementations
+     * would perform actual KYC verification checks against authorized data sources.
+     */
     function verify(address) public view virtual override returns (bool) {
         return true;
     }
@@ -36,6 +68,9 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, DeploymentBlockV1, ERC165 {
 
     // --- Pure Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -46,6 +81,10 @@ contract KYCVerifierV1 is IKYCVerifierV1, IVersion, DeploymentBlockV1, ERC165 {
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IKYCVerifierV1, IVersion, IDeploymentBlockV1, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {

@@ -13,6 +13,25 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title ModuleAzoriusV1
+ * @author Decent Labs
+ * @notice Implementation of the Azorius Protocol governance module
+ * @dev This contract implements IModuleAzoriusV1, providing the core governance system
+ * for DAOs integrated with Gnosis Safe.
+ *
+ * Implementation details:
+ * - Uses EIP-7201 namespaced storage pattern for upgradeability safety
+ * - Implements UUPS (Universal Upgradeable Proxy Standard) pattern
+ * - Upgrades are restricted to the contract owner
+ * - Storage layout must be preserved in future implementations
+ * - Supports partial proposal execution for gas efficiency
+ * - Uses EIP-712 structured data hashing for transaction integrity
+ * - Inherits from GuardableModule for Zodiac pattern integration
+ * - Uses Ownable2Step for secure ownership transfers
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract ModuleAzoriusV1 is
     IModuleAzoriusV1,
     IVersion,
@@ -26,19 +45,35 @@ contract ModuleAzoriusV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    /// @custom:storage-location erc7201:Decent.ModuleAzorius.main
+    /**
+     * @notice Main storage struct for ModuleAzoriusV1 following EIP-7201
+     * @dev Contains all governance state including proposals and configuration
+     * @custom:storage-location erc7201:Decent.ModuleAzorius.main
+     */
     struct ModuleAzoriusStorage {
+        /** @notice Counter tracking total proposals created (0-indexed) */
         uint32 totalProposalCount;
+        /** @notice Default timelock delay in seconds for new proposals */
         uint32 timelockPeriod;
+        /** @notice Default execution window in seconds for new proposals */
         uint32 executionPeriod;
+        /** @notice Mapping from proposal ID to proposal data */
         mapping(uint32 proposalId => Proposal proposal) proposals;
+        /** @notice Default voting strategy contract for new proposals */
         IStrategyV1 strategy;
     }
 
-    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.ModuleAzorius.main")) - 1)) & ~bytes32(uint256(0xff))
+    /**
+     * @dev Storage slot for ModuleAzoriusStorage calculated using EIP-7201 formula:
+     * keccak256(abi.encode(uint256(keccak256("Decent.ModuleAzorius.main")) - 1)) & ~bytes32(uint256(0xff))
+     */
     bytes32 internal constant MODULE_AZORIUS_STORAGE_LOCATION =
         0xedd394c11bb1dac1602ad0766d0e03cc697fdaf9a9996bf169d40a2c3b6fa100;
 
+    /**
+     * @dev Returns the storage struct for ModuleAzoriusV1
+     * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     */
     function _getModuleAzoriusStorage()
         internal
         pure
@@ -49,9 +84,17 @@ contract ModuleAzoriusV1 is
         }
     }
 
+    /**
+     * @notice EIP-712 domain separator type hash for transaction validation
+     * @dev Used to create unique domain separators per chain and contract instance
+     */
     bytes32 public constant DOMAIN_SEPARATOR_TYPEHASH =
         keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
 
+    /**
+     * @notice EIP-712 transaction type hash for secure transaction hashing
+     * @dev Ensures transaction details cannot be tampered with between proposal and execution
+     */
     bytes32 public constant TRANSACTION_TYPEHASH =
         keccak256(
             "Transaction(address to,uint256 value,bytes data,uint8 operation,uint256 nonce)"
@@ -65,6 +108,9 @@ contract ModuleAzoriusV1 is
         _disableInitializers();
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function initialize(
         address owner_,
         address avatar_,
@@ -88,6 +134,11 @@ contract ModuleAzoriusV1 is
         _updateExecutionPeriod(executionPeriod_);
     }
 
+    /**
+     * @notice Alternative initializer following Zodiac module pattern
+     * @dev Decodes packed initialization parameters and calls initialize
+     * @param initializeParams_ ABI encoded parameters (owner, avatar, target, strategy, timelockPeriod, executionPeriod)
+     */
     function setUp(
         bytes memory initializeParams_
     ) public virtual override initializer {
@@ -118,6 +169,10 @@ contract ModuleAzoriusV1 is
 
     // --- Internal Functions ---
 
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Restricted to contract owner for security
+     */
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
@@ -128,6 +183,9 @@ contract ModuleAzoriusV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function totalProposalCount()
         public
         view
@@ -139,16 +197,25 @@ contract ModuleAzoriusV1 is
         return $.totalProposalCount;
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function timelockPeriod() public view virtual override returns (uint32) {
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
         return $.timelockPeriod;
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function executionPeriod() public view virtual override returns (uint32) {
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
         return $.executionPeriod;
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function proposals(
         uint32 proposalId_
     ) public view virtual override returns (Proposal memory) {
@@ -156,45 +223,72 @@ contract ModuleAzoriusV1 is
         return $.proposals[proposalId_];
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function strategy() public view virtual override returns (address) {
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
         return address($.strategy);
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     * @dev Dynamically calculates state based on current timestamp and voting results.
+     * State transitions follow a strict progression through the proposal lifecycle.
+     */
     function proposalState(
         uint32 proposalId_
     ) public view virtual override returns (ProposalState) {
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
+
+        // Validate proposal exists
         if (proposalId_ >= $.totalProposalCount) revert InvalidProposal();
+
         Proposal memory _proposal = $.proposals[proposalId_];
         IStrategyV1 strategy_ = IStrategyV1(_proposal.strategy);
 
+        // Get voting end timestamp from the strategy to determine state transitions
         (, uint48 votingEndTimestamp) = strategy_.getVotingTimestamps(
             proposalId_
         );
 
+        // State 1: ACTIVE - Still in voting period
         if (block.timestamp <= votingEndTimestamp) {
             return ProposalState.ACTIVE;
-        } else if (!strategy_.isPassed(proposalId_)) {
+        }
+        // State 2: FAILED - Voting ended but didn't pass
+        else if (!strategy_.isPassed(proposalId_)) {
             return ProposalState.FAILED;
-        } else if (_proposal.executionCounter == _proposal.txHashes.length) {
+        }
+        // State 3: EXECUTED - All transactions have been executed
+        else if (_proposal.executionCounter == _proposal.txHashes.length) {
             return ProposalState.EXECUTED;
-        } else if (
+        }
+        // State 4: TIMELOCKED - Passed but still in timelock period
+        else if (
             block.timestamp <= votingEndTimestamp + _proposal.timelockPeriod
         ) {
             return ProposalState.TIMELOCKED;
-        } else if (
+        }
+        // State 5: EXECUTABLE - Ready for execution within the execution window
+        else if (
             block.timestamp <=
             votingEndTimestamp +
                 _proposal.timelockPeriod +
                 _proposal.executionPeriod
         ) {
             return ProposalState.EXECUTABLE;
-        } else {
+        }
+        // State 6: EXPIRED - Execution window has passed
+        else {
             return ProposalState.EXPIRED;
         }
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     * @dev Implements EIP-712 structured data hashing for transaction integrity
+     */
     function generateTxHashData(
         Transaction calldata transaction_,
         uint256 nonce_
@@ -222,12 +316,19 @@ contract ModuleAzoriusV1 is
             );
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     * @dev Uses nonce of 0 for deterministic hashing
+     */
     function getTxHash(
         Transaction calldata transaction_
     ) public view virtual override returns (bytes32) {
         return keccak256(generateTxHashData(transaction_, 0));
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function getProposalTxHash(
         uint32 proposalId_,
         uint32 txIndex_
@@ -236,6 +337,9 @@ contract ModuleAzoriusV1 is
         return $.proposals[proposalId_].txHashes[txIndex_];
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function getProposalTxHashes(
         uint32 proposalId_
     ) public view virtual override returns (bytes32[] memory) {
@@ -243,6 +347,9 @@ contract ModuleAzoriusV1 is
         return $.proposals[proposalId_].txHashes;
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function getProposal(
         uint32 proposalId_
     )
@@ -265,24 +372,38 @@ contract ModuleAzoriusV1 is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function updateTimelockPeriod(
         uint32 timelockPeriod_
     ) public virtual override onlyOwner {
         _updateTimelockPeriod(timelockPeriod_);
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function updateExecutionPeriod(
         uint32 executionPeriod_
     ) public virtual override onlyOwner {
         _updateExecutionPeriod(executionPeriod_);
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     */
     function updateStrategy(
         address strategy_
     ) public virtual override onlyOwner {
         _updateStrategy(strategy_);
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     * @dev Validates proposer through strategy, computes transaction hashes,
+     * stores proposal data, and notifies strategy to initialize voting
+     */
     function submitProposal(
         Transaction[] calldata transactions_,
         string calldata metadata_,
@@ -290,6 +411,8 @@ contract ModuleAzoriusV1 is
         bytes calldata proposerAdapterData_
     ) public virtual override {
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
+
+        // Step 1: Validate the proposer through the strategy's adapter system
         if (
             !$.strategy.isProposer(
                 msg.sender,
@@ -298,6 +421,7 @@ contract ModuleAzoriusV1 is
             )
         ) revert InvalidProposer();
 
+        // Step 2: Compute and store transaction hashes for integrity verification
         bytes32[] memory txHashes = new bytes32[](transactions_.length);
         uint256 transactionsLength = transactions_.length;
         for (uint256 i; i < transactionsLength; ) {
@@ -307,14 +431,18 @@ contract ModuleAzoriusV1 is
             }
         }
 
+        // Step 3: Store proposal data using current configuration
+        // Note: proposalId is the current totalProposalCount (before increment)
         Proposal storage proposal = $.proposals[$.totalProposalCount];
         proposal.strategy = address($.strategy);
         proposal.txHashes = txHashes;
         proposal.timelockPeriod = $.timelockPeriod;
         proposal.executionPeriod = $.executionPeriod;
 
+        // Step 4: Initialize voting period in the strategy contract
         $.strategy.initializeProposal($.totalProposalCount);
 
+        // Step 5: Emit event with full proposal details for indexing
         emit ProposalCreated(
             address($.strategy),
             $.totalProposalCount,
@@ -323,31 +451,44 @@ contract ModuleAzoriusV1 is
             metadata_
         );
 
+        // Step 6: Increment proposal counter for next proposal
         $.totalProposalCount++;
     }
 
+    /**
+     * @inheritdoc IModuleAzoriusV1
+     * @dev Supports partial execution - transactions are executed in order
+     * and executionCounter tracks progress
+     */
     function executeProposal(
         uint32 proposalId_,
         Transaction[] calldata transactions_
     ) public virtual override {
+        // Validate at least one transaction is being executed
         if (transactions_.length == 0) revert InvalidTxs();
 
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
         Proposal memory proposal = $.proposals[proposalId_];
 
+        // Ensure we don't execute more transactions than exist in the proposal
+        // This supports partial execution - caller can execute a subset of transactions
         if (
             proposal.executionCounter + transactions_.length >
             proposal.txHashes.length
         ) revert InvalidTxs();
 
+        // Execute each transaction in order and collect their hashes
         uint256 transactionsLength = transactions_.length;
         bytes32[] memory txHashes = new bytes32[](transactionsLength);
         for (uint256 i; i < transactionsLength; ) {
+            // Execute single transaction and verify it matches the stored hash
             txHashes[i] = _executeProposalTx(proposalId_, transactions_[i]);
             unchecked {
                 ++i;
             }
         }
+
+        // Emit event with executed transaction hashes for tracking
         emit ProposalExecuted(proposalId_, txHashes);
     }
 
@@ -357,6 +498,9 @@ contract ModuleAzoriusV1 is
 
     // --- Pure Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -367,6 +511,11 @@ contract ModuleAzoriusV1 is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc Ownable2StepUpgradeable
+     * @dev Overrides both Ownable2StepUpgradeable and OwnableUpgradeable to use
+     * the two-step ownership transfer process
+     */
     function transferOwnership(
         address newOwner_
     )
@@ -380,6 +529,11 @@ contract ModuleAzoriusV1 is
 
     // --- Internal Functions ---
 
+    /**
+     * @inheritdoc Ownable2StepUpgradeable
+     * @dev Overrides both Ownable2StepUpgradeable and OwnableUpgradeable to use
+     * the two-step ownership transfer process
+     */
     function _transferOwnership(
         address newOwner_
     ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
@@ -392,6 +546,10 @@ contract ModuleAzoriusV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IModuleAzoriusV1, IVersion, IDeploymentBlockV1, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
@@ -406,23 +564,39 @@ contract ModuleAzoriusV1 is
     // INTERNAL HELPERS
     // ======================================================================
 
+    /**
+     * @dev Executes a single transaction from a proposal
+     * @param proposalId_ The proposal containing the transaction
+     * @param transaction_ The transaction details to execute
+     * @return txHash The hash of the executed transaction
+     * @custom:throws ProposalNotExecutable if proposal is not in EXECUTABLE state
+     * @custom:throws InvalidTxHash if transaction doesn't match stored hash
+     * @custom:throws TxFailed if transaction execution fails
+     */
     function _executeProposalTx(
         uint32 proposalId_,
         Transaction calldata transaction_
     ) internal virtual returns (bytes32) {
+        // Verify proposal is in EXECUTABLE state (passed voting, timelock expired, not expired)
         if (proposalState(proposalId_) != ProposalState.EXECUTABLE)
             revert ProposalNotExecutable();
+
+        // Calculate hash of the transaction to execute
         bytes32 txHash = getTxHash(transaction_);
 
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
-
         Proposal storage proposal = $.proposals[proposalId_];
 
+        // Verify transaction hash matches the expected hash at current execution position
+        // This ensures transactions are executed in the exact order they were proposed
         if (proposal.txHashes[proposal.executionCounter] != txHash)
             revert InvalidTxHash();
 
+        // Increment execution counter before external call (checks-effects-interactions pattern)
         proposal.executionCounter++;
 
+        // Execute the transaction through the Zodiac module's exec function
+        // This will execute through the Safe if properly configured
         if (
             !exec(
                 transaction_.to,
@@ -435,18 +609,31 @@ contract ModuleAzoriusV1 is
         return txHash;
     }
 
+    /**
+     * @dev Updates the default timelock period for new proposals
+     * @param timelockPeriod_ New timelock period in seconds
+     */
     function _updateTimelockPeriod(uint32 timelockPeriod_) internal virtual {
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
         $.timelockPeriod = timelockPeriod_;
         emit TimelockPeriodUpdated(timelockPeriod_);
     }
 
+    /**
+     * @dev Updates the default execution period for new proposals
+     * @param executionPeriod_ New execution period in seconds
+     */
     function _updateExecutionPeriod(uint32 executionPeriod_) internal virtual {
         ModuleAzoriusStorage storage $ = _getModuleAzoriusStorage();
         $.executionPeriod = executionPeriod_;
         emit ExecutionPeriodUpdated(executionPeriod_);
     }
 
+    /**
+     * @dev Updates the default strategy for new proposals
+     * @param strategy_ New strategy contract address
+     * @custom:throws InvalidStrategy if strategy_ is zero address
+     */
     function _updateStrategy(address strategy_) internal virtual {
         if (strategy_ == address(0)) revert InvalidStrategy();
 

@@ -12,10 +12,46 @@ import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IAvatar} from "@gnosis-guild/zodiac/contracts/interfaces/IAvatar.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+/**
+ * @notice Extended Hats interface to access lastTopHatId
+ * @dev This interface adds the lastTopHatId getter which is present in the
+ * Hats contract but not exposed in the standard IHats interface.
+ */
 interface IHatsExtended is IHats {
+    /** @notice Returns the ID of the most recently created top hat */
     function lastTopHatId() external view returns (uint32 lastTopHatId);
 }
 
+/**
+ * @title DecentHatsCreationModule
+ * @author Decent Labs
+ * @notice Implementation of Hats tree creation for DAOs with payment streams
+ * @dev This contract implements IDecentHatsCreationModule, providing a complete
+ * solution for creating organizational structures from scratch.
+ *
+ * Implementation details:
+ * - Temporarily attached as Safe module during execution
+ * - Creates complete Hats trees in a single transaction
+ * - Deploys autonomous admin for automated role management
+ * - Sets up payment streams for all roles
+ * - Associates tree with Safe via KeyValuePairs
+ * - Non-upgradeable utility contract
+ *
+ * Execution flow:
+ * 1. Creates and mints top hat to the Safe
+ * 2. Creates top hat's ERC6551 account
+ * 3. Creates admin hat with autonomous admin wearer
+ * 4. Creates all role hats with configurations
+ * 5. Sets up payment streams per role
+ * 6. Emits metadata for tree association
+ *
+ * Security considerations:
+ * - Must be enabled as module before execution
+ * - Should be disabled immediately after use
+ * - All external calls go through Safe's execTransactionFromModule
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract DecentHatsCreationModule is
     IDecentHatsCreationModule,
     DecentHatsModuleUtils
@@ -27,24 +63,11 @@ contract DecentHatsCreationModule is
     // --- State-Changing Functions ---
 
     /**
-     * @notice For a safe without any roles previously created on it, this function should be called. It sets up the
-     * top hat and admin hat, as well as any other hats and their streams that are provided, then transfers the top hat
-     * to the calling safe.
-     *
-     * @notice This contract should be enabled a module on the Safe for which the role(s) are to be created, and disabled after.
-     *
-     * @dev For each hat that is included, if the hat is:
-     *  - termed, its stream funds on are targeted directly at the nominated wearer. The wearer should directly call `withdraw-`
-     *    on the Sablier contract.
-     *  - untermed, its stream funds are targeted at the hat's smart account. In order to withdraw funds from the stream, the
-     * hat's smart account must be the one call to `withdraw-` on the Sablier contract, setting the recipient arg to its wearer.
-     *
-     * @dev In order for a Safe to seamlessly create roles even if it has never previously created a role and thus has
-     * no hat tree, we defer the creation of the hat tree and its setup to this contract. This way, in a single tx block,
-     * the resulting topHatId of the newly created hat can be used to create an admin hat and any other hats needed.
-     * We also make use of `KeyValuePairs` to associate the topHatId with the Safe.
-     *
-     * @param treeParams_ The parameters for creating the Hat Tree with Roles
+     * @inheritdoc IDecentHatsCreationModule
+     * @dev Creates a complete organizational structure in one transaction.
+     * The top hat is minted to the calling Safe, establishing ownership.
+     * An autonomous admin is deployed to manage the admin hat for automated operations.
+     * All role hats are created with their specified configurations and payment streams.
      */
     function createAndDeclareTree(
         CreateTreeParams calldata treeParams_
@@ -93,6 +116,18 @@ contract DecentHatsCreationModule is
     // INTERNAL HELPERS
     // ======================================================================
 
+    /**
+     * @notice Creates and configures the top hat for the organization
+     * @dev Mints the top hat to the Safe and creates its ERC6551 account.
+     * The top hat ID is stored in KeyValuePairs for off-chain indexing.
+     * @param hatsProtocol_ Hats Protocol contract address
+     * @param erc6551Registry_ Registry for creating token-bound accounts
+     * @param hatsAccountImplementation_ Implementation for Hat accounts
+     * @param keyValuePairs_ Contract for emitting metadata
+     * @param topHat_ Configuration for the top hat
+     * @return topHatId The ID of the created top hat
+     * @return topHatAccount The ERC6551 account address for the top hat
+     */
     function _processTopHat(
         address hatsProtocol_,
         address erc6551Registry_,
@@ -100,7 +135,7 @@ contract DecentHatsCreationModule is
         address keyValuePairs_,
         TopHatParams calldata topHat_
     ) internal virtual returns (uint256, address) {
-        // Mint Top Hat to the Safe
+        // Mint Top Hat to the Safe (msg.sender is the Safe)
         IAvatar(msg.sender).execTransactionFromModule(
             hatsProtocol_,
             0,
@@ -111,12 +146,14 @@ contract DecentHatsCreationModule is
             Enum.Operation.Call
         );
 
-        // get the new Top Hat ID
+        // Get the newly created top hat ID
+        // Top hat IDs have the top 32 bits set, rest are zeros
         uint256 topHatId = uint256(
             IHatsExtended(hatsProtocol_).lastTopHatId()
         ) << 224;
 
-        // Create Top Hat's ERC6551 Account
+        // Create ERC6551 account for the top hat
+        // This account can hold assets, receive payment streams, and execute transactions
         address topHatAccount = IERC6551Registry(erc6551Registry_)
             .createAccount(
                 hatsAccountImplementation_,
@@ -126,7 +163,8 @@ contract DecentHatsCreationModule is
                 topHatId
             );
 
-        // Declare Top Hat ID to Safe via KeyValuePairs
+        // Emit top hat ID for off-chain indexing
+        // This associates the Safe with its Hats tree
         IKeyValuePairsV1.KeyValuePair[]
             memory keyValuePairs = new IKeyValuePairsV1.KeyValuePair[](1);
         keyValuePairs[0] = IKeyValuePairsV1.KeyValuePair({
@@ -143,6 +181,20 @@ contract DecentHatsCreationModule is
         return (topHatId, topHatAccount);
     }
 
+    /**
+     * @notice Creates the admin hat with an autonomous admin module
+     * @dev Deploys a DecentAutonomousAdmin contract to wear the admin hat,
+     * enabling automated role management without manual intervention.
+     * @param hatsProtocol_ Hats Protocol contract address
+     * @param erc6551Registry_ Registry for creating token-bound accounts
+     * @param hatsAccountImplementation_ Implementation for Hat accounts
+     * @param topHatId_ The top hat ID to create admin under
+     * @param topHatAccount_ The top hat's ERC6551 account (eligibility/toggle)
+     * @param systemDeployer_ System deployer for proxy creation
+     * @param decentAutonomousAdminImplementation_ Implementation for autonomous admin
+     * @param adminHat_ Configuration for the admin hat
+     * @return adminHatId The ID of the created admin hat
+     */
     function _processAdminHat(
         address hatsProtocol_,
         address erc6551Registry_,
@@ -153,8 +205,10 @@ contract DecentHatsCreationModule is
         address decentAutonomousAdminImplementation_,
         AdminHatParams calldata adminHat_
     ) internal virtual returns (uint256) {
-        // Create Admin Hat
+        // Calculate the admin hat ID (first child of top hat)
         uint256 adminHatId = IHats(hatsProtocol_).getNextId(topHatId_);
+
+        // Create the admin hat with top hat account as eligibility/toggle
         IAvatar(msg.sender).execTransactionFromModule(
             hatsProtocol_,
             0,
@@ -163,9 +217,9 @@ contract DecentHatsCreationModule is
                 (
                     topHatId_,
                     adminHat_.details,
-                    1, // only one Admin Hat
-                    topHatAccount_,
-                    topHatAccount_,
+                    1, // maxSupply: only one admin hat allowed
+                    topHatAccount_, // eligibility: top hat account controls
+                    topHatAccount_, // toggle: top hat account can disable
                     adminHat_.isMutable,
                     adminHat_.imageURI
                 )
@@ -173,7 +227,7 @@ contract DecentHatsCreationModule is
             Enum.Operation.Call
         );
 
-        // Create Admin Hat's ERC6551 Account
+        // Create ERC6551 account for the admin hat
         IERC6551Registry(erc6551Registry_).createAccount(
             hatsAccountImplementation_,
             SALT,
@@ -182,22 +236,17 @@ contract DecentHatsCreationModule is
             adminHatId
         );
 
-        // Deploy Decent Autonomous Admin Module, which will wear the Admin Hat
+        // Deploy autonomous admin module with deterministic address
+        // Salt includes admin hat ID for uniqueness
         address autonomousAdmin = ISystemDeployerV1(systemDeployer_)
             .deployProxy(
                 decentAutonomousAdminImplementation_,
                 abi.encodeCall(IDecentAutonomousAdminV1.initialize, ()),
-                keccak256(
-                    abi.encodePacked(
-                        // for the salt, we'll concatenate our static salt
-                        // with the Admin Hat ID
-                        SALT,
-                        adminHatId
-                    )
-                )
+                keccak256(abi.encodePacked(SALT, adminHatId))
             );
 
-        // Mint Hat to the Decent Autonomous Admin Module
+        // Mint admin hat to the autonomous admin module
+        // This enables automated management of child hats
         IAvatar(msg.sender).execTransactionFromModule(
             hatsProtocol_,
             0,

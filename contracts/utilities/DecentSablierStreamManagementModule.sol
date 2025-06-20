@@ -8,6 +8,33 @@ import {IERC6551Executable} from "../interfaces/erc6551/IERC6551Executable.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IAvatar} from "@gnosis-guild/zodiac/contracts/interfaces/IAvatar.sol";
 
+/**
+ * @title DecentSablierStreamManagementModule
+ * @author Decent Labs
+ * @notice Implementation of Sablier stream management utilities
+ * @dev This contract implements IDecentSablierStreamManagementModule, providing
+ * stream management functionality for DAOs using Sablier V2.
+ *
+ * Implementation details:
+ * - Temporarily attached as Safe module during execution
+ * - Handles withdrawals from Hat account-owned streams
+ * - Manages stream cancellations for Safe-owned streams
+ * - Uses non-reverting patterns for robustness
+ * - Non-upgradeable utility contract
+ *
+ * Stream ownership patterns:
+ * - Termed roles: streams owned by individual wearers
+ * - Untermed roles: streams owned by Hat ERC6551 accounts
+ * - DAO treasury: streams owned by the Safe directly
+ *
+ * Security considerations:
+ * - Must be enabled as module before execution
+ * - Should be disabled immediately after use
+ * - Only operates on streams accessible to the Safe
+ * - Validates stream status before operations
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract DecentSablierStreamManagementModule is
     IDecentSablierStreamManagementModule
 {
@@ -17,6 +44,12 @@ contract DecentSablierStreamManagementModule is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc IDecentSablierStreamManagementModule
+     * @dev Executes a nested call: Safe -> Hat Account -> Sablier.
+     * Returns silently if no funds are available to withdraw, preventing
+     * proposal failures due to timing issues.
+     */
     function withdrawMaxFromStream(
         address sablier_,
         address recipientHatAccount_,
@@ -24,11 +57,13 @@ contract DecentSablierStreamManagementModule is
         address to_
     ) public virtual override {
         // Check if there are funds to withdraw
+        // This prevents reverts when stream has no withdrawable amount
         if (ISablierV2Lockup(sablier_).withdrawableAmountOf(streamId_) == 0) {
             return;
         }
 
-        // Proxy the Sablier withdrawMax call through IAvatar (Safe)
+        // Execute nested call through Hat account
+        // Safe -> recipientHatAccount.execute() -> sablier.withdrawMax()
         IAvatar(msg.sender).execTransactionFromModule(
             recipientHatAccount_,
             0,
@@ -41,18 +76,25 @@ contract DecentSablierStreamManagementModule is
                         ISablierV2Lockup.withdrawMax,
                         (streamId_, to_)
                     ),
-                    0
+                    0 // operation type
                 )
             ),
             Enum.Operation.Call
         );
     }
 
+    /**
+     * @inheritdoc IDecentSablierStreamManagementModule
+     * @dev Only cancels streams in PENDING or STREAMING status.
+     * Returns silently for other statuses to prevent proposal failures.
+     * The Safe must be the stream sender to cancel.
+     */
     function cancelStream(
         address sablier_,
         uint256 streamId_
     ) public virtual override {
-        // Check if the stream can be cancelled
+        // Verify stream is cancellable
+        // Only PENDING and STREAMING statuses can be cancelled
         Lockup.Status streamStatus = ISablierV2Lockup(sablier_).statusOf(
             streamId_
         );
@@ -63,6 +105,8 @@ contract DecentSablierStreamManagementModule is
             return;
         }
 
+        // Cancel the stream
+        // This will distribute funds according to Sablier's rules
         IAvatar(msg.sender).execTransactionFromModule(
             sablier_,
             0,

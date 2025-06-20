@@ -11,6 +11,24 @@ import {LightAccountValidatorV1} from "../account-abstraction/LightAccountValida
 import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title StrategyV1
+ * @author Decent Labs
+ * @notice Implementation of the core voting strategy for Azorius governance
+ * @dev This contract implements IStrategyV1, providing the voting logic and rules
+ * for proposals created through ModuleAzoriusV1.
+ *
+ * Implementation details:
+ * - Uses EIP-7201 namespaced storage pattern for future upgradeability
+ * - Non-upgradeable contract deployed per DAO
+ * - Integrates Light Account support for gasless voting
+ * - Supports multiple voting and proposer adapters
+ * - Implements two-phase initialization to resolve circular dependencies
+ * - Tracks late vote attempts for informational purposes for gasless voting support
+ * - Uses swap-and-pop pattern for array removals
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract StrategyV1 is
     IStrategyV1,
     IVersion,
@@ -22,26 +40,49 @@ contract StrategyV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    /// @custom:storage-location erc7201:Decent.Strategy.main
+    /**
+     * @notice Main storage struct for StrategyV1 following EIP-7201
+     * @dev Contains all voting configuration and proposal state
+     * @custom:storage-location erc7201:Decent.Strategy.main
+     */
     struct StrategyStorage {
+        /** @notice Address that can initialize proposals and manage freeze voters (typically Azorius) */
         address strategyAdmin;
+        /** @notice Fixed duration in seconds for all proposal voting periods */
         uint32 votingPeriod;
+        /** @notice Minimum total weight (YES + ABSTAIN) required for quorum */
         uint256 quorumThreshold;
+        /** @notice Numerator for basis calculation (denominator is 1,000,000) */
         uint256 basisNumerator;
+        /** @notice Mapping from proposal ID to voting details and tallies */
         mapping(uint32 proposalId => ProposalVotingDetails proposalVotingDetails) proposalVotingDetails;
+        /** @notice Array of configured voting adapter addresses */
         address[] votingAdapters;
+        /** @notice Array of configured proposer adapter addresses */
         address[] proposerAdapters;
+        /** @notice Quick lookup for valid voting adapters */
         mapping(address votingAdapter => bool isVotingAdapter) isVotingAdapter;
+        /** @notice Quick lookup for valid proposer adapters */
         mapping(address proposerAdapter => bool isProposerAdapter) isProposerAdapter;
+        /** @notice Tracks authorized freeze voting contracts */
         mapping(address freezeVoterContract => bool isAuthorizedFreezeVoter) authorizedFreezeVotersMapping;
+        /** @notice Array of authorized freeze voter addresses for enumeration */
         address[] authorizedFreezeVotersArray;
+        /** @notice Tracks if someone tried to vote after voting period ended */
         mapping(uint32 proposalId => bool voteCastedAfterVotingPeriodEnded) voteCastedAfterVotingPeriodEnded;
     }
 
-    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.Strategy.main")) - 1)) & ~bytes32(uint256(0xff))
+    /**
+     * @dev Storage slot for StrategyStorage calculated using EIP-7201 formula:
+     * keccak256(abi.encode(uint256(keccak256("Decent.Strategy.main")) - 1)) & ~bytes32(uint256(0xff))
+     */
     bytes32 internal constant STRATEGY_STORAGE_LOCATION =
         0x95295deadfd7c71125b4fbd75b5d49605029b50806f286522633fd9c072a4700;
 
+    /**
+     * @dev Returns the storage struct for StrategyV1
+     * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     */
     function _getStrategyStorage()
         internal
         pure
@@ -52,12 +93,21 @@ contract StrategyV1 is
         }
     }
 
+    /**
+     * @notice Denominator for basis percentage calculations (represents 100%)
+     * @dev Used with basisNumerator to calculate required approval percentage
+     */
     uint256 public constant BASIS_DENOMINATOR = 1_000_000;
 
     // ======================================================================
     // MODIFIERS
     // ======================================================================
 
+    /**
+     * @notice Restricts function access to the strategy admin
+     * @dev The strategy admin is typically the Azorius module that manages this strategy
+     * @custom:throws InvalidStrategyAdmin if msg.sender is not the strategy admin
+     */
     modifier onlyStrategyAdmin() {
         StrategyStorage storage $ = _getStrategyStorage();
         if (msg.sender != $.strategyAdmin) revert InvalidStrategyAdmin();
@@ -72,6 +122,9 @@ contract StrategyV1 is
         _disableInitializers();
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function initialize(
         uint32 votingPeriod_,
         uint256 quorumThreshold_,
@@ -79,24 +132,30 @@ contract StrategyV1 is
         address[] calldata proposerAdapters_,
         address lightAccountFactory_
     ) public virtual override initializer {
+        // Validate at least one proposer adapter is provided
         if (proposerAdapters_.length == 0) {
             revert NoProposerAdapters();
         }
 
+        // Validate basis numerator is within acceptable range
+        // Must be at least 50% (500,000) and less than 100% (1,000,000)
         if (
             basisNumerator_ >= BASIS_DENOMINATOR ||
             basisNumerator_ < BASIS_DENOMINATOR / 2
         ) revert InvalidBasisNumerator();
 
+        // Initialize parent contracts
         __LightAccountValidatorV1_init(lightAccountFactory_);
         __DeploymentBlockV1_init();
 
+        // Store voting configuration
         StrategyStorage storage $ = _getStrategyStorage();
         $.votingPeriod = votingPeriod_;
         $.quorumThreshold = quorumThreshold_;
         $.basisNumerator = basisNumerator_;
         $.proposerAdapters = proposerAdapters_;
 
+        // Mark all provided adapters as valid proposer adapters
         for (uint256 i = 0; i < proposerAdapters_.length; ) {
             $.isProposerAdapter[proposerAdapters_[i]] = true;
             unchecked {
@@ -105,19 +164,27 @@ contract StrategyV1 is
         }
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function initialize2(
         address strategyAdmin_,
         address[] calldata votingAdapters_
     ) public virtual override reinitializer(2) {
+        // Validate at least one voting adapter is provided
         if (votingAdapters_.length == 0) {
             revert NoVotingAdapters();
         }
 
         StrategyStorage storage $ = _getStrategyStorage();
 
+        // Set the strategy admin (typically the Azorius module that will manage this strategy)
         $.strategyAdmin = strategyAdmin_;
+
+        // Store the array of voting adapters
         $.votingAdapters = votingAdapters_;
 
+        // Mark all provided adapters as valid voting adapters for quick lookup
         for (uint256 i = 0; i < votingAdapters_.length; ) {
             $.isVotingAdapter[votingAdapters_[i]] = true;
             unchecked {
@@ -132,26 +199,41 @@ contract StrategyV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function strategyAdmin() public view virtual override returns (address) {
         StrategyStorage storage $ = _getStrategyStorage();
         return $.strategyAdmin;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function votingPeriod() public view virtual override returns (uint32) {
         StrategyStorage storage $ = _getStrategyStorage();
         return $.votingPeriod;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function quorumThreshold() public view virtual override returns (uint256) {
         StrategyStorage storage $ = _getStrategyStorage();
         return $.quorumThreshold;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function basisNumerator() public view virtual override returns (uint256) {
         StrategyStorage storage $ = _getStrategyStorage();
         return $.basisNumerator;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function proposalVotingDetails(
         uint32 proposalId
     ) public view virtual override returns (ProposalVotingDetails memory) {
@@ -159,6 +241,9 @@ contract StrategyV1 is
         return $.proposalVotingDetails[proposalId];
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function votingAdapters()
         public
         view
@@ -170,6 +255,9 @@ contract StrategyV1 is
         return $.votingAdapters;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function isVotingAdapter(
         address votingAdapter_
     ) public view virtual override returns (bool) {
@@ -177,6 +265,9 @@ contract StrategyV1 is
         return $.isVotingAdapter[votingAdapter_];
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function isProposerAdapter(
         address proposerAdapter_
     ) public view virtual override returns (bool) {
@@ -184,6 +275,9 @@ contract StrategyV1 is
         return $.isProposerAdapter[proposerAdapter_];
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function proposerAdapters()
         public
         view
@@ -195,6 +289,9 @@ contract StrategyV1 is
         return $.proposerAdapters;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function voteCastedAfterVotingPeriodEnded(
         uint32 proposalId_
     ) public view virtual override returns (bool) {
@@ -202,6 +299,10 @@ contract StrategyV1 is
         return $.voteCastedAfterVotingPeriodEnded[proposalId_];
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Calculates quorum based on YES + ABSTAIN votes. NO votes do not contribute to quorum.
+     */
     function isQuorumMet(
         uint32 proposalId_
     ) public view virtual override returns (bool) {
@@ -218,6 +319,11 @@ contract StrategyV1 is
         return totalVotesForQuorum >= $.quorumThreshold;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Uses integer multiplication to avoid division precision loss.
+     * Formula: yesVotes * BASIS_DENOMINATOR > (yesVotes + noVotes) * basisNumerator
+     */
     function isBasisMet(
         uint32 _proposalId
     ) public view virtual override returns (bool) {
@@ -235,6 +341,13 @@ contract StrategyV1 is
             ((proposal.yesVotes + proposal.noVotes) * $.basisNumerator);
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev A proposal must meet all three conditions to pass:
+     * 1. Voting period has ended (current timestamp > votingEndTimestamp)
+     * 2. Quorum is met (YES + ABSTAIN votes >= quorumThreshold)
+     * 3. Basis is met (YES votes exceed required percentage of YES + NO votes)
+     */
     function isPassed(
         uint32 _proposalId
     ) public view virtual override returns (bool) {
@@ -254,6 +367,10 @@ contract StrategyV1 is
         return isQuorumMet(_proposalId) && isBasisMet(_proposalId);
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Delegates the eligibility check to the specified proposer adapter
+     */
     function isProposer(
         address address_,
         address proposerAdapter_,
@@ -271,6 +388,9 @@ contract StrategyV1 is
             );
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function getVotingTimestamps(
         uint32 proposalId_
     ) public view virtual override returns (uint48, uint48) {
@@ -282,6 +402,9 @@ contract StrategyV1 is
         return (details.votingStartTimestamp, details.votingEndTimestamp);
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function getVotingStartBlock(
         uint32 proposalId_
     ) public view virtual override returns (uint32) {
@@ -293,6 +416,9 @@ contract StrategyV1 is
         return details.votingStartBlock;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function isAuthorizedFreezeVoter(
         address freezeVoterContract_
     ) public view virtual override returns (bool) {
@@ -300,6 +426,9 @@ contract StrategyV1 is
         return $.authorizedFreezeVotersMapping[freezeVoterContract_];
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     */
     function authorizedFreezeVoters()
         public
         view
@@ -311,52 +440,65 @@ contract StrategyV1 is
         return $.authorizedFreezeVotersArray;
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Performs comprehensive validation of a vote configuration:
+     * - Checks if proposal exists and voting hasn't ended
+     * - Validates vote type (must be 0, 1, or 2)
+     * - Verifies all adapters are configured
+     * - Ensures total voting weight > 0
+     * - Checks for late vote attempts (informational tracking)
+     */
     function validStrategyVote(
         address voter_,
         uint32 proposalId_,
         uint8 voteType_,
         VotingAdapterVoteData[] calldata votingAdaptersData_
     ) public view virtual override returns (bool) {
+        // Early return if no voting adapters provided
         if (votingAdaptersData_.length == 0) {
             return false;
         }
 
         StrategyStorage storage $ = _getStrategyStorage();
 
-        // get the proposal start and end timestamps to determine if the proposal exists
+        // Step 1: Verify proposal exists by checking for initialized voting details
         ProposalVotingDetails storage details = $.proposalVotingDetails[
             proposalId_
         ];
 
-        // Check if proposal exists (will have non-zero endTimestamp if it exists)
+        // Proposal doesn't exist if voting end timestamp is zero
         if (details.votingEndTimestamp == 0) {
             return false;
         }
 
-        // Check if voting period has ended
+        // Step 2: Check if someone already tried voting after the period ended
+        // This is tracked for informational purposes to support gasless voting
         if ($.voteCastedAfterVotingPeriodEnded[proposalId_]) {
             return false;
         }
 
-        // Check if vote type is valid (NO=0, YES=1, ABSTAIN=2)
+        // Step 3: Validate vote type is within valid enum range
+        // VoteType enum: NO=0, YES=1, ABSTAIN=2
         if (voteType_ > 2) {
             return false;
         }
 
         uint256 totalVotingWeight = 0;
 
-        // loop through the voting adapters and check if the vote is valid
+        // Step 4: Iterate through each voting adapter to validate and sum voting weights
         for (uint256 i = 0; i < votingAdaptersData_.length; ) {
             VotingAdapterVoteData
                 memory votingAdapterVoteData = votingAdaptersData_[i];
             address votingAdapter = votingAdapterVoteData.votingAdapter;
 
-            // check if the voting adapter is attached to this strategy
+            // Verify the adapter is registered with this strategy
             if (!$.isVotingAdapter[votingAdapter]) {
                 return false;
             }
 
-            // validVotingAdapterVote should NEVER return (true, 0)
+            // Query the adapter to validate the vote and get voting weight
+            // Note: validVotingAdapterVote should NEVER return (true, 0)
             (bool isValid, uint256 votingWeight) = IVotingAdapterBaseV1(
                 votingAdapter
             ).validVotingAdapterVote(
@@ -369,6 +511,7 @@ contract StrategyV1 is
                 return false;
             }
 
+            // Accumulate voting weight from all adapters
             totalVotingWeight += votingWeight;
 
             unchecked {
@@ -376,11 +519,17 @@ contract StrategyV1 is
             }
         }
 
+        // Step 5: Ensure the voter has at least some voting power
         return totalVotingWeight > 0;
     }
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Sets voting timestamps based on current block time and configured voting period.
+     * Resets all vote counts to zero, allowing proposals to be re-initialized if needed.
+     */
     function initializeProposal(
         uint32 proposalId_
     ) public virtual override onlyStrategyAdmin {
@@ -403,16 +552,27 @@ contract StrategyV1 is
         );
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Implementation notes:
+     * - Resolves Light Account ownership for gasless voting support
+     * - Tracks late vote attempts for the first occurrence per proposal
+     * - Aggregates weights from all adapters before updating vote tallies
+     * - Each adapter enforces its own vote recording logic and constraints
+     */
     function castVote(
         uint32 proposalId_,
         uint8 voteType_,
         VotingAdapterVoteData[] calldata votingAdaptersData,
         uint256 lightAccountIndex_
     ) public virtual override {
+        // Validate at least one voting adapter is provided
         if (votingAdaptersData.length == 0) {
             revert NoVotingAdapters();
         }
 
+        // Step 1: Resolve the actual voter address (support for Light Accounts/ERC-4337)
+        // If lightAccountIndex_ > 0, this resolves to the Light Account owner
         address resolvedVoter = potentialLightAccountResolvedOwner(
             msg.sender,
             lightAccountIndex_
@@ -423,19 +583,24 @@ contract StrategyV1 is
             proposalId_
         ];
 
+        // Step 2: Verify the proposal has been initialized
         if (proposal.votingEndTimestamp == 0) {
             revert ProposalNotInitialized();
         }
 
+        // Step 3: Check if voting period has ended
         if (block.timestamp > proposal.votingEndTimestamp) {
+            // Track the first late vote attempt for informational purposes
+            // This helps with gasless voting infrastructure
             if (!$.voteCastedAfterVotingPeriodEnded[proposalId_]) {
                 $.voteCastedAfterVotingPeriodEnded[proposalId_] = true;
                 emit VotingPeriodEnded(proposalId_);
-                return;
+                return; // Exit gracefully on first late attempt
             }
             revert ProposalNotActive();
         }
 
+        // Step 4: Process votes through each adapter and accumulate voting weights
         uint256 totalWeightForThisVoteTransaction = 0;
 
         for (uint256 i = 0; i < votingAdaptersData.length; ) {
@@ -443,10 +608,13 @@ contract StrategyV1 is
                 memory votingAdapterVoteData = votingAdaptersData[i];
             address votingAdapter = votingAdapterVoteData.votingAdapter;
 
+            // Verify the adapter is registered with this strategy
             if (!$.isVotingAdapter[votingAdapter]) {
                 revert InvalidVotingAdapter(votingAdapter);
             }
 
+            // Record the vote with the adapter and get the voting weight
+            // Each adapter enforces its own constraints (e.g., one vote per address for ERC20)
             uint256 votingWeight = IVotingAdapterBaseV1(votingAdapter)
                 .recordVote(
                     resolvedVoter,
@@ -454,6 +622,7 @@ contract StrategyV1 is
                     votingAdapterVoteData.adapterVoteData
                 );
 
+            // Ensure the adapter returned a valid voting weight
             if (votingWeight == 0) {
                 revert NoVotingAdapterVotingWeight(votingAdapter);
             }
@@ -465,6 +634,7 @@ contract StrategyV1 is
             }
         }
 
+        // Step 5: Update vote tallies based on vote type
         if (voteType_ == uint8(VoteType.YES)) {
             proposal.yesVotes += totalWeightForThisVoteTransaction;
         } else if (voteType_ == uint8(VoteType.NO)) {
@@ -475,6 +645,7 @@ contract StrategyV1 is
             revert InvalidVoteType();
         }
 
+        // Step 6: Emit voting event with aggregated weight
         emit Voted(
             resolvedVoter,
             proposalId_,
@@ -483,6 +654,11 @@ contract StrategyV1 is
         );
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Maintains both a mapping for O(1) lookups and an array for enumeration.
+     * Prevents duplicates in the array while allowing re-authorization.
+     */
     function addAuthorizedFreezeVoter(
         address freezeVoterContract_
     ) public virtual override onlyStrategyAdmin {
@@ -498,6 +674,11 @@ contract StrategyV1 is
         emit FreezeVoterAuthorizationChanged(freezeVoterContract_, true);
     }
 
+    /**
+     * @inheritdoc IStrategyV1
+     * @dev Uses swap-and-pop pattern for gas-efficient array removal.
+     * Sets mapping to false regardless of whether the address was previously authorized.
+     */
     function removeAuthorizedFreezeVoter(
         address freezeVoterContract_
     ) public virtual override onlyStrategyAdmin {
@@ -532,6 +713,9 @@ contract StrategyV1 is
 
     // --- Pure Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -542,6 +726,10 @@ contract StrategyV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IStrategyV1, ILightAccountValidatorV1, IVersion, IDeploymentBlockV1, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {

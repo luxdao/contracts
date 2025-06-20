@@ -4,6 +4,33 @@ pragma solidity ^0.8.30;
 import {IDecentHatsModificationModule} from "../interfaces/decent/utilities/IDecentHatsModificationModule.sol";
 import {DecentHatsModuleUtils} from "./DecentHatsModuleUtils.sol";
 
+/**
+ * @title DecentHatsModificationModule
+ * @author Decent Labs
+ * @notice Implementation for adding roles to existing Hats Protocol trees
+ * @dev This contract implements IDecentHatsModificationModule, providing
+ * functionality to expand existing organizational structures.
+ *
+ * Implementation details:
+ * - Temporarily attached as Safe module during execution
+ * - Adds new roles to existing hat trees
+ * - Inherits all functionality from DecentHatsModuleUtils
+ * - Prevents race conditions in concurrent proposals
+ * - Non-upgradeable utility contract
+ *
+ * Key differences from CreationModule:
+ * - Assumes hat tree already exists
+ * - Does not create top hat or admin hat
+ * - Focuses only on adding new role hats
+ * - Simpler execution flow
+ *
+ * Security considerations:
+ * - Must be enabled as module before execution
+ * - Should be disabled immediately after use
+ * - All external calls go through Safe's execTransactionFromModule
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract DecentHatsModificationModule is
     IDecentHatsModificationModule,
     DecentHatsModuleUtils
@@ -15,21 +42,10 @@ contract DecentHatsModificationModule is
     // --- State-Changing Functions ---
 
     /**
-     * @notice Creates a new termed or untermed role hat and any streams on it.
-     *
-     * @notice This contract should be enabled a module on the Safe for which the role is to be created, and disabled after.
-     *
-     * @dev Stream funds on untermed Roles are targeted at the hat's smart account. In order to withdraw funds from the stream, the
-     * hat's smart account must be the one call to `withdraw-` on the Sablier contract, setting the recipient arg to its wearer.
-     *
-     * @dev Stream funds on termed Roles are targeted directly at the nominated wearer.
-     * The wearer should directly call `withdraw-` on the Sablier contract.
-     *
-     * @dev Role hat creation, minting, smart account creation and stream creation are handled here in order
-     * to avoid a race condition where not more than one active proposal to create a new role can exist at a time.
-     * See: https://github.com/decentdao/decent-interface/issues/2402
-     *
-     * @param roleHatsParams_ An array of params for each role hat to be created.
+     * @inheritdoc IDecentHatsModificationModule
+     * @dev Simply delegates to the inherited _processRoleHats function from
+     * DecentHatsModuleUtils, which handles all the complex logic for creating
+     * roles with payment streams.
      */
     function createRoleHats(
         CreateRoleHatsParams calldata roleHatsParams_
