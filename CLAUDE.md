@@ -265,28 +265,155 @@ function complexFunction(uint256 param_) external {
 
 ### Section Headers
 
-Use consistent section headers to organize contracts:
+#### Interface Section Headers
+
+In interfaces, use simple single-line delimiters to separate sections:
+
+```solidity
+// --- Section Name ---
+```
+
+Interface sections should be ordered as follows (if available):
+
+1. **Errors**
+2. **Structs**
+3. **Enums**
+4. **Events**
+5. **Initializer Functions**
+6. **Pure Functions**
+7. **View Functions**
+8. **State-Changing Functions**
+
+Example interface structure:
+
+```solidity
+interface IExampleV1 {
+    // --- Errors ---
+
+    error InvalidInput(uint256 provided, uint256 expected);
+
+    // --- Structs ---
+
+    struct Config {
+        uint256 threshold;
+        address admin;
+    }
+
+    // --- Events ---
+
+    event ConfigUpdated(Config newConfig);
+
+    // --- View Functions ---
+
+    function getConfig() external view returns (Config memory);
+
+    // --- State-Changing Functions ---
+
+    function updateConfig(Config calldata config_) external;
+}
+```
+
+#### Contract Section Headers
+
+In contracts, use 70-character wide section headers with centered text:
 
 ```solidity
 // ======================================================================
-// STATE VARIABLES
+// SECTION NAME
+// ======================================================================
+```
+
+Contract sections should be ordered as follows (if available):
+
+1. **STATE VARIABLES**
+2. **MODIFIERS**
+3. **CONSTRUCTOR & INITIALIZERS**
+4. **[Interface/Contract Name]** - One section per inherited interface/contract
+5. **INTERNAL HELPERS**
+
+Within interface/contract sections, separate functions by visibility using the same format as interfaces:
+
+```solidity
+// ======================================================================
+// IExampleV1
 // ======================================================================
 
-// ======================================================================
-// MODIFIERS
-// ======================================================================
+// --- View Functions ---
 
-// ======================================================================
-// CONSTRUCTOR & INITIALIZERS
-// ======================================================================
+function getConfig() external view override returns (Config memory) {
+    return _config;
+}
 
-// ======================================================================
-// IContractName Implementation
-// ======================================================================
+// --- State-Changing Functions ---
 
-// ======================================================================
-// Internal Functions
-// ======================================================================
+function updateConfig(Config calldata config_) external override {
+    _config = config_;
+    emit ConfigUpdated(config_);
+}
+```
+
+Complete contract example:
+
+```solidity
+contract ExampleV1 is IExampleV1, UUPSUpgradeable, OwnableUpgradeable {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
+    Config private _config;
+
+    // ======================================================================
+    // MODIFIERS
+    // ======================================================================
+
+    modifier onlyValidConfig(Config calldata config_) {
+        if (config_.threshold == 0) revert InvalidInput(0, 1);
+        _;
+    }
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
+
+    function initialize(Config calldata initialConfig_) public initializer {
+        __Ownable_init();
+        __UUPSUpgradeable_init();
+        _config = initialConfig_;
+    }
+
+    // ======================================================================
+    // IExampleV1
+    // ======================================================================
+
+    // --- View Functions ---
+
+    function getConfig() external view override returns (Config memory) {
+        return _config;
+    }
+
+    // --- State-Changing Functions ---
+
+    function updateConfig(
+        Config calldata config_
+    ) external override onlyOwner onlyValidConfig(config_) {
+        _config = config_;
+        emit ConfigUpdated(config_);
+    }
+
+    // ======================================================================
+    // UUPSUpgradeable
+    // ======================================================================
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
+    function _validateThreshold(uint256 threshold_) internal pure {
+        if (threshold_ == 0) revert InvalidInput(threshold_, 1);
+    }
+}
 ```
 
 ### Special Considerations
