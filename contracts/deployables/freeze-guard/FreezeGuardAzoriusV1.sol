@@ -104,7 +104,7 @@ contract FreezeGuardAzoriusV1 is
     }
 
     // ======================================================================
-    // UUPS UPGRADEABLE
+    // UUPSUpgradeable
     // ======================================================================
 
     // --- Internal Functions ---
