@@ -124,7 +124,7 @@ contract FreezeGuardMultisigV1 is
     }
 
     // ======================================================================
-    // UUPS UPGRADEABLE
+    // UUPSUpgradeable
     // ======================================================================
 
     // --- Internal Functions ---
