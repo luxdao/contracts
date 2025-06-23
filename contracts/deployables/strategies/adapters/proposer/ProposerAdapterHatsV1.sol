@@ -5,31 +5,63 @@ import {IProposerAdapterHatsV1} from "../../../../interfaces/decent/deployables/
 import {IProposerAdapterBaseV1} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IHats} from "../../../../interfaces/hats/IHats.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlockV1} from "../../../../interfaces/decent/IDeploymentBlockV1.sol";
-import {DeploymentBlockV1} from "../../../../DeploymentBlockV1.sol";
+import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title ProposerAdapterHatsV1
+ * @author Decent Labs
+ * @notice Implementation of proposer adapter using Hats Protocol roles for eligibility
+ * @dev This contract implements IProposerAdapterHatsV1, determining proposal creation
+ * eligibility based on Hats Protocol role ownership.
+ *
+ * Implementation details:
+ * - Uses EIP-7201 namespaced storage pattern for upgradeability safety
+ * - Non-upgradeable contract deployed per strategy
+ * - Maintains whitelist of hat IDs authorized to propose
+ * - Requires both: hat is whitelisted AND proposer wears it
+ * - Data parameter must contain abi.encode(uint256 hatId)
+ * - Checks current hat ownership (no historical snapshots)
+ * - Empty whitelist means no one can propose
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract ProposerAdapterHatsV1 is
     IProposerAdapterHatsV1,
     IVersion,
-    DeploymentBlockV1,
+    DeploymentBlock,
     ERC165
 {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
-    /// @custom:storage-location erc7201:Decent.ProposerAdapterHats.main
+    /**
+     * @notice Main storage struct for ProposerAdapterHatsV1 following EIP-7201
+     * @dev Contains Hats contract reference and whitelist configuration
+     * @custom:storage-location erc7201:Decent.ProposerAdapterHats.main
+     */
     struct ProposerAdapterHatsStorage {
+        /** @notice The Hats Protocol contract used for role verification */
         IHats hatsContract;
+        /** @notice Array of hat IDs authorized to create proposals */
         uint256[] whitelistedHatIds;
+        /** @notice Mapping for O(1) whitelist checks */
         mapping(uint256 hatId => bool isWhitelisted) hatIdIsWhitelisted;
     }
 
-    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.ProposerAdapterHats.main")) - 1)) & ~bytes32(uint256(0xff))
+    /**
+     * @dev Storage slot for ProposerAdapterHatsStorage calculated using EIP-7201 formula:
+     * keccak256(abi.encode(uint256(keccak256("Decent.ProposerAdapterHats.main")) - 1)) & ~bytes32(uint256(0xff))
+     */
     bytes32 internal constant PROPOSER_ADAPTER_HATS_STORAGE_LOCATION =
         0xd7b60f4d6815f9154d4a3fad28e55995818cb5267ea0443225644719e6bb1900;
 
+    /**
+     * @dev Returns the storage struct for ProposerAdapterHatsV1
+     * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     */
     function _getProposerAdapterHatsStorage()
         internal
         pure
@@ -48,11 +80,16 @@ contract ProposerAdapterHatsV1 is
         _disableInitializers();
     }
 
+    /**
+     * @inheritdoc IProposerAdapterHatsV1
+     * @dev Stores both array and mapping for efficient access patterns.
+     * Empty whitelist array is allowed but means no one can propose.
+     */
     function initialize(
         address hatsContract_,
         uint256[] calldata whitelistedHatIds_
     ) public virtual override initializer {
-        __DeploymentBlockV1_init();
+        __DeploymentBlock_init();
 
         ProposerAdapterHatsStorage storage $ = _getProposerAdapterHatsStorage();
         $.hatsContract = IHats(hatsContract_);
@@ -72,11 +109,17 @@ contract ProposerAdapterHatsV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IProposerAdapterHatsV1
+     */
     function hatsContract() public view virtual override returns (address) {
         ProposerAdapterHatsStorage storage $ = _getProposerAdapterHatsStorage();
         return address($.hatsContract);
     }
 
+    /**
+     * @inheritdoc IProposerAdapterHatsV1
+     */
     function whitelistedHatIds()
         public
         view
@@ -88,6 +131,9 @@ contract ProposerAdapterHatsV1 is
         return $.whitelistedHatIds;
     }
 
+    /**
+     * @inheritdoc IProposerAdapterHatsV1
+     */
     function hatIdIsWhitelisted(
         uint256 hatId_
     ) public view virtual override returns (bool) {
@@ -101,6 +147,13 @@ contract ProposerAdapterHatsV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IProposerAdapterBaseV1
+     * @dev Requires data to contain abi.encode(uint256 hatId).
+     * Returns true only if both conditions are met:
+     * 1. The hat ID is whitelisted in this adapter
+     * 2. The proposer currently wears that hat
+     */
     function isProposer(
         address proposer_,
         bytes calldata data_
@@ -120,6 +173,9 @@ contract ProposerAdapterHatsV1 is
 
     // --- Pure Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -130,6 +186,10 @@ contract ProposerAdapterHatsV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IProposerAdapterHatsV1, IProposerAdapterBaseV1, IVersion, IDeploymentBlock, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
@@ -137,7 +197,7 @@ contract ProposerAdapterHatsV1 is
             interfaceId_ == type(IProposerAdapterHatsV1).interfaceId ||
             interfaceId_ == type(IProposerAdapterBaseV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 }

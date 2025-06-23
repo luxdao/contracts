@@ -4,14 +4,36 @@ pragma solidity ^0.8.30;
 import {IFunctionValidator} from "../../interfaces/decent/services/IFunctionValidator.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
-import {DeploymentBlockV1NonUpgradeable} from "../../DeploymentBlockV1NonUpgradeable.sol";
+import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
+import {DeploymentBlockNonUpgradeable} from "../../DeploymentBlockNonUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title StrategyV1ValidatorV1
+ * @author Decent Labs
+ * @notice Implementation of function validator for StrategyV1 voting operations
+ * @dev This contract implements IFunctionValidator, providing validation logic
+ * for determining whether a paymaster should sponsor gasless voting operations.
+ *
+ * Implementation details:
+ * - Validates castVote operations for StrategyV1 contracts
+ * - Checks voting power and proposal validity
+ * - Stateless service contract deployed as singleton per chain
+ * - Non-upgradeable deployment pattern
+ * - Integrates with DecentPaymasterV1 for gas sponsorship
+ *
+ * Validation process:
+ * 1. Verify the function selector is castVote
+ * 2. Decode vote parameters from calldata
+ * 3. Delegate validation to StrategyV1's validStrategyVote
+ * 4. Return sponsorship decision based on voting eligibility
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract StrategyV1ValidatorV1 is
     IFunctionValidator,
     IVersion,
-    DeploymentBlockV1NonUpgradeable,
+    DeploymentBlockNonUpgradeable,
     ERC165
 {
     // ======================================================================
@@ -20,6 +42,12 @@ contract StrategyV1ValidatorV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IFunctionValidator
+     * @dev Validates castVote operations by checking if the Light Account owner
+     * has sufficient voting power to participate in the proposal.
+     * Only validates castVote function calls - all other selectors return false.
+     */
     function validateOperation(
         address,
         address lightAccountOwner_,
@@ -58,6 +86,9 @@ contract StrategyV1ValidatorV1 is
 
     // --- Pure Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -68,13 +99,17 @@ contract StrategyV1ValidatorV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IFunctionValidator, IVersion, IDeploymentBlock, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
             interfaceId_ == type(IFunctionValidator).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 }

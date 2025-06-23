@@ -3,11 +3,13 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   ERC165__factory,
+  IDeploymentBlock__factory,
   ISystemDeployerEventEmitterV1__factory,
   IVersion__factory,
   SystemDeployerEventEmitterV1,
   SystemDeployerEventEmitterV1__factory,
 } from '../../../typechain-types';
+import { runDeploymentBlockTests } from '../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
 
 describe('SystemDeployerEventEmitterV1', function () {
@@ -68,12 +70,20 @@ describe('SystemDeployerEventEmitterV1', function () {
     });
   });
 
+  describe('DeploymentBlock', function () {
+    runDeploymentBlockTests({
+      getContract: () => systemDeployerEventEmitter,
+      isNonUpgradeable: true,
+    });
+  });
+
   describe('ERC165 supportsInterface', function () {
     runSupportsInterfaceTests({
       getContract: () => systemDeployerEventEmitter,
       supportedInterfaceFactories: [
         ISystemDeployerEventEmitterV1__factory,
         IVersion__factory,
+        IDeploymentBlock__factory,
         ERC165__factory,
       ],
     });
