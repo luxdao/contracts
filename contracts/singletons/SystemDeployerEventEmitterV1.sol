@@ -3,6 +3,8 @@ pragma solidity ^0.8.30;
 
 import {ISystemDeployerEventEmitterV1} from "../interfaces/decent/singletons/ISystemDeployerEventEmitterV1.sol";
 import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
+import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
+import {DeploymentBlockNonUpgradeable} from "../DeploymentBlockNonUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -15,6 +17,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * Implementation details:
  * - Deployed once per chain as a singleton
  * - Non-upgradeable deployment pattern
+ * - Inherits from DeploymentBlockNonUpgradeable to track deployment
  * - Emits events from a consistent address for indexing
  * - Called by SystemDeployerV1 during DAO deployment
  * - Minimal gas overhead for event emission
@@ -30,6 +33,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract SystemDeployerEventEmitterV1 is
     ISystemDeployerEventEmitterV1,
     IVersion,
+    DeploymentBlockNonUpgradeable,
     ERC165
 {
     // ======================================================================
@@ -72,7 +76,7 @@ contract SystemDeployerEventEmitterV1 is
 
     /**
      * @inheritdoc ERC165
-     * @dev Supports ISystemDeployerEventEmitterV1, IVersion, and IERC165
+     * @dev Supports ISystemDeployerEventEmitterV1, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
@@ -80,6 +84,7 @@ contract SystemDeployerEventEmitterV1 is
         return
             interfaceId_ == type(ISystemDeployerEventEmitterV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 }
