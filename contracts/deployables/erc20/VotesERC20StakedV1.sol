@@ -143,6 +143,9 @@ contract VotesERC20StakedV1 is
         $.stakedToken = IERC20(stakedToken_);
     }
 
+    /**
+     * @inheritdoc IVotesERC20StakedV1
+     */
     function initialize2(
         uint256 minimumStakingPeriod_,
         address[] calldata rewardsTokens_
