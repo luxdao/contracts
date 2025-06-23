@@ -79,25 +79,26 @@ async function deployVotesERC20StakedProxy(
   proxyDeployer: SignerWithAddress,
   implementation: string,
   owner: SignerWithAddress,
-  name: string,
-  symbol: string,
   stakedToken: string,
   minimumStakingPeriod: bigint,
   rewardsTokens: string[],
 ): Promise<VotesERC20StakedV1> {
-  const metadata = {
-    name,
-    symbol,
-  };
-
   // Create initialization data with function selector
   const fullInitData = VotesERC20StakedV1__factory.createInterface().encodeFunctionData(
     'initialize',
-    [metadata, owner.address, stakedToken, minimumStakingPeriod, rewardsTokens],
+    [owner.address, stakedToken],
   );
 
   // Deploy the proxy with the implementation
   const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
+
+  const stakingContractInstance = VotesERC20StakedV1__factory.connect(
+    await proxy.getAddress(),
+    owner,
+  );
+
+  // Call initialize2
+  await stakingContractInstance.initialize2(minimumStakingPeriod, rewardsTokens);
 
   // Return a contract instance connected to the proxy
   return VotesERC20StakedV1__factory.connect(await proxy.getAddress(), owner);
@@ -141,8 +142,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -152,8 +151,8 @@ describe('VotesERC20StakedV1', () => {
         ],
       );
 
-      expect(await votesERC20Staked.name()).to.equal('Test Staking Contract');
-      expect(await votesERC20Staked.symbol()).to.equal('TSC');
+      expect(await votesERC20Staked.name()).to.equal('Staked Mock Voting Token');
+      expect(await votesERC20Staked.symbol()).to.equal('stMVT');
       expect(await votesERC20Staked.owner()).to.equal(owner.address);
       expect(await votesERC20Staked.stakedToken()).to.equal(await stakedToken.getAddress());
       expect(await votesERC20Staked.minimumStakingPeriod()).to.equal(604800n);
@@ -169,8 +168,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -181,17 +178,7 @@ describe('VotesERC20StakedV1', () => {
       );
 
       await expect(
-        votesERC20Staked.initialize(
-          { name: 'New Name', symbol: 'NEW' },
-          owner.address,
-          await stakedToken.getAddress(),
-          604800n,
-          [
-            await rewardsTokenA.getAddress(),
-            await rewardsTokenB.getAddress(),
-            await rewardsTokenC.getAddress(),
-          ],
-        ),
+        votesERC20Staked.initialize(owner.address, await stakedToken.getAddress()),
       ).to.be.revertedWithCustomError(votesERC20Staked, 'InvalidInitialization');
     });
 
@@ -199,17 +186,7 @@ describe('VotesERC20StakedV1', () => {
       const implementationContract = VotesERC20StakedV1__factory.connect(masterCopy, proxyDeployer);
 
       await expect(
-        implementationContract.initialize(
-          { name: 'New Name', symbol: 'NEW' },
-          owner.address,
-          await stakedToken.getAddress(),
-          604800n,
-          [
-            await rewardsTokenA.getAddress(),
-            await rewardsTokenB.getAddress(),
-            await rewardsTokenC.getAddress(),
-          ],
-        ),
+        implementationContract.initialize(owner.address, await stakedToken.getAddress()),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
 
@@ -218,8 +195,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -239,8 +214,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -291,8 +264,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -314,8 +285,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -345,8 +314,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -393,8 +360,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -423,8 +388,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -494,8 +457,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [
@@ -652,8 +613,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), nativeAssetAddress],
@@ -875,8 +834,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [await rewardsTokenA.getAddress(), await rewardsTokenB.getAddress(), nativeAssetAddress],
@@ -1178,8 +1135,6 @@ describe('VotesERC20StakedV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        'Test Staking Contract',
-        'TSC',
         await stakedToken.getAddress(),
         604800n,
         [await stakedToken.getAddress(), await rewardsTokenB.getAddress(), nativeAssetAddress],
