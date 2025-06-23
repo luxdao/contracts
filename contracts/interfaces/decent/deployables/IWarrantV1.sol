@@ -4,6 +4,12 @@ pragma solidity ^0.8.30;
 interface IWarrantV1 {
     // --- Errors ---
 
+    error InvalidInvestor();
+    error AddressZero();
+    error Expired();
+    error TokenLocked();
+    error HedgeyStartNotElapsed();
+
     // --- Structs ---
 
     // --- Events ---
@@ -11,13 +17,18 @@ interface IWarrantV1 {
     // --- Initializer Functions ---
 
     function initialize(
+        bool relativeTime_,
         address owner_,
-        address investor_,
+        address recipient_,
         address token_,
+        bytes memory tokenInitData_,
+        address feeToken_,
         uint256 tokenAmount_,
         uint256 tokenPrice_,
         address feeReceiver_,
         uint256 expiration_,
+        address hedgeyTokenLockupPlans_,
+        uint256 hedgeyStart_,
         uint256 hedgeyCliff_,
         uint256 hedgeyRate_,
         uint256 hedgeyPeriod_
@@ -25,9 +36,15 @@ interface IWarrantV1 {
 
     // --- View Functions ---
 
-    function investor() external view returns (address);
+    function relativeTime() external view returns (bool);
+
+    function recipient() external view returns (address);
 
     function token() external view returns (address);
+
+    function tokenInitData() external view returns (bytes memory);
+
+    function feeToken() external view returns (address);
 
     function tokenAmount() external view returns (uint256);
 
@@ -37,10 +54,17 @@ interface IWarrantV1 {
 
     function expiration() external view returns (uint256);
 
+    function hedgeyTokenLockupPlans() external view returns (address);
+
+    function hedgeyStart() external view returns (uint256);
+
     function hedgeyCliff() external view returns (uint256);
 
     function hedgeyRate() external view returns (uint256);
 
     function hedgeyPeriod() external view returns (uint256);
-    
+
+    // --- State-Changing Functions ---
+
+    function execute(address recipient_) external;
 }

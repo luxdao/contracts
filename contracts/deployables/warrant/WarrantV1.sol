@@ -9,6 +9,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {IWarrantV1} from "../../interfaces/decent/deployables/IWarrantV1.sol";
+import {IVotingTokenLockupPlans} from "../../interfaces/hedgey/IVotingTokenLockupPlans.sol";
+import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 
 contract WarrantV1 is
     IVersion,
@@ -29,12 +31,17 @@ contract WarrantV1 is
      * @custom:storage-location erc7201:Decent.Warrant.main
      */
     struct WarrantStorage {
-        address investor;
+        bool relativeTime;
+        address recipient;
         address token;
+        bytes tokenInitData;
+        address feeToken;
         uint256 tokenAmount;
         uint256 tokenPrice;
         address feeReceiver;
         uint256 expiration;
+        address hedgeyTokenLockupPlans;
+        uint256 hedgeyStart;
         uint256 hedgeyCliff;
         uint256 hedgeyRate;
         uint256 hedgeyPeriod;
@@ -61,6 +68,9 @@ contract WarrantV1 is
         }
     }
 
+    /** @notice Precision for token price calculations (18 decimals) */
+    uint256 internal constant PRECISION = 10 ** 18;
+
     // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
     // ======================================================================
@@ -71,13 +81,18 @@ contract WarrantV1 is
     }
 
     function initialize(
+        bool relativeTime_,
         address owner_,
-        address investor_,
+        address recipient_,
         address token_,
+        bytes memory tokenInitData_,
+        address feeToken_,
         uint256 tokenAmount_,
         uint256 tokenPrice_,
         address feeReceiver_,
         uint256 expiration_,
+        address hedgeyTokenLockupPlans_,
+        uint256 hedgeyStart_,
         uint256 hedgeyCliff_,
         uint256 hedgeyRate_,
         uint256 hedgeyPeriod_
@@ -85,13 +100,24 @@ contract WarrantV1 is
         __Ownable_init(owner_);
         __DeploymentBlockV1_init();
 
+        if (relativeTime_) {
+            // TODO: verify token is a valid instance of our VotesERC20V1
+        }
+
+        // TODO: any validation on hedgeyStart_ if time is absolute?
+
         WarrantStorage storage $ = _getWarrantStorage();
-        $.investor = investor_;
+        $.relativeTime = relativeTime_;
+        $.recipient = recipient_;
         $.token = token_;
+        $.tokenInitData = tokenInitData_;
+        $.feeToken = feeToken_;
         $.tokenAmount = tokenAmount_;
         $.tokenPrice = tokenPrice_;
         $.feeReceiver = feeReceiver_;
         $.expiration = expiration_;
+        $.hedgeyTokenLockupPlans = hedgeyTokenLockupPlans_;
+        $.hedgeyStart = hedgeyStart_;
         $.hedgeyCliff = hedgeyCliff_;
         $.hedgeyRate = hedgeyRate_;
         $.hedgeyPeriod = hedgeyPeriod_;
@@ -105,11 +131,18 @@ contract WarrantV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IWarrantV1
+     */
+    function relativeTime() public view virtual override returns (bool) {
+        WarrantStorage storage $ = _getWarrantStorage();
+        return $.relativeTime;
+    }
 
     /**
      * @inheritdoc IWarrantV1
      */
-    function investor()
+    function recipient()
         public
         view
         virtual
@@ -117,7 +150,7 @@ contract WarrantV1 is
         returns (address)
     {
         WarrantStorage storage $ = _getWarrantStorage();
-        return $.investor;
+        return $.recipient;
     }
 
     /**
@@ -126,6 +159,22 @@ contract WarrantV1 is
     function token() public view virtual override returns (address) {
         WarrantStorage storage $ = _getWarrantStorage();
         return $.token;
+    }
+
+    /**
+     * @inheritdoc IWarrantV1
+     */
+    function tokenInitData() public view virtual override returns (bytes memory) {
+        WarrantStorage storage $ = _getWarrantStorage();
+        return $.tokenInitData;
+    }
+
+    /**
+     * @inheritdoc IWarrantV1
+     */
+    function feeToken() public view virtual override returns (address) {
+        WarrantStorage storage $ = _getWarrantStorage();
+        return $.feeToken;
     }
 
     /**
@@ -181,6 +230,22 @@ contract WarrantV1 is
     /**
      * @inheritdoc IWarrantV1
      */
+    function hedgeyTokenLockupPlans() public view virtual override returns (address) {
+        WarrantStorage storage $ = _getWarrantStorage();
+        return $.hedgeyTokenLockupPlans;
+    }
+
+    /**
+     * @inheritdoc IWarrantV1
+     */
+    function hedgeyStart() public view virtual override returns (uint256) {
+        WarrantStorage storage $ = _getWarrantStorage();
+        return $.hedgeyStart;
+    }
+
+    /**
+     * @inheritdoc IWarrantV1
+     */
     function hedgeyCliff() public view virtual override returns (uint256) {
         WarrantStorage storage $ = _getWarrantStorage();
         return $.hedgeyCliff;
@@ -203,6 +268,61 @@ contract WarrantV1 is
     }
 
     // --- State-Changing Functions ---
+
+    function execute(address recipient_) public virtual override {
+        WarrantStorage storage $ = _getWarrantStorage();
+        if (msg.sender != $.recipient) revert InvalidInvestor();
+        if (recipient_ == address(0)) revert AddressZero();
+        if (block.timestamp > $.expiration) revert Expired();
+
+        uint256 startTime;
+        if ($.relativeTime) {
+            if (IVotesERC20V1($.token).locked()) revert TokenLocked();
+            startTime = IVotesERC20V1($.token).getUnlockTime();
+        } else {
+            if (block.timestamp < $.hedgeyStart) revert HedgeyStartNotElapsed();
+            startTime = $.hedgeyStart;
+        }
+
+        uint256 feeAmount = $.tokenAmount * $.tokenPrice / PRECISION;
+
+        // transfer fee amount from caller to fee receiver
+        IERC20($.feeToken).safeTransferFrom(
+            msg.sender,
+            $.feeReceiver,
+            feeAmount
+        );
+
+        IERC20($.token).approve(
+            $.hedgeyTokenLockupPlans,
+            $.tokenAmount
+        );
+
+        // TODO: handle this as absolute or relative timestamp
+        uint256 hedgeyStartTime = IVotesERC20V1($.token).getUnlockTime();
+
+        // TODO: update this
+        uint256 hedgeyLockupCliff = hedgeyStartTime; 
+
+        // function createPlan(
+        //     address recipient,
+        //     address token,
+        //     uint256 amount,
+        //     uint256 start,
+        //     uint256 cliff,
+        //     uint256 rate,
+        //     uint256 period
+
+        IVotingTokenLockupPlans($.hedgeyTokenLockupPlans).createPlan(
+            recipient_,
+            $.token,
+            $.tokenAmount,
+            hedgeyStartTime,
+            hedgeyLockupCliff,
+            $.hedgeyRate,
+            $.hedgeyPeriod
+        );
+    }
 
 
 
