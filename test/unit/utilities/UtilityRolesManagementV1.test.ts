@@ -112,7 +112,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
           details: 'Admin',
           imageURI: 'ipfs://admin',
           isMutable: true,
-          salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
         },
         hats: [
           {
@@ -173,7 +172,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
           details: 'Admin',
           imageURI: 'ipfs://admin',
           isMutable: true,
-          salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
         },
         hats: [],
       };
@@ -189,7 +187,7 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
       const autonomousAdminAddress = await mockSystemDeployer.predictProxyAddress(
         await mockAutonomousAdmin.getAddress(),
         mockAutonomousAdmin.interface.encodeFunctionData('initialize'),
-        treeParams.adminHat.salt,
+        SALT,
         await mockSafe.getAddress(),
       );
 
@@ -217,7 +215,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
           details: 'Admin',
           imageURI: 'ipfs://admin',
           isMutable: true,
-          salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
         },
         hats: [],
       };
@@ -253,7 +250,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
           details: 'Admin',
           imageURI: 'ipfs://admin',
           isMutable: true,
-          salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
         },
         hats: [],
       };
@@ -277,6 +273,48 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
       expect(topHatAccount).to.not.equal(ethers.ZeroAddress);
     });
 
+    it('should create ERC6551 account for admin hat', async () => {
+      const treeParams = {
+        keyValuePairs: await mockKeyValuePairs.getAddress(),
+        hatsProtocol: await mockHats.getAddress(),
+        erc6551Registry: await mockERC6551Registry.getAddress(),
+        hatsModuleFactory: ethers.ZeroAddress,
+        systemDeployer: await mockSystemDeployer.getAddress(),
+        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
+        hatsAccountImplementation: ethers.ZeroAddress,
+        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
+        topHat: {
+          details: 'Test DAO',
+          imageURI: 'ipfs://tophat',
+        },
+        adminHat: {
+          details: 'Admin',
+          imageURI: 'ipfs://admin',
+          isMutable: true,
+        },
+        hats: [],
+      };
+
+      await mockSafe.execTransaction(
+        await rolesManagementUtility.getAddress(),
+        0,
+        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
+        1, // DelegateCall
+      );
+
+      // Check the ERC6551 account was created for the admin hat
+      const topHatId = BigInt(1) << 224n;
+      const adminHatId = topHatId + 1n;
+      const adminHatAccount = await mockERC6551Registry.account(
+        ethers.ZeroAddress,
+        SALT,
+        31337, // chainId
+        await mockHats.getAddress(),
+        adminHatId,
+      );
+      expect(adminHatAccount).to.not.equal(ethers.ZeroAddress);
+    });
+
     it('should handle multiple role hats', async () => {
       const treeParams = {
         keyValuePairs: await mockKeyValuePairs.getAddress(),
@@ -295,7 +333,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
           details: 'Admin',
           imageURI: 'ipfs://admin',
           isMutable: true,
-          salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
         },
         hats: [
           {
@@ -356,7 +393,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
           details: 'Admin',
           imageURI: 'ipfs://admin',
           isMutable: true,
-          salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
         },
         hats: [
           {
@@ -807,7 +843,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
             details: 'Admin',
             imageURI: 'ipfs://admin',
             isMutable: true,
-            salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
           },
           hats: [
             {
@@ -900,7 +935,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
             details: 'Admin',
             imageURI: 'ipfs://admin',
             isMutable: true,
-            salt: ethers.keccak256(ethers.toUtf8Bytes('admin')),
           },
           hats: [
             {

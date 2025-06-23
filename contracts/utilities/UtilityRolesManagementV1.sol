@@ -51,7 +51,11 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  *
  * @custom:security-contact security@decentlabs.io
  */
-contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockNonUpgradeable, ERC165 {
+contract UtilityRolesManagementV1 is
+    IUtilityRolesManagementV1,
+    DeploymentBlockNonUpgradeable,
+    ERC165
+{
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
@@ -79,6 +83,8 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
         // Process top hat and get the top hat ID
         uint256 topHatId = _processTopHat(
             treeParams_.hatsProtocol,
+            treeParams_.erc6551Registry,
+            treeParams_.hatsAccountImplementation,
             treeParams_.topHat
         );
 
@@ -140,7 +146,7 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
         address recipientHatAccount_,
         uint256 streamId_,
         address to_
-    ) public virtual {
+    ) public virtual override {
         // Check if there are funds to withdraw
         // This prevents reverts when stream has no withdrawable amount
         if (ISablierV2Lockup(sablier_).withdrawableAmountOf(streamId_) == 0) {
@@ -160,7 +166,10 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
     /**
      * @inheritdoc IUtilityRolesManagementV1
      */
-    function cancelStream(address sablier_, uint256 streamId_) public virtual {
+    function cancelStream(
+        address sablier_,
+        uint256 streamId_
+    ) public virtual override {
         // Verify stream is cancellable
         // Only PENDING and STREAMING statuses can be cancelled
         Lockup.Status streamStatus = ISablierV2Lockup(sablier_).statusOf(
@@ -192,17 +201,29 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
      */
     function _processTopHat(
         address hatsProtocol_,
+        address erc6551Registry_,
+        address hatsAccountImplementation_,
         TopHatParams memory topHatParams_
-    ) internal virtual returns (uint256 topHatId) {
-        // Get the next top hat ID from Hats Protocol
-        uint32 lastTopHatId = IHatsExtended(hatsProtocol_).lastTopHatId();
-        topHatId = uint256(lastTopHatId + 1) << 224; // Top hats occupy the first 32 bits
-
+    ) internal virtual returns (uint256) {
         // Mint top hat to the Safe (address(this) in delegatecall context)
         IHats(hatsProtocol_).mintTopHat(
             address(this),
             topHatParams_.details,
             topHatParams_.imageURI
+        );
+
+        // Get the top hat ID of the newly minted top hat from Hats Protocol
+        uint256 topHatId = uint256(
+            IHatsExtended(hatsProtocol_).lastTopHatId()
+        ) << 224; // Top hats occupy the first 32 bits
+
+        // Create ERC6551 account for the top hat
+        IERC6551Registry(erc6551Registry_).createAccount(
+            hatsAccountImplementation_,
+            SALT,
+            block.chainid,
+            hatsProtocol_,
+            topHatId
         );
 
         return topHatId;
@@ -229,12 +250,9 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
         address decentAutonomousAdminImplementation_,
         AdminHatParams memory adminHatParams_,
         uint256 topHatId_
-    ) internal virtual returns (uint256 adminHatId) {
-        // Get next hat ID under the top hat
-        adminHatId = IHats(hatsProtocol_).getNextId(topHatId_);
-
+    ) internal virtual returns (uint256) {
         // Create admin hat
-        IHats(hatsProtocol_).createHat(
+        uint256 adminHatId = IHats(hatsProtocol_).createHat(
             topHatId_,
             adminHatParams_.details,
             1, // maxSupply
@@ -244,29 +262,21 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
             adminHatParams_.imageURI
         );
 
-        // Create ERC6551 account for the top hat
+        // Create ERC6551 account for the admin hat
         IERC6551Registry(erc6551Registry_).createAccount(
             hatsAccountImplementation_,
             SALT,
             block.chainid,
             hatsProtocol_,
-            topHatId_
+            adminHatId
         );
 
         // Deploy autonomous admin proxy through SystemDeployer
-        ISystemDeployerV1(systemDeployer_).deployProxy(
-            decentAutonomousAdminImplementation_,
-            abi.encodeCall(IDecentAutonomousAdminV1.initialize, ()),
-            adminHatParams_.salt
-        );
-
-        // Calculate the deployed admin address
         address autonomousAdmin = ISystemDeployerV1(systemDeployer_)
-            .predictProxyAddress(
+            .deployProxy(
                 decentAutonomousAdminImplementation_,
                 abi.encodeCall(IDecentAutonomousAdminV1.initialize, ()),
-                adminHatParams_.salt,
-                address(this) // Deployer is the Safe in delegatecall context
+                SALT
             );
 
         // Mint admin hat to the autonomous admin
@@ -390,11 +400,8 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
         address eligibilityAddress_,
         address topHatAccount_
     ) internal virtual returns (uint256) {
-        // Calculate the next Hat ID before creation
-        uint256 hatId = IHats(hatsProtocol_).getNextId(adminHatId_);
-
         // Create the Hat with specified parameters
-        IHats(hatsProtocol_).createHat(
+        uint256 hatId = IHats(hatsProtocol_).createHat(
             adminHatId_,
             hat_.details,
             hat_.maxSupply,
@@ -418,6 +425,7 @@ contract UtilityRolesManagementV1 is IUtilityRolesManagementV1, DeploymentBlockN
 
         // Mint the Hat to the wearer
         IHats(hatsProtocol_).mintHat(hatId, hat_.wearer);
+
         return hatId;
     }
 

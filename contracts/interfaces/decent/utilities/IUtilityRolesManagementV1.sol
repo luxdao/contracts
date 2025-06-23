@@ -61,7 +61,6 @@ interface IUtilityRolesManagementV1 {
         string details;
         string imageURI;
         bool isMutable;
-        bytes32 salt;
     }
 
     /**
