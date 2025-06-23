@@ -153,20 +153,22 @@ interface IVotesERC20StakedV1 {
     // --- Initializer Functions ---
 
     /**
-     * @notice Initializes the staking contract
-     * @dev Can only be called once during deployment. Sets up the staking token
-     * and initial reward tokens. The staking token itself cannot be a reward token.
-     * Native ETH can be a reward token using address 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE.
-     * @param metadata_ Name and symbol for the staking token
+     * @notice Initializes the staking contract (part 1 of 2)
+     * @dev Split initialization is required for contract address to depend only upon
+     * owner address and staked token address.
      * @param owner_ Address that will have owner privileges
      * @param stakedToken_ The ERC20 token that users will stake
+     */
+    function initialize(address owner_, address stakedToken_) external;
+
+    /**
+     * @notice Completes initialization with metadata, minimum staking period, and rewards tokens (part 2 of 2)
+     * @dev Can only be called once during deployment. Sets up the staking token
+     * and initial reward tokens. The staking token itself cannot be a reward token.
      * @param minimumStakingPeriod_ Minimum seconds before unstaking allowed
      * @param rewardsTokens_ Initial array of reward token addresses
      */
-    function initialize(
-        Metadata calldata metadata_,
-        address owner_,
-        address stakedToken_,
+    function initialize2(
         uint256 minimumStakingPeriod_,
         address[] calldata rewardsTokens_
     ) external;
