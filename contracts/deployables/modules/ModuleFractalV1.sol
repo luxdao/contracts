@@ -3,20 +3,38 @@ pragma solidity ^0.8.30;
 
 import {IModuleFractalV1} from "../../interfaces/decent/deployables/IModuleFractalV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
+import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
-import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
+import {DeploymentBlock} from "../../DeploymentBlock.sol";
 import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title ModuleFractalV1
+ * @author Decent Labs
+ * @notice Implementation of the Fractal execution module for parent-child DAO relationships
+ * @dev This contract implements IModuleFractalV1, providing direct execution capabilities
+ * for parent DAOs to control child DAOs.
+ *
+ * Implementation details:
+ * - Minimal contract focused solely on execution functionality
+ * - No internal state beyond ownership and Zodiac module configuration
+ * - Implements UUPS (Universal Upgradeable Proxy Standard) pattern
+ * - Upgrades are restricted to the parent DAO (owner)
+ * - Storage layout must be preserved in future implementations
+ * - Inherits from GuardableModule for Zodiac pattern integration
+ * - Uses Ownable2Step for secure ownership transfers
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract ModuleFractalV1 is
     IModuleFractalV1,
     IVersion,
     GuardableModule,
-    DeploymentBlockV1,
+    DeploymentBlock,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ERC165
@@ -29,6 +47,9 @@ contract ModuleFractalV1 is
         _disableInitializers();
     }
 
+    /**
+     * @inheritdoc IModuleFractalV1
+     */
     function initialize(
         address owner_,
         address avatar_,
@@ -36,7 +57,7 @@ contract ModuleFractalV1 is
     ) public virtual override initializer {
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
-        __DeploymentBlockV1_init();
+        __DeploymentBlock_init();
 
         avatar = avatar_;
         target = target_;
@@ -44,6 +65,11 @@ contract ModuleFractalV1 is
         emit TargetSet(address(0), target_);
     }
 
+    /**
+     * @notice Alternative initializer following Zodiac module pattern
+     * @dev Decodes packed initialization parameters and calls initialize
+     * @param initializeParams_ ABI encoded parameters (owner, avatar, target)
+     */
     function setUp(
         bytes memory initializeParams_
     ) public virtual override initializer {
@@ -55,11 +81,15 @@ contract ModuleFractalV1 is
     }
 
     // ======================================================================
-    // UUPS UPGRADEABLE
+    // UUPSUpgradeable
     // ======================================================================
 
     // --- Internal Functions ---
 
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Restricted to parent DAO (owner) for security
+     */
     function _authorizeUpgrade(
         address newImplementation_
     ) internal virtual override onlyOwner {}
@@ -70,6 +100,10 @@ contract ModuleFractalV1 is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc IModuleFractalV1
+     * @dev Executes through the Zodiac module pattern's exec function
+     */
     function execTx(
         Transaction calldata transaction_
     ) public virtual override onlyOwner {
@@ -89,6 +123,9 @@ contract ModuleFractalV1 is
 
     // --- Pure Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -99,6 +136,11 @@ contract ModuleFractalV1 is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc Ownable2StepUpgradeable
+     * @dev Overrides both Ownable2StepUpgradeable and OwnableUpgradeable to use
+     * the two-step ownership transfer process
+     */
     function transferOwnership(
         address newOwner_
     )
@@ -112,6 +154,11 @@ contract ModuleFractalV1 is
 
     // --- Internal Functions ---
 
+    /**
+     * @inheritdoc Ownable2StepUpgradeable
+     * @dev Overrides both Ownable2StepUpgradeable and OwnableUpgradeable to use
+     * the two-step ownership transfer process
+     */
     function _transferOwnership(
         address newOwner_
     ) internal virtual override(Ownable2StepUpgradeable, OwnableUpgradeable) {
@@ -124,13 +171,17 @@ contract ModuleFractalV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IModuleFractalV1, IVersion, IDeploymentBlock, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
             interfaceId_ == type(IModuleFractalV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 }

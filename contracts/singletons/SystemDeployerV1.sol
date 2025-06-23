@@ -18,15 +18,48 @@ import {IFreezeGuardMultisigV1} from "../interfaces/decent/deployables/IFreezeGu
 import {IFreezeGuardAzoriusV1} from "../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
 import {ISystemDeployerEventEmitterV1} from "../interfaces/decent/singletons/ISystemDeployerEventEmitterV1.sol";
 import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlockV1} from "../interfaces/decent/IDeploymentBlockV1.sol";
-import {DeploymentBlockV1NonUpgradeable} from "../DeploymentBlockV1NonUpgradeable.sol";
+import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
+import {DeploymentBlockNonUpgradeable} from "../DeploymentBlockNonUpgradeable.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title SystemDeployerV1
+ * @author Decent Labs
+ * @notice Implementation of deployment orchestration for complete DAO systems
+ * @dev This contract implements ISystemDeployerV1, providing a singleton deployment
+ * service that orchestrates the creation of entire DAO governance systems.
+ *
+ * Implementation details:
+ * - Deployed once per chain as a singleton service
+ * - Non-upgradeable deployment pattern
+ * - Uses CREATE2 for deterministic proxy addresses
+ * - Handles circular dependency resolution
+ * - Called via delegatecall from Safe during setup
+ * - Validates implementation addresses before deployment
+ *
+ * Deployment flow:
+ * 1. Deploy governance tokens (VotesERC20V1)
+ * 2. Deploy proposer adapters using token references
+ * 3. Deploy strategy with proposer adapters
+ * 4. Deploy voting adapters linked to strategy
+ * 5. Deploy Azorius module with strategy reference
+ * 6. Complete circular initialization (Strategy ↔ Azorius ↔ VotingAdapters)
+ * 7. Deploy optional Fractal module for parent-child relationships
+ * 8. Deploy freeze mechanisms if configured
+ *
+ * Security considerations:
+ * - Only accessible via delegatecall from Safe setup
+ * - Validates all implementation contracts have code
+ * - Ensures proper initialization of all components
+ * - Emits events for deployment tracking
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract SystemDeployerV1 is
     ISystemDeployerV1,
     IVersion,
-    DeploymentBlockV1NonUpgradeable,
+    DeploymentBlockNonUpgradeable,
     ERC165
 {
     // ======================================================================
@@ -35,6 +68,9 @@ contract SystemDeployerV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ISystemDeployerV1
+     */
     function predictProxyAddress(
         address implementation_,
         bytes calldata initData_,
@@ -66,6 +102,9 @@ contract SystemDeployerV1 is
 
     // --- State-Changing Functions ---
 
+    /**
+     * @inheritdoc ISystemDeployerV1
+     */
     function deployProxy(
         address implementation_,
         bytes memory initData_,
@@ -84,6 +123,12 @@ contract SystemDeployerV1 is
         return proxy;
     }
 
+    /**
+     * @inheritdoc ISystemDeployerV1
+     * @dev Orchestrates the deployment of all governance components in the correct order.
+     * This function is called via delegatecall from a Safe during its setup, giving it
+     * access to the Safe's context for enabling modules and setting guards.
+     */
     function setupSafe(
         bytes32 salt_,
         address safeProxyFactory_,
@@ -133,6 +178,9 @@ contract SystemDeployerV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -143,13 +191,17 @@ contract SystemDeployerV1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports ISystemDeployerV1, IVersion, IDeploymentBlock, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
             interfaceId_ == type(ISystemDeployerV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 
@@ -157,6 +209,15 @@ contract SystemDeployerV1 is
     // Internal Functions
     // ======================================================================
 
+    /**
+     * @notice Deploys the complete Azorius governance system
+     * @dev Handles the complex deployment order and circular dependency resolution
+     * between Azorius, Strategy, and VotingAdapters.
+     * @param salt_ Salt for deterministic deployment
+     * @param azoriusGovernanceParams_ Complete governance configuration
+     * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
+     * @return azoriusModuleAddress The deployed Azorius module address (or zero if skipped)
+     */
     function _deployAzoriusGovernance(
         bytes32 salt_,
         AzoriusGovernanceParams calldata azoriusGovernanceParams_,
@@ -168,7 +229,9 @@ contract SystemDeployerV1 is
             memory moduleAzoriusV1Params = azoriusGovernanceParams_
                 .moduleAzoriusV1Params;
 
+        // Skip deployment if no implementation provided
         if (moduleAzoriusV1Params.implementation != address(0)) {
+            // Step 1: Deploy proposer adapters (who can create proposals)
             ProposerAdapterParams
                 memory proposerAdapterParams = azoriusGovernanceParams_
                     .proposerAdapterParams;
@@ -179,6 +242,8 @@ contract SystemDeployerV1 is
                 newVotesERC20V1Addresses
             );
 
+            // Step 2: Deploy strategy with proposer adapters
+            // Note: Strategy is partially initialized - needs Azorius and voting adapters
             StrategyV1Params memory strategyV1Params = azoriusGovernanceParams_
                 .strategyV1Params;
 
@@ -188,6 +253,7 @@ contract SystemDeployerV1 is
                 proposerAdapterAddresses
             );
 
+            // Step 3: Deploy voting adapters linked to the strategy
             VotingAdapterParams
                 memory votingAdapterParams = azoriusGovernanceParams_
                     .votingAdapterParams;
@@ -199,24 +265,36 @@ contract SystemDeployerV1 is
                 newVotesERC20V1Addresses
             );
 
+            // Step 4: Deploy Azorius module with strategy reference
             azoriusModuleAddress = _deployModuleAzorius(
                 salt_,
                 moduleAzoriusV1Params,
                 strategyProxyAddress
             );
 
+            // Step 5: Complete strategy initialization with circular dependencies
+            // This sets the Azorius module and voting adapters on the strategy
             IStrategyV1(strategyProxyAddress).initialize2(
                 azoriusModuleAddress,
                 votingAdapterAddresses
             );
 
-            // add Module Azorius to Safe as Module
+            // Step 6: Enable Azorius as a module on the Safe
+            // This gives Azorius permission to execute transactions
             ISafe(address(this)).enableModule(azoriusModuleAddress);
         }
 
         return azoriusModuleAddress;
     }
 
+    /**
+     * @notice Deploys governance tokens with initial allocations
+     * @dev Adds an additional allocation to the Safe beyond user-specified allocations.
+     * This ensures the Safe has tokens for treasury or future distributions.
+     * @param salt_ Salt for deterministic deployment
+     * @param votesERC20V1Params Array of token configurations
+     * @param newVotesERC20V1Addresses Output array to store deployed token addresses
+     */
     function _deployVotesERC20V1(
         bytes32 salt_,
         VotesERC20V1Params[] memory votesERC20V1Params,
@@ -227,13 +305,13 @@ contract SystemDeployerV1 is
 
             uint256 allocationsLength = votesERC20V1Param.allocations.length;
 
-            // create a new allocations array
+            // Create array with space for user allocations + Safe allocation
             IVotesERC20V1.Allocation[]
                 memory totalAllocations = new IVotesERC20V1.Allocation[](
                     allocationsLength + 1
                 );
 
-            // copy the existing allocations to the new array
+            // Copy user-specified allocations
             for (uint256 j = 0; j < allocationsLength; ) {
                 totalAllocations[j] = votesERC20V1Param.allocations[j];
 
@@ -242,12 +320,14 @@ contract SystemDeployerV1 is
                 }
             }
 
-            // create an allocation for the safe and add it to the new array
+            // Add Safe's allocation at the end
+            // This ensures the DAO treasury has initial tokens
             totalAllocations[allocationsLength] = IVotesERC20V1.Allocation({
                 to: address(this),
                 amount: votesERC20V1Param.safeSupply
             });
 
+            // Deploy the token proxy with all allocations
             address votesERC20V1ProxyAddress = deployProxy(
                 votesERC20V1Param.implementation,
                 abi.encodeCall(
@@ -263,6 +343,7 @@ contract SystemDeployerV1 is
                 salt_
             );
 
+            // Store address for later reference by adapters
             newVotesERC20V1Addresses[i] = votesERC20V1ProxyAddress;
 
             unchecked {
@@ -271,6 +352,15 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys all proposer adapters for the governance system
+     * @dev Handles deployment of ERC20, ERC721, and Hats proposer adapters.
+     * Returns a combined array with all adapter addresses in order.
+     * @param salt_ Salt for deterministic deployment
+     * @param proposerAdapterParams Configurations for all proposer adapter types
+     * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
+     * @return proposerAdapterAddresses Combined array of all deployed adapter addresses
+     */
     function _deployProposerAdapters(
         bytes32 salt_,
         ProposerAdapterParams memory proposerAdapterParams,
@@ -331,6 +421,16 @@ contract SystemDeployerV1 is
         return proposerAdapterAddresses;
     }
 
+    /**
+     * @notice Deploys ERC20-based proposer adapters
+     * @dev Handles token resolution - can use existing tokens or newly deployed ones.
+     * Stores addresses in the first slots of proposerAdapterAddresses array.
+     * @param salt_ Salt for deterministic deployment
+     * @param proposerAdapterERC20V1ParamsLength Number of ERC20 adapters to deploy
+     * @param proposerAdapterERC20V1Params Array of ERC20 adapter configurations
+     * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
+     * @param proposerAdapterAddresses Output array to store deployed addresses
+     */
     function _deployProposerAdapterERC20(
         bytes32 salt_,
         uint256 proposerAdapterERC20V1ParamsLength,
@@ -347,13 +447,16 @@ contract SystemDeployerV1 is
             address tokenAddress;
             uint256 newTokenIndex = proposerAdapterERC20V1Param.newTokenIndex;
 
+            // Resolve token address - either existing or newly deployed
             if (proposerAdapterERC20V1Param.token == address(0)) {
+                // Use newly deployed token at specified index
                 tokenAddress = newVotesERC20V1Addresses[newTokenIndex];
 
                 if (tokenAddress == address(0)) {
                     revert VotesERC20V1NotFoundAtIndex(newTokenIndex);
                 }
             } else {
+                // Use existing token address
                 tokenAddress = proposerAdapterERC20V1Param.token;
             }
 
@@ -375,6 +478,16 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys NFT-based proposer adapters
+     * @dev Stores addresses after ERC20 adapters in the combined array.
+     * NFTs must be existing contracts - no new deployment option.
+     * @param salt_ Salt for deterministic deployment
+     * @param proposerAdapterERC721V1ParamsLength Number of ERC721 adapters to deploy
+     * @param proposerAdapterERC20V1ParamsLength Offset for array positioning
+     * @param proposerAdapterERC721V1Params Array of ERC721 adapter configurations
+     * @param proposerAdapterAddresses Output array to store deployed addresses
+     */
     function _deployProposerAdapterERC721(
         bytes32 salt_,
         uint256 proposerAdapterERC721V1ParamsLength,
@@ -388,6 +501,7 @@ contract SystemDeployerV1 is
                     i
                 ];
 
+            // Store at position after ERC20 adapters
             proposerAdapterAddresses[
                 proposerAdapterERC20V1ParamsLength + i
             ] = deployProxy(
@@ -408,6 +522,17 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys Hats Protocol role-based proposer adapters
+     * @dev Stores addresses after ERC20 and ERC721 adapters in the combined array.
+     * Each adapter can whitelist multiple Hat IDs for proposal creation.
+     * @param salt_ Salt for deterministic deployment
+     * @param proposerAdapterHatsV1ParamsLength Number of Hats adapters to deploy
+     * @param proposerAdapterERC721V1ParamsLength Offset for ERC721 adapters
+     * @param proposerAdapterERC20V1ParamsLength Offset for ERC20 adapters
+     * @param proposerAdapterHatsV1Params Array of Hats adapter configurations
+     * @param proposerAdapterAddresses Output array to store deployed addresses
+     */
     function _deployProposerAdapterHats(
         bytes32 salt_,
         uint256 proposerAdapterHatsV1ParamsLength,
@@ -422,6 +547,7 @@ contract SystemDeployerV1 is
                     i
                 ];
 
+            // Store at position after ERC20 and ERC721 adapters
             proposerAdapterAddresses[
                 proposerAdapterERC20V1ParamsLength +
                     proposerAdapterERC721V1ParamsLength +
@@ -444,6 +570,15 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys the voting strategy contract
+     * @dev The strategy is partially initialized here with proposer adapters.
+     * Full initialization happens later with Azorius and voting adapters.
+     * @param salt_ Salt for deterministic deployment
+     * @param strategyV1Params Strategy configuration parameters
+     * @param proposerAdapterAddresses Array of deployed proposer adapter addresses
+     * @return strategyProxyAddress The deployed strategy proxy address
+     */
     function _deployStrategy(
         bytes32 salt_,
         StrategyV1Params memory strategyV1Params,
@@ -466,6 +601,16 @@ contract SystemDeployerV1 is
             );
     }
 
+    /**
+     * @notice Deploys all voting adapters for the governance system
+     * @dev Handles deployment of ERC20 and ERC721 voting adapters.
+     * Each adapter is linked to the strategy during initialization.
+     * @param salt_ Salt for deterministic deployment
+     * @param votingAdapterParams Configurations for all voting adapter types
+     * @param strategyProxyAddress Address of the deployed strategy
+     * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
+     * @return votingAdapterAddresses Combined array of all deployed adapter addresses
+     */
     function _deployVotingAdapters(
         bytes32 salt_,
         VotingAdapterParams memory votingAdapterParams,
@@ -511,6 +656,17 @@ contract SystemDeployerV1 is
         return votingAdapterAddresses;
     }
 
+    /**
+     * @notice Deploys ERC20-based voting adapters
+     * @dev Handles token resolution and links each adapter to the strategy.
+     * Weight per token determines voting power calculation.
+     * @param salt_ Salt for deterministic deployment
+     * @param votingAdapterERC20V1ParamsLength Number of ERC20 adapters to deploy
+     * @param votingAdapterERC20V1Params Array of ERC20 adapter configurations
+     * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
+     * @param strategyProxyAddress Address of the strategy to link adapters to
+     * @param votingAdapterAddresses Output array to store deployed addresses
+     */
     function _deployVotingAdaptersERC20(
         bytes32 salt_,
         uint256 votingAdapterERC20V1ParamsLength,
@@ -526,7 +682,9 @@ contract SystemDeployerV1 is
                 ];
             address tokenAddress;
 
+            // Resolve token address - either existing or newly deployed
             if (votingAdapterERC20V1Param.token == address(0)) {
+                // Use newly deployed token at specified index
                 uint256 newTokenIndex = votingAdapterERC20V1Param.newTokenIndex;
                 tokenAddress = newVotesERC20V1Addresses[newTokenIndex];
 
@@ -534,6 +692,7 @@ contract SystemDeployerV1 is
                     revert VotesERC20V1NotFoundAtIndex(newTokenIndex);
                 }
             } else {
+                // Use existing token address
                 tokenAddress = votingAdapterERC20V1Param.token;
             }
 
@@ -556,6 +715,17 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys NFT-based voting adapters
+     * @dev Each NFT provides equal voting weight. Adapters are linked to strategy.
+     * Stores addresses after ERC20 adapters in the combined array.
+     * @param salt_ Salt for deterministic deployment
+     * @param votingAdapterERC721V1ParamsLength Number of ERC721 adapters to deploy
+     * @param votingAdapterERC20V1ParamsLength Offset for array positioning
+     * @param votingAdapterERC721V1Params Array of ERC721 adapter configurations
+     * @param strategyProxyAddress Address of the strategy to link adapters to
+     * @param votingAdapterAddresses Output array to store deployed addresses
+     */
     function _deployVotingAdaptersERC721(
         bytes32 salt_,
         uint256 votingAdapterERC721V1ParamsLength,
@@ -570,6 +740,7 @@ contract SystemDeployerV1 is
                     i
                 ];
 
+            // Store at position after ERC20 adapters
             votingAdapterAddresses[
                 votingAdapterERC20V1ParamsLength + i
             ] = deployProxy(
@@ -591,6 +762,15 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys the Azorius governance module
+     * @dev The module is initialized with the Safe as owner, target, and avatar.
+     * Links to the strategy for proposal validation and voting.
+     * @param salt_ Salt for deterministic deployment
+     * @param moduleAzoriusV1Params Azorius configuration parameters
+     * @param strategyProxyAddress Address of the deployed strategy
+     * @return azoriusProxyAddress The deployed Azorius module address
+     */
     function _deployModuleAzorius(
         bytes32 salt_,
         ModuleAzoriusV1Params memory moduleAzoriusV1Params,
@@ -614,6 +794,13 @@ contract SystemDeployerV1 is
             );
     }
 
+    /**
+     * @notice Deploys the Fractal module for parent-child DAO relationships
+     * @dev Only deployed if implementation is provided. Enables parent DAO
+     * to execute transactions on this Safe.
+     * @param salt_ Salt for deterministic deployment
+     * @param moduleFractalV1Params_ Fractal module configuration
+     */
     function _deployModuleFractal(
         bytes32 salt_,
         ModuleFractalV1Params memory moduleFractalV1Params_
@@ -633,16 +820,26 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys freeze mechanism contracts for parent-child DAO control
+     * @dev Deploys freeze voting contract first, then freeze guard that references it.
+     * The freeze guard is attached to either the Safe or Azorius module.
+     * @param salt_ Salt for deterministic deployment
+     * @param freezeParams_ Freeze mechanism configurations
+     * @param azoriusModuleAddress Address of Azorius module (for freeze guard attachment)
+     */
     function _deployFreezeContracts(
         bytes32 salt_,
         FreezeParams memory freezeParams_,
         address azoriusModuleAddress
     ) internal {
+        // Deploy freeze voting contract (controls when child can be frozen)
         address freezeVotingAddress = _deployFreezeVoting(
             salt_,
             freezeParams_.freezeVotingParams
         );
 
+        // Deploy freeze guard (enforces freeze when activated)
         _deployFreezeGuard(
             salt_,
             freezeParams_.freezeGuardParams,
@@ -651,6 +848,14 @@ contract SystemDeployerV1 is
         );
     }
 
+    /**
+     * @notice Deploys freeze voting contract (multisig or Azorius-based)
+     * @dev Only one type can be deployed. Returns the deployed address or zero.
+     * Validates that both types aren't specified.
+     * @param salt_ Salt for deterministic deployment
+     * @param freezeVotingParams_ Freeze voting configurations
+     * @return freezeVotingAddress The deployed freeze voting contract address
+     */
     function _deployFreezeVoting(
         bytes32 salt_,
         FreezeVotingParams memory freezeVotingParams_
@@ -711,6 +916,15 @@ contract SystemDeployerV1 is
         return freezeVotingAddress;
     }
 
+    /**
+     * @notice Deploys freeze guard contracts
+     * @dev Can deploy multisig guard (on Safe) and/or Azorius guard (on module).
+     * Each guard type attaches to different components.
+     * @param salt_ Salt for deterministic deployment
+     * @param freezeGuardParams_ Freeze guard configurations
+     * @param freezeVotingAddress Address of deployed freeze voting contract
+     * @param azoriusModuleAddress Address of Azorius module (for Azorius guard)
+     */
     function _deployFreezeGuard(
         bytes32 salt_,
         FreezeGuardParams memory freezeGuardParams_,
@@ -739,6 +953,14 @@ contract SystemDeployerV1 is
         );
     }
 
+    /**
+     * @notice Deploys multisig freeze guard and attaches to Safe
+     * @dev Guard enforces timelock and freeze restrictions on Safe transactions.
+     * Requires freeze voting contract to be deployed.
+     * @param salt_ Salt for deterministic deployment
+     * @param freezeGuardMultisigV1Params Multisig guard configuration
+     * @param freezeVotingAddress Address of freeze voting contract that controls freezing
+     */
     function _deployFreezeGuardMultisig(
         bytes32 salt_,
         FreezeGuardMultisigV1Params memory freezeGuardMultisigV1Params,
@@ -769,6 +991,15 @@ contract SystemDeployerV1 is
         }
     }
 
+    /**
+     * @notice Deploys Azorius freeze guard and attaches to Azorius module
+     * @dev Guard blocks proposal execution when DAO is frozen.
+     * Requires both freeze voting and Azorius module to be deployed.
+     * @param salt_ Salt for deterministic deployment
+     * @param freezeGuardAzoriusV1Params Azorius guard configuration
+     * @param freezeVotingAddress Address of freeze voting contract that controls freezing
+     * @param azoriusModuleAddress Address of Azorius module to attach guard to
+     */
     function _deployFreezeGuardAzorius(
         bytes32 salt_,
         FreezeGuardAzoriusV1Params memory freezeGuardAzoriusV1Params,

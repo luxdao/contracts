@@ -4,14 +4,32 @@ pragma solidity ^0.8.30;
 import {IProposerAdapterERC721V1} from "../../../../interfaces/decent/deployables/IProposerAdapterERC721V1.sol";
 import {IProposerAdapterBaseV1} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlockV1} from "../../../../interfaces/decent/IDeploymentBlockV1.sol";
-import {DeploymentBlockV1} from "../../../../DeploymentBlockV1.sol";
+import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+/**
+ * @title ProposerAdapterERC721V1
+ * @author Decent Labs
+ * @notice Implementation of proposer adapter using NFT ownership for eligibility
+ * @dev This contract implements IProposerAdapterERC721V1, determining proposal creation
+ * eligibility based on the number of NFTs owned from a specific collection.
+ *
+ * Implementation details:
+ * - Uses EIP-7201 namespaced storage pattern for upgradeability safety
+ * - Non-upgradeable contract deployed per strategy
+ * - Checks current NFT balance via token.balanceOf()
+ * - No historical snapshots - uses current ownership state
+ * - Data parameter in isProposer() is ignored
+ * - Zero threshold allows anyone to propose
+ * - Works with any standard ERC721 contract
+ *
+ * @custom:security-contact security@decentlabs.io
+ */
 contract ProposerAdapterERC721V1 is
     IProposerAdapterERC721V1,
-    DeploymentBlockV1,
+    DeploymentBlock,
     IVersion,
     ERC165
 {
@@ -19,16 +37,29 @@ contract ProposerAdapterERC721V1 is
     // STATE VARIABLES
     // ======================================================================
 
-    /// @custom:storage-location erc7201:Decent.ProposerAdapterERC721.main
+    /**
+     * @notice Main storage struct for ProposerAdapterERC721V1 following EIP-7201
+     * @dev Contains NFT contract reference and threshold configuration
+     * @custom:storage-location erc7201:Decent.ProposerAdapterERC721.main
+     */
     struct ProposerAdapterERC721Storage {
+        /** @notice The ERC721 NFT contract used for ownership checks */
         IERC721 token;
+        /** @notice Minimum number of NFTs required to create proposals */
         uint256 proposerThreshold;
     }
 
-    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.ProposerAdapterERC721.main")) - 1)) & ~bytes32(uint256(0xff))
+    /**
+     * @dev Storage slot for ProposerAdapterERC721Storage calculated using EIP-7201 formula:
+     * keccak256(abi.encode(uint256(keccak256("Decent.ProposerAdapterERC721.main")) - 1)) & ~bytes32(uint256(0xff))
+     */
     bytes32 internal constant PROPOSER_ADAPTER_ERC721_STORAGE_LOCATION =
         0x0b4a4f2e6b9f1f19c9af2582923f8bb9e1448a7f32ed0b86e2f369daa5840600;
 
+    /**
+     * @dev Returns the storage struct for ProposerAdapterERC721V1
+     * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     */
     function _getProposerAdapterERC721Storage()
         internal
         pure
@@ -47,11 +78,16 @@ contract ProposerAdapterERC721V1 is
         _disableInitializers();
     }
 
+    /**
+     * @inheritdoc IProposerAdapterERC721V1
+     * @dev The token can be any standard ERC721 contract.
+     * A threshold of 0 allows anyone to propose.
+     */
     function initialize(
         address token_,
         uint256 proposerThreshold_
     ) public virtual override initializer {
-        __DeploymentBlockV1_init();
+        __DeploymentBlock_init();
 
         ProposerAdapterERC721Storage
             storage $ = _getProposerAdapterERC721Storage();
@@ -65,12 +101,18 @@ contract ProposerAdapterERC721V1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IProposerAdapterERC721V1
+     */
     function token() public view virtual override returns (address) {
         ProposerAdapterERC721Storage
             storage $ = _getProposerAdapterERC721Storage();
         return address($.token);
     }
 
+    /**
+     * @inheritdoc IProposerAdapterERC721V1
+     */
     function proposerThreshold()
         public
         view
@@ -89,6 +131,11 @@ contract ProposerAdapterERC721V1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc IProposerAdapterBaseV1
+     * @dev Uses token.balanceOf() to count NFTs owned by the proposer.
+     * The data parameter is ignored for ERC721 adapters.
+     */
     function isProposer(
         address proposer_,
         bytes calldata
@@ -104,6 +151,9 @@ contract ProposerAdapterERC721V1 is
 
     // --- Pure Functions ---
 
+    /**
+     * @inheritdoc IVersion
+     */
     function version() public pure virtual override returns (uint16) {
         return 1;
     }
@@ -114,6 +164,10 @@ contract ProposerAdapterERC721V1 is
 
     // --- View Functions ---
 
+    /**
+     * @inheritdoc ERC165
+     * @dev Supports IProposerAdapterERC721V1, IProposerAdapterBaseV1, IVersion, IDeploymentBlock, and IERC165
+     */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
@@ -121,7 +175,7 @@ contract ProposerAdapterERC721V1 is
             interfaceId_ == type(IProposerAdapterERC721V1).interfaceId ||
             interfaceId_ == type(IProposerAdapterBaseV1).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 }
