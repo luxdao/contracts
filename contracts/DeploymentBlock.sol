@@ -64,6 +64,7 @@ abstract contract DeploymentBlock is Initializable, IDeploymentBlock {
         pure
         returns (DeploymentBlockStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := DEPLOYMENT_BLOCK_STORAGE_LOCATION
         }
@@ -81,6 +82,7 @@ abstract contract DeploymentBlock is Initializable, IDeploymentBlock {
      * @custom:throws DeploymentBlockAlreadySet if already initialized
      */
     function __DeploymentBlock_init() internal onlyInitializing {
+        // solhint-disable-previous-line func-name-mixedcase
         DeploymentBlockStorage storage $ = _getDeploymentBlockStorage();
         if ($.deploymentBlock != 0) {
             revert DeploymentBlockAlreadySet();

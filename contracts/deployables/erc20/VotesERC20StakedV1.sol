@@ -108,6 +108,7 @@ contract VotesERC20StakedV1 is
         pure
         returns (VotesERC20StakedStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := VOTES_ERC20_STAKED_STORAGE_LOCATION
         }
@@ -180,7 +181,10 @@ contract VotesERC20StakedV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IVotesERC20StakedV1
@@ -192,6 +196,7 @@ contract VotesERC20StakedV1 is
      * @inheritdoc IVotesERC20StakedV1
      */
     function CLOCK_MODE()
+        // solhint-disable-previous-line func-name-mixedcase
         public
         pure
         virtual

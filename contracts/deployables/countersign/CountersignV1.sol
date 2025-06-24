@@ -103,6 +103,7 @@ contract CountersignV1 is
         pure
         returns (CountersignStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := COUNTERSIGN_STORAGE_LOCATION
         }
@@ -415,6 +416,7 @@ contract CountersignV1 is
     function _initialExecution(CountersignStorage storage $) internal {
         // Step 1: Execute pre-execution transactions if any
         if ($.preExecutionTransactions.length > 0) {
+            // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = $.multisend.delegatecall(
                 abi.encodeCall(IMultisend.multiSend, $.preExecutionTransactions)
             );
@@ -445,6 +447,7 @@ contract CountersignV1 is
 
             // Execute signer's transactions if any
             if (signer.transactions.length > 0) {
+                // solhint-disable-next-line avoid-low-level-calls
                 (bool success, ) = $.multisend.delegatecall(
                     abi.encodeCall(IMultisend.multiSend, signer.transactions)
                 );
@@ -508,6 +511,7 @@ contract CountersignV1 is
             }
 
             // Attempt to execute signer's transactions
+            // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = $.multisend.delegatecall(
                 abi.encodeCall(IMultisend.multiSend, signer.transactions)
             );

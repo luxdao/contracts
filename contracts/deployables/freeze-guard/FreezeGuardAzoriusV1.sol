@@ -84,6 +84,7 @@ contract FreezeGuardAzoriusV1 is
         pure
         returns (FreezeGuardAzoriusStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_GUARD_AZORIUS_STORAGE_LOCATION
         }
@@ -126,7 +127,10 @@ contract FreezeGuardAzoriusV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IFreezeGuardBaseV1
@@ -177,7 +181,9 @@ contract FreezeGuardAzoriusV1 is
      * @inheritdoc IGuard
      * @dev No post-execution checks needed. This guard only prevents execution when frozen.
      */
-    function checkAfterExecution(bytes32, bool) public view virtual override {}
+    function checkAfterExecution(bytes32, bool) public view virtual override {
+        // solhint-disable-previous-line no-empty-blocks
+    }
 
     // ======================================================================
     // IVersion

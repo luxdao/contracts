@@ -175,25 +175,41 @@ npx hardhat test test/deployables/module/Azorius.test.ts
 
 ### Code Quality
 
-Fix ESLint issues:
+#### Linting
+
+Lint TypeScript files with ESLint:
 
 ```shell
 npm run lint
 ```
 
-Check ESLint issues:
+Check ESLint issues without fixing:
 
 ```shell
 npm run lint:check
 ```
 
-Format code with Prettier:
+Lint and fix Solidity contracts with Solhint:
+
+```shell
+npm run solhint
+```
+
+Check Solhint issues without fixing:
+
+```shell
+npm run solhint:check
+```
+
+#### Formatting
+
+Format all code (TypeScript and Solidity) with Prettier:
 
 ```shell
 npm run pretty
 ```
 
-Check code formatting:
+Check code formatting without fixing:
 
 ```shell
 npm run pretty:check
