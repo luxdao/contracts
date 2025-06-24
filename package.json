@@ -18,7 +18,6 @@
     "pretty:check": "prettier . --check",
     "clean": "hardhat clean",
     "compile": "hardhat compile",
-    "docgen": "hardhat docgen",
     "test": "hardhat test",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
@@ -32,14 +31,16 @@
   "dependencies": {
     "@account-abstraction/contracts": "^0.7.0",
     "@gnosis-guild/zodiac": "^4.0.3",
+    "@openzeppelin/contracts": "^5.3.0",
+    "@openzeppelin/contracts-upgradeable": "^5.3.0",
+    "@prb/math": "^4.0.3"
+  },
+  "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.9",
     "@nomicfoundation/hardhat-ignition-ethers": "^0.15.12",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.14",
-    "@openzeppelin/contracts": "^5.3.0",
-    "@openzeppelin/contracts-upgradeable": "^5.3.0",
-    "@prb/math": "^4.0.3",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "chai": "^4.2.0",
@@ -49,6 +50,6 @@
     "eslint-plugin-import": "^2.29.1",
     "hardhat": "^2.24.3",
     "prettier": "^3.3.3",
-    "solidity-docgen": "^0.6.0-beta.36"
+    "prettier-plugin-solidity": "^2.0.0"
   }
 }

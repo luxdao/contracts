@@ -2,16 +2,29 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IVotesERC20StakedV1} from "../../interfaces/decent/deployables/IVotesERC20StakedV1.sol";
+import {
+    IVotesERC20StakedV1
+} from "../../interfaces/decent/deployables/IVotesERC20StakedV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC20VotesUpgradeable, VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    IERC20Metadata
+} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ERC20VotesUpgradeable,
+    VotesUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -88,6 +101,7 @@ contract VotesERC20StakedV1 is
     /**
      * @dev Returns the storage struct for VotesERC20StakedV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for VotesERC20StakedV1
      */
     function _getVotesERC20StakedStorage()
         internal

@@ -65,7 +65,7 @@ contract MockHatsComplete {
         string calldata _imageURI
     ) external returns (uint256 newHatId) {
         newHatId = getNextId(_parentId);
-        
+
         hatDetails[newHatId] = _details;
         hatMaxSupply[newHatId] = _maxSupply;
         hatEligibility[newHatId] = _eligibility;
@@ -74,7 +74,7 @@ contract MockHatsComplete {
         hatImageURIs[newHatId] = _imageURI;
 
         nextIds[_parentId]++;
-        
+
         return newHatId;
     }
 

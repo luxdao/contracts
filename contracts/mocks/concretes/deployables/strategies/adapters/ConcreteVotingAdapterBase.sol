@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {VotingAdapterBase} from "../../../../../deployables/strategies/adapters/voting/VotingAdapterBase.sol";
-import {IStrategyV1} from "../../../../../interfaces/decent/deployables/IStrategyV1.sol";
+import {
+    VotingAdapterBase
+} from "../../../../../deployables/strategies/adapters/voting/VotingAdapterBase.sol";
+import {
+    IStrategyV1
+} from "../../../../../interfaces/decent/deployables/IStrategyV1.sol";
 
 contract ConcreteVotingAdapterBase is VotingAdapterBase {
     constructor() {

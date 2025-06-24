@@ -2,10 +2,14 @@
 pragma solidity ^0.8.30;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    ERC20Permit
+} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ClockMode} from "../interfaces/decent/ClockMode.sol";
-import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
+import {
+    Checkpoints
+} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 /**
  * @title MockERC20Votes

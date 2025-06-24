@@ -2,12 +2,20 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IVotingAdapterBase} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
-import {IProposerAdapterBaseV1} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    IVotingAdapterBase
+} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IProposerAdapterBaseV1
+} from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {LightAccountValidator} from "../account-abstraction/LightAccountValidator.sol";
+import {
+    LightAccountValidator
+} from "../account-abstraction/LightAccountValidator.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -82,6 +90,7 @@ contract StrategyV1 is
     /**
      * @dev Returns the storage struct for StrategyV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for StrategyV1
      */
     function _getStrategyStorage()
         internal
@@ -615,12 +624,11 @@ contract StrategyV1 is
 
             // Record the vote with the adapter and get the voting weight
             // Each adapter enforces its own constraints (e.g., one vote per address for ERC20)
-            uint256 votingWeight = IVotingAdapterBase(votingAdapter)
-                .recordVote(
-                    resolvedVoter,
-                    proposalId_,
-                    votingAdapterVoteData.adapterVoteData
-                );
+            uint256 votingWeight = IVotingAdapterBase(votingAdapter).recordVote(
+                resolvedVoter,
+                proposalId_,
+                votingAdapterVoteData.adapterVoteData
+            );
 
             // Ensure the adapter returned a valid voting weight
             if (votingWeight == 0) {

@@ -1,16 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
+import {
+    IModuleAzoriusV1
+} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
-import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    GuardableModule
+} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -73,6 +83,7 @@ contract ModuleAzoriusV1 is
     /**
      * @dev Returns the storage struct for ModuleAzoriusV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for ModuleAzoriusV1
      */
     function _getModuleAzoriusStorage()
         internal

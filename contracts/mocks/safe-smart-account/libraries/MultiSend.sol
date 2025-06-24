@@ -28,7 +28,10 @@ contract MultiSend {
      *         If the calling method (e.g. execTransaction) received ETH this would revert otherwise
      */
     function multiSend(bytes memory transactions) public payable {
-        require(address(this) != multisendSingleton, "MultiSend should only be called via delegatecall");
+        require(
+            address(this) != multisendSingleton,
+            "MultiSend should only be called via delegatecall"
+        );
         // solhint-disable-next-line no-inline-assembly
         assembly {
             let length := mload(transactions)

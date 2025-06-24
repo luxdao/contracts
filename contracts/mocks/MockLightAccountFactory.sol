@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ILightAccountFactory} from "../interfaces/light-account/ILightAccountFactory.sol";
+import {
+    ILightAccountFactory
+} from "../interfaces/light-account/ILightAccountFactory.sol";
 
 contract MockLightAccountFactory is ILightAccountFactory {
     mapping(address => mapping(uint256 => address)) private _accountAddresses; // owner => salt => account
