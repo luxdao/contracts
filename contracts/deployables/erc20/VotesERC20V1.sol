@@ -279,6 +279,9 @@ contract VotesERC20V1 is
         bool locked_
     ) public virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
         VotesERC20Storage storage $ = _getVotesERC20Storage();
+        if (locked_ && !$.locked) {
+            revert LockFromUnlockedState();
+        }
         if (!locked_) {
             $.unlockTime = uint48(block.timestamp);
         }

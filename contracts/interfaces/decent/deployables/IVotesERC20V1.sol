@@ -27,6 +27,9 @@ interface IVotesERC20V1 {
 
     /** @notice Thrown when attempting transfers on a locked (non-transferable) token */
     error IsLocked();
+    
+    /** @notice Thrown when locking token from unlocked state */
+    error LockFromUnlockedState();
 
     /** @notice Thrown when minting is disabled */
     error MintingDisabled();
