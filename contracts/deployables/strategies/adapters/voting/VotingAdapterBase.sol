@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IVotingAdapterBase} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
-import {IStrategyV1} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    IVotingAdapterBase
+} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IStrategyV1
+} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title VotingAdapterBase
@@ -46,6 +52,7 @@ abstract contract VotingAdapterBase is IVotingAdapterBase, Initializable {
     /**
      * @dev Returns the storage struct for VotingAdapterBase
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for VotingAdapterBase
      */
     function _getVotingAdapterBaseStorage()
         internal

@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IStrategyV1} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IVotingAdapterERC721V1} from "../../../../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
-import {IVotingAdapterBase} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IStrategyV1
+} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
+import {
+    IVotingAdapterERC721V1
+} from "../../../../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
+import {
+    IVotingAdapterBase
+} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IDeploymentBlock
+} from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {VotingAdapterBase} from "./VotingAdapterBase.sol";
 import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -66,6 +74,7 @@ contract VotingAdapterERC721V1 is
     /**
      * @dev Returns the storage struct for VotingAdapterERC721V1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for VotingAdapterERC721V1
      */
     function _getVotingAdapterERC721Storage()
         internal

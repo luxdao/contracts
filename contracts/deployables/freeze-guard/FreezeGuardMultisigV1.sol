@@ -2,17 +2,27 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IFreezeGuardMultisigV1} from "../../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
-import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    IFreezeGuardMultisigV1
+} from "../../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
+import {
+    IFreezeGuardBaseV1
+} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * @title FreezeGuardMultisigV1
@@ -77,6 +87,7 @@ contract FreezeGuardMultisigV1 is
     /**
      * @dev Returns the storage struct for FreezeGuardMultisigV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeGuardMultisigV1
      */
     function _getFreezeGuardMultisigStorage()
         internal

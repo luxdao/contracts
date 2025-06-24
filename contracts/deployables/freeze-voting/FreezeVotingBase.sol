@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
-import {LightAccountValidator} from "../account-abstraction/LightAccountValidator.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    LightAccountValidator
+} from "../account-abstraction/LightAccountValidator.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * @title FreezeVotingBase
@@ -67,6 +73,7 @@ abstract contract FreezeVotingBase is
     /**
      * @dev Returns the storage struct for FreezeVotingBase
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeVotingBase
      */
     function _getFreezeVotingBaseStorage()
         internal

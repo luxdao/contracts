@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {ILightAccount} from "../../interfaces/light-account/ILightAccount.sol";
-import {ILightAccountFactory} from "../../interfaces/light-account/ILightAccountFactory.sol";
-import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    ILightAccountFactory
+} from "../../interfaces/light-account/ILightAccountFactory.sol";
+import {
+    PackedUserOperation
+} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title LightAccountValidator
@@ -63,6 +71,7 @@ abstract contract LightAccountValidator is
     /**
      * @dev Returns the storage struct for LightAccountValidator
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for LightAccountValidator
      */
     function _getLightAccountValidatorStorage()
         internal

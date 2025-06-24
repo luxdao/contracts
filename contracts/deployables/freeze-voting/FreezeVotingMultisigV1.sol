@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
-import {IFreezeVotingMultisigV1} from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    IFreezeVotingMultisigV1
+} from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
@@ -73,6 +79,7 @@ contract FreezeVotingMultisigV1 is
     /**
      * @dev Returns the storage struct for FreezeVotingMultisigV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeVotingMultisigV1
      */
     function _getFreezeVotingMultisigStorage()
         internal

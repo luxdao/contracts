@@ -1,22 +1,36 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IUtilityRolesManagementV1} from "../interfaces/decent/utilities/IUtilityRolesManagementV1.sol";
-import {IDecentAutonomousAdminV1} from "../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
-import {ISystemDeployerV1} from "../interfaces/decent/singletons/ISystemDeployerV1.sol";
-import {IKeyValuePairsV1} from "../interfaces/decent/singletons/IKeyValuePairsV1.sol";
+import {
+    IUtilityRolesManagementV1
+} from "../interfaces/decent/utilities/IUtilityRolesManagementV1.sol";
+import {
+    IDecentAutonomousAdminV1
+} from "../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
+import {
+    ISystemDeployerV1
+} from "../interfaces/decent/singletons/ISystemDeployerV1.sol";
+import {
+    IKeyValuePairsV1
+} from "../interfaces/decent/singletons/IKeyValuePairsV1.sol";
 import {IHatsExtended} from "../interfaces/hats/IHatsExtended.sol";
 import {IERC6551Registry} from "../interfaces/erc6551/IERC6551Registry.sol";
 import {IHats} from "../interfaces/hats/IHats.sol";
-import {IHatsElectionsEligibility} from "../interfaces/hats/modules/IHatsElectionsEligibility.sol";
+import {
+    IHatsElectionsEligibility
+} from "../interfaces/hats/modules/IHatsElectionsEligibility.sol";
 import {IHatsModuleFactory} from "../interfaces/hats/IHatsModuleFactory.sol";
-import {ISablierV2LockupLinear} from "../interfaces/sablier/ISablierV2LockupLinear.sol";
+import {
+    ISablierV2LockupLinear
+} from "../interfaces/sablier/ISablierV2LockupLinear.sol";
 import {ISablierV2Lockup} from "../interfaces/sablier/ISablierV2Lockup.sol";
 import {LockupLinear, Lockup} from "../interfaces/sablier/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC6551Executable} from "../interfaces/erc6551/IERC6551Executable.sol";
 import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlockNonUpgradeable} from "../DeploymentBlockNonUpgradeable.sol";
+import {
+    DeploymentBlockNonUpgradeable
+} from "../DeploymentBlockNonUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 

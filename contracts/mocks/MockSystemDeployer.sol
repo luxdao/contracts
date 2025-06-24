@@ -9,7 +9,7 @@ pragma solidity ^0.8.30;
 contract MockSystemDeployer {
     // Track deployed proxies
     mapping(bytes32 => address) public deployedProxies;
-    
+
     // Track the deployer (address(this)) for each deployment
     mapping(address => address) public proxyDeployers;
 
@@ -55,7 +55,7 @@ contract MockSystemDeployer {
             uint160(uint256(keccak256(abi.encodePacked(key, proxyCounter))))
         );
         deployedProxies[key] = proxy;
-        
+
         // Capture who deployed this proxy
         proxyDeployers[proxy] = deployer;
 

@@ -8,7 +8,12 @@ pragma solidity ^0.8.30;
  */
 contract MockERC6551Executable {
     // Event to track executions
-    event Executed(address indexed target, uint256 value, bytes data, uint8 operation);
+    event Executed(
+        address indexed target,
+        uint256 value,
+        bytes data,
+        uint8 operation
+    );
 
     /**
      * @dev Execute a transaction from the token-bound account
@@ -30,7 +35,9 @@ contract MockERC6551Executable {
         // For testing, we execute it to maintain realistic behavior
         if (operation == 0) {
             // Simulate successful call
-            (bool success, bytes memory result) = target.call{value: value}(data);
+            (bool success, bytes memory result) = target.call{value: value}(
+                data
+            );
             require(success, "Execute call failed");
             return result;
         } else {

@@ -1,19 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IVotingAdapterERC20V1} from "../../../../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
-import {IVotingAdapterBase} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
-import {IStrategyV1} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
+import {
+    IVotingAdapterERC20V1
+} from "../../../../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
+import {
+    IVotingAdapterBase
+} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IStrategyV1
+} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
 import {ClockMode} from "../../../../interfaces/decent/ClockMode.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IDeploymentBlock
+} from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {VotingAdapterBase} from "./VotingAdapterBase.sol";
 import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
 import {ClockModeLib} from "../../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
+import {
+    ERC20Votes
+} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {
+    Checkpoints
+} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 /**
  * @title VotingAdapterERC20V1
@@ -72,6 +84,7 @@ contract VotingAdapterERC20V1 is
     /**
      * @dev Returns the storage struct for VotingAdapterERC20V1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for VotingAdapterERC20V1
      */
     function _getVotingAdapterERC20Storage()
         internal

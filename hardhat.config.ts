@@ -2,7 +2,6 @@ import '@nomicfoundation/hardhat-ignition-ethers';
 import '@nomicfoundation/hardhat-toolbox';
 import '@nomicfoundation/hardhat-verify';
 import { HardhatUserConfig, vars } from 'hardhat/config';
-import 'solidity-docgen';
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -75,9 +74,6 @@ const config: HardhatUserConfig = {
   },
   sourcify: {
     enabled: false,
-  },
-  docgen: {
-    pages: 'files',
   },
   ignition: {
     strategyConfig: {

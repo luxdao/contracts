@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IProposerAdapterERC20V1} from "../../../../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
-import {IProposerAdapterBaseV1} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {
+    IProposerAdapterERC20V1
+} from "../../../../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
+import {
+    IProposerAdapterBaseV1
+} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IDeploymentBlock
+} from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -59,6 +65,7 @@ contract ProposerAdapterERC20V1 is
     /**
      * @dev Returns the storage struct for ProposerAdapterERC20V1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for ProposerAdapterERC20V1
      */
     function _getProposerAdapterERC20Storage()
         internal

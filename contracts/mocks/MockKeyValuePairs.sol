@@ -34,7 +34,9 @@ contract MockKeyValuePairs {
      * @param key The key to look up
      * @return The stored value
      */
-    function getValue(string calldata key) external view returns (string memory) {
+    function getValue(
+        string calldata key
+    ) external view returns (string memory) {
         return store[key];
     }
 }
