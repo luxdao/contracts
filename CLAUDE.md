@@ -691,6 +691,25 @@ When generating commit messages and Linear tickets:
 
 Example: `./tmp/commit-and-ticket-messages/autonomous-admin-systemdeployer-refactor.md`
 
+## Project Plans
+
+When creating project plans, implementation plans, or technical design documents:
+
+### Output Location
+
+1. Create files in `./tmp/project-plans/`
+2. Use descriptive filenames like `<feature-name>-implementation-plan.md`
+3. Include clear sections for overview, steps, and notes
+
+### What to Include
+
+- **Overview**: Brief description of what the plan accomplishes
+- **Implementation Steps**: Numbered list of specific actions
+- **Benefits**: Key advantages of the approach
+- **Notes**: Important considerations or caveats
+
+Example: `./tmp/project-plans/solhint-implementation-plan.md`
+
 ## Code Formatting Requirements
 
 ### TypeScript Code Formatting
