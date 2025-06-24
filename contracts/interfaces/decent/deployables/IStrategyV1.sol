@@ -167,10 +167,10 @@ interface IStrategyV1 {
      * - Azorius needs Strategy address during initialization
      * - Strategy needs Azorius address (as strategyAdmin) and VotingAdapter addresses
      * - VotingAdapters need Strategy address during initialization
-     * 
+     *
      * This two-step process allows: 1) Deploy Strategy, 2) Deploy Azorius with Strategy address,
      * 3) Deploy VotingAdapters with Strategy address, 4) Call initialize2 with Azorius and adapters.
-     * 
+     *
      * @param votingPeriod_ Duration in seconds for voting on each proposal
      * @param quorumThreshold_ Minimum total voting weight (YES + ABSTAIN) required for a proposal to pass
      * @param basisNumerator_ Numerator for basis calculation (denominator is 1,000,000).

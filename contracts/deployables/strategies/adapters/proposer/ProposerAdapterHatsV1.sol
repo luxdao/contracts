@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IProposerAdapterHatsV1} from "../../../../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
-import {IProposerAdapterBaseV1} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {
+    IProposerAdapterHatsV1
+} from "../../../../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
+import {
+    IProposerAdapterBaseV1
+} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IHats} from "../../../../interfaces/hats/IHats.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IDeploymentBlock
+} from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -61,6 +67,7 @@ contract ProposerAdapterHatsV1 is
     /**
      * @dev Returns the storage struct for ProposerAdapterHatsV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for ProposerAdapterHatsV1
      */
     function _getProposerAdapterHatsStorage()
         internal

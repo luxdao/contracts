@@ -1,13 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IFreezeVotingAzoriusV1} from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
-import {IVotingAdapterBase} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
-import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
+import {
+    IFreezeVotingAzoriusV1
+} from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    IVotingAdapterBase
+} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IModuleAzoriusV1
+} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {FreezeVotingBase} from "./FreezeVotingBase.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
@@ -75,6 +85,7 @@ contract FreezeVotingAzoriusV1 is
     /**
      * @dev Returns the storage struct for FreezeVotingAzoriusV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeVotingAzoriusV1
      */
     function _getFreezeVotingAzoriusStorage()
         internal

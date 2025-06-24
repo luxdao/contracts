@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IKYCVerifierV1} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
+import {
+    IKYCVerifierV1
+} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
+import {
+    ICountersignV1
+} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {IMultisend} from "../../interfaces/safe/IMultiSend.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * @title CountersignV1
@@ -90,6 +96,7 @@ contract CountersignV1 is
     /**
      * @dev Returns the storage struct for CountersignV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for CountersignV1
      */
     function _getCountersignStorage()
         internal

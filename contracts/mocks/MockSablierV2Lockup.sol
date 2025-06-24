@@ -12,11 +12,11 @@ import {LockupLinear} from "../interfaces/sablier/types/DataTypes.sol";
 contract MockSablierV2Lockup {
     // Stream status enum matching Sablier
     enum Status {
-        PENDING,    // 0
-        STREAMING,  // 1
-        SETTLED,    // 2
-        CANCELED,   // 3
-        DEPLETED    // 4
+        PENDING, // 0
+        STREAMING, // 1
+        SETTLED, // 2
+        CANCELED, // 3
+        DEPLETED // 4
     }
 
     // Mock state
@@ -52,7 +52,9 @@ contract MockSablierV2Lockup {
     /**
      * @dev Get withdrawable amount for a stream
      */
-    function withdrawableAmountOf(uint256 streamId) external view returns (uint256) {
+    function withdrawableAmountOf(
+        uint256 streamId
+    ) external view returns (uint256) {
         return withdrawableAmounts[streamId];
     }
 
@@ -100,21 +102,28 @@ contract MockSablierV2Lockup {
         LockupLinear.CreateWithTimestamps calldata params
     ) external returns (uint256 streamId) {
         streamId = _nextStreamId++;
-        
+
         // Verify token approval
-        uint256 allowance = IERC20(params.asset).allowance(msg.sender, address(this));
+        uint256 allowance = IERC20(params.asset).allowance(
+            msg.sender,
+            address(this)
+        );
         require(allowance >= params.totalAmount, "Insufficient allowance");
-        
+
         // Transfer tokens from sender
         require(
-            IERC20(params.asset).transferFrom(msg.sender, address(this), params.totalAmount),
+            IERC20(params.asset).transferFrom(
+                msg.sender,
+                address(this),
+                params.totalAmount
+            ),
             "Token transfer failed"
         );
-        
+
         // Set initial stream state
         streamStatuses[streamId] = Status.PENDING;
         withdrawableAmounts[streamId] = 0; // No funds withdrawable initially
-        
+
         // Emit event
         emit StreamCreated(
             streamId,
@@ -123,7 +132,7 @@ contract MockSablierV2Lockup {
             params.totalAmount,
             address(params.asset)
         );
-        
+
         return streamId;
     }
 }

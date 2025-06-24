@@ -25,7 +25,7 @@ contract MockSafeDelegatecall {
         uint8 operation
     ) external payable returns (bool success) {
         bytes memory returnData;
-        
+
         if (operation == 1) {
             // DelegateCall
             (success, returnData) = to.delegatecall(data);

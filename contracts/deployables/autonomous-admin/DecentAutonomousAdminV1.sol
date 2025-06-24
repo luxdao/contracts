@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IDecentAutonomousAdminV1} from "../../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
-import {IHatsElectionsEligibility} from "../../interfaces/hats/modules/IHatsElectionsEligibility.sol";
+import {
+    IDecentAutonomousAdminV1
+} from "../../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
+import {
+    IHatsElectionsEligibility
+} from "../../interfaces/hats/modules/IHatsElectionsEligibility.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";

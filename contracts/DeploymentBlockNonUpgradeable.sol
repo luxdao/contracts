@@ -49,12 +49,14 @@ abstract contract DeploymentBlockNonUpgradeable is IDeploymentBlock {
      * keccak256(abi.encode(uint256(keccak256("Decent.DeploymentBlockNonUpgradeable.main")) - 1)) & ~bytes32(uint256(0xff))
      */
     bytes32
-        internal constant DEPLOYMENT_BLOCK_NON_UPGRADEABLE_STORAGE_LOCATION =
-        0x75420419808cf80485ed57399dff70df3a6d545855667cf2ad8ee38294f38000;
+        internal
+        constant DEPLOYMENT_BLOCK_NON_UPGRADEABLE_STORAGE_LOCATION =
+            0x75420419808cf80485ed57399dff70df3a6d545855667cf2ad8ee38294f38000;
 
     /**
      * @dev Returns the storage struct for DeploymentBlockNonUpgradeable
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for DeploymentBlockNonUpgradeable
      */
     function _getDeploymentBlockNonUpgradeableStorage()
         internal

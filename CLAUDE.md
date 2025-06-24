@@ -42,7 +42,7 @@ The codebase follows a specific pattern for version suffixes:
 Interfaces contain the most comprehensive documentation as they define the contract's public API:
 
 ```solidity
-/**
+ /**
  * @title IContractName
  * @notice High-level one-line description of the interface's purpose
  * @dev Comprehensive explanation of the contract's role in the system.
@@ -64,7 +64,7 @@ Interfaces contain the most comprehensive documentation as they define the contr
 Implementation contracts reference their interface and add implementation details:
 
 ```solidity
-/**
+ /**
  * @title ContractNameV1  // Note: Concrete contracts include V1 suffix
  * @author Decent Labs
  * @notice Implementation of IContractName providing [brief functional description]
@@ -101,7 +101,7 @@ Abstract contracts that provide base functionality do NOT include version suffix
  * @custom:security-contact security@decentlabs.io
  */
 abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
-    // ...
+  // ...
 }
 ```
 
@@ -110,7 +110,7 @@ abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
 For contracts without interfaces, include full documentation:
 
 ```solidity
-/**
+ /**
  * @title ContractName
  * @author Decent Labs
  * @notice [One-line description of the contract's purpose]
@@ -157,7 +157,7 @@ Common inherited functions that should use @inheritdoc:
 For functions not in interfaces:
 
 ```solidity
-/**
+ /**
  * @notice [Brief description of what the function does]
  * @dev [Technical details, implementation notes, security considerations]
  * @param paramName_ [Description of parameter and constraints]
@@ -177,11 +177,10 @@ For functions not in interfaces:
  * @custom:storage-location erc7201:Decent.ContractName.main
  */
 struct ContractStorage {
-    /** @notice [What this variable tracks/represents] */
-    uint256 variable1;
-
-    /** @notice [Purpose of this mapping] */
-    mapping(address => uint256) variable2;
+  /** @notice [What this variable tracks/represents] */
+  uint256 variable1;
+  /** @notice [Purpose of this mapping] */
+  mapping(address => uint256) variable2;
 }
 ```
 
@@ -191,13 +190,14 @@ struct ContractStorage {
 /**
  * @dev Returns the storage struct for ContractName
  * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+ * @return $ The storage struct for ContractName
  */
 function _getContractStorage() internal pure returns (ContractStorage storage $) {
-    // implementation
+  // implementation
 }
 ```
 
-**Important**: Do NOT use `@return` tags with `$` as the parameter name - the docgen tool cannot parse this.
+**Important**: Storage getter functions should include `@return $ The storage struct for [ContractName]`
 
 #### Constants
 
@@ -239,15 +239,15 @@ error ErrorWithContext(address account, uint256 expected, uint256 actual);
  * - VALUE2: [What this value means and when it's used]
  */
 enum Status {
-    VALUE1,
-    VALUE2
+  VALUE1,
+  VALUE2
 }
 ```
 
 For state machine enums, include transition information:
 
 ```solidity
-/**
+ /**
  * @notice Represents the lifecycle states of a proposal
  * @dev State transitions:
  * - PENDING -> ACTIVE: When voting period begins
@@ -284,27 +284,27 @@ For complex functions (>30 lines) or intricate logic:
 
 ```solidity
 function complexFunction(uint256 param_) external {
-    // Step 1: Validate inputs and check preconditions
-    require(param_ > 0, "Invalid param");
+  // Step 1: Validate inputs and check preconditions
+  require(param_ > 0, 'Invalid param');
 
-    // Calculate weighted average using formula:
-    // weightedAvg = (value1 * weight1 + value2 * weight2) / totalWeight
-    uint256 weightedAvg = _calculateWeightedAverage();
+  // Calculate weighted average using formula:
+  // weightedAvg = (value1 * weight1 + value2 * weight2) / totalWeight
+  uint256 weightedAvg = _calculateWeightedAverage();
 
-    // Check if emergency override is needed
-    if (emergencyMode) {
-        // In emergency mode, bypass normal checks
-        return _emergencyFallback(param_);
-    }
+  // Check if emergency override is needed
+  if (emergencyMode) {
+    // In emergency mode, bypass normal checks
+    return _emergencyFallback(param_);
+  }
 
-    // Update state following checks-effects-interactions pattern
-    lastUpdate = block.timestamp;
+  // Update state following checks-effects-interactions pattern
+  lastUpdate = block.timestamp;
 
-    // Emit event before external calls
-    emit Updated(param_, weightedAvg);
+  // Emit event before external calls
+  emit Updated(param_, weightedAvg);
 
-    // External call last to prevent reentrancy
-    externalContract.notify(param_);
+  // External call last to prevent reentrancy
+  externalContract.notify(param_);
 }
 ```
 
@@ -315,7 +315,7 @@ function complexFunction(uint256 param_) external {
 In interfaces, use simple single-line delimiters to separate sections:
 
 ```solidity
-// --- Section Name ---
+ // --- Section Name ---
 ```
 
 Interface sections should be ordered as follows (if available):
@@ -333,28 +333,28 @@ Example interface structure:
 
 ```solidity
 interface IExampleV1 {
-    // --- Errors ---
+  // --- Errors ---
 
-    error InvalidInput(uint256 provided, uint256 expected);
+  error InvalidInput(uint256 provided, uint256 expected);
 
-    // --- Structs ---
+  // --- Structs ---
 
-    struct Config {
-        uint256 threshold;
-        address admin;
-    }
+  struct Config {
+    uint256 threshold;
+    address admin;
+  }
 
-    // --- Events ---
+  // --- Events ---
 
-    event ConfigUpdated(Config newConfig);
+  event ConfigUpdated(Config newConfig);
 
-    // --- View Functions ---
+  // --- View Functions ---
 
-    function getConfig() external view returns (Config memory);
+  function getConfig() external view returns (Config memory);
 
-    // --- State-Changing Functions ---
+  // --- State-Changing Functions ---
 
-    function updateConfig(Config calldata config_) external;
+  function updateConfig(Config calldata config_) external;
 }
 ```
 
@@ -363,7 +363,7 @@ interface IExampleV1 {
 In contracts, use 70-character wide section headers with centered text:
 
 ```solidity
-// ======================================================================
+ // ======================================================================
 // SECTION NAME
 // ======================================================================
 ```
@@ -386,14 +386,14 @@ Within interface/contract sections, separate functions by visibility using the s
 // --- View Functions ---
 
 function getConfig() external view override returns (Config memory) {
-    return _config;
+  return _config;
 }
 
 // --- State-Changing Functions ---
 
 function updateConfig(Config calldata config_) external override {
-    _config = config_;
-    emit ConfigUpdated(config_);
+  _config = config_;
+  emit ConfigUpdated(config_);
 }
 ```
 
@@ -401,63 +401,63 @@ Complete contract example:
 
 ```solidity
 contract ExampleV1 is IExampleV1, UUPSUpgradeable, OwnableUpgradeable {
-    // ======================================================================
-    // STATE VARIABLES
-    // ======================================================================
+  // ======================================================================
+  // STATE VARIABLES
+  // ======================================================================
 
-    Config private _config;
+  Config private _config;
 
-    // ======================================================================
-    // MODIFIERS
-    // ======================================================================
+  // ======================================================================
+  // MODIFIERS
+  // ======================================================================
 
-    modifier onlyValidConfig(Config calldata config_) {
-        if (config_.threshold == 0) revert InvalidInput(0, 1);
-        _;
-    }
+  modifier onlyValidConfig(Config calldata config_) {
+    if (config_.threshold == 0) revert InvalidInput(0, 1);
+    _;
+  }
 
-    // ======================================================================
-    // CONSTRUCTOR & INITIALIZERS
-    // ======================================================================
+  // ======================================================================
+  // CONSTRUCTOR & INITIALIZERS
+  // ======================================================================
 
-    function initialize(Config calldata initialConfig_) public initializer {
-        __Ownable_init();
-        __UUPSUpgradeable_init();
-        _config = initialConfig_;
-    }
+  function initialize(Config calldata initialConfig_) public initializer {
+    __Ownable_init();
+    __UUPSUpgradeable_init();
+    _config = initialConfig_;
+  }
 
-    // ======================================================================
-    // IExampleV1
-    // ======================================================================
+  // ======================================================================
+  // IExampleV1
+  // ======================================================================
 
-    // --- View Functions ---
+  // --- View Functions ---
 
-    function getConfig() external view override returns (Config memory) {
-        return _config;
-    }
+  function getConfig() external view override returns (Config memory) {
+    return _config;
+  }
 
-    // --- State-Changing Functions ---
+  // --- State-Changing Functions ---
 
-    function updateConfig(
-        Config calldata config_
-    ) external override onlyOwner onlyValidConfig(config_) {
-        _config = config_;
-        emit ConfigUpdated(config_);
-    }
+  function updateConfig(
+    Config calldata config_
+  ) external override onlyOwner onlyValidConfig(config_) {
+    _config = config_;
+    emit ConfigUpdated(config_);
+  }
 
-    // ======================================================================
-    // UUPSUpgradeable
-    // ======================================================================
+  // ======================================================================
+  // UUPSUpgradeable
+  // ======================================================================
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+  function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    // ======================================================================
-    // INTERNAL HELPERS
-    // ======================================================================
+  // ======================================================================
+  // INTERNAL HELPERS
+  // ======================================================================
 
-    function _validateThreshold(uint256 threshold_) internal pure {
-        if (threshold_ == 0) revert InvalidInput(threshold_, 1);
-    }
+  function _validateThreshold(uint256 threshold_) internal pure {
+    if (threshold_ == 0) revert InvalidInput(threshold_, 1);
+  }
 }
 ```
 
@@ -476,7 +476,7 @@ function transfer(address recipient_, uint256 amount_) external;
 Document upgradeability ONLY in implementation contracts, not interfaces:
 
 ```solidity
-/**
+ /**
  * @dev This contract implements the UUPS pattern. Upgrades are restricted to
  * the contract owner. Storage layout must be preserved between upgrades.
  */
@@ -487,7 +487,7 @@ Document upgradeability ONLY in implementation contracts, not interfaces:
 Always include security contact on main contracts:
 
 ```solidity
-/**
+ /**
  * @custom:security-contact security@decentlabs.io
  */
 ```
@@ -505,7 +505,7 @@ Based on contract category, document deployment expectations:
 
 1. **Never duplicate interface documentation in implementations** - Use @inheritdoc
 2. **Don't use @dev inside enum declarations** - Put it in the header comment
-3. **Don't use @return with `$` parameter name** - Docgen can't parse it
+3. **Always include @return $ for storage getter functions** - Now properly supported
 4. **Don't document upgradeability in interfaces** - It's an implementation detail
 5. **Don't forget IERC165 when documenting supportsInterface**
 6. **Always run tests before documenting** - Ensure accuracy
@@ -530,7 +530,6 @@ Based on contract category, document deployment expectations:
 3. **Validate**:
    - Cross-reference with tests
    - Ensure accuracy of descriptions
-   - Run `npm run docgen` to verify output
 
 ### Real Examples from Codebase
 
@@ -539,7 +538,7 @@ Based on contract category, document deployment expectations:
 From `IModuleAzoriusV1.sol`:
 
 ```solidity
-/**
+ /**
  * @title IModuleAzoriusV1
  * @notice Central governance module for DAOs using the Azorius Protocol
  * @dev This module serves as the core governance system that manages proposals and executes
@@ -573,10 +572,8 @@ From `ModuleAzoriusV1.sol`:
  * @dev Dynamically calculates state based on current timestamp and voting results.
  * State transitions follow a strict progression through the proposal lifecycle.
  */
-function proposalState(
-    uint32 proposalId_
-) public view virtual override returns (ProposalState) {
-    // Implementation...
+function proposalState(uint32 proposalId_) public view virtual override returns (ProposalState) {
+  // Implementation...
 }
 ```
 
@@ -608,12 +605,12 @@ function proposalState(
  * - FAILED: Voting did not pass according to strategy rules
  */
 enum ProposalState {
-    ACTIVE,
-    TIMELOCKED,
-    EXECUTABLE,
-    EXECUTED,
-    EXPIRED,
-    FAILED
+  ACTIVE,
+  TIMELOCKED,
+  EXECUTABLE,
+  EXECUTED,
+  EXPIRED,
+  FAILED
 }
 ```
 
@@ -623,43 +620,38 @@ From `StrategyV1.sol`:
 
 ```solidity
 function castVote(
-    uint32 proposalId_,
-    uint8 voteType_,
-    VotingAdapterVoteData[] calldata votingAdaptersData,
-    uint256 lightAccountIndex_
+  uint32 proposalId_,
+  uint8 voteType_,
+  VotingAdapterVoteData[] calldata votingAdaptersData,
+  uint256 lightAccountIndex_
 ) public virtual override {
-    // Step 1: Resolve the actual voter address (support for Light Accounts/ERC-4337)
-    // If lightAccountIndex_ > 0, this resolves to the Light Account owner
-    address resolvedVoter = potentialLightAccountResolvedOwner(
-        msg.sender,
-        lightAccountIndex_
-    );
+  // Step 1: Resolve the actual voter address (support for Light Accounts/ERC-4337)
+  // If lightAccountIndex_ > 0, this resolves to the Light Account owner
+  address resolvedVoter = potentialLightAccountResolvedOwner(msg.sender, lightAccountIndex_);
 
-    // Step 2: Verify the proposal has been initialized
-    if (proposal.votingEndTimestamp == 0) {
-        revert ProposalNotInitialized();
+  // Step 2: Verify the proposal has been initialized
+  if (proposal.votingEndTimestamp == 0) {
+    revert ProposalNotInitialized();
+  }
+
+  // Step 3: Check if voting period has ended
+  if (block.timestamp > proposal.votingEndTimestamp) {
+    // Track the first late vote attempt for informational purposes
+    // This helps with gasless voting infrastructure
+    if (!$.voteCastedAfterVotingPeriodEnded[proposalId_]) {
+      $.voteCastedAfterVotingPeriodEnded[proposalId_] = true;
+      emit VotingPeriodEnded(proposalId_);
+      return; // Exit gracefully on first late attempt
     }
+    revert ProposalNotActive();
+  }
 
-    // Step 3: Check if voting period has ended
-    if (block.timestamp > proposal.votingEndTimestamp) {
-        // Track the first late vote attempt for informational purposes
-        // This helps with gasless voting infrastructure
-        if (!$.voteCastedAfterVotingPeriodEnded[proposalId_]) {
-            $.voteCastedAfterVotingPeriodEnded[proposalId_] = true;
-            emit VotingPeriodEnded(proposalId_);
-            return; // Exit gracefully on first late attempt
-        }
-        revert ProposalNotActive();
-    }
-
-    // Continue with voting logic...
+  // Continue with voting logic...
 }
 ```
 
 ### Additional Resources
 
-- See `/tmp/natspec-documentation-plan.md` for comprehensive documentation tracking and additional examples
-- Run `npm run docgen` after modifying contracts to update documentation
 - Always cross-reference with test files to ensure documentation accuracy
 
 ## Git Commit Messages and Linear Tickets
@@ -694,6 +686,51 @@ When generating commit messages and Linear tickets:
 1. Create files in `./tmp/commit-and-ticket-messages/`
 2. Use descriptive filenames like `<feature-name>-<action>.md`
 3. Include both git commit message and Linear ticket in the same file
-4. Wrap each section in markdown code blocks for easy copying
+4. Wrap each section in markdown code blocks for easy copying.
+5. When creating lists, use the `-` character.
 
 Example: `./tmp/commit-and-ticket-messages/autonomous-admin-systemdeployer-refactor.md`
+
+## Code Formatting Requirements
+
+### TypeScript Code Formatting
+
+When modifying TypeScript code, you MUST run prettier to ensure code passes GitHub CI checks:
+
+```shell
+npm run pretty
+```
+
+This is critical because:
+
+- GitHub CI checks will fail if code doesn't match prettier formatting rules
+- The project enforces consistent code style across all TypeScript files
+- Running prettier ensures your changes will pass automated checks
+
+Always run prettier after:
+
+- Creating new TypeScript files
+- Modifying existing TypeScript files
+- Making any changes to `.ts` files
+
+### Solidity Code Formatting
+
+The project uses prettier-plugin-solidity for consistent Solidity formatting. When modifying Solidity code:
+
+```shell
+npm run pretty
+```
+
+This ensures:
+
+- Consistent formatting across all developers
+- Code matches the project's Solidity style guide (80 char width, 4 spaces, double quotes)
+- No formatting conflicts between different developer environments
+
+The Hardhat Solidity VSCode/Cursor extension uses the same formatter internally, but all developers should run `npm run pretty` before committing to ensure consistency.
+
+Always run prettier after:
+
+- Creating new Solidity contracts
+- Modifying existing Solidity files
+- Making any changes to `.sol` files

@@ -199,14 +199,6 @@ Check code formatting:
 npm run pretty:check
 ```
 
-### Documentation
-
-Update natspec doc files after modifying contracts:
-
-```shell
-npm run docgen
-```
-
 ## Contract Deployment
 
 Before deploying, set your unique CREATE2 salt to ensure deterministic addresses:
