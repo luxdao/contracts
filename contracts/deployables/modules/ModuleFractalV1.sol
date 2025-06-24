@@ -9,8 +9,7 @@ import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
 import {
-    GuardableModule,
-    Enum
+    GuardableModule
 } from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
 import {
     UUPSUpgradeable
@@ -103,7 +102,10 @@ contract ModuleFractalV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IModuleFractalV1

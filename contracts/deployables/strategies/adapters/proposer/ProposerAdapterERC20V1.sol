@@ -72,6 +72,7 @@ contract ProposerAdapterERC20V1 is
         pure
         returns (ProposerAdapterERC20Storage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := PROPOSER_ADAPTER_ERC20_STORAGE_LOCATION
         }

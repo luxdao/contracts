@@ -59,6 +59,7 @@ abstract contract VotingAdapterBase is IVotingAdapterBase, Initializable {
         pure
         returns (VotingAdapterBaseStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := VOTING_ADAPTER_BASE_STORAGE_LOCATION
         }
@@ -108,6 +109,7 @@ abstract contract VotingAdapterBase is IVotingAdapterBase, Initializable {
      * @param strategy_ The address of the strategy contract that will manage this adapter
      */
     function __VotingAdapterBase_init(
+        // solhint-disable-previous-line func-name-mixedcase
         address strategy_
     ) internal onlyInitializing {
         VotingAdapterBaseStorage storage $ = _getVotingAdapterBaseStorage();

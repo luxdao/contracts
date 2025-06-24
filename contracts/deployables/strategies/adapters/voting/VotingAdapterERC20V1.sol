@@ -91,6 +91,7 @@ contract VotingAdapterERC20V1 is
         pure
         returns (VotingAdapterERC20Storage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := VOTING_ADAPTER_ERC20_STORAGE_LOCATION
         }

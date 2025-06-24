@@ -92,6 +92,7 @@ contract FreezeVotingAzoriusV1 is
         pure
         returns (FreezeVotingAzoriusStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_VOTING_AZORIUS_STORAGE_LOCATION
         }

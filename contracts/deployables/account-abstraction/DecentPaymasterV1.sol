@@ -103,6 +103,7 @@ contract DecentPaymasterV1 is
         pure
         returns (DecentPaymasterStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := DECENT_PAYMASTER_STORAGE_LOCATION
         }
@@ -143,7 +144,10 @@ contract DecentPaymasterV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IDecentPaymasterV1

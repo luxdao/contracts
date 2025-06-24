@@ -80,6 +80,7 @@ abstract contract FreezeVotingBase is
         pure
         returns (FreezeVotingBaseStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_VOTING_BASE_STORAGE_LOCATION
         }
@@ -104,6 +105,7 @@ abstract contract FreezeVotingBase is
      * @param lightAccountFactory_ Factory for gasless voting support
      */
     function __FreezeVotingBase_init(
+        // solhint-disable-previous-line func-name-mixedcase
         address owner_,
         uint32 freezeProposalPeriod_,
         uint32 freezePeriod_,
