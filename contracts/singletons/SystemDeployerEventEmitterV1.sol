@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ISystemDeployerEventEmitterV1} from "../interfaces/decent/singletons/ISystemDeployerEventEmitterV1.sol";
+import {
+    ISystemDeployerEventEmitterV1
+} from "../interfaces/decent/singletons/ISystemDeployerEventEmitterV1.sol";
 import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlockNonUpgradeable} from "../DeploymentBlockNonUpgradeable.sol";
+import {
+    DeploymentBlockNonUpgradeable
+} from "../DeploymentBlockNonUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**

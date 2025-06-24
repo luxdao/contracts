@@ -47,6 +47,12 @@
       "rules": {
         "@typescript-eslint/no-unused-expressions": "off"
       }
+    },
+    {
+      "files": ["hardhat.config.ts", "*.config.ts", "scripts/**/*.ts"],
+      "rules": {
+        "import/no-extraneous-dependencies": ["error", { "devDependencies": true }]
+      }
     }
   ]
 }

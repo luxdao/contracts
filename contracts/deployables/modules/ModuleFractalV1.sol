@@ -1,15 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IModuleFractalV1} from "../../interfaces/decent/deployables/IModuleFractalV1.sol";
+import {
+    IModuleFractalV1
+} from "../../interfaces/decent/deployables/IModuleFractalV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
-import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    GuardableModule,
+    Enum
+} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**

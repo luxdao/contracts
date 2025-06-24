@@ -2,7 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {IDeploymentBlock} from "./interfaces/decent/IDeploymentBlock.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title DeploymentBlock
@@ -55,6 +57,7 @@ abstract contract DeploymentBlock is Initializable, IDeploymentBlock {
     /**
      * @dev Returns the storage struct for DeploymentBlock
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for DeploymentBlock
      */
     function _getDeploymentBlockStorage()
         internal

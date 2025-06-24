@@ -1,20 +1,37 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
-import {IFunctionValidator} from "../../interfaces/decent/services/IFunctionValidator.sol";
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    IDecentPaymasterV1
+} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
+import {
+    IFunctionValidator
+} from "../../interfaces/decent/services/IFunctionValidator.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {BasePaymaster} from "./BasePaymaster.sol";
 import {LightAccountValidator} from "./LightAccountValidator.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
-import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {PackedUserOperation, IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {
+    IEntryPoint
+} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {
+    PackedUserOperation,
+    IPaymaster
+} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
@@ -79,6 +96,7 @@ contract DecentPaymasterV1 is
     /**
      * @dev Returns the storage struct for DecentPaymasterV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for DecentPaymasterV1
      */
     function _getDecentPaymasterStorage()
         internal

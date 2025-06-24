@@ -10,20 +10,43 @@ import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import "@account-abstraction/contracts/core/UserOperationLib.sol";
 
 /**
- * Helper class for creating a paymaster.
- * provides helper methods for staking.
- * Validates that the postOp is called only by the entryPoint.
+ * @title BasePaymaster
+ * @author Decent Labs
+ * @notice Abstract base contract for ERC-4337 paymaster implementations
+ * @dev This abstract contract provides common functionality for paymasters,
+ * including entry point validation, staking, and deposit management.
+ *
+ * Implementation details:
+ * - Uses EIP-7201 namespaced storage pattern for upgradeability safety
+ * - Provides helper methods for staking and deposits
+ * - Validates that postOp is called only by the entryPoint
+ * - Must be extended by concrete paymaster contracts
+ *
+ * @custom:security-contact security@decentlabs.io
  */
 abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
-    /// @custom:storage-location erc7201:Decent.BasePaymaster.main
+    /**
+     * @notice Main storage struct for BasePaymaster following EIP-7201
+     * @dev Contains the entry point reference for validation
+     * @custom:storage-location erc7201:Decent.BasePaymaster.main
+     */
     struct BasePaymasterStorage {
+        /** @notice The ERC-4337 entry point contract for operation validation */
         IEntryPoint entryPoint;
     }
 
-    // EIP-7201: keccak256(abi.encode(uint256(keccak256("Decent.BasePaymaster.main")) - 1)) & ~bytes32(uint256(0xff))
+    /**
+     * @dev Storage slot for BasePaymasterStorage calculated using EIP-7201 formula:
+     * keccak256(abi.encode(uint256(keccak256("Decent.BasePaymaster.main")) - 1)) & ~bytes32(uint256(0xff))
+     */
     bytes32 internal constant BASE_PAYMASTER_STORAGE_LOCATION =
         0xad46a2c487d466a30553d8946911648c5925537fb9ab436a7edd0606d8258100;
 
+    /**
+     * @dev Returns the storage struct for BasePaymaster
+     * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for BasePaymaster
+     */
     function _getBasePaymasterStorage()
         internal
         pure
