@@ -28,6 +28,9 @@ interface IVotesERC20V1 {
     /** @notice Thrown when attempting transfers on a locked (non-transferable) token */
     error IsLocked();
 
+    /** @notice Thrown when minting is disabled */
+    error MintingDisabled();
+
     /** @notice Thrown when minting would exceed the maximum total supply */
     error ExceedMaxTotalSupply();
 
@@ -41,6 +44,11 @@ interface IVotesERC20V1 {
      * @param isLocked True if transfers are now locked, false if unlocked
      */
     event Locked(bool isLocked);
+
+    /**
+     * @notice Emitted when the token's minting is renounced
+     */
+    event MintingRenounced();
 
     /**
      * @notice Emitted when the maximum total supply is updated
@@ -116,6 +124,13 @@ interface IVotesERC20V1 {
     function locked() external view returns (bool isLocked);
 
     /**
+     * @notice Returns whether minting is disabled
+     * @dev When disabled, no new tokens can be minted
+     * @return isMintingRenounced True if minting is disabled
+     */
+    function mintingRenounced() external view returns (bool isMintingRenounced);
+
+    /**
      * @notice Returns the maximum total supply cap
      * @return maxTotalSupply The maximum number of tokens that can exist
      */
@@ -139,6 +154,14 @@ interface IVotesERC20V1 {
      * @custom:emits Locked
      */
     function lock(bool locked_) external;
+
+    /**
+     * @notice Renounces the ability to mint new tokens
+     * @dev Only callable by admin. Once called, minting is permanently disabled.
+     * @custom:access Restricted to admin role
+     * @custom:emits MintingDisabled
+     */
+    function renounceMinting() external;
 
     /**
      * @notice Updates the maximum total supply cap
