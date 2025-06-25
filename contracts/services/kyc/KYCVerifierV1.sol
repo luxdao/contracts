@@ -6,8 +6,9 @@ import {
 } from "../../interfaces/decent/services/IKYCVerifierV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
-import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    DeploymentBlockNonUpgradeable
+} from "../../DeploymentBlockNonUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -21,7 +22,6 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * - Mock implementation for testing and development
  * - Always returns true for any address verification
  * - Deployed as singleton service per chain
- * - Upgradeable using UUPS pattern via proxy
  * - Production implementations would integrate with real KYC providers
  *
  * Production considerations:
@@ -35,28 +35,9 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract KYCVerifierV1 is
     IKYCVerifierV1,
     IVersion,
-    DeploymentBlock,
-    InitializerEventEmitter,
+    DeploymentBlockNonUpgradeable,
     ERC165
 {
-    // ======================================================================
-    // CONSTRUCTOR & INITIALIZERS
-    // ======================================================================
-
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @inheritdoc IKYCVerifierV1
-     * @dev Initializes the deployment block tracking. In production implementations,
-     * this would also initialize KYC provider integrations and access controls.
-     */
-    function initialize() public virtual override initializer {
-        __InitializerEventEmitter_init(abi.encode());
-        __DeploymentBlock_init();
-    }
-
     // ======================================================================
     // IKYCVerifier
     // ======================================================================

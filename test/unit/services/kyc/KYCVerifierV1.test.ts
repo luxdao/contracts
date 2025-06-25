@@ -2,7 +2,6 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
-  ERC1967Proxy__factory,
   IDeploymentBlock__factory,
   IERC165__factory,
   IKYCVerifierV1__factory,
@@ -11,23 +10,7 @@ import {
   KYCVerifierV1__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
-import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
-
-// Helper function for deploying Countersign instances using ERC1967Proxy
-async function deployKYCVerifierProxy(
-  proxyDeployer: SignerWithAddress,
-  implementation: string,
-): Promise<KYCVerifierV1> {
-  // Create initialization data with function selector
-  const fullInitData = KYCVerifierV1__factory.createInterface().encodeFunctionData('initialize');
-
-  // Deploy the proxy with the implementation
-  const proxy = await new ERC1967Proxy__factory(proxyDeployer).deploy(implementation, fullInitData);
-
-  // Return a contract instance connected to the proxy
-  return KYCVerifierV1__factory.connect(await proxy.getAddress(), proxyDeployer);
-}
 
 describe('KYCVerifierV1', () => {
   // signers
@@ -42,17 +25,7 @@ describe('KYCVerifierV1', () => {
     [investorAlice, deployer] = await ethers.getSigners();
 
     // deploy KYC verifier
-    const implementation = await new KYCVerifierV1__factory(deployer).deploy();
-    kycVerifier = await deployKYCVerifierProxy(deployer, await implementation.getAddress());
-  });
-
-  describe('Initialization', () => {
-    it('should not allow reinitialization', async () => {
-      await expect(kycVerifier.initialize()).to.be.revertedWithCustomError(
-        kycVerifier,
-        'InvalidInitialization',
-      );
-    });
+    kycVerifier = await new KYCVerifierV1__factory(deployer).deploy();
   });
 
   describe('Version', () => {
@@ -82,23 +55,6 @@ describe('KYCVerifierV1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => kycVerifier,
-    });
-  });
-
-  describe('InitializerEventEmitter', () => {
-    let testDeployer: SignerWithAddress;
-
-    beforeEach(async () => {
-      [testDeployer] = await ethers.getSigners();
-    });
-
-    runInitializerEventEmitterTests({
-      contractFactory: KYCVerifierV1__factory,
-      masterCopy: async () =>
-        await (await new KYCVerifierV1__factory(testDeployer).deploy()).getAddress(),
-      deployer: () => testDeployer,
-      initializeParams: () => [],
-      getExpectedInitData: async () => ethers.AbiCoder.defaultAbiCoder().encode([], []),
     });
   });
 });
