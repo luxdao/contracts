@@ -17,6 +17,7 @@ import {
     LightAccountValidator
 } from "../account-abstraction/LightAccountValidator.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -41,6 +42,7 @@ contract StrategyV1 is
     IStrategyV1,
     IVersion,
     DeploymentBlock,
+    InitializerEventEmitter,
     LightAccountValidator,
     ERC165
 {
@@ -157,6 +159,15 @@ contract StrategyV1 is
         // Initialize parent contracts
         __LightAccountValidator_init(lightAccountFactory_);
         __DeploymentBlock_init();
+        __InitializerEventEmitter_init(
+            abi.encode(
+                votingPeriod_,
+                quorumThreshold_,
+                basisNumerator_,
+                proposerAdapters_,
+                lightAccountFactory_
+            )
+        );
 
         // Store voting configuration
         StrategyStorage storage $ = _getStrategyStorage();

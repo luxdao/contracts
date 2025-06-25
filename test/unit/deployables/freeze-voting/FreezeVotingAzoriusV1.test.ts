@@ -23,6 +23,7 @@ import {
   MockVotingStrategy__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 async function deployAzoriusFreezeVotingProxy(
@@ -361,6 +362,34 @@ describe('FreezeVotingAzoriusV1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => azoriusFreezeVoting,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    runInitializerEventEmitterTests({
+      contractFactory: FreezeVotingAzoriusV1__factory,
+      masterCopy: () => azoriusFreezeVotingImplementationAddress,
+      deployer: () => deployer,
+      initializeParams: async () => [
+        owner.address,
+        DEFAULT_FREEZE_VOTES_THRESHOLD,
+        DEFAULT_FREEZE_PROPOSAL_PERIOD,
+        DEFAULT_FREEZE_PERIOD,
+        await mockParentAzorius.getAddress(),
+        mockLightAccountFactory.target as string,
+      ],
+      getExpectedInitData: async () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'uint256', 'uint32', 'uint32', 'address', 'address'],
+          [
+            owner.address,
+            DEFAULT_FREEZE_VOTES_THRESHOLD,
+            DEFAULT_FREEZE_PROPOSAL_PERIOD,
+            DEFAULT_FREEZE_PERIOD,
+            await mockParentAzorius.getAddress(),
+            mockLightAccountFactory.target as string,
+          ],
+        ),
     });
   });
 });

@@ -23,6 +23,7 @@ import {
   MockValidator__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
@@ -397,6 +398,25 @@ describe('DecentPaymasterV1', function () {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => decentPaymaster,
+    });
+  });
+
+  // Test InitializerEventEmitter functionality
+  describe('InitializerEventEmitter', () => {
+    runInitializerEventEmitterTests({
+      contractFactory: DecentPaymasterV1__factory,
+      masterCopy: async () => await masterCopy.getAddress(),
+      deployer: () => owner,
+      initializeParams: async () => [
+        owner.address,
+        await entryPoint.getAddress(),
+        mockLightAccountFactoryAddress,
+      ],
+      getExpectedInitData: async () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address', 'address'],
+          [owner.address, await entryPoint.getAddress(), mockLightAccountFactoryAddress],
+        ),
     });
   });
 });

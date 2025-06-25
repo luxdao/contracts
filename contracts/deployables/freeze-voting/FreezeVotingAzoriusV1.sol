@@ -21,6 +21,7 @@ import {
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {FreezeVotingBase} from "./FreezeVotingBase.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -57,6 +58,7 @@ contract FreezeVotingAzoriusV1 is
     IVersion,
     FreezeVotingBase,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -119,6 +121,16 @@ contract FreezeVotingAzoriusV1 is
         address parentAzorius_,
         address lightAccountFactory_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(
+                owner_,
+                freezeVotesThreshold_,
+                freezeProposalPeriod_,
+                freezePeriod_,
+                parentAzorius_,
+                lightAccountFactory_
+            )
+        );
         __FreezeVotingBase_init(
             owner_,
             freezeProposalPeriod_,

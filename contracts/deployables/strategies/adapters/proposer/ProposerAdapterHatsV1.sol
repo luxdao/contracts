@@ -13,6 +13,7 @@ import {
     IDeploymentBlock
 } from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -37,6 +38,7 @@ contract ProposerAdapterHatsV1 is
     IProposerAdapterHatsV1,
     IVersion,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -97,6 +99,9 @@ contract ProposerAdapterHatsV1 is
         address hatsContract_,
         uint256[] calldata whitelistedHatIds_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(hatsContract_, whitelistedHatIds_)
+        );
         __DeploymentBlock_init();
 
         ProposerAdapterHatsStorage storage $ = _getProposerAdapterHatsStorage();

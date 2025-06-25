@@ -9,6 +9,7 @@ import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     GuardableModule
 } from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
@@ -47,6 +48,7 @@ contract ModuleAzoriusV1 is
     IVersion,
     GuardableModule,
     DeploymentBlock,
+    InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ERC165
@@ -131,6 +133,16 @@ contract ModuleAzoriusV1 is
         uint32 timelockPeriod_,
         uint32 executionPeriod_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(
+                owner_,
+                avatar_,
+                target_,
+                strategy_,
+                timelockPeriod_,
+                executionPeriod_
+            )
+        );
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
         __DeploymentBlock_init();
