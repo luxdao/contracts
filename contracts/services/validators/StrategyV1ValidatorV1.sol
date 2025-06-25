@@ -8,8 +8,8 @@ import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {
-    DeploymentBlockNonUpgradeable
-} from "../../DeploymentBlockNonUpgradeable.sol";
+    DeploymentBlockNonInitializable
+} from "../../DeploymentBlockNonInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -37,7 +37,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract StrategyV1ValidatorV1 is
     IFunctionValidator,
     IVersion,
-    DeploymentBlockNonUpgradeable,
+    DeploymentBlockNonInitializable,
     ERC165
 {
     // ======================================================================

@@ -16,7 +16,9 @@ import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {
     LightAccountValidator
 } from "../account-abstraction/LightAccountValidator.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -41,7 +43,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract StrategyV1 is
     IStrategyV1,
     IVersion,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     LightAccountValidator,
     ERC165
@@ -158,7 +160,7 @@ contract StrategyV1 is
 
         // Initialize parent contracts
         __LightAccountValidator_init(lightAccountFactory_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
         __InitializerEventEmitter_init(
             abi.encode(
                 votingPeriod_,

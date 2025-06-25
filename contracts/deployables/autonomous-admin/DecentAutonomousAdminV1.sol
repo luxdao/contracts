@@ -9,7 +9,9 @@ import {
 } from "../../interfaces/hats/modules/IHatsElectionsEligibility.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -44,7 +46,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract DecentAutonomousAdminV1 is
     IDecentAutonomousAdminV1,
     IVersion,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165
 {
@@ -61,7 +63,7 @@ contract DecentAutonomousAdminV1 is
      */
     function initialize() public virtual override initializer {
         __InitializerEventEmitter_init(abi.encode());
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
     }
 
     // ======================================================================

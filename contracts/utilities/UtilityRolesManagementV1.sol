@@ -29,8 +29,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC6551Executable} from "../interfaces/erc6551/IERC6551Executable.sol";
 import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
 import {
-    DeploymentBlockNonUpgradeable
-} from "../DeploymentBlockNonUpgradeable.sol";
+    DeploymentBlockNonInitializable
+} from "../DeploymentBlockNonInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -48,7 +48,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  * - Sets up payment streams for all roles
  * - Associates trees with Safes via KeyValuePairs
  * - Non-upgradeable utility contract
- * - Inherits from DeploymentBlockNonUpgradeable to track deployment
+ * - Inherits from DeploymentBlockNonInitializable to track deployment
  * - Implements ERC165 for interface detection
  *
  * Key features:
@@ -67,7 +67,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  */
 contract UtilityRolesManagementV1 is
     IUtilityRolesManagementV1,
-    DeploymentBlockNonUpgradeable,
+    DeploymentBlockNonInitializable,
     ERC165
 {
     // ======================================================================

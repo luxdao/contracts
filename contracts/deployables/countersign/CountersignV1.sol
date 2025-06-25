@@ -10,7 +10,9 @@ import {
 } from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {IMultisend} from "../../interfaces/safe/IMultiSend.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {
@@ -51,7 +53,7 @@ import {
 contract CountersignV1 is
     ICountersignV1,
     IVersion,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165,
     Ownable2StepUpgradeable
@@ -153,7 +155,7 @@ contract CountersignV1 is
             )
         );
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         CountersignStorage storage $ = _getCountersignStorage();
         $.agreementUri = agreementUri_;
