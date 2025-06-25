@@ -17,6 +17,7 @@ import {
   VotingAdapterERC721V1__factory,
 } from '../../../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
 
 async function deployERC721AdapterProxy(
@@ -1727,6 +1728,33 @@ describe('VotingAdapterERC721V1', () => {
 
     runDeploymentBlockTests({
       getContract: () => adapter,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    let testMockNftAddress: string;
+    let testStrategyAddress: string;
+    let testDeployer: SignerWithAddress;
+
+    beforeEach(async () => {
+      [testDeployer] = await ethers.getSigners();
+      const testMockNft = await new MockERC721__factory(testDeployer).deploy();
+      const testStrategy = await new MockVotingStrategy__factory(testDeployer).deploy(testDeployer);
+      testMockNftAddress = await testMockNft.getAddress();
+      testStrategyAddress = await testStrategy.getAddress();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: VotingAdapterERC721V1__factory,
+      masterCopy: async () =>
+        await (await new VotingAdapterERC721V1__factory(testDeployer).deploy()).getAddress(),
+      deployer: () => testDeployer,
+      initializeParams: () => [testMockNftAddress, testStrategyAddress, DEFAULT_WEIGHT_PER_NFT],
+      getExpectedInitData: () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address', 'uint256'],
+          [testMockNftAddress, testStrategyAddress, DEFAULT_WEIGHT_PER_NFT],
+        ),
     });
   });
 });

@@ -18,6 +18,7 @@ import {
   MultiSendCallOnly__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 // Helper function for deploying Countersign instances using ERC1967Proxy
@@ -1006,6 +1007,115 @@ describe('CountersignV1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => countersign,
+    });
+  });
+
+  // Test InitializerEventEmitter functionality
+  describe('InitializerEventEmitter', () => {
+    // Shared test data
+    let testFounder: SignerWithAddress;
+    let testInvestorAlice: SignerWithAddress;
+    let testMockKYCVerifierAddress: string;
+    let testMultisendAddress: string;
+    let testSigningDeadline: bigint;
+    let testExecutionDeadline: bigint;
+
+    // Deploy contracts once before all tests
+    beforeEach(async () => {
+      [testFounder, testInvestorAlice] = await ethers.getSigners();
+      const testMockKYCVerifier = await new MockKYCVerifier__factory(testFounder).deploy();
+      const testMultisend = await new MultiSendCallOnly__factory(testFounder).deploy();
+
+      testMockKYCVerifierAddress = await testMockKYCVerifier.getAddress();
+      testMultisendAddress = await testMultisend.getAddress();
+
+      const currentTime = await time.latest();
+      testSigningDeadline = BigInt(currentTime + 100);
+      testExecutionDeadline = BigInt(currentTime + 200);
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: CountersignV1__factory,
+      masterCopy: async () =>
+        await (await new CountersignV1__factory(testFounder).deploy()).getAddress(),
+      deployer: () => testFounder,
+      initializeParams: () => {
+        // Simple signers with minimal transactions
+        const testSignerTransactions = [
+          {
+            account: testFounder.address,
+            required: true,
+            weight: 0,
+            transactions: '0x', // empty bytes
+          },
+          {
+            account: testInvestorAlice.address,
+            required: false,
+            weight: ethers.parseEther('100'),
+            transactions: '0x', // empty bytes
+          },
+        ];
+
+        // Simple pre-execution transactions
+        const testPreExecutionTransactions = '0x';
+
+        return [
+          testFounder.address,
+          agreementUri,
+          testMockKYCVerifierAddress,
+          testSigningDeadline,
+          testExecutionDeadline,
+          testMultisendAddress,
+          ethers.parseEther('150'), // minWeight
+          testPreExecutionTransactions,
+          testSignerTransactions,
+        ];
+      },
+      getExpectedInitData: () => {
+        // Simple signers with minimal transactions
+        const testSignerTransactions = [
+          {
+            account: testFounder.address,
+            required: true,
+            weight: 0,
+            transactions: '0x', // empty bytes
+          },
+          {
+            account: testInvestorAlice.address,
+            required: false,
+            weight: ethers.parseEther('100'),
+            transactions: '0x', // empty bytes
+          },
+        ];
+
+        // Simple pre-execution transactions
+        const testPreExecutionTransactions = '0x';
+
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          [
+            'address',
+            'string',
+            'address',
+            'uint48',
+            'uint48',
+            'address',
+            'uint256',
+            'bytes',
+            'tuple(address account, bool required, uint256 weight, bytes transactions)[]',
+          ],
+          [
+            testFounder.address,
+            agreementUri,
+            testMockKYCVerifierAddress,
+            testSigningDeadline,
+            testExecutionDeadline,
+            testMultisendAddress,
+            ethers.parseEther('150'),
+            testPreExecutionTransactions,
+            testSignerTransactions,
+          ],
+        );
+      },
     });
   });
 });

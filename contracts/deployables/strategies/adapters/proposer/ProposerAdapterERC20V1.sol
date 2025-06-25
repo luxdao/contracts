@@ -12,6 +12,7 @@ import {
     IDeploymentBlock
 } from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -37,6 +38,7 @@ contract ProposerAdapterERC20V1 is
     IProposerAdapterERC20V1,
     IVersion,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -95,6 +97,7 @@ contract ProposerAdapterERC20V1 is
         address token_,
         uint256 proposerThreshold_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode(token_, proposerThreshold_));
         __DeploymentBlock_init();
 
         ProposerAdapterERC20Storage

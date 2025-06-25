@@ -14,6 +14,7 @@ import {
   ProposerAdapterHatsV1__factory,
 } from '../../../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
 
 async function deployHatsProposerAdapterProxy(
@@ -233,6 +234,32 @@ describe('ProposerAdapterHatsV1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => adapter,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    const HAT_ID_3 = BigInt('0x0000000100000000000000000000000000000000000000000000000000000000');
+    const HAT_ID_4 = BigInt('0x0000000100010000000000000000000000000000000000000000000000000000');
+    let testMockHatsAddress: string;
+    let testDeployer: SignerWithAddress;
+
+    beforeEach(async () => {
+      [testDeployer] = await ethers.getSigners();
+      const testMockHats = await new MockHats__factory(testDeployer).deploy();
+      testMockHatsAddress = await testMockHats.getAddress();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: ProposerAdapterHatsV1__factory,
+      masterCopy: async () =>
+        await (await new ProposerAdapterHatsV1__factory(testDeployer).deploy()).getAddress(),
+      deployer: () => testDeployer,
+      initializeParams: () => [testMockHatsAddress, [HAT_ID_3, HAT_ID_4]],
+      getExpectedInitData: () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'uint256[]'],
+          [testMockHatsAddress, [HAT_ID_3, HAT_ID_4]],
+        ),
     });
   });
 });

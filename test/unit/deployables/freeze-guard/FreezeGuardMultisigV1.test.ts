@@ -18,6 +18,7 @@ import {
   MockSafe__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
@@ -495,6 +496,32 @@ describe('FreezeGuardMultisigV1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => multisigFreezeGuard,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    runInitializerEventEmitterTests({
+      contractFactory: FreezeGuardMultisigV1__factory,
+      masterCopy: () => masterCopy,
+      deployer: () => proxyDeployer,
+      initializeParams: async () => [
+        TIMELOCK_PERIOD,
+        EXECUTION_PERIOD,
+        owner.address,
+        await mockFreezeVoting.getAddress(),
+        await mockSafe.getAddress(),
+      ],
+      getExpectedInitData: async () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['uint32', 'uint32', 'address', 'address', 'address'],
+          [
+            TIMELOCK_PERIOD,
+            EXECUTION_PERIOD,
+            owner.address,
+            await mockFreezeVoting.getAddress(),
+            await mockSafe.getAddress(),
+          ],
+        ),
     });
   });
 });
