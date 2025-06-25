@@ -12,7 +12,9 @@ import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
 import {
     IDeploymentBlock
 } from "../../../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -37,7 +39,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract ProposerAdapterHatsV1 is
     IProposerAdapterHatsV1,
     IVersion,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165
 {
@@ -102,7 +104,7 @@ contract ProposerAdapterHatsV1 is
         __InitializerEventEmitter_init(
             abi.encode(hatsContract_, whitelistedHatIds_)
         );
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         ProposerAdapterHatsStorage storage $ = _getProposerAdapterHatsStorage();
         $.hatsContract = IHats(hatsContract_);

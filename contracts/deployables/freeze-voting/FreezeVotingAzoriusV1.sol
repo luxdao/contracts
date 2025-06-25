@@ -20,7 +20,9 @@ import {
 } from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {FreezeVotingBase} from "./FreezeVotingBase.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -57,7 +59,7 @@ contract FreezeVotingAzoriusV1 is
     IFreezeVotingAzoriusV1,
     IVersion,
     FreezeVotingBase,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165
 {
@@ -138,7 +140,7 @@ contract FreezeVotingAzoriusV1 is
             freezeVotesThreshold_,
             lightAccountFactory_
         );
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
         $.parentAzorius = IModuleAzoriusV1(parentAzorius_);

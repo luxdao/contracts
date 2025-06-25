@@ -11,7 +11,9 @@ import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
 import {
     IDeploymentBlock
 } from "../../../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -36,7 +38,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  */
 contract ProposerAdapterERC721V1 is
     IProposerAdapterERC721V1,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     IVersion,
     InitializerEventEmitter,
     ERC165
@@ -98,7 +100,7 @@ contract ProposerAdapterERC721V1 is
         uint256 proposerThreshold_
     ) public virtual override initializer {
         __InitializerEventEmitter_init(abi.encode(token_, proposerThreshold_));
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         ProposerAdapterERC721Storage
             storage $ = _getProposerAdapterERC721Storage();

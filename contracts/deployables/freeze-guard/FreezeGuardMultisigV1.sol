@@ -13,7 +13,9 @@ import {
 } from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
@@ -53,7 +55,7 @@ contract FreezeGuardMultisigV1 is
     IVersion,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165
 {
@@ -133,7 +135,7 @@ contract FreezeGuardMultisigV1 is
         );
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         // Set timelock parameters (also emits events)
         _updateTimelockPeriod(timelockPeriod_);

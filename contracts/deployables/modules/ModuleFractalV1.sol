@@ -7,7 +7,9 @@ import {
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     GuardableModule
@@ -45,7 +47,7 @@ contract ModuleFractalV1 is
     IModuleFractalV1,
     IVersion,
     GuardableModule,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
@@ -70,7 +72,7 @@ contract ModuleFractalV1 is
         __InitializerEventEmitter_init(abi.encode(owner_, avatar_, target_));
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         avatar = avatar_;
         target = target_;

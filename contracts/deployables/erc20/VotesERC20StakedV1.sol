@@ -6,7 +6,9 @@ import {
     IVotesERC20StakedV1
 } from "../../interfaces/decent/deployables/IVotesERC20StakedV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -63,7 +65,7 @@ contract VotesERC20StakedV1 is
     ERC20VotesUpgradeable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165
 {
@@ -155,7 +157,7 @@ contract VotesERC20StakedV1 is
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         VotesERC20StakedStorage storage $ = _getVotesERC20StakedStorage();
         $.stakedToken = IERC20(stakedToken_);
