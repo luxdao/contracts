@@ -11,7 +11,9 @@ import {
     IERC20Permit
 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     IAccessControl
@@ -75,7 +77,7 @@ contract VotesERC20V1 is
     ERC20PermitUpgradeable,
     UUPSUpgradeable,
     AccessControlUpgradeable,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165
 {
@@ -189,7 +191,7 @@ contract VotesERC20V1 is
         __ERC20Permit_init(metadata_.name);
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
         __AccessControl_init();
 
         // Set up roles

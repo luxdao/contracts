@@ -7,8 +7,8 @@ import {
 import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
 import {
-    DeploymentBlockNonUpgradeable
-} from "../DeploymentBlockNonUpgradeable.sol";
+    DeploymentBlockNonInitializable
+} from "../DeploymentBlockNonInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -21,7 +21,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * Implementation details:
  * - Deployed once per chain as a singleton
  * - Non-upgradeable deployment pattern
- * - Inherits from DeploymentBlockNonUpgradeable to track deployment
+ * - Inherits from DeploymentBlockNonInitializable to track deployment
  * - Emits events from a consistent address for indexing
  * - Called by SystemDeployerV1 during DAO deployment
  * - Minimal gas overhead for event emission
@@ -37,7 +37,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract SystemDeployerEventEmitterV1 is
     ISystemDeployerEventEmitterV1,
     IVersion,
-    DeploymentBlockNonUpgradeable,
+    DeploymentBlockNonInitializable,
     ERC165
 {
     // ======================================================================

@@ -8,7 +8,9 @@ import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     GuardableModule
@@ -47,7 +49,7 @@ contract ModuleAzoriusV1 is
     IModuleAzoriusV1,
     IVersion,
     GuardableModule,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
@@ -145,7 +147,7 @@ contract ModuleAzoriusV1 is
         );
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         // avoids onlyOwner requirement on setAvatar and setTarget
         avatar = avatar_;

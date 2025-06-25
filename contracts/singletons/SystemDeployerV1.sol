@@ -48,8 +48,8 @@ import {
 import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
 import {
-    DeploymentBlockNonUpgradeable
-} from "../DeploymentBlockNonUpgradeable.sol";
+    DeploymentBlockNonInitializable
+} from "../DeploymentBlockNonInitializable.sol";
 import {
     ERC1967Proxy
 } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -91,7 +91,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract SystemDeployerV1 is
     ISystemDeployerV1,
     IVersion,
-    DeploymentBlockNonUpgradeable,
+    DeploymentBlockNonInitializable,
     ERC165
 {
     // ======================================================================

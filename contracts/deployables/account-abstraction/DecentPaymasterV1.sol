@@ -14,7 +14,9 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {BasePaymaster} from "./BasePaymaster.sol";
 import {LightAccountValidator} from "./LightAccountValidator.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     IEntryPoint
@@ -68,7 +70,7 @@ contract DecentPaymasterV1 is
     IVersion,
     BasePaymaster,
     LightAccountValidator,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
@@ -134,7 +136,7 @@ contract DecentPaymasterV1 is
         );
         __BasePaymaster_init(owner_, IEntryPoint(entryPoint_));
         __LightAccountValidator_init(lightAccountFactory_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
     }
 
     // ======================================================================

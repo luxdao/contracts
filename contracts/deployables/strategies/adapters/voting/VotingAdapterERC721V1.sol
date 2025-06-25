@@ -12,7 +12,9 @@ import {
     IDeploymentBlock
 } from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {VotingAdapterBase} from "./VotingAdapterBase.sol";
-import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -39,7 +41,7 @@ contract VotingAdapterERC721V1 is
     IVotingAdapterERC721V1,
     IVersion,
     VotingAdapterBase,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
     InitializerEventEmitter,
     ERC165
 {
@@ -106,7 +108,7 @@ contract VotingAdapterERC721V1 is
             abi.encode(token_, strategy_, weightPerToken_)
         );
         __VotingAdapterBase_init(strategy_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         VotingAdapterERC721Storage storage $ = _getVotingAdapterERC721Storage();
         $.token = IERC721(token_);
