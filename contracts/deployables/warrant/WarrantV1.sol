@@ -32,7 +32,8 @@ contract WarrantV1 is
      */
     struct WarrantStorage {
         bool relativeTime;
-        address recipient;
+        bool executed;
+        address warrantHolder;
         address token;
         bytes tokenInitData;
         address feeToken;
@@ -42,7 +43,7 @@ contract WarrantV1 is
         uint256 expiration;
         address hedgeyTokenLockupPlans;
         uint256 hedgeyStart;
-        uint256 hedgeyCliff;
+        uint256 hedgeyRelativeCliff;
         uint256 hedgeyRate;
         uint256 hedgeyPeriod;
     }
@@ -83,7 +84,7 @@ contract WarrantV1 is
     function initialize(
         bool relativeTime_,
         address owner_,
-        address recipient_,
+        address warrantHolder_,
         address token_,
         bytes memory tokenInitData_,
         address feeToken_,
@@ -93,7 +94,7 @@ contract WarrantV1 is
         uint256 expiration_,
         address hedgeyTokenLockupPlans_,
         uint256 hedgeyStart_,
-        uint256 hedgeyCliff_,
+        uint256 hedgeyRelativeCliff_,
         uint256 hedgeyRate_,
         uint256 hedgeyPeriod_
     ) public virtual override initializer {
@@ -104,11 +105,11 @@ contract WarrantV1 is
             // TODO: verify token is a valid instance of our VotesERC20V1
         }
 
-        // TODO: any validation on hedgeyStart_ if time is absolute?
+        // TODO: should there be any validation on hedgeyStart_ if time is absolute?
 
         WarrantStorage storage $ = _getWarrantStorage();
         $.relativeTime = relativeTime_;
-        $.recipient = recipient_;
+        $.warrantHolder = warrantHolder_;
         $.token = token_;
         $.tokenInitData = tokenInitData_;
         $.feeToken = feeToken_;
@@ -118,7 +119,7 @@ contract WarrantV1 is
         $.expiration = expiration_;
         $.hedgeyTokenLockupPlans = hedgeyTokenLockupPlans_;
         $.hedgeyStart = hedgeyStart_;
-        $.hedgeyCliff = hedgeyCliff_;
+        $.hedgeyRelativeCliff = hedgeyRelativeCliff_;
         $.hedgeyRate = hedgeyRate_;
         $.hedgeyPeriod = hedgeyPeriod_;
     }
@@ -142,7 +143,7 @@ contract WarrantV1 is
     /**
      * @inheritdoc IWarrantV1
      */
-    function recipient()
+    function warrantHolder()
         public
         view
         virtual
@@ -150,7 +151,7 @@ contract WarrantV1 is
         returns (address)
     {
         WarrantStorage storage $ = _getWarrantStorage();
-        return $.recipient;
+        return $.warrantHolder;
     }
 
     /**
@@ -246,9 +247,9 @@ contract WarrantV1 is
     /**
      * @inheritdoc IWarrantV1
      */
-    function hedgeyCliff() public view virtual override returns (uint256) {
+    function hedgeyRelativeCliff() public view virtual override returns (uint256) {
         WarrantStorage storage $ = _getWarrantStorage();
-        return $.hedgeyCliff;
+        return $.hedgeyRelativeCliff;
     }
 
     /**
@@ -271,7 +272,7 @@ contract WarrantV1 is
 
     function execute(address recipient_) public virtual override {
         WarrantStorage storage $ = _getWarrantStorage();
-        if (msg.sender != $.recipient) revert InvalidInvestor();
+        if (msg.sender != $.warrantHolder) revert OnlyWarrantHolder();
         if (recipient_ == address(0)) revert AddressZero();
         if (block.timestamp > $.expiration) revert Expired();
 
@@ -293,38 +294,55 @@ contract WarrantV1 is
             feeAmount
         );
 
+        uint256 hedgeyStartTime;
+        if ($.relativeTime) {
+            hedgeyStartTime = IVotesERC20V1($.token).getUnlockTime();
+        } else {
+            hedgeyStartTime = $.hedgeyStart;
+        }
+
+        uint256 hedgeyAbsoluteCliff = hedgeyStartTime + $.hedgeyRelativeCliff; 
+
         IERC20($.token).approve(
             $.hedgeyTokenLockupPlans,
             $.tokenAmount
         );
-
-        // TODO: handle this as absolute or relative timestamp
-        uint256 hedgeyStartTime = IVotesERC20V1($.token).getUnlockTime();
-
-        // TODO: update this
-        uint256 hedgeyLockupCliff = hedgeyStartTime; 
-
-        // function createPlan(
-        //     address recipient,
-        //     address token,
-        //     uint256 amount,
-        //     uint256 start,
-        //     uint256 cliff,
-        //     uint256 rate,
-        //     uint256 period
 
         IVotingTokenLockupPlans($.hedgeyTokenLockupPlans).createPlan(
             recipient_,
             $.token,
             $.tokenAmount,
             hedgeyStartTime,
-            hedgeyLockupCliff,
+            hedgeyAbsoluteCliff,
             $.hedgeyRate,
             $.hedgeyPeriod
         );
+
+        $.executed = true;
+
+        emit Executed(recipient_);
     }
 
+    // only callable by owner
+    // can only be called after expiration
+    function clawback(address recipient_) public virtual override onlyOwner {
+        WarrantStorage storage $ = _getWarrantStorage();
+        if ($.relativeTime) {
+            if (block.timestamp < IVotesERC20V1($.token).getUnlockTime() + $.expiration) revert WarrantNotExpired();
+        } else {
+            if (block.timestamp < $.expiration) revert WarrantNotExpired();
+        }   
+            
+        uint256 clawbackAmount = IERC20($.token).balanceOf(address(this));
 
+        // send entire token balance to recipient
+        IERC20($.token).safeTransfer(
+            recipient_,
+            clawbackAmount
+        );
+
+        emit Clawback(recipient_, clawbackAmount);
+    }
 
     // ======================================================================
     // IVersion
