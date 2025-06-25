@@ -4,22 +4,26 @@ pragma solidity ^0.8.30;
 interface IWarrantV1 {
     // --- Errors ---
 
-    error InvalidInvestor();
+    error OnlyWarrantHolder();
     error AddressZero();
     error Expired();
     error TokenLocked();
     error HedgeyStartNotElapsed();
+    error WarrantNotExpired();
 
     // --- Structs ---
 
     // --- Events ---
+
+    event Executed(address indexed recipient);
+    event Clawback(address indexed recipient, uint256 amount);
 
     // --- Initializer Functions ---
 
     function initialize(
         bool relativeTime_,
         address owner_,
-        address recipient_,
+        address warrantHolder_,
         address token_,
         bytes memory tokenInitData_,
         address feeToken_,
@@ -38,7 +42,7 @@ interface IWarrantV1 {
 
     function relativeTime() external view returns (bool);
 
-    function recipient() external view returns (address);
+    function warrantHolder() external view returns (address);
 
     function token() external view returns (address);
 
@@ -58,7 +62,7 @@ interface IWarrantV1 {
 
     function hedgeyStart() external view returns (uint256);
 
-    function hedgeyCliff() external view returns (uint256);
+    function hedgeyRelativeCliff() external view returns (uint256);
 
     function hedgeyRate() external view returns (uint256);
 
@@ -67,4 +71,6 @@ interface IWarrantV1 {
     // --- State-Changing Functions ---
 
     function execute(address recipient_) external;
+
+    function clawback(address recipient_) external;
 }
