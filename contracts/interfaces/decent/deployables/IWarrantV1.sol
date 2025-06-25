@@ -26,7 +26,6 @@ interface IWarrantV1 {
         address owner_,
         address warrantHolder_,
         address token_,
-        bytes memory tokenInitData_,
         address feeToken_,
         uint256 tokenAmount_,
         uint256 tokenPrice_,
@@ -46,8 +45,6 @@ interface IWarrantV1 {
     function warrantHolder() external view returns (address);
 
     function token() external view returns (address);
-
-    function tokenInitData() external view returns (bytes memory);
 
     function feeToken() external view returns (address);
 
