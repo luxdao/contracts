@@ -90,6 +90,7 @@ contract ModuleAzoriusV1 is
         pure
         returns (ModuleAzoriusStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := MODULE_AZORIUS_STORAGE_LOCATION
         }
@@ -186,7 +187,10 @@ contract ModuleAzoriusV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IModuleAzoriusV1

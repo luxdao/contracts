@@ -72,6 +72,7 @@ contract ProposerAdapterERC721V1 is
         pure
         returns (ProposerAdapterERC721Storage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := PROPOSER_ADAPTER_ERC721_STORAGE_LOCATION
         }

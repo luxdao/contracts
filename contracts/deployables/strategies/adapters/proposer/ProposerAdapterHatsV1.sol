@@ -74,6 +74,7 @@ contract ProposerAdapterHatsV1 is
         pure
         returns (ProposerAdapterHatsStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := PROPOSER_ADAPTER_HATS_STORAGE_LOCATION
         }

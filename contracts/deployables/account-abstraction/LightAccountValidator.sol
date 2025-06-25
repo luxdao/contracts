@@ -78,6 +78,7 @@ abstract contract LightAccountValidator is
         pure
         returns (LightAccountValidatorStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := LIGHT_ACCOUNT_VALIDATOR_STORAGE_LOCATION
         }
@@ -98,6 +99,7 @@ abstract contract LightAccountValidator is
      * @param lightAccountFactory_ The authorized Light Account Factory address
      */
     function __LightAccountValidator_init(
+        // solhint-disable-previous-line func-name-mixedcase
         address lightAccountFactory_
     ) internal onlyInitializing {
         LightAccountValidatorStorage
@@ -170,6 +172,7 @@ abstract contract LightAccountValidator is
     ) internal view virtual returns (bool, address) {
         // Check 1: Verify the address has code (is a contract)
         uint256 size;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             size := extcodesize(lightAccount_)
         }
