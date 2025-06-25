@@ -16,6 +16,8 @@
     "lint:check": "eslint . --ext .ts",
     "pretty": "prettier . --write",
     "pretty:check": "prettier . --check",
+    "solhint": "solhint 'contracts/**/*.sol' --fix",
+    "solhint:check": "solhint 'contracts/**/*.sol'",
     "clean": "hardhat clean",
     "compile": "hardhat compile",
     "test": "hardhat test",
@@ -50,6 +52,7 @@
     "eslint-plugin-import": "^2.29.1",
     "hardhat": "^2.24.3",
     "prettier": "^3.3.3",
-    "prettier-plugin-solidity": "^2.0.0"
+    "prettier-plugin-solidity": "^2.0.0",
+    "solhint": "^5.1.0"
   }
 }

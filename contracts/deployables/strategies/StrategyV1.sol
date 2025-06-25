@@ -97,6 +97,7 @@ contract StrategyV1 is
         pure
         returns (StrategyStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := STRATEGY_STORAGE_LOCATION
         }

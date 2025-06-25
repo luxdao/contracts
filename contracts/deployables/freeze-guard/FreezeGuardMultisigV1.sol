@@ -94,6 +94,7 @@ contract FreezeGuardMultisigV1 is
         pure
         returns (FreezeGuardMultisigStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_GUARD_MULTISIG_STORAGE_LOCATION
         }
@@ -146,7 +147,10 @@ contract FreezeGuardMultisigV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IFreezeGuardMultisigV1
@@ -347,7 +351,9 @@ contract FreezeGuardMultisigV1 is
      * @inheritdoc IGuard
      * @dev No post-execution checks needed. This guard only validates before execution.
      */
-    function checkAfterExecution(bytes32, bool) public view virtual override {}
+    function checkAfterExecution(bytes32, bool) public view virtual override {
+        // solhint-disable-previous-line no-empty-blocks
+    }
 
     // ======================================================================
     // IVersion

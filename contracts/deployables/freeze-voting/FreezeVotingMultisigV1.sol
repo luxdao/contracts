@@ -86,6 +86,7 @@ contract FreezeVotingMultisigV1 is
         pure
         returns (FreezeVotingMultisigStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_VOTING_MULTISIG_STORAGE_LOCATION
         }

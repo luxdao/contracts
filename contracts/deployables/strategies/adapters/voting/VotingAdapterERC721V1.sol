@@ -2,9 +2,6 @@
 pragma solidity ^0.8.30;
 
 import {
-    IStrategyV1
-} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
-import {
     IVotingAdapterERC721V1
 } from "../../../../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
 import {
@@ -81,6 +78,7 @@ contract VotingAdapterERC721V1 is
         pure
         returns (VotingAdapterERC721Storage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := VOTING_ADAPTER_ERC721_STORAGE_LOCATION
         }
@@ -517,6 +515,7 @@ contract VotingAdapterERC721V1 is
         }
 
         // Resize array to actual count of unused tokens
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(unusedFreezeTokenIds, unusedTokenCount)
         }
@@ -580,6 +579,7 @@ contract VotingAdapterERC721V1 is
 
         // Resize the array to actual unique count using assembly
         // This is more gas efficient than creating a new array
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(uniqueTokenIds, uniqueCount)
         }
@@ -622,6 +622,7 @@ contract VotingAdapterERC721V1 is
         }
 
         // Resize array to actual count of owned tokens
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(ownedTokenIds, ownedTokenCount)
         }
@@ -662,6 +663,7 @@ contract VotingAdapterERC721V1 is
         }
 
         // Resize array to actual count of unused tokens
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(unusedTokenIds, unusedTokenCount)
         }

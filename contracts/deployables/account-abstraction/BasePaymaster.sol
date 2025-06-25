@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.30;
 
-/* solhint-disable reason-string */
-
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@account-abstraction/contracts/interfaces/IPaymaster.sol";
-import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import "@account-abstraction/contracts/core/UserOperationLib.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    IPaymaster
+} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {
+    IEntryPoint
+} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {
+    PackedUserOperation
+} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
+import {
+    UserOperationLib
+} from "@account-abstraction/contracts/core/UserOperationLib.sol";
 
 /**
  * @title BasePaymaster
@@ -52,6 +61,7 @@ abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
         pure
         returns (BasePaymasterStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := BASE_PAYMASTER_STORAGE_LOCATION
         }
@@ -68,6 +78,7 @@ abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
         _disableInitializers();
     }
 
+    // solhint-disable-next-line func-name-mixedcase
     function __BasePaymaster_init(
         address _owner,
         IEntryPoint _entryPoint
@@ -84,6 +95,7 @@ abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
     function _validateEntryPointInterface(
         IEntryPoint _entryPoint
     ) internal virtual {
+        // solhint-disable-next-line gas-custom-errors
         require(
             IERC165(address(_entryPoint)).supportsInterface(
                 type(IEntryPoint).interfaceId
@@ -156,6 +168,7 @@ abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
     ) internal virtual {
         (mode, context, actualGasCost, actualUserOpFeePerGas); // unused params
         // subclass must override this method if validatePaymasterUserOp returns a context
+        // solhint-disable-next-line gas-custom-errors
         revert("must override");
     }
 
@@ -222,6 +235,7 @@ abstract contract BasePaymaster is IPaymaster, OwnableUpgradeable {
      */
     function _requireFromEntryPoint() internal virtual {
         BasePaymasterStorage storage $ = _getBasePaymasterStorage();
+        // solhint-disable-next-line gas-custom-errors
         require(msg.sender == address($.entryPoint), "Sender not EntryPoint");
     }
 }

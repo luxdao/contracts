@@ -63,6 +63,7 @@ abstract contract DeploymentBlockNonUpgradeable is IDeploymentBlock {
         pure
         returns (DeploymentBlockNonUpgradeableStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := DEPLOYMENT_BLOCK_NON_UPGRADEABLE_STORAGE_LOCATION
         }
