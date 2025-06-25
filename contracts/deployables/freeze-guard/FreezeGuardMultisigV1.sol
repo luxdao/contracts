@@ -14,6 +14,7 @@ import {
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -53,6 +54,7 @@ contract FreezeGuardMultisigV1 is
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -120,7 +122,15 @@ contract FreezeGuardMultisigV1 is
         address freezeVoting_,
         address childGnosisSafe_
     ) public virtual override initializer {
-        // Initialize inherited contracts
+        __InitializerEventEmitter_init(
+            abi.encode(
+                timelockPeriod_,
+                executionPeriod_,
+                owner_,
+                freezeVoting_,
+                childGnosisSafe_
+            )
+        );
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
         __DeploymentBlock_init();

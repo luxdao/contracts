@@ -7,6 +7,7 @@ import {
 } from "../../interfaces/decent/deployables/IVotesERC20StakedV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
@@ -63,6 +64,7 @@ contract VotesERC20StakedV1 is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     using SafeERC20 for IERC20;
@@ -141,6 +143,7 @@ contract VotesERC20StakedV1 is
         address owner_,
         address stakedToken_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode(owner_, stakedToken_));
         __ERC20_init(
             string(
                 abi.encodePacked("Staked ", IERC20Metadata(stakedToken_).name())

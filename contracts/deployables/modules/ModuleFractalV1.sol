@@ -8,6 +8,7 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     GuardableModule
 } from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
@@ -45,6 +46,7 @@ contract ModuleFractalV1 is
     IVersion,
     GuardableModule,
     DeploymentBlock,
+    InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ERC165
@@ -65,6 +67,7 @@ contract ModuleFractalV1 is
         address avatar_,
         address target_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode(owner_, avatar_, target_));
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
         __DeploymentBlock_init();

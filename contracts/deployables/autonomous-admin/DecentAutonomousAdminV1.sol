@@ -10,6 +10,7 @@ import {
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -44,6 +45,7 @@ contract DecentAutonomousAdminV1 is
     IDecentAutonomousAdminV1,
     IVersion,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -58,6 +60,7 @@ contract DecentAutonomousAdminV1 is
      * @inheritdoc IDecentAutonomousAdminV1
      */
     function initialize() public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode());
         __DeploymentBlock_init();
     }
 

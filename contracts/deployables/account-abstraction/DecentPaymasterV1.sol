@@ -15,6 +15,7 @@ import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {BasePaymaster} from "./BasePaymaster.sol";
 import {LightAccountValidator} from "./LightAccountValidator.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     IEntryPoint
 } from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
@@ -68,6 +69,7 @@ contract DecentPaymasterV1 is
     BasePaymaster,
     LightAccountValidator,
     DeploymentBlock,
+    InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ERC165
@@ -127,6 +129,9 @@ contract DecentPaymasterV1 is
         address entryPoint_,
         address lightAccountFactory_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(owner_, entryPoint_, lightAccountFactory_)
+        );
         __BasePaymaster_init(owner_, IEntryPoint(entryPoint_));
         __LightAccountValidator_init(lightAccountFactory_);
         __DeploymentBlock_init();

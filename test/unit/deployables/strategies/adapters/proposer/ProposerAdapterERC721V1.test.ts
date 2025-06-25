@@ -14,6 +14,7 @@ import {
   ProposerAdapterERC721V1__factory,
 } from '../../../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
 
 async function deployERC721ProposerAdapterProxy(
@@ -150,6 +151,30 @@ describe('ProposerAdapterERC721V1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => adapter,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    let testMockNftAddress: string;
+    let testDeployer: SignerWithAddress;
+
+    beforeEach(async () => {
+      [testDeployer] = await ethers.getSigners();
+      const testMockNft = await new MockERC721__factory(testDeployer).deploy();
+      testMockNftAddress = await testMockNft.getAddress();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: ProposerAdapterERC721V1__factory,
+      masterCopy: async () =>
+        await (await new ProposerAdapterERC721V1__factory(testDeployer).deploy()).getAddress(),
+      deployer: () => testDeployer,
+      initializeParams: () => [testMockNftAddress, DEFAULT_PROPOSER_THRESHOLD],
+      getExpectedInitData: () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'uint256'],
+          [testMockNftAddress, DEFAULT_PROPOSER_THRESHOLD],
+        ),
     });
   });
 });

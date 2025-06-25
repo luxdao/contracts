@@ -12,6 +12,7 @@ import {
 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {
     IAccessControl
 } from "@openzeppelin/contracts/access/IAccessControl.sol";
@@ -75,6 +76,7 @@ contract VotesERC20V1 is
     UUPSUpgradeable,
     AccessControlUpgradeable,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -174,7 +176,15 @@ contract VotesERC20V1 is
         bool locked_,
         uint256 maxTotalSupply_
     ) public virtual override initializer {
-        // Initialize inherited contracts
+        __InitializerEventEmitter_init(
+            abi.encode(
+                metadata_,
+                allocations_,
+                owner_,
+                locked_,
+                maxTotalSupply_
+            )
+        );
         __ERC20_init(metadata_.name, metadata_.symbol);
         __ERC20Permit_init(metadata_.name);
         __ERC20Votes_init();
