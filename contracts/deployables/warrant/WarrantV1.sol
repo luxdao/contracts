@@ -275,6 +275,7 @@ contract WarrantV1 is
         if (msg.sender != $.warrantHolder) revert OnlyWarrantHolder();
         if (recipient_ == address(0)) revert AddressZero();
         if (block.timestamp > $.expiration) revert Expired();
+        if ($.executed) revert AlreadyExecuted();
 
         uint256 startTime;
         if ($.relativeTime) {
