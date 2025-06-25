@@ -13,6 +13,7 @@ import {
 } from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -51,6 +52,7 @@ contract FreezeGuardAzoriusV1 is
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -107,6 +109,7 @@ contract FreezeGuardAzoriusV1 is
         address owner_,
         address freezeVoting_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode(owner_, freezeVoting_));
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
         __DeploymentBlock_init();

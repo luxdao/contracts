@@ -17,6 +17,7 @@ import {
   VotingAdapterERC20V1__factory,
 } from '../../../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
 
 // Modified helper function to return deployment tx hash
@@ -1342,6 +1343,39 @@ describe('VotingAdapterERC20V1', () => {
 
     runDeploymentBlockTests({
       getContract: () => adapter,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    let testMockTokenAddress: string;
+    let testMockStrategyAddress: string;
+    let testDeployer: SignerWithAddress;
+
+    beforeEach(async () => {
+      [testDeployer] = await ethers.getSigners();
+      const testMockToken = await new MockERC20Votes__factory(testDeployer).deploy();
+      const testMockStrategy = await new MockVotingStrategy__factory(testDeployer).deploy(
+        testDeployer,
+      );
+      testMockTokenAddress = await testMockToken.getAddress();
+      testMockStrategyAddress = await testMockStrategy.getAddress();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: VotingAdapterERC20V1__factory,
+      masterCopy: async () =>
+        await (await new VotingAdapterERC20V1__factory(testDeployer).deploy()).getAddress(),
+      deployer: () => testDeployer,
+      initializeParams: () => [
+        testMockTokenAddress,
+        testMockStrategyAddress,
+        DEFAULT_WEIGHT_PER_TOKEN,
+      ],
+      getExpectedInitData: () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address', 'uint256'],
+          [testMockTokenAddress, testMockStrategyAddress, DEFAULT_WEIGHT_PER_TOKEN],
+        ),
     });
   });
 });

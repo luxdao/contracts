@@ -11,6 +11,7 @@ import {
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {IMultisend} from "../../interfaces/safe/IMultiSend.sol";
 import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {
     Ownable2StepUpgradeable
@@ -51,6 +52,7 @@ contract CountersignV1 is
     ICountersignV1,
     IVersion,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165,
     Ownable2StepUpgradeable
 {
@@ -137,6 +139,19 @@ contract CountersignV1 is
         bytes memory preExecutionTransactions_,
         SignerInitialization[] memory signerInitializations_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(
+                owner_,
+                agreementUri_,
+                kycVerifier_,
+                signingDeadline_,
+                executionDeadline_,
+                multisend_,
+                minWeight_,
+                preExecutionTransactions_,
+                signerInitializations_
+            )
+        );
         __Ownable_init(owner_);
         __DeploymentBlock_init();
 

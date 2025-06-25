@@ -20,6 +20,7 @@ import {
   MockSafe__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 // Helper function for deploying MultisigFreezeVotingV1 proxy instances using ERC1967Proxy
@@ -605,6 +606,48 @@ describe('FreezeVotingMultisigV1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => freezeVoting,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    let deployer: SignerWithAddress;
+    let testOwner: SignerWithAddress;
+    let testMockSafeAddress: string;
+    let lightAccountFactoryAddress: string;
+
+    beforeEach(async () => {
+      [deployer, testOwner] = await ethers.getSigners();
+      const testMockSafe = await new MockSafe__factory(testOwner).deploy();
+      const lightAccountFactory = await new MockLightAccountFactory__factory(testOwner).deploy();
+      testMockSafeAddress = await testMockSafe.getAddress();
+      lightAccountFactoryAddress = lightAccountFactory.target as string;
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: FreezeVotingMultisigV1__factory,
+      masterCopy: async () =>
+        await (await new FreezeVotingMultisigV1__factory(deployer).deploy()).getAddress(),
+      deployer: () => deployer,
+      initializeParams: () => [
+        testOwner.address,
+        FREEZE_VOTES_THRESHOLD,
+        FREEZE_PROPOSAL_PERIOD,
+        FREEZE_PERIOD,
+        testMockSafeAddress,
+        lightAccountFactoryAddress,
+      ],
+      getExpectedInitData: () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'uint256', 'uint32', 'uint32', 'address', 'address'],
+          [
+            testOwner.address,
+            FREEZE_VOTES_THRESHOLD,
+            FREEZE_PROPOSAL_PERIOD,
+            FREEZE_PERIOD,
+            testMockSafeAddress,
+            lightAccountFactoryAddress,
+          ],
+        ),
     });
   });
 });

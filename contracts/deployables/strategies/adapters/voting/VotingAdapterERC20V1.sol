@@ -17,6 +17,7 @@ import {
 } from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {VotingAdapterBase} from "./VotingAdapterBase.sol";
 import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {ClockModeLib} from "../../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
@@ -50,6 +51,7 @@ contract VotingAdapterERC20V1 is
     IVersion,
     VotingAdapterBase,
     DeploymentBlock,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -115,6 +117,9 @@ contract VotingAdapterERC20V1 is
         address strategy_,
         uint256 weightPerToken_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(token_, strategy_, weightPerToken_)
+        );
         __VotingAdapterBase_init(strategy_);
         __DeploymentBlock_init();
 

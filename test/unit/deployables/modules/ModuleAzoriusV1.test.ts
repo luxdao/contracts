@@ -20,6 +20,10 @@ import {
   UUPSUpgradeable,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import {
+  ContractFactory,
+  runInitializerEventEmitterTests,
+} from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
@@ -1573,6 +1577,28 @@ describe('ModuleAzoriusV1', () => {
 
     runDeploymentBlockTests({
       getContract: () => azorius as unknown as IDeploymentBlock,
+    });
+  });
+
+  // Test InitializerEventEmitter functionality
+  describe('InitializerEventEmitter', () => {
+    runInitializerEventEmitterTests({
+      contractFactory: ModuleAzoriusV1__factory as unknown as ContractFactory,
+      masterCopy: () => masterCopy,
+      deployer: () => proxyDeployer,
+      initializeParams: () => [
+        owner.address,
+        ethers.ZeroAddress,
+        ethers.ZeroAddress,
+        mockStrategyAddress,
+        0,
+        0,
+      ],
+      getExpectedInitData: () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address', 'address', 'address', 'uint32', 'uint32'],
+          [owner.address, ethers.ZeroAddress, ethers.ZeroAddress, mockStrategyAddress, 0, 0],
+        ),
     });
   });
 });
