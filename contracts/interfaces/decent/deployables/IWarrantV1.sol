@@ -10,6 +10,7 @@ interface IWarrantV1 {
     error TokenLocked();
     error HedgeyStartNotElapsed();
     error WarrantNotExpired();
+    error AlreadyExecuted();
 
     // --- Structs ---
 
