@@ -327,6 +327,7 @@ contract WarrantV1 is
     // can only be called after expiration
     function clawback(address recipient_) public virtual override onlyOwner {
         WarrantStorage storage $ = _getWarrantStorage();
+        if ($.executed) revert AlreadyExecuted();
         if ($.relativeTime) {
             if (block.timestamp < IVotesERC20V1($.token).getUnlockTime() + $.expiration) revert WarrantNotExpired();
         } else {
