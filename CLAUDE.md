@@ -259,6 +259,8 @@ Within interface sections, use the same subsection format as interfaces (e.g., `
 5. **Don't forget IERC165** when documenting supportsInterface
 6. **Run tests before documenting** to ensure accuracy
 7. **Don't add comments unless asked** - Let NatSpec handle documentation
+8. **Don't use named return variables in implementations** - Only interfaces should have named returns
+9. **Abstract contracts should not inherit from ERC165, IVersion, or DeploymentBlockV1** - Only concrete implementations should inherit these
 
 ### Documentation Workflow
 
