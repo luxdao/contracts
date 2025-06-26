@@ -130,7 +130,7 @@ abstract contract WarrantBase is
             try ERC165(token_).supportsInterface(type(IVotesERC20V1).interfaceId) returns (bool result) {
                 supported = result;
             } catch {
-                supported = false;
+                // supported is already false by default
             }
             if (!supported) revert UnsupportedToken();
         }
