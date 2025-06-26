@@ -62,6 +62,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  * - Must be called via delegatecall from a Safe
  * - All operations execute with Safe's permissions
  * - address(this) is the Safe when called via delegatecall
+ * - Salt for deterministic addresses derived from Safe address: bytes32(uint256(uint160(address(this))))
+ * - AutonomousAdmin deployed via delegatecall for Safe-specific addresses
  *
  * @custom:security-contact security@decentlabs.io
  */
@@ -70,14 +72,6 @@ contract UtilityRolesManagementV1 is
     DeploymentBlockNonInitializable,
     ERC165
 {
-    // ======================================================================
-    // STATE VARIABLES
-    // ======================================================================
-
-    /** @notice Salt used for deterministic ERC6551 account creation */
-    bytes32 public constant SALT =
-        0x5d0e6ce4fd951366cc55da93f6e79d8b81483109d79676a04bcc2bed6a4b5072;
-
     // ======================================================================
     // IUtilityRolesManagementV1
     // ======================================================================
@@ -94,8 +88,14 @@ contract UtilityRolesManagementV1 is
     function createAndDeclareTree(
         CreateTreeParams calldata treeParams_
     ) public virtual override {
+        // Generate a salt from the Safe address
+        bytes32 salt = bytes32(uint256(uint160(address(this))));
+        address topHatWearer = address(this);
+
         // Process top hat and get the top hat ID
         uint256 topHatId = _processTopHat(
+            salt,
+            topHatWearer,
             treeParams_.hatsProtocol,
             treeParams_.erc6551Registry,
             treeParams_.hatsAccountImplementation,
@@ -104,6 +104,8 @@ contract UtilityRolesManagementV1 is
 
         // Process admin hat and get the admin hat ID
         uint256 adminHatId = _processAdminHat(
+            salt,
+            topHatWearer,
             treeParams_.hatsProtocol,
             treeParams_.erc6551Registry,
             treeParams_.hatsAccountImplementation,
@@ -115,13 +117,14 @@ contract UtilityRolesManagementV1 is
 
         // Create role hats under the admin
         _processRoleHats(
+            salt,
             CreateRoleHatsParams({
                 hatsProtocol: treeParams_.hatsProtocol,
                 erc6551Registry: treeParams_.erc6551Registry,
                 hatsAccountImplementation: treeParams_
                     .hatsAccountImplementation,
                 topHatId: topHatId,
-                topHatAccount: address(this),
+                topHatWearer: topHatWearer,
                 hatsModuleFactory: treeParams_.hatsModuleFactory,
                 hatsElectionsEligibilityImplementation: treeParams_
                     .hatsElectionsEligibilityImplementation,
@@ -149,11 +152,17 @@ contract UtilityRolesManagementV1 is
     function createRoleHats(
         CreateRoleHatsParams calldata roleHatsParams_
     ) public virtual override {
-        _processRoleHats(roleHatsParams_);
+        // Generate a salt from the Safe address
+        bytes32 salt = bytes32(uint256(uint160(address(this))));
+
+        _processRoleHats(salt, roleHatsParams_);
     }
 
     /**
      * @inheritdoc IUtilityRolesManagementV1
+     * @dev It is assumed that this contract (the Safe because of delegatecall)
+     * wears the hat controlling the recipientHatAccount_, so that it can control
+     * the recipientHatAccount_.execute() call.
      */
     function withdrawMaxFromStream(
         address sablier_,
@@ -209,19 +218,25 @@ contract UtilityRolesManagementV1 is
      * @notice Creates and mints the top hat to the calling Safe
      * @dev The top hat establishes the root of the organizational hierarchy.
      * It's minted to address(this), which is the Safe when called via delegatecall.
+     * @param salt_ Salt for deterministic addresses
+     * @param topHatWearer_ Address wearing the top hat
      * @param hatsProtocol_ Address of the Hats Protocol contract
+     * @param erc6551Registry_ Registry for creating token-bound accounts
+     * @param hatsAccountImplementation_ Implementation for Hat accounts
      * @param topHatParams_ Parameters for the top hat creation
      * @return topHatId The ID of the created top hat
      */
     function _processTopHat(
+        bytes32 salt_,
+        address topHatWearer_,
         address hatsProtocol_,
         address erc6551Registry_,
         address hatsAccountImplementation_,
         TopHatParams memory topHatParams_
     ) internal virtual returns (uint256) {
-        // Mint top hat to the Safe (address(this) in delegatecall context)
+        // Mint top hat to the Safe (topHatWearer_ in delegatecall context)
         IHats(hatsProtocol_).mintTopHat(
-            address(this),
+            topHatWearer_,
             topHatParams_.details,
             topHatParams_.imageURI
         );
@@ -232,9 +247,10 @@ contract UtilityRolesManagementV1 is
         ) << 224; // Top hats occupy the first 32 bits
 
         // Create ERC6551 account for the top hat
+        // Salt derived from Safe address for deterministic, Safe-specific addresses
         IERC6551Registry(erc6551Registry_).createAccount(
             hatsAccountImplementation_,
-            SALT,
+            salt_,
             block.chainid,
             hatsProtocol_,
             topHatId
@@ -246,8 +262,9 @@ contract UtilityRolesManagementV1 is
     /**
      * @notice Creates the admin hat with an autonomous admin module
      * @dev The admin hat is worn by DecentAutonomousAdmin, which automates
-     * administrative functions like role management. The admin is deployed
-     * as a proxy through SystemDeployer for consistent addresses.
+     * administrative functions like role management.
+     * @param salt_ Salt for deterministic addresses
+     * @param topHatWearer_ Address wearing the top hat
      * @param hatsProtocol_ Address of the Hats Protocol contract
      * @param erc6551Registry_ Registry for creating token-bound accounts
      * @param hatsAccountImplementation_ Implementation for Hat accounts
@@ -257,6 +274,8 @@ contract UtilityRolesManagementV1 is
      * @return adminHatId The ID of the created admin hat
      */
     function _processAdminHat(
+        bytes32 salt_,
+        address topHatWearer_,
         address hatsProtocol_,
         address erc6551Registry_,
         address hatsAccountImplementation_,
@@ -267,11 +286,11 @@ contract UtilityRolesManagementV1 is
     ) internal virtual returns (uint256) {
         // Create admin hat
         uint256 adminHatId = IHats(hatsProtocol_).createHat(
-            topHatId_,
+            topHatId_, // parentHatId
             adminHatParams_.details,
             1, // maxSupply
-            address(this), // eligibility (topHatAccount)
-            address(this), // toggle (topHatAccount)
+            topHatWearer_, // eligibility
+            topHatWearer_, // toggle
             adminHatParams_.isMutable,
             adminHatParams_.imageURI
         );
@@ -279,19 +298,31 @@ contract UtilityRolesManagementV1 is
         // Create ERC6551 account for the admin hat
         IERC6551Registry(erc6551Registry_).createAccount(
             hatsAccountImplementation_,
-            SALT,
+            salt_,
             block.chainid,
             hatsProtocol_,
             adminHatId
         );
 
-        // Deploy autonomous admin proxy through SystemDeployer
-        address autonomousAdmin = ISystemDeployerV1(systemDeployer_)
-            .deployProxy(
-                decentAutonomousAdminImplementation_,
-                abi.encodeCall(IDecentAutonomousAdminV1.initialize, ()),
-                SALT
+        // Deploy autonomous admin proxy through SystemDeployer using delegatecall.
+        // This ensures the proxy is deployed from the Safe's address, making it Safe-specific.
+        // Making an assumption about the caller: the salt_ is the bytes32 representation of the Safe address.
+        // Which creates proxy addresses that are Safe-specific without a shared salt.
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory proxyAddressData) = systemDeployer_
+            .delegatecall(
+                abi.encodeCall(
+                    ISystemDeployerV1.deployProxy,
+                    (
+                        decentAutonomousAdminImplementation_,
+                        abi.encodeCall(IDecentAutonomousAdminV1.initialize, ()),
+                        salt_
+                    )
+                )
             );
+        if (!success) revert ProxyDeploymentFailed();
+
+        address autonomousAdmin = abi.decode(proxyAddressData, (address));
 
         // Mint admin hat to the autonomous admin
         IHats(hatsProtocol_).mintHat(adminHatId, autonomousAdmin);
@@ -306,6 +337,7 @@ contract UtilityRolesManagementV1 is
      * @param roleHatsParams_ Complete configuration for all Hats to create
      */
     function _processRoleHats(
+        bytes32 salt_,
         CreateRoleHatsParams memory roleHatsParams_
     ) internal virtual {
         for (uint256 i = 0; i < roleHatsParams_.hats.length; ) {
@@ -314,11 +346,12 @@ contract UtilityRolesManagementV1 is
             // Step 1: Create eligibility module for termed positions
             // Returns election module for termed, top hat account for untermed
             address eligibilityAddress = _createEligibilityModule(
+                salt_,
                 roleHatsParams_.hatsProtocol,
                 roleHatsParams_.hatsModuleFactory,
                 roleHatsParams_.hatsElectionsEligibilityImplementation,
                 roleHatsParams_.topHatId,
-                roleHatsParams_.topHatAccount,
+                roleHatsParams_.topHatWearer,
                 roleHatsParams_.adminHatId,
                 hatParams.termEndDateTs
             );
@@ -329,12 +362,13 @@ contract UtilityRolesManagementV1 is
                 roleHatsParams_.adminHatId,
                 hatParams,
                 eligibilityAddress,
-                roleHatsParams_.topHatAccount
+                roleHatsParams_.topHatWearer
             );
 
             // Step 3: Determine stream recipient based on termed status
             // Termed: wearer receives directly, Untermed: ERC6551 account receives
             address streamRecipient = _setupStreamRecipient(
+                bytes32(salt_),
                 roleHatsParams_.erc6551Registry,
                 roleHatsParams_.hatsAccountImplementation,
                 roleHatsParams_.hatsProtocol,
@@ -366,17 +400,18 @@ contract UtilityRolesManagementV1 is
      * @param hatsModuleFactory_ Factory contract for creating Hats modules
      * @param hatsElectionsEligibilityImplementation_ Implementation address for election module
      * @param topHatId_ ID of the top hat (used for ballot box in elections)
-     * @param topHatAccount_ Address holding the top hat (eligibility for untermed)
+     * @param topHatWearer_ Address wearing the top hat (eligibility for untermed)
      * @param adminHatId_ Parent hat ID for calculating the new hat's ID
      * @param termEndDateTs_ Unix timestamp for term end (0 for untermed positions)
      * @return eligibilityAddress Either election module address (termed) or top hat account (untermed)
      */
     function _createEligibilityModule(
+        bytes32 salt_,
         address hatsProtocol_,
         address hatsModuleFactory_,
         address hatsElectionsEligibilityImplementation_,
         uint256 topHatId_,
-        address topHatAccount_,
+        address topHatWearer_,
         uint256 adminHatId_,
         uint128 termEndDateTs_
     ) internal virtual returns (address) {
@@ -388,12 +423,12 @@ contract UtilityRolesManagementV1 is
                     IHats(hatsProtocol_).getNextId(adminHatId_),
                     abi.encode(topHatId_, uint256(0)), // [BALLOT_BOX_ID, ADMIN_HAT_ID]
                     abi.encode(termEndDateTs_),
-                    uint256(SALT)
+                    uint256(salt_)
                 );
         }
 
-        // Otherwise, return the Top Hat account
-        return topHatAccount_;
+        // Otherwise, return the Top Hat wearer
+        return topHatWearer_;
     }
 
     /**
@@ -404,7 +439,7 @@ contract UtilityRolesManagementV1 is
      * @param adminHatId_ Parent Hat that will admin the new Hat
      * @param hat_ Configuration for the Hat to create
      * @param eligibilityAddress_ Eligibility module address (election or top hat)
-     * @param topHatAccount_ Account holding the top hat (for toggle permissions)
+     * @param topHatWearer_ Account wearing the top hat (for toggle permissions)
      * @return hatId The ID of the newly created Hat
      */
     function _createAndMintHat(
@@ -412,7 +447,7 @@ contract UtilityRolesManagementV1 is
         uint256 adminHatId_,
         HatParams memory hat_,
         address eligibilityAddress_,
-        address topHatAccount_
+        address topHatWearer_
     ) internal virtual returns (uint256) {
         // Create the Hat with specified parameters
         uint256 hatId = IHats(hatsProtocol_).createHat(
@@ -420,7 +455,7 @@ contract UtilityRolesManagementV1 is
             hat_.details,
             hat_.maxSupply,
             eligibilityAddress_,
-            topHatAccount_,
+            topHatWearer_,
             hat_.isMutable,
             hat_.imageURI
         );
@@ -458,6 +493,7 @@ contract UtilityRolesManagementV1 is
      * @return streamRecipient Address that will receive stream payments
      */
     function _setupStreamRecipient(
+        bytes32 salt_,
         address erc6551Registry_,
         address hatsAccountImplementation_,
         address hatsProtocol_,
@@ -474,7 +510,7 @@ contract UtilityRolesManagementV1 is
         return
             IERC6551Registry(erc6551Registry_).createAccount(
                 hatsAccountImplementation_,
-                SALT,
+                salt_,
                 block.chainid,
                 hatsProtocol_,
                 hatId_

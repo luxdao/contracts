@@ -38,6 +38,11 @@ import {LockupLinear, Broker} from "../../sablier/types/DataTypes.sol";
  * - Establishing governance hierarchies
  */
 interface IUtilityRolesManagementV1 {
+    // --- Errors ---
+
+    /** @notice Thrown when autonomous admin proxy deployment via delegatecall fails */
+    error ProxyDeploymentFailed();
+
     // --- Structs ---
 
     /**
@@ -111,7 +116,7 @@ interface IUtilityRolesManagementV1 {
      * @param erc6551Registry Registry for creating token-bound accounts
      * @param hatsAccountImplementation Implementation address for ERC6551 Hat accounts
      * @param topHatId The top Hat ID in the organization hierarchy
-     * @param topHatAccount The account holding the top Hat
+     * @param topHatWearer The account wearing the top Hat
      * @param keyValuePairs Contract address for emitting metadata about streams
      * @param hatsModuleFactory Factory address for creating Hats modules
      * @param hatsElectionsEligibilityImplementation Election module implementation address
@@ -123,7 +128,7 @@ interface IUtilityRolesManagementV1 {
         address erc6551Registry;
         address hatsAccountImplementation;
         uint256 topHatId;
-        address topHatAccount;
+        address topHatWearer;
         address keyValuePairs;
         address hatsModuleFactory;
         address hatsElectionsEligibilityImplementation;
