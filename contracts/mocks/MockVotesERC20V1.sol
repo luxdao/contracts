@@ -3,7 +3,9 @@ pragma solidity ^0.8.30;
 
 import {MockERC20} from "./MockERC20.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {IVotesERC20V1} from "../interfaces/decent/deployables/IVotesERC20V1.sol";
+import {
+    IVotesERC20V1
+} from "../interfaces/decent/deployables/IVotesERC20V1.sol";
 
 /**
  * @title MockVotesERC20V1
@@ -42,7 +44,9 @@ contract MockVotesERC20V1 is MockERC20, ERC165 {
     /**
      * @notice Check if contract supports a given interface
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
         return
             interfaceId == type(IVotesERC20V1).interfaceId ||
             super.supportsInterface(interfaceId);

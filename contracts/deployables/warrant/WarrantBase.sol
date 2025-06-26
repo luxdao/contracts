@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IWarrantBase} from "../../interfaces/decent/deployables/IWarrantBase.sol";
+import {
+    IWarrantBase
+} from "../../interfaces/decent/deployables/IWarrantBase.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    IVotesERC20V1
+} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 
 /**
  * @title WarrantBase
@@ -29,10 +37,7 @@ import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.s
  *
  * @custom:security-contact security@decentlabs.io
  */
-abstract contract WarrantBase is
-    IWarrantBase,
-    Ownable2StepUpgradeable
-{
+abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
     using SafeERC20 for IERC20;
 
     // ======================================================================
@@ -81,7 +86,7 @@ abstract contract WarrantBase is
         pure
         returns (WarrantBaseStorage storage)
     {
-        WarrantBaseStorage storage $ ;
+        WarrantBaseStorage storage $;
         assembly {
             $.slot := WARRANT_BASE_STORAGE_LOCATION
         }
@@ -127,7 +132,11 @@ abstract contract WarrantBase is
         // If relative time mode, verify token supports IVotesERC20V1
         if (relativeTime_) {
             bool supported;
-            try ERC165(token_).supportsInterface(type(IVotesERC20V1).interfaceId) returns (bool result) {
+            try
+                ERC165(token_).supportsInterface(
+                    type(IVotesERC20V1).interfaceId
+                )
+            returns (bool result) {
                 supported = result;
             } catch {
                 // supported is already false by default
@@ -144,8 +153,6 @@ abstract contract WarrantBase is
         $.tokenPrice = tokenPrice_;
         $.feeReceiver = feeReceiver_;
         $.expiration = expiration_;
-
-        emit WarrantInitialized(warrantHolder_, token_, tokenAmount_, expiration_);
     }
 
     // ======================================================================
@@ -234,7 +241,7 @@ abstract contract WarrantBase is
      */
     function execute(address recipient_) public virtual override {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
-        
+
         // Validate caller and state
         if (msg.sender != $.warrantHolder) revert OnlyWarrantHolder();
         if (recipient_ == address(0)) revert AddressZero();
@@ -244,14 +251,16 @@ abstract contract WarrantBase is
         uint256 effectiveExpiration;
         if ($.relativeTime) {
             if (IVotesERC20V1($.token).locked()) revert TokenLocked();
-            effectiveExpiration = IVotesERC20V1($.token).getUnlockTime() + $.expiration;
+            effectiveExpiration =
+                IVotesERC20V1($.token).getUnlockTime() +
+                $.expiration;
             if (block.timestamp > effectiveExpiration) revert Expired();
         } else {
             if (block.timestamp > $.expiration) revert Expired();
         }
 
         // Calculate and collect fee
-        uint256 feeAmount = $.tokenAmount * $.tokenPrice / PRECISION;
+        uint256 feeAmount = ($.tokenAmount * $.tokenPrice) / PRECISION;
         IERC20($.feeToken).safeTransferFrom(
             msg.sender,
             $.feeReceiver,
@@ -272,13 +281,16 @@ abstract contract WarrantBase is
      */
     function clawback(address recipient_) public virtual override onlyOwner {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
-        
+
         if ($.executed) revert AlreadyExecuted();
-        
+
         // Check expiration based on time mode
         if ($.relativeTime) {
             if (IVotesERC20V1($.token).locked()) revert TokenLocked();
-            if (block.timestamp < IVotesERC20V1($.token).getUnlockTime() + $.expiration) {
+            if (
+                block.timestamp <
+                IVotesERC20V1($.token).getUnlockTime() + $.expiration
+            ) {
                 revert WarrantNotExpired();
             }
         } else {

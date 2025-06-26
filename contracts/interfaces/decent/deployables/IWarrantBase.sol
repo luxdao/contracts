@@ -56,20 +56,6 @@ interface IWarrantBase {
      */
     event Clawback(address indexed recipient, uint256 amount);
 
-    /**
-     * @notice Emitted when warrant is initialized
-     * @param warrantHolder Address authorized to execute the warrant
-     * @param token Token to be vested
-     * @param tokenAmount Amount of tokens to vest
-     * @param expiration Expiration timestamp or duration
-     */
-    event WarrantInitialized(
-        address indexed warrantHolder,
-        address indexed token,
-        uint256 tokenAmount,
-        uint256 expiration
-    );
-
     // --- View Functions ---
 
     /**
