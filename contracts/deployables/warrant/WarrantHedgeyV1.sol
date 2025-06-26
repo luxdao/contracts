@@ -2,14 +2,25 @@
 pragma solidity ^0.8.30;
 
 import {WarrantBase} from "./WarrantBase.sol";
-import {IWarrantBase} from "../../interfaces/decent/deployables/IWarrantBase.sol";
-import {IWarrantHedgeyV1} from "../../interfaces/decent/deployables/IWarrantHedgeyV1.sol";
-import {IVotingTokenLockupPlans} from "../../interfaces/hedgey/IVotingTokenLockupPlans.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
+import {
+    IWarrantBase
+} from "../../interfaces/decent/deployables/IWarrantBase.sol";
+import {
+    IWarrantHedgeyV1
+} from "../../interfaces/decent/deployables/IWarrantHedgeyV1.sol";
+import {
+    IVotingTokenLockupPlans
+} from "../../interfaces/hedgey/IVotingTokenLockupPlans.sol";
+import {
+    IVotesERC20V1
+} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlockInitializable} from "../../DeploymentBlockInitializable.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -27,7 +38,14 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  *
  * @custom:security-contact security@decentlabs.io
  */
-contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentBlockInitializable, ERC165 {
+contract WarrantHedgeyV1 is
+    IWarrantHedgeyV1,
+    WarrantBase,
+    IVersion,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
+    ERC165
+{
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
@@ -66,7 +84,7 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
         pure
         returns (WarrantHedgeyStorage storage)
     {
-        WarrantHedgeyStorage storage $ ;
+        WarrantHedgeyStorage storage $;
         assembly {
             $.slot := WARRANT_HEDGEY_STORAGE_LOCATION
         }
@@ -99,11 +117,13 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
             params_.expiration
         );
         __DeploymentBlockInitializable_init();
+        __InitializerEventEmitter_init(abi.encode(params_));
 
         // Validate Hedgey-specific parameters
-        
+
         // Validate vesting parameters
-        uint256 absoluteCliff = params_.hedgeyStart + params_.hedgeyRelativeCliff;
+        uint256 absoluteCliff = params_.hedgeyStart +
+            params_.hedgeyRelativeCliff;
         (, bool valid) = _validateHedgeyEnd(
             params_.hedgeyStart,
             absoluteCliff,
@@ -131,7 +151,13 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
     /**
      * @inheritdoc IWarrantHedgeyV1
      */
-    function hedgeyTokenLockupPlans() public view virtual override returns (address) {
+    function hedgeyTokenLockupPlans()
+        public
+        view
+        virtual
+        override
+        returns (address)
+    {
         WarrantHedgeyStorage storage $ = _getWarrantHedgeyStorage();
         return $.hedgeyTokenLockupPlans;
     }
@@ -147,7 +173,13 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
     /**
      * @inheritdoc IWarrantHedgeyV1
      */
-    function hedgeyRelativeCliff() public view virtual override returns (uint256) {
+    function hedgeyRelativeCliff()
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         WarrantHedgeyStorage storage $ = _getWarrantHedgeyStorage();
         return $.hedgeyRelativeCliff;
     }
@@ -199,14 +231,14 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
         if (rate_ == 0) revert InvalidRate();
         if (rate_ > amount_) revert RateExceedsAmount();
         if (period_ == 0) revert InvalidPeriod();
-        
+
         // Calculate vesting end time
-        uint256 end = (amount_ % rate_ == 0) 
-            ? (amount_ / rate_) * period_ + start_ 
+        uint256 end = (amount_ % rate_ == 0)
+            ? (amount_ / rate_) * period_ + start_
             : ((amount_ / rate_) * period_) + period_ + start_;
-            
+
         if (cliff_ > end) revert CliffExceedsEnd(cliff_, end);
-        
+
         return (end, true);
     }
 
@@ -218,11 +250,13 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
     function _executeWarrant(address recipient_) internal virtual override {
         WarrantHedgeyStorage storage $ = _getWarrantHedgeyStorage();
         WarrantBaseStorage storage base$ = _getWarrantBaseStorage();
-        
+
         // Calculate actual start time based on time mode
         uint256 startTime;
         if (base$.relativeTime) {
-            startTime = IVotesERC20V1(base$.token).getUnlockTime() + $.hedgeyStart;
+            startTime =
+                IVotesERC20V1(base$.token).getUnlockTime() +
+                $.hedgeyStart;
         } else {
             // Check if we've reached the hedgey start time in absolute mode
             if (block.timestamp < $.hedgeyStart) revert HedgeyStartNotElapsed();
@@ -239,15 +273,16 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
         );
 
         // Create vesting plan through Hedgey
-        uint256 planId = IVotingTokenLockupPlans($.hedgeyTokenLockupPlans).createPlan(
-            recipient_,
-            base$.token,
-            base$.tokenAmount,
-            startTime,
-            hedgeyAbsoluteCliff,
-            $.hedgeyRate,
-            $.hedgeyPeriod
-        );
+        uint256 planId = IVotingTokenLockupPlans($.hedgeyTokenLockupPlans)
+            .createPlan(
+                recipient_,
+                base$.token,
+                base$.tokenAmount,
+                startTime,
+                hedgeyAbsoluteCliff,
+                $.hedgeyRate,
+                $.hedgeyPeriod
+            );
 
         emit HedgeyPlanCreated(planId, recipient_);
     }

@@ -2,10 +2,16 @@
 pragma solidity ^0.8.30;
 
 import {WarrantBase} from "../../../deployables/warrant/WarrantBase.sol";
-import {IWarrantBase} from "../../../interfaces/decent/deployables/IWarrantBase.sol";
+import {
+    IWarrantBase
+} from "../../../interfaces/decent/deployables/IWarrantBase.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlockInitializable} from "../../../DeploymentBlockInitializable.sol";
+import {
+    IDeploymentBlock
+} from "../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../../DeploymentBlockInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -13,7 +19,12 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * @notice Concrete implementation of WarrantBase for testing
  * @dev Provides a simple implementation of _executeWarrant for testing base functionality
  */
-contract ConcreteWarrantBase is WarrantBase, IVersion, DeploymentBlockInitializable, ERC165 {
+contract ConcreteWarrantBase is
+    WarrantBase,
+    IVersion,
+    DeploymentBlockInitializable,
+    ERC165
+{
     /** @notice Emitted when mock execution occurs */
     event MockWarrantExecuted(address recipient);
 

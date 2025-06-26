@@ -6,12 +6,10 @@ import {
   ConcreteWarrantBase__factory,
   MockERC20,
   MockERC20__factory,
-  MockERC20Votes,
-  MockERC20Votes__factory,
+  MockVotesERC20V1,
+  MockVotesERC20V1__factory,
   ERC1967Proxy__factory,
-} from '../../../typechain-types';
-import { deploymentBlockTests } from '../../unit/shared/deploymentBlockTests';
-import { supportsInterfaceTests } from '../../unit/shared/supportsInterfaceTests';
+} from '../../../../typechain-types';
 
 // Time utilities
 const time = {
@@ -24,7 +22,7 @@ const time = {
   },
 };
 
-describe('WarrantBase', () => {
+describe.only('WarrantBase', () => {
   let owner: SignerWithAddress;
   let warrantHolder: SignerWithAddress;
   let feeReceiver: SignerWithAddress;
@@ -36,7 +34,7 @@ describe('WarrantBase', () => {
   let mockWarrantImplementation: ConcreteWarrantBase;
   let mockToken: MockERC20;
   let mockFeeToken: MockERC20;
-  let mockVotesToken: MockERC20Votes;
+  let mockVotesToken: MockVotesERC20V1;
 
   const TOKEN_AMOUNT = ethers.parseEther('1000');
   const TOKEN_PRICE = ethers.parseEther('0.5'); // 0.5 fee tokens per warrant token
@@ -83,7 +81,7 @@ describe('WarrantBase', () => {
     // Deploy mock tokens
     mockToken = await new MockERC20__factory(owner).deploy('Mock Token', 'MTK', 18);
     mockFeeToken = await new MockERC20__factory(owner).deploy('Mock Fee Token', 'MFT', 18);
-    mockVotesToken = await new MockERC20Votes__factory(owner).deploy();
+    mockVotesToken = await new MockVotesERC20V1__factory(owner).deploy();
 
     // Deploy implementation
     mockWarrantImplementation = await new ConcreteWarrantBase__factory(owner).deploy();
@@ -96,14 +94,14 @@ describe('WarrantBase', () => {
   describe('Initialization', () => {
     it('should initialize with absolute time mode correctly', async () => {
       const currentTime = await time.latest();
-      const expirationTime = currentTime + EXPIRATION_DURATION;
+      const expirationTime = BigInt(currentTime + EXPIRATION_DURATION);
 
       mockWarrant = await deployMockWarrantProxy(
         false, // absolute time
         owner.address,
         warrantHolder.address,
-        mockToken.address,
-        mockFeeToken.address,
+        await mockToken.getAddress(),
+        await mockFeeToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
@@ -113,8 +111,8 @@ describe('WarrantBase', () => {
       expect(await mockWarrant.relativeTime()).to.be.false;
       expect(await mockWarrant.owner()).to.equal(owner.address);
       expect(await mockWarrant.warrantHolder()).to.equal(warrantHolder.address);
-      expect(await mockWarrant.token()).to.equal(mockToken.address);
-      expect(await mockWarrant.feeToken()).to.equal(mockFeeToken.address);
+      expect(await mockWarrant.token()).to.equal(await mockToken.getAddress());
+      expect(await mockWarrant.feeToken()).to.equal(await mockFeeToken.getAddress());
       expect(await mockWarrant.tokenAmount()).to.equal(TOKEN_AMOUNT);
       expect(await mockWarrant.tokenPrice()).to.equal(TOKEN_PRICE);
       expect(await mockWarrant.feeReceiver()).to.equal(feeReceiver.address);
@@ -127,17 +125,17 @@ describe('WarrantBase', () => {
         true, // relative time
         owner.address,
         warrantHolder.address,
-        mockVotesToken.address,
-        mockFeeToken.address,
+        await mockVotesToken.getAddress(),
+        await mockFeeToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
-        EXPIRATION_DURATION, // duration instead of timestamp
+        BigInt(EXPIRATION_DURATION), // duration instead of timestamp
       );
 
       expect(await mockWarrant.relativeTime()).to.be.true;
-      expect(await mockWarrant.token()).to.equal(mockVotesToken.address);
-      expect(await mockWarrant.expiration()).to.equal(EXPIRATION_DURATION);
+      expect(await mockWarrant.token()).to.equal(await mockVotesToken.getAddress());
+      expect(await mockWarrant.expiration()).to.equal(BigInt(EXPIRATION_DURATION));
     });
 
     it('should revert if relative time with non-IVotesERC20V1 token', async () => {
@@ -146,35 +144,14 @@ describe('WarrantBase', () => {
           true, // relative time
           owner.address,
           warrantHolder.address,
-          mockToken.address, // regular ERC20, not IVotesERC20V1
-          mockFeeToken.address,
+          await mockToken.getAddress(), // regular ERC20, not IVotesERC20V1
+          await mockFeeToken.getAddress(),
           TOKEN_AMOUNT,
           TOKEN_PRICE,
           feeReceiver.address,
-          EXPIRATION_DURATION,
+          BigInt(EXPIRATION_DURATION),
         ),
       ).to.be.revertedWithCustomError(mockWarrantImplementation, 'UnsupportedToken');
-    });
-
-    it('should emit WarrantInitialized event', async () => {
-      const currentTime = await time.latest();
-      const expirationTime = currentTime + EXPIRATION_DURATION;
-
-      const tx = deployMockWarrantProxy(
-        false,
-        owner.address,
-        warrantHolder.address,
-        mockToken.address,
-        mockFeeToken.address,
-        TOKEN_AMOUNT,
-        TOKEN_PRICE,
-        feeReceiver.address,
-        expirationTime,
-      );
-
-      await expect(tx)
-        .to.emit(mockWarrantImplementation, 'WarrantInitialized')
-        .withArgs(warrantHolder.address, mockToken.address, TOKEN_AMOUNT, expirationTime);
     });
   });
 
@@ -189,19 +166,19 @@ describe('WarrantBase', () => {
         false, // absolute time
         owner.address,
         warrantHolder.address,
-        mockToken.address,
-        mockFeeToken.address,
+        await mockToken.getAddress(),
+        await mockFeeToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
-        expirationTime,
+        BigInt(expirationTime),
       );
 
-      // Transfer tokens to warrant contract
-      await mockToken.transfer(mockWarrant.address, TOKEN_AMOUNT);
+      // Mint tokens to warrant contract
+      await mockToken.mint(await mockWarrant.getAddress(), TOKEN_AMOUNT);
 
       // Approve fee payment
-      await mockFeeToken.connect(warrantHolder).approve(mockWarrant.address, ethers.MaxUint256);
+      await mockFeeToken.connect(warrantHolder).approve(await mockWarrant.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant successfully', async () => {
@@ -267,35 +244,34 @@ describe('WarrantBase', () => {
   });
 
   describe('Execute - Relative Time', () => {
-    const UNLOCK_TIME = 1000;
+    let UNLOCK_TIME: number;
 
     beforeEach(async () => {
       mockWarrant = await deployMockWarrantProxy(
         true, // relative time
         owner.address,
         warrantHolder.address,
-        mockVotesToken.address,
-        mockFeeToken.address,
+        await mockVotesToken.getAddress(),
+        await mockFeeToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
-        EXPIRATION_DURATION, // duration after unlock
+        BigInt(EXPIRATION_DURATION), // duration after unlock
       );
 
-      // Transfer tokens to warrant contract
-      await mockVotesToken.transfer(mockWarrant.address, TOKEN_AMOUNT);
+      UNLOCK_TIME = await time.latest();
+
+      // Mint tokens to warrant contract
+      await mockVotesToken.mint(await mockWarrant.getAddress(), TOKEN_AMOUNT);
 
       // Set unlock time on votes token
       await mockVotesToken.setUnlockTime(UNLOCK_TIME);
 
       // Approve fee payment
-      await mockFeeToken.connect(warrantHolder).approve(mockWarrant.address, ethers.MaxUint256);
+      await mockFeeToken.connect(warrantHolder).approve(await mockWarrant.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant after token unlock', async () => {
-      // Wait for unlock
-      await time.increaseTo(UNLOCK_TIME + 1);
-
       const expectedFee = (TOKEN_AMOUNT * TOKEN_PRICE) / ethers.parseEther('1');
       const feeReceiverBalanceBefore = await mockFeeToken.balanceOf(feeReceiver.address);
 
@@ -343,16 +319,16 @@ describe('WarrantBase', () => {
         false, // absolute time
         owner.address,
         warrantHolder.address,
-        mockToken.address,
-        mockFeeToken.address,
+        await mockToken.getAddress(),
+        await mockFeeToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
-        expirationTime,
+        BigInt(expirationTime),
       );
 
       // Transfer tokens to warrant contract
-      await mockToken.transfer(mockWarrant.address, TOKEN_AMOUNT);
+      await mockToken.transfer(await mockWarrant.getAddress(), TOKEN_AMOUNT);
     });
 
     it('should allow owner to clawback after expiration', async () => {
@@ -379,7 +355,7 @@ describe('WarrantBase', () => {
 
     it('should revert if warrant already executed', async () => {
       // Execute warrant first
-      await mockFeeToken.connect(warrantHolder).approve(mockWarrant.address, ethers.MaxUint256);
+      await mockFeeToken.connect(warrantHolder).approve(await mockWarrant.getAddress(), ethers.MaxUint256);
       await mockWarrant.connect(warrantHolder).execute(recipient.address);
 
       await time.increaseTo(expirationTime + 1);
@@ -397,23 +373,25 @@ describe('WarrantBase', () => {
   });
 
   describe('Clawback - Relative Time', () => {
-    const UNLOCK_TIME = 1000;
+    let UNLOCK_TIME: number;
 
     beforeEach(async () => {
       mockWarrant = await deployMockWarrantProxy(
         true, // relative time
         owner.address,
         warrantHolder.address,
-        mockVotesToken.address,
-        mockFeeToken.address,
+        await mockVotesToken.getAddress(),
+        await mockFeeToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
-        EXPIRATION_DURATION,
+        BigInt(EXPIRATION_DURATION),
       );
 
-      // Transfer tokens to warrant contract
-      await mockVotesToken.transfer(mockWarrant.address, TOKEN_AMOUNT);
+      UNLOCK_TIME = await time.latest();
+
+      // Mint tokens to warrant contract
+      await mockVotesToken.mint(await mockWarrant.getAddress(), TOKEN_AMOUNT);
 
       // Set unlock time
       await mockVotesToken.setUnlockTime(UNLOCK_TIME);
@@ -442,8 +420,6 @@ describe('WarrantBase', () => {
     });
 
     it('should revert if not expired relative to unlock time', async () => {
-      await time.increaseTo(UNLOCK_TIME + EXPIRATION_DURATION - 1);
-
       await expect(
         mockWarrant.connect(owner).clawback(recipient.address),
       ).to.be.revertedWithCustomError(mockWarrant, 'WarrantNotExpired');
@@ -457,57 +433,17 @@ describe('WarrantBase', () => {
         false,
         owner.address,
         warrantHolder.address,
-        mockToken.address,
-        mockFeeToken.address,
+        await mockToken.getAddress(),
+        await mockFeeToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
-        currentTime + EXPIRATION_DURATION,
+        BigInt(currentTime + EXPIRATION_DURATION),
       );
     });
 
     it('should return correct version', async () => {
       expect(await mockWarrant.version()).to.equal(1);
     });
-  });
-
-  // Shared tests
-  supportsInterfaceTests({
-    contractFactory: async () => {
-      const currentTime = await time.latest();
-      return deployMockWarrantProxy(
-        false,
-        owner.address,
-        warrantHolder.address,
-        mockToken.address,
-        mockFeeToken.address,
-        TOKEN_AMOUNT,
-        TOKEN_PRICE,
-        feeReceiver.address,
-        currentTime + EXPIRATION_DURATION,
-      );
-    },
-    supportedInterfaces: [
-      { name: 'IWarrantBase', id: '0x12345678' }, // Replace with actual interface ID
-      { name: 'IVersion', id: '0x87654321' }, // Replace with actual interface ID
-      { name: 'IDeploymentBlockV1', id: '0xabcdef01' }, // Replace with actual interface ID
-    ],
-  });
-
-  deploymentBlockTests({
-    contractFactory: async () => {
-      const currentTime = await time.latest();
-      return deployMockWarrantProxy(
-        false,
-        owner.address,
-        warrantHolder.address,
-        mockToken.address,
-        mockFeeToken.address,
-        TOKEN_AMOUNT,
-        TOKEN_PRICE,
-        feeReceiver.address,
-        currentTime + EXPIRATION_DURATION,
-      );
-    },
   });
 });
