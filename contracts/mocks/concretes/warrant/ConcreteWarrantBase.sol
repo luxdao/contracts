@@ -4,8 +4,8 @@ pragma solidity ^0.8.30;
 import {WarrantBase} from "../../../deployables/warrant/WarrantBase.sol";
 import {IWarrantBase} from "../../../interfaces/decent/deployables/IWarrantBase.sol";
 import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlockV1} from "../../../interfaces/decent/IDeploymentBlockV1.sol";
-import {DeploymentBlockV1} from "../../../DeploymentBlockV1.sol";
+import {IDeploymentBlock} from "../../../interfaces/decent/IDeploymentBlock.sol";
+import {DeploymentBlockInitializable} from "../../../DeploymentBlockInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -13,7 +13,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * @notice Concrete implementation of WarrantBase for testing
  * @dev Provides a simple implementation of _executeWarrant for testing base functionality
  */
-contract ConcreteWarrantBase is WarrantBase, IVersion, DeploymentBlockV1, ERC165 {
+contract ConcreteWarrantBase is WarrantBase, IVersion, DeploymentBlockInitializable, ERC165 {
     /** @notice Emitted when mock execution occurs */
     event MockWarrantExecuted(address recipient);
 
@@ -59,7 +59,7 @@ contract ConcreteWarrantBase is WarrantBase, IVersion, DeploymentBlockV1, ERC165
             feeReceiver_,
             expiration_
         );
-        __DeploymentBlockV1_init();
+        __DeploymentBlockInitializable_init();
     }
 
     /**
@@ -90,7 +90,7 @@ contract ConcreteWarrantBase is WarrantBase, IVersion, DeploymentBlockV1, ERC165
         return
             interfaceId_ == type(IWarrantBase).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 }
