@@ -81,10 +81,11 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * 8. Deploy freeze mechanisms if configured
  *
  * Security considerations:
- * - Only accessible via delegatecall from Safe setup
+ * - Only accessible via delegatecall from Safe setup (enforced by MustBeCalledViaDelegatecall error)
  * - Validates all implementation contracts have code
  * - Ensures proper initialization of all components
- * - Emits events for deployment tracking
+ * - Gracefully handles existing contracts at predicted addresses
+ * - Emits events only for new deployments (not for existing contracts)
  *
  * @custom:security-contact security@decentlabs.io
  */
@@ -94,6 +95,21 @@ contract SystemDeployerV1 is
     DeploymentBlockNonInitializable,
     ERC165
 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
+    /** @notice Stores the SystemDeployer's address to detect delegatecall vs direct call */
+    address private immutable SYSTEM_DEPLOYER_ADDRESS;
+
+    // ======================================================================
+    // CONSTRUCTOR
+    // ======================================================================
+
+    constructor() {
+        SYSTEM_DEPLOYER_ADDRESS = address(this);
+    }
+
     // ======================================================================
     // ISystemDeployer
     // ======================================================================
@@ -105,7 +121,7 @@ contract SystemDeployerV1 is
      */
     function predictProxyAddress(
         address implementation_,
-        bytes calldata initData_,
+        bytes memory initData_,
         bytes32 salt_,
         address deployer_
     ) public view override returns (address) {
@@ -136,16 +152,38 @@ contract SystemDeployerV1 is
 
     /**
      * @inheritdoc ISystemDeployerV1
+     * @dev Checks if a contract already exists at the predicted address and returns it if so.
+     * Also enforces that this function must be called via delegatecall.
      */
     function deployProxy(
         address implementation_,
         bytes memory initData_,
         bytes32 salt_
     ) public returns (address) {
+        // Enforce delegatecall-only access
+        if (address(this) == SYSTEM_DEPLOYER_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+
         if (implementation_.code.length == 0) {
             revert ImplementationMustBeAContract();
         }
 
+        // Predict the proxy address using the existing function
+        address predictedAddress = predictProxyAddress(
+            implementation_,
+            initData_,
+            salt_,
+            address(this)
+        );
+
+        // Check if a contract already exists at the predicted address
+        if (predictedAddress.code.length > 0) {
+            // Contract already exists, return the existing address
+            return predictedAddress;
+        }
+
+        // Deploy new proxy
         address proxy = address(
             new ERC1967Proxy{salt: salt_}(implementation_, initData_)
         );
