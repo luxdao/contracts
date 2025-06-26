@@ -37,6 +37,15 @@ interface IWarrantHedgeyV1 {
     /** @notice Thrown when cliff exceeds vesting end time */
     error CliffExceedsEnd(uint256 cliff, uint256 end);
 
+    // --- Events ---
+
+    /**
+     * @notice Emitted when a Hedgey vesting plan is created
+     * @param planId The ID of the created vesting plan
+     * @param recipient The address that will receive the vested tokens
+     */
+    event HedgeyPlanCreated(uint256 indexed planId, address indexed recipient);
+
     // --- View Functions ---
 
     /**

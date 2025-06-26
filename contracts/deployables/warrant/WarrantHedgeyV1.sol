@@ -239,7 +239,7 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
         );
 
         // Create vesting plan through Hedgey
-        IVotingTokenLockupPlans($.hedgeyTokenLockupPlans).createPlan(
+        uint256 planId = IVotingTokenLockupPlans($.hedgeyTokenLockupPlans).createPlan(
             recipient_,
             base$.token,
             base$.tokenAmount,
@@ -248,6 +248,8 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
             $.hedgeyRate,
             $.hedgeyPeriod
         );
+
+        emit HedgeyPlanCreated(planId, recipient_);
     }
 
     // ======================================================================
