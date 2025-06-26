@@ -5,6 +5,7 @@ import {
   DecentPaymasterV1,
   DecentPaymasterV1__factory,
   ERC1967Proxy__factory,
+  IBasePaymaster__factory,
   IDecentPaymasterV1__factory,
   IDeploymentBlock__factory,
   IERC165__factory,
@@ -369,6 +370,7 @@ describe('DecentPaymasterV1', function () {
       supportedInterfaceFactories: [
         IERC165__factory,
         IPaymaster__factory,
+        IBasePaymaster__factory,
         IDecentPaymasterV1__factory,
         IVersion__factory,
         ILightAccountValidator__factory,
