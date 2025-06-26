@@ -443,5 +443,58 @@ describe.only('WarrantHedgeyV1', () => {
     });
   });
 
-  // TODO: InitializerEventEmitter
+  describe('InitializerEventEmitter', () => {
+    let testDeployer: SignerWithAddress;
+
+    beforeEach(async () => {
+      [testDeployer] = await ethers.getSigners();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: WarrantHedgeyV1__factory,
+      masterCopy: async () =>
+        await (await new WarrantHedgeyV1__factory(testDeployer).deploy()).getAddress(),
+      deployer: () => testDeployer,
+      initializeParams: async () => [
+        {
+          relativeTime: false,
+          owner: owner.address,
+          warrantHolder: warrantHolder.address,
+          token: await mockToken.getAddress(),
+          feeToken: await mockFeeToken.getAddress(),
+          tokenAmount: TOKEN_AMOUNT,
+          tokenPrice: TOKEN_PRICE,
+          feeReceiver: feeReceiver.address,
+          expiration: 1000000, // Static timestamp
+          hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
+          hedgeyStart: 1000001, // Static timestamp
+          hedgeyRelativeCliff: HEDGEY_CLIFF,
+          hedgeyRate: HEDGEY_RATE,
+          hedgeyPeriod: HEDGEY_PERIOD,
+        },
+      ],
+      getExpectedInitData: async () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['tuple(bool,address,address,address,address,uint256,uint256,address,uint256,address,uint256,uint256,uint256,uint256)'],
+          [
+            [
+              false,
+              owner.address,
+              warrantHolder.address,
+              await mockToken.getAddress(),
+              await mockFeeToken.getAddress(),
+              TOKEN_AMOUNT,
+              TOKEN_PRICE,
+              feeReceiver.address,
+              1000000, // Static timestamp
+              await mockHedgey.getAddress(),
+              1000001, // Static timestamp
+              HEDGEY_CLIFF,
+              HEDGEY_RATE,
+              HEDGEY_PERIOD,
+            ],
+          ],
+        ),
+    });
+  });
 });
