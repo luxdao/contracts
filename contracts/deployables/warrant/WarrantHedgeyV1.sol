@@ -8,8 +8,8 @@ import {IVotingTokenLockupPlans} from "../../interfaces/hedgey/IVotingTokenLocku
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IVotesERC20V1} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlockV1} from "../../interfaces/decent/IDeploymentBlockV1.sol";
-import {DeploymentBlockV1} from "../../DeploymentBlockV1.sol";
+import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
+import {DeploymentBlockInitializable} from "../../DeploymentBlockInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -27,7 +27,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  *
  * @custom:security-contact security@decentlabs.io
  */
-contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentBlockV1, ERC165 {
+contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentBlockInitializable, ERC165 {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
@@ -98,7 +98,7 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
             params_.feeReceiver,
             params_.expiration
         );
-        __DeploymentBlockV1_init();
+        __DeploymentBlockInitializable_init();
 
         // Validate Hedgey-specific parameters
         
@@ -267,7 +267,7 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
 
     /**
      * @notice Check if contract supports a given interface
-     * @dev Supports IWarrantHedgeyV1, IWarrantBase, IVersion, IDeploymentBlockV1, and IERC165
+     * @dev Supports IWarrantHedgeyV1, IWarrantBase, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
@@ -276,7 +276,7 @@ contract WarrantHedgeyV1 is IWarrantHedgeyV1, WarrantBase, IVersion, DeploymentB
             interfaceId_ == type(IWarrantHedgeyV1).interfaceId ||
             interfaceId_ == type(IWarrantBase).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
-            interfaceId_ == type(IDeploymentBlockV1).interfaceId ||
+            interfaceId_ == type(IDeploymentBlock).interfaceId ||
             super.supportsInterface(interfaceId_);
     }
 }
