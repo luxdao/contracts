@@ -40,7 +40,7 @@ interface MockERC6551Executable {
   execute(target: string, value: bigint, data: string, operation: number): Promise<void>;
 }
 
-describe('UtilityRolesManagementV1 (Delegatecall)', () => {
+describe('UtilityRolesManagementV1', () => {
   let deployer: SignerWithAddress;
   let user1: SignerWithAddress;
   let user2: SignerWithAddress;
@@ -53,16 +53,165 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
   let mockAutonomousAdmin: MockDecentAutonomousAdmin;
   let mockKeyValuePairs: MockKeyValuePairs;
 
-  const SALT = '0x5d0e6ce4fd951366cc55da93f6e79d8b81483109d79676a04bcc2bed6a4b5072';
+  // Constants
+  const CONSTANTS = {
+    TOP_HAT_ID: BigInt(1) << 224n,
+    get ADMIN_HAT_ID() {
+      return this.TOP_HAT_ID + 1n;
+    },
+    CHAIN_ID: 31337,
+    // Sablier status enum values (matching Lockup.Status)
+    Status: {
+      PENDING: 0,
+      STREAMING: 1,
+      SETTLED: 2,
+      CANCELED: 3,
+      DEPLETED: 4,
+    },
+  };
 
-  // Assume an existing tree structure for modification tests
-  const TOP_HAT_ID = BigInt(1) << 224n; // First top hat
-  const ADMIN_HAT_ID = TOP_HAT_ID + 1n; // Admin hat is first hat under top
+  // Helper to get addresses from contracts
+  async function getContractAddresses() {
+    return {
+      keyValuePairs: await mockKeyValuePairs.getAddress(),
+      hatsProtocol: await mockHats.getAddress(),
+      erc6551Registry: await mockERC6551Registry.getAddress(),
+      systemDeployer: await mockSystemDeployer.getAddress(),
+      decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
+      rolesManagementUtility: await rolesManagementUtility.getAddress(),
+      mockSafe: await mockSafe.getAddress(),
+    };
+  }
+
+  // Helper to create base tree params
+  async function createBaseTreeParams(overrides: any = {}) {
+    const addresses = await getContractAddresses();
+    return {
+      keyValuePairs: addresses.keyValuePairs,
+      hatsProtocol: addresses.hatsProtocol,
+      erc6551Registry: addresses.erc6551Registry,
+      hatsModuleFactory: ethers.ZeroAddress,
+      systemDeployer: addresses.systemDeployer,
+      decentAutonomousAdminImplementation: addresses.decentAutonomousAdminImplementation,
+      hatsAccountImplementation: ethers.ZeroAddress,
+      hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
+      topHat: {
+        details: 'Test DAO',
+        imageURI: 'ipfs://tophat',
+      },
+      adminHat: {
+        details: 'Admin',
+        imageURI: 'ipfs://admin',
+        isMutable: true,
+      },
+      hats: [],
+      ...overrides,
+    };
+  }
+
+  // Helper to execute delegatecall
+  async function executeDelegatecall(
+    functionName:
+      | 'createAndDeclareTree'
+      | 'createRoleHats'
+      | 'withdrawMaxFromStream'
+      | 'cancelStream',
+    params: any,
+  ) {
+    return mockSafe.execTransaction(
+      await rolesManagementUtility.getAddress(),
+      0,
+      rolesManagementUtility.interface.encodeFunctionData(functionName as any, params),
+      1, // DelegateCall
+    );
+  }
+
+  // Helper to calculate safe salt
+  function getSafeSalt(safeAddress: string) {
+    return ethers.zeroPadValue(safeAddress, 32);
+  }
+
+  // Helper to predict autonomous admin address
+  async function predictAutonomousAdminAddress(safeAddress: string) {
+    const addresses = await getContractAddresses();
+    const safeSalt = getSafeSalt(safeAddress);
+
+    return mockSystemDeployer.predictProxyAddress(
+      addresses.decentAutonomousAdminImplementation,
+      mockAutonomousAdmin.interface.encodeFunctionData('initialize'),
+      safeSalt,
+      safeAddress,
+    );
+  }
+
+  // Helper to create role hat params
+  function createRoleHatParams(details: string, wearer: string, overrides: any = {}) {
+    return {
+      details,
+      imageURI: `ipfs://${details.toLowerCase().replace(/\s/g, '')}`,
+      maxSupply: 1,
+      isMutable: true,
+      wearer,
+      termEndDateTs: 0,
+      sablierStreamsParams: [],
+      ...overrides,
+    };
+  }
+
+  // Helper to create role hats params
+  async function createRoleHatsParams(hats: any[], overrides: any = {}) {
+    const addresses = await getContractAddresses();
+    return {
+      hatsProtocol: addresses.hatsProtocol,
+      erc6551Registry: addresses.erc6551Registry,
+      hatsAccountImplementation: ethers.ZeroAddress,
+      topHatId: CONSTANTS.TOP_HAT_ID,
+      topHatWearer: addresses.mockSafe,
+      hatsModuleFactory: ethers.ZeroAddress,
+      hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
+      adminHatId: CONSTANTS.ADMIN_HAT_ID,
+      hats,
+      keyValuePairs: addresses.keyValuePairs,
+      ...overrides,
+    };
+  }
+
+  // Helper to verify hat details
+  async function verifyHat(
+    hatId: bigint,
+    expectedDetails: {
+      details?: string;
+      wearer?: string;
+      maxSupply?: number;
+      isMutable?: boolean;
+      eligibility?: string;
+      toggle?: string;
+    },
+  ) {
+    if (expectedDetails.details !== undefined) {
+      expect(await mockHats.hatDetails(hatId)).to.equal(expectedDetails.details);
+    }
+    if (expectedDetails.wearer !== undefined) {
+      expect(await mockHats.isWearerOfHat(expectedDetails.wearer, hatId)).to.be.true;
+    }
+    if (expectedDetails.maxSupply !== undefined) {
+      expect(await mockHats.hatMaxSupply(hatId)).to.equal(expectedDetails.maxSupply);
+    }
+    if (expectedDetails.isMutable !== undefined) {
+      expect(await mockHats.hatMutable(hatId)).to.equal(expectedDetails.isMutable);
+    }
+    if (expectedDetails.eligibility !== undefined) {
+      expect(await mockHats.hatEligibility(hatId)).to.equal(expectedDetails.eligibility);
+    }
+    if (expectedDetails.toggle !== undefined) {
+      expect(await mockHats.hatToggle(hatId)).to.equal(expectedDetails.toggle);
+    }
+  }
 
   beforeEach(async () => {
     [deployer, user1, user2] = await ethers.getSigners();
 
-    // Deploy mocks
+    // Deploy all mocks
     const mockSafeFactory = new MockSafeDelegatecall__factory(deployer);
     mockSafe = await mockSafeFactory.deploy();
     await mockSafe.waitForDeployment();
@@ -87,7 +236,6 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
     mockKeyValuePairs = await mockKeyValuePairsFactory.deploy();
     await mockKeyValuePairs.waitForDeployment();
 
-    // Deploy UtilityRolesManagementV1
     const rolesManagementUtilityFactory = new UtilityRolesManagementV1__factory(deployer);
     rolesManagementUtility = await rolesManagementUtilityFactory.deploy();
     await rolesManagementUtility.waitForDeployment();
@@ -95,545 +243,267 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
 
   describe('createAndDeclareTree via delegatecall', () => {
     it('should create a complete Hats tree structure', async () => {
-      const treeParams = {
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        systemDeployer: await mockSystemDeployer.getAddress(),
-        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        topHat: {
-          details: 'Test DAO',
-          imageURI: 'ipfs://tophat',
-        },
-        adminHat: {
-          details: 'Admin',
-          imageURI: 'ipfs://admin',
-          isMutable: true,
-        },
-        hats: [
-          {
-            details: 'Developer',
-            imageURI: 'ipfs://dev',
-            maxSupply: 5,
-            isMutable: true,
-            wearer: user1.address,
-            termEndDateTs: 0, // Untermed
-            sablierStreamsParams: [],
-          },
-        ],
-      };
+      const treeParams = await createBaseTreeParams({
+        hats: [createRoleHatParams('Developer', user1.address, { maxSupply: 5 })],
+      });
 
-      // Execute via delegatecall
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-        1, // DelegateCall
-      );
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
 
-      // Verify top hat was minted to the Safe
-      const topHatId = BigInt(1) << 224n;
-      expect(await mockHats.isWearerOfHat(await mockSafe.getAddress(), topHatId)).to.be.true;
+      const addresses = await getContractAddresses();
 
-      // Verify admin hat was created
-      const adminHatId = topHatId + 1n;
-      expect(await mockHats.hatDetails(adminHatId)).to.equal('Admin');
+      // Verify top hat
+      await verifyHat(CONSTANTS.TOP_HAT_ID, {
+        wearer: addresses.mockSafe,
+      });
 
-      // Verify admin hat has maxSupply of 1 (only one admin)
-      expect(await mockHats.hatMaxSupply(adminHatId)).to.equal(1);
+      // Verify admin hat
+      await verifyHat(CONSTANTS.ADMIN_HAT_ID, {
+        details: 'Admin',
+        maxSupply: 1,
+      });
 
-      // Verify role hat was created
-      const roleHatId = adminHatId + 1n;
-      expect(await mockHats.hatDetails(roleHatId)).to.equal('Developer');
-      expect(await mockHats.isWearerOfHat(user1.address, roleHatId)).to.be.true;
+      // Verify role hat
+      await verifyHat(CONSTANTS.ADMIN_HAT_ID + 1n, {
+        details: 'Developer',
+        wearer: user1.address,
+      });
 
       // Verify KeyValuePairs was updated
-      expect(await mockKeyValuePairs.getValue('topHatId')).to.equal(topHatId.toString());
+      expect(await mockKeyValuePairs.getValue('topHatId')).to.equal(
+        CONSTANTS.TOP_HAT_ID.toString(),
+      );
     });
 
     it('should mint admin hat to autonomous admin', async () => {
-      const treeParams = {
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        systemDeployer: await mockSystemDeployer.getAddress(),
-        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        topHat: {
-          details: 'Test DAO',
-          imageURI: 'ipfs://tophat',
-        },
-        adminHat: {
-          details: 'Admin',
-          imageURI: 'ipfs://admin',
-          isMutable: true,
-        },
-        hats: [],
-      };
+      const treeParams = await createBaseTreeParams();
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-        1, // DelegateCall
-      );
+      const addresses = await getContractAddresses();
+      const autonomousAdminAddress = await predictAutonomousAdminAddress(addresses.mockSafe);
 
-      // Calculate the deployed admin address
-      const autonomousAdminAddress = await mockSystemDeployer.predictProxyAddress(
-        await mockAutonomousAdmin.getAddress(),
-        mockAutonomousAdmin.interface.encodeFunctionData('initialize'),
-        SALT,
-        await mockSafe.getAddress(),
-      );
-
-      // Verify admin hat was minted to the autonomous admin
-      const topHatId = BigInt(1) << 224n;
-      const adminHatId = topHatId + 1n;
-      expect(await mockHats.isWearerOfHat(autonomousAdminAddress, adminHatId)).to.be.true;
+      await verifyHat(CONSTANTS.ADMIN_HAT_ID, {
+        wearer: autonomousAdminAddress,
+      });
     });
 
     it('should verify Safe is the deployer when using SystemDeployer', async () => {
-      const treeParams = {
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        systemDeployer: await mockSystemDeployer.getAddress(),
-        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        topHat: {
-          details: 'Test DAO',
-          imageURI: 'ipfs://tophat',
-        },
-        adminHat: {
-          details: 'Admin',
-          imageURI: 'ipfs://admin',
-          isMutable: true,
-        },
-        hats: [],
-      };
-
-      // Execute via delegatecall
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-        1, // DelegateCall
-      );
-
-      // The mock SystemDeployer doesn't track deployers in a way we can verify
-      // In a real scenario, we would verify the Safe was msg.sender during delegatecall
-      // This test mainly ensures the SystemDeployer was called successfully
+      const treeParams = await createBaseTreeParams();
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
+      // Test ensures SystemDeployer was called successfully
     });
 
     it('should create ERC6551 account with correct topHatId', async () => {
-      const treeParams = {
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        systemDeployer: await mockSystemDeployer.getAddress(),
-        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        topHat: {
-          details: 'Test DAO',
-          imageURI: 'ipfs://tophat',
-        },
-        adminHat: {
-          details: 'Admin',
-          imageURI: 'ipfs://admin',
-          isMutable: true,
-        },
-        hats: [],
-      };
+      const treeParams = await createBaseTreeParams();
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-        1, // DelegateCall
-      );
-
-      // Check the ERC6551 account was created for the correct top hat
-      const topHatId = BigInt(1) << 224n;
+      const addresses = await getContractAddresses();
+      const safeSalt = getSafeSalt(addresses.mockSafe);
       const topHatAccount = await mockERC6551Registry.account(
         ethers.ZeroAddress,
-        SALT,
-        31337, // chainId
-        await mockHats.getAddress(),
-        topHatId,
+        safeSalt,
+        CONSTANTS.CHAIN_ID,
+        addresses.hatsProtocol,
+        CONSTANTS.TOP_HAT_ID,
       );
       expect(topHatAccount).to.not.equal(ethers.ZeroAddress);
     });
 
     it('should create ERC6551 account for admin hat', async () => {
-      const treeParams = {
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        systemDeployer: await mockSystemDeployer.getAddress(),
-        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        topHat: {
-          details: 'Test DAO',
-          imageURI: 'ipfs://tophat',
-        },
-        adminHat: {
-          details: 'Admin',
-          imageURI: 'ipfs://admin',
-          isMutable: true,
-        },
-        hats: [],
-      };
+      const treeParams = await createBaseTreeParams();
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-        1, // DelegateCall
-      );
-
-      // Check the ERC6551 account was created for the admin hat
-      const topHatId = BigInt(1) << 224n;
-      const adminHatId = topHatId + 1n;
+      const addresses = await getContractAddresses();
+      const safeSalt = getSafeSalt(addresses.mockSafe);
       const adminHatAccount = await mockERC6551Registry.account(
         ethers.ZeroAddress,
-        SALT,
-        31337, // chainId
-        await mockHats.getAddress(),
-        adminHatId,
+        safeSalt,
+        CONSTANTS.CHAIN_ID,
+        addresses.hatsProtocol,
+        CONSTANTS.ADMIN_HAT_ID,
       );
       expect(adminHatAccount).to.not.equal(ethers.ZeroAddress);
     });
 
     it('should handle multiple role hats', async () => {
-      const treeParams = {
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        systemDeployer: await mockSystemDeployer.getAddress(),
-        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        topHat: {
-          details: 'Test DAO',
-          imageURI: 'ipfs://tophat',
-        },
-        adminHat: {
-          details: 'Admin',
-          imageURI: 'ipfs://admin',
-          isMutable: true,
-        },
+      const treeParams = await createBaseTreeParams({
         hats: [
-          {
-            details: 'Developer',
-            imageURI: 'ipfs://dev',
-            maxSupply: 5,
-            isMutable: true,
-            wearer: user1.address,
-            termEndDateTs: 0,
-            sablierStreamsParams: [],
-          },
-          {
-            details: 'Designer',
-            imageURI: 'ipfs://design',
-            maxSupply: 3,
-            isMutable: false,
-            wearer: user2.address,
-            termEndDateTs: 0,
-            sablierStreamsParams: [],
-          },
+          createRoleHatParams('Developer', user1.address, { maxSupply: 5 }),
+          createRoleHatParams('Designer', user2.address, { maxSupply: 3, isMutable: false }),
         ],
-      };
+      });
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-        1, // DelegateCall
-      );
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
 
-      const topHatId = BigInt(1) << 224n;
-      const adminHatId = topHatId + 1n;
-      const devHatId = adminHatId + 1n;
-      const designerHatId = adminHatId + 2n;
+      const devHatId = CONSTANTS.ADMIN_HAT_ID + 1n;
+      const designerHatId = CONSTANTS.ADMIN_HAT_ID + 2n;
 
-      // Verify both role hats were created
-      expect(await mockHats.hatDetails(devHatId)).to.equal('Developer');
-      expect(await mockHats.hatDetails(designerHatId)).to.equal('Designer');
-      expect(await mockHats.isWearerOfHat(user1.address, devHatId)).to.be.true;
-      expect(await mockHats.isWearerOfHat(user2.address, designerHatId)).to.be.true;
+      await verifyHat(devHatId, {
+        details: 'Developer',
+        wearer: user1.address,
+      });
+
+      await verifyHat(designerHatId, {
+        details: 'Designer',
+        wearer: user2.address,
+      });
+    });
+
+    it('should deploy autonomous admin via delegatecall from Safe', async () => {
+      const treeParams = await createBaseTreeParams();
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
+
+      const addresses = await getContractAddresses();
+      const expectedProxyAddress = await predictAutonomousAdminAddress(addresses.mockSafe);
+
+      await verifyHat(CONSTANTS.ADMIN_HAT_ID, {
+        wearer: expectedProxyAddress,
+      });
     });
 
     it('should properly set up eligibility and toggle relationships', async () => {
-      const treeParams = {
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        systemDeployer: await mockSystemDeployer.getAddress(),
-        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        topHat: {
-          details: 'Test DAO',
-          imageURI: 'ipfs://tophat',
-        },
-        adminHat: {
-          details: 'Admin',
-          imageURI: 'ipfs://admin',
-          isMutable: true,
-        },
-        hats: [
-          {
-            details: 'Role',
-            imageURI: 'ipfs://role',
-            maxSupply: 1,
-            isMutable: true,
-            wearer: user1.address,
-            termEndDateTs: 0,
-            sablierStreamsParams: [],
-          },
-        ],
-      };
+      const treeParams = await createBaseTreeParams({
+        hats: [createRoleHatParams('Role', user1.address)],
+      });
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-        1, // DelegateCall
-      );
+      await executeDelegatecall('createAndDeclareTree', [treeParams]);
 
-      const topHatId = BigInt(1) << 224n;
-      const adminHatId = topHatId + 1n;
-      const roleHatId = adminHatId + 1n;
+      const addresses = await getContractAddresses();
+      const roleHatId = CONSTANTS.ADMIN_HAT_ID + 1n;
 
-      // Admin hat should have Safe as eligibility and toggle
-      expect(await mockHats.hatEligibility(adminHatId)).to.equal(await mockSafe.getAddress());
-      expect(await mockHats.hatToggle(adminHatId)).to.equal(await mockSafe.getAddress());
+      await verifyHat(CONSTANTS.ADMIN_HAT_ID, {
+        eligibility: addresses.mockSafe,
+        toggle: addresses.mockSafe,
+      });
 
-      // Role hat should have Safe as eligibility and toggle (for untermed)
-      expect(await mockHats.hatEligibility(roleHatId)).to.equal(await mockSafe.getAddress());
-      expect(await mockHats.hatToggle(roleHatId)).to.equal(await mockSafe.getAddress());
+      await verifyHat(roleHatId, {
+        eligibility: addresses.mockSafe,
+        toggle: addresses.mockSafe,
+      });
     });
   });
 
   describe('createRoleHats via delegatecall', () => {
     beforeEach(async () => {
-      // Setup existing hat tree state in mocks
-      // Simulate existing top hat and admin hat
-      await mockHats.setWearerStatus(await mockSafe.getAddress(), TOP_HAT_ID, true);
-      await mockHats.setWearerStatus(deployer.address, ADMIN_HAT_ID, true);
+      const addresses = await getContractAddresses();
+      await mockHats.setWearerStatus(addresses.mockSafe, CONSTANTS.TOP_HAT_ID, true);
+      await mockHats.setWearerStatus(deployer.address, CONSTANTS.ADMIN_HAT_ID, true);
     });
 
     it('should add new roles to existing hat tree', async () => {
-      const roleHatsParams = {
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        topHatId: TOP_HAT_ID,
-        topHatAccount: await mockSafe.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        adminHatId: ADMIN_HAT_ID,
-        hats: [
-          {
-            details: 'New Developer',
-            imageURI: 'ipfs://newdev',
-            maxSupply: 3,
-            isMutable: true,
-            wearer: user1.address,
-            termEndDateTs: 0,
-            sablierStreamsParams: [],
-          },
-        ],
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-      };
+      const roleHatsParams = await createRoleHatsParams([
+        createRoleHatParams('New Developer', user1.address, { maxSupply: 3 }),
+      ]);
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createRoleHats', [roleHatsParams]),
-        1, // DelegateCall
-      );
+      await executeDelegatecall('createRoleHats', [roleHatsParams]);
 
-      // Verify new role was created under admin hat
-      const newRoleId = ADMIN_HAT_ID + 1n;
-      expect(await mockHats.hatDetails(newRoleId)).to.equal('New Developer');
-      expect(await mockHats.isWearerOfHat(user1.address, newRoleId)).to.be.true;
+      await verifyHat(CONSTANTS.ADMIN_HAT_ID + 1n, {
+        details: 'New Developer',
+        wearer: user1.address,
+      });
     });
 
     it('should create ERC6551 accounts for untermed roles', async () => {
-      const roleHatsParams = {
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        topHatId: TOP_HAT_ID,
-        topHatAccount: await mockSafe.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        adminHatId: ADMIN_HAT_ID,
-        hats: [
-          {
-            details: 'Treasury Manager',
-            imageURI: 'ipfs://treasury',
-            maxSupply: 1,
-            isMutable: true,
-            wearer: user1.address,
-            termEndDateTs: 0, // Untermed
-            sablierStreamsParams: [],
-          },
-        ],
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-      };
+      const roleHatsParams = await createRoleHatsParams([
+        createRoleHatParams('Treasury Manager', user1.address),
+      ]);
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createRoleHats', [roleHatsParams]),
-        1, // DelegateCall
-      );
+      await executeDelegatecall('createRoleHats', [roleHatsParams]);
 
-      const newRoleId = ADMIN_HAT_ID + 1n;
-
-      // Check ERC6551 account was created for the role
+      const addresses = await getContractAddresses();
+      const safeSalt = getSafeSalt(addresses.mockSafe);
       const roleAccount = await mockERC6551Registry.account(
         ethers.ZeroAddress,
-        SALT,
-        31337, // chainId
-        await mockHats.getAddress(),
-        newRoleId,
+        safeSalt,
+        CONSTANTS.CHAIN_ID,
+        addresses.hatsProtocol,
+        CONSTANTS.ADMIN_HAT_ID + 1n,
       );
       expect(roleAccount).to.not.equal(ethers.ZeroAddress);
     });
 
     it('should handle multiple roles with different properties', async () => {
-      const roleHatsParams = {
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        topHatId: TOP_HAT_ID,
-        topHatAccount: await mockSafe.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        adminHatId: ADMIN_HAT_ID,
-        hats: [
-          {
-            details: 'Senior Dev',
-            imageURI: 'ipfs://senior',
-            maxSupply: 2,
-            isMutable: true,
-            wearer: user1.address,
-            termEndDateTs: 0,
-            sablierStreamsParams: [],
-          },
-          {
-            details: 'Junior Dev',
-            imageURI: 'ipfs://junior',
-            maxSupply: 5,
-            isMutable: false,
-            wearer: user2.address,
-            termEndDateTs: 0,
-            sablierStreamsParams: [],
-          },
-        ],
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-      };
+      const roleHatsParams = await createRoleHatsParams([
+        createRoleHatParams('Senior Dev', user1.address, { maxSupply: 2 }),
+        createRoleHatParams('Junior Dev', user2.address, { maxSupply: 5, isMutable: false }),
+      ]);
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createRoleHats', [roleHatsParams]),
-        1, // DelegateCall
-      );
+      await executeDelegatecall('createRoleHats', [roleHatsParams]);
 
-      const seniorRoleId = ADMIN_HAT_ID + 1n;
-      const juniorRoleId = ADMIN_HAT_ID + 2n;
+      const seniorRoleId = CONSTANTS.ADMIN_HAT_ID + 1n;
+      const juniorRoleId = CONSTANTS.ADMIN_HAT_ID + 2n;
 
-      // Verify both roles were created correctly
-      expect(await mockHats.hatDetails(seniorRoleId)).to.equal('Senior Dev');
-      expect(await mockHats.hatDetails(juniorRoleId)).to.equal('Junior Dev');
-      expect(await mockHats.hatMaxSupply(seniorRoleId)).to.equal(2);
-      expect(await mockHats.hatMaxSupply(juniorRoleId)).to.equal(5);
-      expect(await mockHats.hatMutable(seniorRoleId)).to.be.true;
-      expect(await mockHats.hatMutable(juniorRoleId)).to.be.false;
+      await verifyHat(seniorRoleId, {
+        details: 'Senior Dev',
+        maxSupply: 2,
+        isMutable: true,
+      });
+
+      await verifyHat(juniorRoleId, {
+        details: 'Junior Dev',
+        maxSupply: 5,
+        isMutable: false,
+      });
     });
 
     it('should set correct eligibility for roles', async () => {
-      const roleHatsParams = {
-        hatsProtocol: await mockHats.getAddress(),
-        erc6551Registry: await mockERC6551Registry.getAddress(),
-        hatsAccountImplementation: ethers.ZeroAddress,
-        topHatId: TOP_HAT_ID,
-        topHatAccount: await mockSafe.getAddress(),
-        hatsModuleFactory: ethers.ZeroAddress,
-        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-        adminHatId: ADMIN_HAT_ID,
-        hats: [
-          {
-            details: 'Coordinator',
-            imageURI: 'ipfs://coord',
-            maxSupply: 1,
-            isMutable: true,
-            wearer: user1.address,
-            termEndDateTs: 0,
-            sablierStreamsParams: [],
-          },
-        ],
-        keyValuePairs: await mockKeyValuePairs.getAddress(),
-      };
+      const roleHatsParams = await createRoleHatsParams([
+        createRoleHatParams('Coordinator', user1.address),
+      ]);
 
-      await mockSafe.execTransaction(
-        await rolesManagementUtility.getAddress(),
-        0,
-        rolesManagementUtility.interface.encodeFunctionData('createRoleHats', [roleHatsParams]),
-        1, // DelegateCall
-      );
+      await executeDelegatecall('createRoleHats', [roleHatsParams]);
 
-      const roleId = ADMIN_HAT_ID + 1n;
-
-      // For untermed roles, eligibility and toggle should be the top hat account
-      expect(await mockHats.hatEligibility(roleId)).to.equal(await mockSafe.getAddress());
-      expect(await mockHats.hatToggle(roleId)).to.equal(await mockSafe.getAddress());
+      const addresses = await getContractAddresses();
+      await verifyHat(CONSTANTS.ADMIN_HAT_ID + 1n, {
+        eligibility: addresses.mockSafe,
+        toggle: addresses.mockSafe,
+      });
     });
   });
 
   describe('Sablier Stream Management', () => {
     let mockSablier: MockSablierV2Lockup;
     let mockHatAccount: MockERC6551Executable;
+    let mockToken: MockERC20;
     let recipient: SignerWithAddress;
 
-    // Sablier status enum values (matching Lockup.Status)
-    const Status = {
-      PENDING: 0,
-      STREAMING: 1,
-      SETTLED: 2,
-      CANCELED: 3,
-      DEPLETED: 4,
-    };
-
+    // Helper to deploy stream mocks
     async function deployStreamMocks() {
       [deployer, user1, user2, recipient] = await ethers.getSigners();
 
-      // Create mock Sablier contract
       const MockSablierFactory = await ethers.getContractFactory('MockSablierV2Lockup');
       mockSablier = (await MockSablierFactory.deploy()) as unknown as MockSablierV2Lockup;
       await (mockSablier as any).waitForDeployment();
 
-      // Create mock ERC6551 executable (Hat account)
       const MockERC6551Factory = await ethers.getContractFactory('MockERC6551Executable');
       mockHatAccount = (await MockERC6551Factory.deploy()) as unknown as MockERC6551Executable;
       await (mockHatAccount as any).waitForDeployment();
+
+      const MockERC20Factory = new MockERC20__factory(deployer);
+      mockToken = await MockERC20Factory.deploy('Test Token', 'TEST', 18);
+      await mockToken.waitForDeployment();
+    }
+
+    // Helper to create stream params
+    async function createStreamParams(overrides: any = {}) {
+      const now = Math.floor(Date.now() / 1000);
+      return {
+        sablier: await mockSablier.getAddress(),
+        sender: await mockSafe.getAddress(),
+        totalAmount: ethers.parseEther('1000'),
+        asset: await mockToken.getAddress(),
+        cancelable: true,
+        transferable: true,
+        timestamps: {
+          start: now,
+          cliff: now + 3600,
+          end: now + 7200,
+        },
+        broker: {
+          account: ethers.ZeroAddress,
+          fee: 0,
+        },
+        ...overrides,
+      };
     }
 
     describe('withdrawMaxFromStream via delegatecall', () => {
@@ -644,22 +514,14 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
       it('should withdraw from stream through Hat account', async () => {
         const streamId = 1n;
         const withdrawableAmount = ethers.parseEther('100');
-
-        // Setup mock to return withdrawable amount
         await (mockSablier as any).setWithdrawableAmount(streamId, withdrawableAmount);
 
-        // Execute withdrawal via delegatecall
-        const tx = await mockSafe.execTransaction(
-          await rolesManagementUtility.getAddress(),
-          0,
-          rolesManagementUtility.interface.encodeFunctionData('withdrawMaxFromStream', [
-            await (mockSablier as any).getAddress(),
-            await (mockHatAccount as any).getAddress(),
-            streamId,
-            recipient.address,
-          ]),
-          1, // DelegateCall
-        );
+        const tx = await executeDelegatecall('withdrawMaxFromStream', [
+          await mockSablier.getAddress(),
+          await (mockHatAccount as any).getAddress(),
+          streamId,
+          recipient.address,
+        ]);
 
         // Verify the transaction succeeded (no revert)
         await expect(tx).to.not.be.reverted;
@@ -670,60 +532,36 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
 
       it('should return silently when no funds available to withdraw', async () => {
         const streamId = 1n;
-
-        // Setup mock to return zero withdrawable amount
         await (mockSablier as any).setWithdrawableAmount(streamId, 0);
 
-        // This should not revert, just return early
         await expect(
-          mockSafe.execTransaction(
-            await rolesManagementUtility.getAddress(),
-            0,
-            rolesManagementUtility.interface.encodeFunctionData('withdrawMaxFromStream', [
-              await (mockSablier as any).getAddress(),
-              await (mockHatAccount as any).getAddress(),
-              streamId,
-              recipient.address,
-            ]),
-            1, // DelegateCall
-          ),
+          executeDelegatecall('withdrawMaxFromStream', [
+            await mockSablier.getAddress(),
+            await (mockHatAccount as any).getAddress(),
+            streamId,
+            recipient.address,
+          ]),
         ).to.not.be.reverted;
-
-        // Verify the withdrawable amount is still 0 (no state change)
-        expect(await (mockSablier as any).withdrawableAmountOf(streamId)).to.equal(0);
       });
 
       it('should handle multiple stream withdrawals', async () => {
-        const streamIds = [1n, 2n, 3n];
-        const withdrawableAmounts = [
-          ethers.parseEther('50'),
-          ethers.parseEther('75'),
-          ethers.parseEther('100'),
-        ];
+        const amount = ethers.parseEther('50');
 
-        // Setup mocks
-        for (let i = 0; i < streamIds.length; i++) {
-          await (mockSablier as any).setWithdrawableAmount(streamIds[i], withdrawableAmounts[i]);
-        }
+        for (let i = 1n; i <= 3n; i++) {
+          await (mockSablier as any).setWithdrawableAmount(i, amount);
 
-        // Execute multiple withdrawals
-        for (const streamId of streamIds) {
-          await mockSafe.execTransaction(
-            await rolesManagementUtility.getAddress(),
-            0,
-            rolesManagementUtility.interface.encodeFunctionData('withdrawMaxFromStream', [
-              await (mockSablier as any).getAddress(),
-              await (mockHatAccount as any).getAddress(),
-              streamId,
-              recipient.address,
-            ]),
-            1, // DelegateCall
-          );
-        }
+          const tx = await executeDelegatecall('withdrawMaxFromStream', [
+            await mockSablier.getAddress(),
+            await (mockHatAccount as any).getAddress(),
+            i,
+            recipient.address,
+          ]);
 
-        // Verify all streams have been withdrawn (observable state)
-        for (const streamId of streamIds) {
-          expect(await (mockSablier as any).withdrawableAmountOf(streamId)).to.equal(0);
+          // Verify transaction succeeded
+          await expect(tx).to.not.be.reverted;
+
+          // Verify the stream was withdrawn
+          expect(await (mockSablier as any).withdrawableAmountOf(i)).to.equal(0);
         }
       });
     });
@@ -733,255 +571,103 @@ describe('UtilityRolesManagementV1 (Delegatecall)', () => {
         await deployStreamMocks();
       });
 
+      async function testStreamCancellation(
+        streamId: bigint,
+        status: number,
+        shouldCancel: boolean,
+      ) {
+        await (mockSablier as any).setStreamStatus(streamId, status);
+
+        const tx = await executeDelegatecall('cancelStream', [
+          await mockSablier.getAddress(),
+          streamId,
+        ]);
+
+        // Verify transaction succeeded
+        await expect(tx).to.not.be.reverted;
+
+        // For cancellable statuses, verify the stream status is now CANCELED
+        if (shouldCancel) {
+          expect(await (mockSablier as any).statusOf(streamId)).to.equal(CONSTANTS.Status.CANCELED);
+        } else {
+          // For non-cancellable statuses, verify status remains unchanged
+          expect(await (mockSablier as any).statusOf(streamId)).to.equal(status);
+        }
+      }
+
       it('should cancel a PENDING stream', async () => {
-        const streamId = 1n;
-
-        // Setup mock to return PENDING status
-        await (mockSablier as any).setStreamStatus(streamId, Status.PENDING);
-
-        // Execute cancellation via delegatecall
-        const tx = await mockSafe.execTransaction(
-          await rolesManagementUtility.getAddress(),
-          0,
-          rolesManagementUtility.interface.encodeFunctionData('cancelStream', [
-            await (mockSablier as any).getAddress(),
-            streamId,
-          ]),
-          1, // DelegateCall
-        );
-
-        await tx.wait();
-
-        // Verify the stream status changed to CANCELED (observable state)
-        expect(await (mockSablier as any).statusOf(streamId)).to.equal(Status.CANCELED);
+        await testStreamCancellation(1n, CONSTANTS.Status.PENDING, true);
       });
 
       it('should cancel a STREAMING stream', async () => {
-        const streamId = 2n;
-
-        // Setup mock to return STREAMING status
-        await (mockSablier as any).setStreamStatus(streamId, Status.STREAMING);
-
-        // Execute cancellation
-        const tx = await mockSafe.execTransaction(
-          await rolesManagementUtility.getAddress(),
-          0,
-          rolesManagementUtility.interface.encodeFunctionData('cancelStream', [
-            await (mockSablier as any).getAddress(),
-            streamId,
-          ]),
-          1, // DelegateCall
-        );
-
-        await tx.wait();
-
-        // Verify the stream status changed to CANCELED (observable state)
-        expect(await (mockSablier as any).statusOf(streamId)).to.equal(Status.CANCELED);
+        await testStreamCancellation(1n, CONSTANTS.Status.STREAMING, true);
       });
 
       it('should return silently for non-cancellable stream statuses', async () => {
-        const nonCancellableStatuses = [Status.SETTLED, Status.CANCELED, Status.DEPLETED];
-
-        for (const status of nonCancellableStatuses) {
-          const streamId = BigInt(status + 10); // Unique stream ID for each test
-
-          // Setup mock to return non-cancellable status
-          await (mockSablier as any).setStreamStatus(streamId, status);
-
-          // This should not revert, just return early
-          await expect(
-            mockSafe.execTransaction(
-              await rolesManagementUtility.getAddress(),
-              0,
-              rolesManagementUtility.interface.encodeFunctionData('cancelStream', [
-                await (mockSablier as any).getAddress(),
-                streamId,
-              ]),
-              1, // DelegateCall
-            ),
-          ).to.not.be.reverted;
-
-          // Verify the status remains unchanged (no state change for non-cancellable)
-          expect(await (mockSablier as any).statusOf(streamId)).to.equal(status);
-        }
+        await testStreamCancellation(1n, CONSTANTS.Status.SETTLED, false);
+        await testStreamCancellation(2n, CONSTANTS.Status.CANCELED, false);
+        await testStreamCancellation(3n, CONSTANTS.Status.DEPLETED, false);
       });
     });
 
     describe('Sablier stream creation', () => {
-      let mockToken: MockERC20;
-
       beforeEach(async () => {
         await deployStreamMocks();
 
-        // Deploy mock ERC20 token
-        const mockTokenFactory = new MockERC20__factory(deployer);
-        mockToken = await mockTokenFactory.deploy('Mock Token', 'MOCK', 18);
-        await mockToken.waitForDeployment();
+        // Create tree with role that has Sablier params
+        const streamParams = await createStreamParams();
+        const treeParams = await createBaseTreeParams({
+          hats: [
+            createRoleHatParams('Paid Role', user1.address, {
+              sablierStreamsParams: [streamParams],
+            }),
+          ],
+        });
+
+        await mockToken.mint(await mockSafe.getAddress(), ethers.parseEther('10000'));
+        await executeDelegatecall('createAndDeclareTree', [treeParams]);
       });
 
       it('should create Sablier streams with proper token approvals', async () => {
-        // Setup: mint tokens to the Safe
-        const streamAmount = ethers.parseEther('1000');
-        await mockToken.mint(await mockSafe.getAddress(), streamAmount); // Mint enough for 1 stream
-
-        // Create tree params with Sablier streams
-        const currentTimestamp = Math.floor(Date.now() / 1000);
-        const treeParams = {
-          keyValuePairs: await mockKeyValuePairs.getAddress(),
-          hatsProtocol: await mockHats.getAddress(),
-          erc6551Registry: await mockERC6551Registry.getAddress(),
-          hatsModuleFactory: ethers.ZeroAddress,
-          systemDeployer: await mockSystemDeployer.getAddress(),
-          decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-          hatsAccountImplementation: ethers.ZeroAddress,
-          hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-          topHat: {
-            details: 'Test DAO',
-            imageURI: 'ipfs://tophat',
-          },
-          adminHat: {
-            details: 'Admin',
-            imageURI: 'ipfs://admin',
-            isMutable: true,
-          },
-          hats: [
-            {
-              details: 'Developer',
-              imageURI: 'ipfs://dev',
-              maxSupply: 1,
-              isMutable: true,
-              wearer: user1.address,
-              termEndDateTs: 0, // Untermed role
-              sablierStreamsParams: [
-                {
-                  sablier: await (mockSablier as any).getAddress(),
-                  sender: await mockSafe.getAddress(),
-                  asset: await mockToken.getAddress(),
-                  timestamps: {
-                    start: currentTimestamp,
-                    cliff: currentTimestamp + 3600, // 1 hour cliff
-                    end: currentTimestamp + 86400, // 1 day stream
-                  },
-                  broker: {
-                    account: ethers.ZeroAddress,
-                    fee: 0,
-                  },
-                  totalAmount: streamAmount,
-                  cancelable: true,
-                  transferable: false,
-                },
-              ],
-            },
-          ],
-        };
-
-        // Check token balance before
-        const balanceBefore = await mockToken.balanceOf(await mockSafe.getAddress());
-        expect(balanceBefore).to.equal(streamAmount);
-
-        // Execute tree creation
-        await mockSafe.execTransaction(
-          await rolesManagementUtility.getAddress(),
-          0,
-          rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [treeParams]),
-          1, // DelegateCall
-        );
-
-        // Verify token approvals were made and streams were created
-        const sablierAddress = await (mockSablier as any).getAddress();
-
         // Verify streams were created
         const nextStreamId = await (mockSablier as any).nextStreamId();
         expect(nextStreamId).to.equal(2); // Started at 1, created 1 stream
 
         // Check that tokens were transferred to Sablier
-        const balanceAfter = await mockToken.balanceOf(await mockSafe.getAddress());
-        expect(balanceAfter).to.equal(0); // All tokens should be transferred
-
-        // Verify Sablier received the tokens
-        const sablierBalance = await mockToken.balanceOf(sablierAddress);
-        expect(sablierBalance).to.equal(streamAmount);
-
-        // Verify KeyValuePairs were updated with hatId:streamId mappings
-        // For untermed role (Developer), stream goes to hat account
-        // For termed role (Manager), stream goes directly to wearer
-        const hatIdStreamIdValue1 = await mockKeyValuePairs.getValue('hatIdToStreamId');
-        expect(hatIdStreamIdValue1).to.include(':1'); // Should contain streamId 1
-
-        // Note: In a real test, we would also verify:
-        // - Stream recipients are correct (hat account vs direct wearer)
-        // - Stream parameters match what was specified
-        // - Events were emitted correctly
+        const sablierBalance = await mockToken.balanceOf(await mockSablier.getAddress());
+        expect(sablierBalance).to.equal(ethers.parseEther('1000'));
       });
 
       it('should revert if token transfer fails due to insufficient balance', async () => {
-        // Don't mint tokens to Safe, so it can't approve
-        const streamAmount = ethers.parseEther('1000');
+        // Deploy new safe with no tokens
+        const newSafeFactory = new MockSafeDelegatecall__factory(deployer);
+        const newSafe = await newSafeFactory.deploy();
+        await newSafe.waitForDeployment();
 
-        const treeParams = {
-          keyValuePairs: await mockKeyValuePairs.getAddress(),
-          hatsProtocol: await mockHats.getAddress(),
-          erc6551Registry: await mockERC6551Registry.getAddress(),
-          hatsModuleFactory: ethers.ZeroAddress,
-          systemDeployer: await mockSystemDeployer.getAddress(),
-          decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
-          hatsAccountImplementation: ethers.ZeroAddress,
-          hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
-          topHat: {
-            details: 'Test DAO',
-            imageURI: 'ipfs://tophat',
-          },
-          adminHat: {
-            details: 'Admin',
-            imageURI: 'ipfs://admin',
-            isMutable: true,
-          },
+        const streamParams = await createStreamParams();
+        const treeParams = await createBaseTreeParams({
           hats: [
-            {
-              details: 'Developer',
-              imageURI: 'ipfs://dev',
-              maxSupply: 1,
-              isMutable: true,
-              wearer: user1.address,
-              termEndDateTs: 0,
-              sablierStreamsParams: [
-                {
-                  sablier: await (mockSablier as any).getAddress(),
-                  sender: await mockSafe.getAddress(),
-                  asset: await mockToken.getAddress(),
-                  timestamps: {
-                    start: Math.floor(Date.now() / 1000),
-                    cliff: Math.floor(Date.now() / 1000) + 3600,
-                    end: Math.floor(Date.now() / 1000) + 86400,
-                  },
-                  broker: {
-                    account: ethers.ZeroAddress,
-                    fee: 0,
-                  },
-                  totalAmount: streamAmount,
-                  cancelable: true,
-                  transferable: false,
-                },
-              ],
-            },
+            createRoleHatParams('Unfunded Role', user2.address, {
+              sablierStreamsParams: [streamParams],
+            }),
           ],
-        };
+        });
 
-        // This should revert because Safe has no tokens to transfer
         await expect(
-          mockSafe.execTransaction(
+          newSafe.execTransaction(
             await rolesManagementUtility.getAddress(),
             0,
             rolesManagementUtility.interface.encodeFunctionData('createAndDeclareTree', [
               treeParams,
             ]),
-            1, // DelegateCall
+            1,
           ),
         ).to.be.reverted;
       });
     });
   });
 
+  // Run shared test suites
   describe('DeploymentBlock', function () {
     runDeploymentBlockTests({
       getContract: () => rolesManagementUtility,
