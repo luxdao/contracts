@@ -22,7 +22,7 @@ const time = {
   },
 };
 
-describe.only('WarrantBase', () => {
+describe('WarrantBase', () => {
   let owner: SignerWithAddress;
   let warrantHolder: SignerWithAddress;
   let feeReceiver: SignerWithAddress;
