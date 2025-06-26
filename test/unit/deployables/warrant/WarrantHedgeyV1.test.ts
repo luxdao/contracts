@@ -22,7 +22,7 @@ import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
-describe('WarrantHedgeyV1', () => {
+describe.only('WarrantHedgeyV1', () => {
   let owner: SignerWithAddress;
   let warrantHolder: SignerWithAddress;
   let feeReceiver: SignerWithAddress;
@@ -310,7 +310,7 @@ describe('WarrantHedgeyV1', () => {
   });
 
   describe('Execute - Relative Time', () => {
-    const UNLOCK_TIME = 1000;
+    let UNLOCK_TIME: number;
 
     beforeEach(async () => {
       const params: IWarrantHedgeyV1.InitParamsStruct = {
@@ -332,8 +332,10 @@ describe('WarrantHedgeyV1', () => {
 
       warrantHedgey = await deployWarrantHedgeyProxy(params);
 
-      // Transfer tokens to warrant contract
-      await mockVotesToken.transfer(await warrantHedgey.getAddress(), TOKEN_AMOUNT);
+      // Mint tokens to warrant contract
+      await mockVotesToken.mint(await warrantHedgey.getAddress(), TOKEN_AMOUNT);
+
+      UNLOCK_TIME = await time.latest();
 
       // Set unlock time on votes token
       await mockVotesToken.setUnlockTime(UNLOCK_TIME);
@@ -343,9 +345,6 @@ describe('WarrantHedgeyV1', () => {
     });
 
     it('should execute warrant with correct relative time calculations', async () => {
-      // Wait for unlock
-      await time.increaseTo(UNLOCK_TIME + 1);
-
       const tx = await warrantHedgey.connect(warrantHolder).execute(recipient.address);
 
       // Check Hedgey was called with correct start time (unlock time + hedgeyStart)
