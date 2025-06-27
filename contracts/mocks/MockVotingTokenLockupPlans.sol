@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {
     IVotingTokenLockupPlans
 } from "../interfaces/hedgey/IVotingTokenLockupPlans.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title MockVotingTokenLockupPlans
@@ -47,12 +48,4 @@ contract MockVotingTokenLockupPlans is IVotingTokenLockupPlans {
         // Return a mock plan ID
         return 1;
     }
-}
-
-interface IERC20 {
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
 }
