@@ -6,8 +6,8 @@ import {
   ConcreteWarrantBase__factory,
   MockERC20,
   MockERC20__factory,
-  MockVotesERC20V1,
-  MockVotesERC20V1__factory,
+  MockERC20Votes,
+  MockERC20Votes__factory,
   ERC1967Proxy__factory,
 } from '../../../../typechain-types';
 
@@ -34,7 +34,7 @@ describe('WarrantBase', () => {
   let mockWarrantImplementation: ConcreteWarrantBase;
   let mockToken: MockERC20;
   let mockFeeToken: MockERC20;
-  let mockVotesToken: MockVotesERC20V1;
+  let mockVotesToken: MockERC20Votes;
 
   const TOKEN_AMOUNT = ethers.parseEther('1000');
   const TOKEN_PRICE = ethers.parseEther('0.5'); // 0.5 fee tokens per warrant token
@@ -81,7 +81,7 @@ describe('WarrantBase', () => {
     // Deploy mock tokens
     mockToken = await new MockERC20__factory(owner).deploy('Mock Token', 'MTK', 18);
     mockFeeToken = await new MockERC20__factory(owner).deploy('Mock Fee Token', 'MFT', 18);
-    mockVotesToken = await new MockVotesERC20V1__factory(owner).deploy();
+    mockVotesToken = await new MockERC20Votes__factory(owner).deploy();
 
     // Deploy implementation
     mockWarrantImplementation = await new ConcreteWarrantBase__factory(owner).deploy();

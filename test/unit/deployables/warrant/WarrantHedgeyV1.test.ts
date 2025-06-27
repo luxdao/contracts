@@ -7,8 +7,8 @@ import {
   WarrantHedgeyV1__factory,
   MockERC20,
   MockERC20__factory,
-  MockVotesERC20V1,
-  MockVotesERC20V1__factory,
+  MockERC20Votes,
+  MockERC20Votes__factory,
   MockVotingTokenLockupPlans,
   MockVotingTokenLockupPlans__factory,
   ERC1967Proxy__factory,
@@ -22,7 +22,7 @@ import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
-describe.only('WarrantHedgeyV1', () => {
+describe('WarrantHedgeyV1', () => {
   let owner: SignerWithAddress;
   let warrantHolder: SignerWithAddress;
   let feeReceiver: SignerWithAddress;
@@ -33,7 +33,7 @@ describe.only('WarrantHedgeyV1', () => {
   let warrantHedgeyImplementation: WarrantHedgeyV1;
   let mockToken: MockERC20;
   let mockFeeToken: MockERC20;
-  let mockVotesToken: MockVotesERC20V1;
+  let mockVotesToken: MockERC20Votes;
   let mockHedgey: MockVotingTokenLockupPlans;
 
   const TOKEN_AMOUNT = ethers.parseEther('1000');
@@ -66,7 +66,7 @@ describe.only('WarrantHedgeyV1', () => {
     // Deploy mock tokens
     mockToken = await new MockERC20__factory(owner).deploy('Mock Token', 'MTK', 18);
     mockFeeToken = await new MockERC20__factory(owner).deploy('Mock Fee Token', 'MFT', 18);
-    mockVotesToken = await new MockVotesERC20V1__factory(owner).deploy();
+    mockVotesToken = await new MockERC20Votes__factory(owner).deploy();
 
     // Deploy mock Hedgey
     mockHedgey = await new MockVotingTokenLockupPlans__factory(owner).deploy();
