@@ -419,6 +419,168 @@ describe.only('WarrantHedgeyV1', () => {
     });
   });
 
+  describe('Vesting Parameter Validation Errors', () => {
+    it('should revert with InvalidAmount when tokenAmount is zero', async () => {
+      const currentTime = await time.latest();
+
+      const params: IWarrantHedgeyV1.InitParamsStruct = {
+        relativeTime: false,
+        owner: owner.address,
+        warrantHolder: warrantHolder.address,
+        token: await mockToken.getAddress(),
+        feeToken: await mockFeeToken.getAddress(),
+        tokenAmount: 0, // Zero amount should trigger InvalidAmount
+        tokenPrice: TOKEN_PRICE,
+        feeReceiver: feeReceiver.address,
+        expiration: currentTime + EXPIRATION_DURATION,
+        hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
+        hedgeyStart: currentTime + HEDGEY_START,
+        hedgeyRelativeCliff: HEDGEY_CLIFF,
+        hedgeyRate: HEDGEY_RATE,
+        hedgeyPeriod: HEDGEY_PERIOD,
+      };
+
+      await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
+        warrantHedgey,
+        'InvalidAmount'
+      );
+    });
+
+    it('should revert with InvalidRate when hedgeyRate is zero', async () => {
+      const currentTime = await time.latest();
+
+      const params: IWarrantHedgeyV1.InitParamsStruct = {
+        relativeTime: false,
+        owner: owner.address,
+        warrantHolder: warrantHolder.address,
+        token: await mockToken.getAddress(),
+        feeToken: await mockFeeToken.getAddress(),
+        tokenAmount: TOKEN_AMOUNT,
+        tokenPrice: TOKEN_PRICE,
+        feeReceiver: feeReceiver.address,
+        expiration: currentTime + EXPIRATION_DURATION,
+        hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
+        hedgeyStart: currentTime + HEDGEY_START,
+        hedgeyRelativeCliff: HEDGEY_CLIFF,
+        hedgeyRate: 0, // Zero rate should trigger InvalidRate
+        hedgeyPeriod: HEDGEY_PERIOD,
+      };
+
+      await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
+        warrantHedgey,
+        'InvalidRate'
+      );
+    });
+
+    it('should revert with RateExceedsAmount when hedgeyRate exceeds tokenAmount', async () => {
+      const currentTime = await time.latest();
+
+      const params: IWarrantHedgeyV1.InitParamsStruct = {
+        relativeTime: false,
+        owner: owner.address,
+        warrantHolder: warrantHolder.address,
+        token: await mockToken.getAddress(),
+        feeToken: await mockFeeToken.getAddress(),
+        tokenAmount: ethers.parseEther('100'),
+        tokenPrice: TOKEN_PRICE,
+        feeReceiver: feeReceiver.address,
+        expiration: currentTime + EXPIRATION_DURATION,
+        hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
+        hedgeyStart: currentTime + HEDGEY_START,
+        hedgeyRelativeCliff: HEDGEY_CLIFF,
+        hedgeyRate: ethers.parseEther('150'), // Rate > Amount should trigger RateExceedsAmount
+        hedgeyPeriod: HEDGEY_PERIOD,
+      };
+
+      await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
+        warrantHedgey,
+        'RateExceedsAmount'
+      );
+    });
+
+    it('should revert with InvalidPeriod when hedgeyPeriod is zero', async () => {
+      const currentTime = await time.latest();
+
+      const params: IWarrantHedgeyV1.InitParamsStruct = {
+        relativeTime: false,
+        owner: owner.address,
+        warrantHolder: warrantHolder.address,
+        token: await mockToken.getAddress(),
+        feeToken: await mockFeeToken.getAddress(),
+        tokenAmount: TOKEN_AMOUNT,
+        tokenPrice: TOKEN_PRICE,
+        feeReceiver: feeReceiver.address,
+        expiration: currentTime + EXPIRATION_DURATION,
+        hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
+        hedgeyStart: currentTime + HEDGEY_START,
+        hedgeyRelativeCliff: HEDGEY_CLIFF,
+        hedgeyRate: HEDGEY_RATE,
+        hedgeyPeriod: 0, // Zero period should trigger InvalidPeriod
+      };
+
+      await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
+        warrantHedgey,
+        'InvalidPeriod'
+      );
+    });
+
+    it('should revert with CliffExceedsEnd when cliff exceeds vesting end time', async () => {
+      const currentTime = await time.latest();
+
+      // Set up parameters where cliff will exceed the vesting end
+      // 100 tokens at 10 per period = 10 periods = 10 * 86400 = 864000 seconds
+      // If we set cliff to 900000 seconds, it will exceed the vesting end
+      const params: IWarrantHedgeyV1.InitParamsStruct = {
+        relativeTime: false,
+        owner: owner.address,
+        warrantHolder: warrantHolder.address,
+        token: await mockToken.getAddress(),
+        feeToken: await mockFeeToken.getAddress(),
+        tokenAmount: ethers.parseEther('100'),
+        tokenPrice: TOKEN_PRICE,
+        feeReceiver: feeReceiver.address,
+        expiration: currentTime + EXPIRATION_DURATION,
+        hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
+        hedgeyStart: currentTime + HEDGEY_START,
+        hedgeyRelativeCliff: 900000, // Cliff > vesting end should trigger CliffExceedsEnd
+        hedgeyRate: ethers.parseEther('10'),
+        hedgeyPeriod: 24 * 60 * 60, // 1 day = 86400 seconds
+      };
+
+      await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
+        warrantHedgey,
+        'CliffExceedsEnd'
+      );
+    });
+
+    it('should not revert when cliff equals vesting end time', async () => {
+      const currentTime = await time.latest();
+
+      // Set up parameters where cliff equals the vesting end
+      // 100 tokens at 10 per period = 10 periods = 10 * 86400 = 864000 seconds
+      const params: IWarrantHedgeyV1.InitParamsStruct = {
+        relativeTime: false,
+        owner: owner.address,
+        warrantHolder: warrantHolder.address,
+        token: await mockToken.getAddress(),
+        feeToken: await mockFeeToken.getAddress(),
+        tokenAmount: ethers.parseEther('100'),
+        tokenPrice: TOKEN_PRICE,
+        feeReceiver: feeReceiver.address,
+        expiration: currentTime + EXPIRATION_DURATION,
+        hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
+        hedgeyStart: currentTime + HEDGEY_START,
+        hedgeyRelativeCliff: 864000, // Cliff = vesting end should be valid
+        hedgeyRate: ethers.parseEther('10'),
+        hedgeyPeriod: 24 * 60 * 60, // 1 day = 86400 seconds
+      };
+
+      // Should not revert when cliff equals vesting end
+      warrantHedgey = await deployWarrantHedgeyProxy(params);
+      expect(await warrantHedgey.hedgeyRelativeCliff()).to.equal(864000);
+    });
+  });
+
   describe('Version', () => {
     it('should return correct version', async () => {
       expect(await warrantHedgey.version()).to.equal(1);
