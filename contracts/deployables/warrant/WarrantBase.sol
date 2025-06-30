@@ -247,14 +247,13 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         if (recipient_ == address(0)) revert AddressZero();
         if ($.executed) revert AlreadyExecuted();
 
-        // Check expiration based on time mode
-        uint256 effectiveExpiration;
+        // Check expiration based on time mode and token lock if relative time
         if ($.relativeTime) {
             if (IVotesERC20V1($.token).locked()) revert TokenLocked();
-            effectiveExpiration =
-                IVotesERC20V1($.token).getUnlockTime() +
-                $.expiration;
-            if (block.timestamp > effectiveExpiration) revert Expired();
+            if (
+                block.timestamp >
+                IVotesERC20V1($.token).getUnlockTime() + $.expiration
+            ) revert Expired();
         } else {
             if (block.timestamp > $.expiration) revert Expired();
         }
