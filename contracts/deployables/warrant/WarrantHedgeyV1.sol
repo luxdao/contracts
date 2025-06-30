@@ -122,7 +122,8 @@ contract WarrantHedgeyV1 is
         // Validate Hedgey parameters
         uint256 absoluteCliff = params_.hedgeyStart +
             params_.hedgeyRelativeCliff;
-        _validateHedgeyEnd(
+        _validateHedgeyParams(
+            params_.token,
             params_.hedgeyStart,
             absoluteCliff,
             params_.tokenAmount,
@@ -204,6 +205,7 @@ contract WarrantHedgeyV1 is
     /**
      * @notice Validates Hedgey vesting parameters and calculates end time
      * @dev Ensures all parameters create a valid vesting schedule
+     * @param token_ Address of the token being vested
      * @param start_ Start time of vesting
      * @param cliff_ Absolute cliff time
      * @param amount_ Total amount to vest
@@ -215,13 +217,15 @@ contract WarrantHedgeyV1 is
      * @custom:throws InvalidPeriod if period is zero
      * @custom:throws CliffExceedsEnd if cliff time exceeds vesting end time
      */
-    function _validateHedgeyEnd(
+    function _validateHedgeyParams(
+        address token_,
         uint256 start_,
         uint256 cliff_,
         uint256 amount_,
         uint256 rate_,
         uint256 period_
     ) internal pure {
+        if (token_ == address(0)) revert InvalidToken();
         if (amount_ == 0) revert InvalidAmount();
         if (rate_ == 0) revert InvalidRate();
         if (rate_ > amount_) revert RateExceedsAmount();

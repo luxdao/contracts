@@ -34,6 +34,9 @@ interface IWarrantHedgeyV1 {
     /** @notice Thrown when vesting period is zero */
     error InvalidPeriod();
 
+    /** @notice Thrown when token is zero address */
+    error InvalidToken();
+
     /** @notice Thrown when cliff exceeds vesting end time */
     error CliffExceedsEnd(uint256 cliff, uint256 end);
 
