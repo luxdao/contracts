@@ -134,8 +134,15 @@ describe('WarrantBase', () => {
       );
 
       expect(await mockWarrant.relativeTime()).to.be.true;
+      expect(await mockWarrant.owner()).to.equal(owner.address);
+      expect(await mockWarrant.warrantHolder()).to.equal(warrantHolder.address);
       expect(await mockWarrant.token()).to.equal(await mockVotesToken.getAddress());
+      expect(await mockWarrant.feeToken()).to.equal(await mockFeeToken.getAddress());
+      expect(await mockWarrant.tokenAmount()).to.equal(TOKEN_AMOUNT);
+      expect(await mockWarrant.tokenPrice()).to.equal(TOKEN_PRICE);
+      expect(await mockWarrant.feeReceiver()).to.equal(feeReceiver.address);
       expect(await mockWarrant.expiration()).to.equal(BigInt(EXPIRATION_DURATION));
+      expect(await mockWarrant.executed()).to.be.false;
     });
 
     it('should revert if relative time with non-IVotesERC20V1 token', async () => {
