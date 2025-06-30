@@ -267,7 +267,9 @@ describe('WarrantHedgeyV1', () => {
       await mockToken.transfer(await warrantHedgey.getAddress(), TOKEN_AMOUNT);
 
       // Approve fee payment
-      await mockFeeToken.connect(warrantHolder).approve(await warrantHedgey.getAddress(), ethers.MaxUint256);
+      await mockFeeToken
+        .connect(warrantHolder)
+        .approve(await warrantHedgey.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant successfully after hedgeyStart', async () => {
@@ -341,7 +343,9 @@ describe('WarrantHedgeyV1', () => {
       await mockVotesToken.setUnlockTime(UNLOCK_TIME);
 
       // Approve fee payment
-      await mockFeeToken.connect(warrantHolder).approve(await warrantHedgey.getAddress(), ethers.MaxUint256);
+      await mockFeeToken
+        .connect(warrantHolder)
+        .approve(await warrantHedgey.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant with correct relative time calculations', async () => {
@@ -442,7 +446,7 @@ describe('WarrantHedgeyV1', () => {
 
       await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
         warrantHedgey,
-        'InvalidAmount'
+        'InvalidAmount',
       );
     });
 
@@ -468,7 +472,7 @@ describe('WarrantHedgeyV1', () => {
 
       await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
         warrantHedgey,
-        'InvalidRate'
+        'InvalidRate',
       );
     });
 
@@ -494,7 +498,7 @@ describe('WarrantHedgeyV1', () => {
 
       await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
         warrantHedgey,
-        'RateExceedsAmount'
+        'RateExceedsAmount',
       );
     });
 
@@ -520,7 +524,7 @@ describe('WarrantHedgeyV1', () => {
 
       await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
         warrantHedgey,
-        'InvalidPeriod'
+        'InvalidPeriod',
       );
     });
 
@@ -549,7 +553,7 @@ describe('WarrantHedgeyV1', () => {
 
       await expect(deployWarrantHedgeyProxy(params)).to.be.revertedWithCustomError(
         warrantHedgey,
-        'CliffExceedsEnd'
+        'CliffExceedsEnd',
       );
     });
 
@@ -637,7 +641,9 @@ describe('WarrantHedgeyV1', () => {
       ],
       getExpectedInitData: async () =>
         ethers.AbiCoder.defaultAbiCoder().encode(
-          ['tuple(bool,address,address,address,address,uint256,uint256,address,uint256,address,uint256,uint256,uint256,uint256)'],
+          [
+            'tuple(bool,address,address,address,address,uint256,uint256,address,uint256,address,uint256,uint256,uint256,uint256)',
+          ],
           [
             [
               false,

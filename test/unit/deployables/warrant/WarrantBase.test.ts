@@ -178,7 +178,9 @@ describe('WarrantBase', () => {
       await mockToken.mint(await mockWarrant.getAddress(), TOKEN_AMOUNT);
 
       // Approve fee payment
-      await mockFeeToken.connect(warrantHolder).approve(await mockWarrant.getAddress(), ethers.MaxUint256);
+      await mockFeeToken
+        .connect(warrantHolder)
+        .approve(await mockWarrant.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant successfully', async () => {
@@ -268,7 +270,9 @@ describe('WarrantBase', () => {
       await mockVotesToken.setUnlockTime(UNLOCK_TIME);
 
       // Approve fee payment
-      await mockFeeToken.connect(warrantHolder).approve(await mockWarrant.getAddress(), ethers.MaxUint256);
+      await mockFeeToken
+        .connect(warrantHolder)
+        .approve(await mockWarrant.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant after token unlock', async () => {
@@ -355,7 +359,9 @@ describe('WarrantBase', () => {
 
     it('should revert if warrant already executed', async () => {
       // Execute warrant first
-      await mockFeeToken.connect(warrantHolder).approve(await mockWarrant.getAddress(), ethers.MaxUint256);
+      await mockFeeToken
+        .connect(warrantHolder)
+        .approve(await mockWarrant.getAddress(), ethers.MaxUint256);
       await mockWarrant.connect(warrantHolder).execute(recipient.address);
 
       await time.increaseTo(expirationTime + 1);
