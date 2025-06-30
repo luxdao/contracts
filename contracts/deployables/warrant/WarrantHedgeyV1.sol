@@ -119,19 +119,16 @@ contract WarrantHedgeyV1 is
         __DeploymentBlockInitializable_init();
         __InitializerEventEmitter_init(abi.encode(params_));
 
-        // Validate Hedgey-specific parameters
-
-        // Validate vesting parameters
+        // Validate Hedgey parameters
         uint256 absoluteCliff = params_.hedgeyStart +
             params_.hedgeyRelativeCliff;
-        (, bool valid) = _validateHedgeyEnd(
+        _validateHedgeyEnd(
             params_.hedgeyStart,
             absoluteCliff,
             params_.tokenAmount,
             params_.hedgeyRate,
             params_.hedgeyPeriod
         );
-        if (!valid) revert InvalidAmount(); // This should never happen due to _validateHedgeyEnd reverting
 
         // Store Hedgey-specific parameters
         WarrantHedgeyStorage storage $ = _getWarrantHedgeyStorage();
@@ -212,8 +209,6 @@ contract WarrantHedgeyV1 is
      * @param amount_ Total amount to vest
      * @param rate_ Amount vested per period
      * @param period_ Duration of each vesting period
-     * @return end The calculated end time of vesting
-     * @return valid Whether parameters are valid (always true if function doesn't revert)
      * @custom:throws InvalidAmount if amount is zero
      * @custom:throws InvalidRate if rate is zero
      * @custom:throws RateExceedsAmount if rate is greater than amount
@@ -226,7 +221,7 @@ contract WarrantHedgeyV1 is
         uint256 amount_,
         uint256 rate_,
         uint256 period_
-    ) internal pure returns (uint256, bool) {
+    ) internal pure {
         if (amount_ == 0) revert InvalidAmount();
         if (rate_ == 0) revert InvalidRate();
         if (rate_ > amount_) revert RateExceedsAmount();
@@ -238,8 +233,6 @@ contract WarrantHedgeyV1 is
             : ((amount_ / rate_) * period_) + period_ + start_;
 
         if (cliff_ > end) revert CliffExceedsEnd(cliff_, end);
-
-        return (end, true);
     }
 
     /**
