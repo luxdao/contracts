@@ -103,6 +103,21 @@ contract SystemDeployerV1 is
     address private immutable SYSTEM_DEPLOYER_ADDRESS;
 
     // ======================================================================
+    // MODIFIERS
+    // ======================================================================
+
+    /**
+     * @notice Enforces that the function can only be called via delegatecall
+     * @dev This is used to ensure the Safe context is available during deployment
+     */
+    modifier onlyDelegatecall() {
+        if (address(this) == SYSTEM_DEPLOYER_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+        _;
+    }
+
+    // ======================================================================
     // CONSTRUCTOR
     // ======================================================================
 
@@ -159,12 +174,7 @@ contract SystemDeployerV1 is
         address implementation_,
         bytes memory initData_,
         bytes32 salt_
-    ) public returns (address) {
-        // Enforce delegatecall-only access
-        if (address(this) == SYSTEM_DEPLOYER_ADDRESS) {
-            revert MustBeCalledViaDelegatecall();
-        }
-
+    ) public onlyDelegatecall returns (address) {
         if (implementation_.code.length == 0) {
             revert ImplementationMustBeAContract();
         }
