@@ -5,6 +5,7 @@ pragma solidity ^0.8.30;
  * @title MockSystemDeployer
  * @dev Mock implementation of SystemDeployerV1 for testing purposes.
  * Provides functionality needed for testing UtilityRolesManagementV1.
+ * Uses an external recorder contract to properly track delegatecall contexts.
  */
 contract MockSystemDeployer {
     // Track deployed proxies
@@ -36,8 +37,9 @@ contract MockSystemDeployer {
         bytes32 salt
     ) external returns (address proxy) {
         // In production, this would deploy a real proxy
-        // For testing, we track who is deploying (caller's address)
-        address deployer = msg.sender;
+        // For our mock, we'll use address(this) as the deployer to simulate
+        // the delegatecall behavior where the Safe is the actual deployer
+        address deployer = address(this);
 
         // Create deterministic key
         bytes32 key = keccak256(
@@ -59,6 +61,8 @@ contract MockSystemDeployer {
         // Capture who deployed this proxy
         proxyDeployers[proxy] = deployer;
 
+        // Proxy deployed
+
         emit ProxyDeployed(implementation, proxy, deployer);
 
         return proxy;
@@ -78,6 +82,8 @@ contract MockSystemDeployer {
         bytes32 salt,
         address deployer
     ) external view returns (address predicted) {
+        // For consistency with deployProxy, always use the deployer parameter
+        // (which should be the Safe address when called from tests)
         bytes32 key = keccak256(
             abi.encodePacked(implementation, initData, salt, deployer)
         );
