@@ -83,6 +83,23 @@ contract UtilityRolesManagementV1 is
     address private immutable UTILITY_ADDRESS;
 
     // ======================================================================
+    // MODIFIERS
+    // ======================================================================
+
+    /**
+     * @notice Reverts if the function is called directly rather than via delegatecall
+     * @dev This modifier ensures that all state-changing functions are called via delegatecall
+     * to maintain the context of the calling Safe.
+     */
+    modifier onlyDelegatecall() {
+        // Check if the current contract address is the same as the utility address
+        if (address(this) == UTILITY_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+        _;
+    }
+
+    // ======================================================================
     // CONSTRUCTOR
     // ======================================================================
 
@@ -110,12 +127,7 @@ contract UtilityRolesManagementV1 is
      */
     function createAndDeclareTree(
         CreateTreeParams calldata treeParams_
-    ) public virtual override {
-        // Ensure this function is called via delegatecall
-        if (address(this) == UTILITY_ADDRESS) {
-            revert MustBeCalledViaDelegatecall();
-        }
-
+    ) public virtual override onlyDelegatecall {
         // Generate a salt from the Safe address
         bytes32 salt = bytes32(uint256(uint160(address(this))));
         address topHatWearer = address(this);
@@ -180,12 +192,7 @@ contract UtilityRolesManagementV1 is
      */
     function createRoleHats(
         CreateRoleHatsParams calldata roleHatsParams_
-    ) public virtual override {
-        // Ensure this function is called via delegatecall
-        if (address(this) == UTILITY_ADDRESS) {
-            revert MustBeCalledViaDelegatecall();
-        }
-
+    ) public virtual override onlyDelegatecall {
         // Generate a salt from the Safe address
         bytes32 salt = bytes32(uint256(uint160(address(this))));
 
@@ -204,12 +211,7 @@ contract UtilityRolesManagementV1 is
         address recipientHatAccount_,
         uint256 streamId_,
         address to_
-    ) public virtual override {
-        // Ensure this function is called via delegatecall
-        if (address(this) == UTILITY_ADDRESS) {
-            revert MustBeCalledViaDelegatecall();
-        }
-
+    ) public virtual override onlyDelegatecall {
         // Check if there are funds to withdraw
         // This prevents reverts when stream has no withdrawable amount
         if (ISablierV2Lockup(sablier_).withdrawableAmountOf(streamId_) == 0) {
@@ -233,12 +235,7 @@ contract UtilityRolesManagementV1 is
     function cancelStream(
         address sablier_,
         uint256 streamId_
-    ) public virtual override {
-        // Ensure this function is called via delegatecall
-        if (address(this) == UTILITY_ADDRESS) {
-            revert MustBeCalledViaDelegatecall();
-        }
-
+    ) public virtual override onlyDelegatecall {
         // Verify stream is cancellable
         // Only PENDING and STREAMING statuses can be cancelled
         Lockup.Status streamStatus = ISablierV2Lockup(sablier_).statusOf(
