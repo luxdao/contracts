@@ -4,6 +4,9 @@ pragma solidity ^0.8.30;
 import {
     IWarrantBase
 } from "../../interfaces/decent/deployables/IWarrantBase.sol";
+import {
+    IVotesERC20V1
+} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
     SafeERC20
@@ -12,9 +15,6 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {
-    IVotesERC20V1
-} from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 
 /**
  * @title WarrantBase
