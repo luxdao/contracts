@@ -4,7 +4,6 @@ node_modules
 # Hardhat files
 /cache
 /artifacts
-/docs
 
 # Publish files
 index.ts
@@ -20,4 +19,3 @@ index.ts
 
 /.cursor
 /.claude
-/tmp
