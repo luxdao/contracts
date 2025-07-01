@@ -43,6 +43,9 @@ interface IUtilityRolesManagementV1 {
     /** @notice Thrown when autonomous admin proxy deployment via delegatecall fails */
     error ProxyDeploymentFailed();
 
+    /** @notice Thrown when entry point functions are called directly instead of via delegatecall */
+    error MustBeCalledViaDelegatecall();
+
     // --- Structs ---
 
     /**

@@ -25,12 +25,12 @@ import {
 } from "../interfaces/sablier/ISablierV2LockupLinear.sol";
 import {ISablierV2Lockup} from "../interfaces/sablier/ISablierV2Lockup.sol";
 import {LockupLinear, Lockup} from "../interfaces/sablier/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC6551Executable} from "../interfaces/erc6551/IERC6551Executable.sol";
 import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
 import {
     DeploymentBlockNonInitializable
 } from "../DeploymentBlockNonInitializable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -73,6 +73,28 @@ contract UtilityRolesManagementV1 is
     ERC165
 {
     // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
+    /**
+     * @notice Contract address set at deployment to enable delegatecall detection
+     * @dev Immutable value used to ensure entry points are called via delegatecall only
+     */
+    address private immutable UTILITY_ADDRESS;
+
+    // ======================================================================
+    // CONSTRUCTOR
+    // ======================================================================
+
+    /**
+     * @notice Initializes the utility contract with delegatecall detection
+     * @dev Stores the contract's own address for later comparison in entry point functions
+     */
+    constructor() {
+        UTILITY_ADDRESS = address(this);
+    }
+
+    // ======================================================================
     // IUtilityRolesManagementV1
     // ======================================================================
 
@@ -84,10 +106,16 @@ contract UtilityRolesManagementV1 is
      * The top hat is minted to the calling Safe, establishing ownership.
      * An autonomous admin is deployed to manage the admin hat for automated operations.
      * All role hats are created with their specified configurations and payment streams.
+     * Reverts if called directly rather than via delegatecall.
      */
     function createAndDeclareTree(
         CreateTreeParams calldata treeParams_
     ) public virtual override {
+        // Ensure this function is called via delegatecall
+        if (address(this) == UTILITY_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+
         // Generate a salt from the Safe address
         bytes32 salt = bytes32(uint256(uint160(address(this))));
         address topHatWearer = address(this);
@@ -148,10 +176,16 @@ contract UtilityRolesManagementV1 is
      * @inheritdoc IUtilityRolesManagementV1
      * @dev Simply delegates to the internal _processRoleHats function,
      * which handles all the complex logic for creating roles with payment streams.
+     * Reverts if called directly rather than via delegatecall.
      */
     function createRoleHats(
         CreateRoleHatsParams calldata roleHatsParams_
     ) public virtual override {
+        // Ensure this function is called via delegatecall
+        if (address(this) == UTILITY_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+
         // Generate a salt from the Safe address
         bytes32 salt = bytes32(uint256(uint160(address(this))));
 
@@ -163,6 +197,7 @@ contract UtilityRolesManagementV1 is
      * @dev It is assumed that this contract (the Safe because of delegatecall)
      * wears the hat controlling the recipientHatAccount_, so that it can control
      * the recipientHatAccount_.execute() call.
+     * Reverts if called directly rather than via delegatecall.
      */
     function withdrawMaxFromStream(
         address sablier_,
@@ -170,6 +205,11 @@ contract UtilityRolesManagementV1 is
         uint256 streamId_,
         address to_
     ) public virtual override {
+        // Ensure this function is called via delegatecall
+        if (address(this) == UTILITY_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+
         // Check if there are funds to withdraw
         // This prevents reverts when stream has no withdrawable amount
         if (ISablierV2Lockup(sablier_).withdrawableAmountOf(streamId_) == 0) {
@@ -188,11 +228,17 @@ contract UtilityRolesManagementV1 is
 
     /**
      * @inheritdoc IUtilityRolesManagementV1
+     * @dev Reverts if called directly rather than via delegatecall.
      */
     function cancelStream(
         address sablier_,
         uint256 streamId_
     ) public virtual override {
+        // Ensure this function is called via delegatecall
+        if (address(this) == UTILITY_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+
         // Verify stream is cancellable
         // Only PENDING and STREAMING statuses can be cancelled
         Lockup.Status streamStatus = ISablierV2Lockup(sablier_).statusOf(

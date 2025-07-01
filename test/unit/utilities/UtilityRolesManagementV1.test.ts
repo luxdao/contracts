@@ -9,12 +9,16 @@ import {
   MockDecentAutonomousAdmin__factory,
   MockERC20,
   MockERC20__factory,
+  MockERC6551Executable,
+  MockERC6551Executable__factory,
   MockERC6551Registry,
   MockERC6551Registry__factory,
   MockHatsComplete,
   MockHatsComplete__factory,
   MockKeyValuePairs,
   MockKeyValuePairs__factory,
+  MockSablierV2Lockup,
+  MockSablierV2Lockup__factory,
   MockSafeDelegatecall,
   MockSafeDelegatecall__factory,
   MockSystemDeployer,
@@ -24,21 +28,6 @@ import {
 } from '../../../typechain-types';
 import { runDeploymentBlockTests } from '../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
-
-// Mock contracts for Sablier and ERC6551
-interface MockSablierV2Lockup {
-  withdrawableAmountOf(streamId: bigint): Promise<bigint>;
-  withdrawMax(streamId: bigint, to: string): Promise<void>;
-  statusOf(streamId: bigint): Promise<number>;
-  cancel(streamId: bigint): Promise<void>;
-  nextStreamId(): Promise<bigint>;
-  createWithTimestamps(params: any): Promise<any>;
-  getAddress(): Promise<string>;
-}
-
-interface MockERC6551Executable {
-  execute(target: string, value: bigint, data: string, operation: number): Promise<void>;
-}
 
 describe('UtilityRolesManagementV1', () => {
   let deployer: SignerWithAddress;
@@ -470,16 +459,13 @@ describe('UtilityRolesManagementV1', () => {
     async function deployStreamMocks() {
       [deployer, user1, user2, recipient] = await ethers.getSigners();
 
-      const MockSablierFactory = await ethers.getContractFactory('MockSablierV2Lockup');
-      mockSablier = (await MockSablierFactory.deploy()) as unknown as MockSablierV2Lockup;
-      await (mockSablier as any).waitForDeployment();
+      mockSablier = await new MockSablierV2Lockup__factory(deployer).deploy();
+      await mockSablier.waitForDeployment();
 
-      const MockERC6551Factory = await ethers.getContractFactory('MockERC6551Executable');
-      mockHatAccount = (await MockERC6551Factory.deploy()) as unknown as MockERC6551Executable;
-      await (mockHatAccount as any).waitForDeployment();
+      mockHatAccount = await new MockERC6551Executable__factory(deployer).deploy();
+      await mockHatAccount.waitForDeployment();
 
-      const MockERC20Factory = new MockERC20__factory(deployer);
-      mockToken = await MockERC20Factory.deploy('Test Token', 'TEST', 18);
+      mockToken = await new MockERC20__factory(deployer).deploy('Test Token', 'TEST', 18);
       await mockToken.waitForDeployment();
     }
 
@@ -514,11 +500,11 @@ describe('UtilityRolesManagementV1', () => {
       it('should withdraw from stream through Hat account', async () => {
         const streamId = 1n;
         const withdrawableAmount = ethers.parseEther('100');
-        await (mockSablier as any).setWithdrawableAmount(streamId, withdrawableAmount);
+        await mockSablier.setWithdrawableAmount(streamId, withdrawableAmount);
 
         const tx = await executeDelegatecall('withdrawMaxFromStream', [
           await mockSablier.getAddress(),
-          await (mockHatAccount as any).getAddress(),
+          await mockHatAccount.getAddress(),
           streamId,
           recipient.address,
         ]);
@@ -527,17 +513,17 @@ describe('UtilityRolesManagementV1', () => {
         await expect(tx).to.not.be.reverted;
 
         // Verify the withdrawable amount is now 0 (observable state change)
-        expect(await (mockSablier as any).withdrawableAmountOf(streamId)).to.equal(0);
+        expect(await mockSablier.withdrawableAmountOf(streamId)).to.equal(0);
       });
 
       it('should return silently when no funds available to withdraw', async () => {
         const streamId = 1n;
-        await (mockSablier as any).setWithdrawableAmount(streamId, 0);
+        await mockSablier.setWithdrawableAmount(streamId, 0);
 
         await expect(
           executeDelegatecall('withdrawMaxFromStream', [
             await mockSablier.getAddress(),
-            await (mockHatAccount as any).getAddress(),
+            await mockHatAccount.getAddress(),
             streamId,
             recipient.address,
           ]),
@@ -548,11 +534,11 @@ describe('UtilityRolesManagementV1', () => {
         const amount = ethers.parseEther('50');
 
         for (let i = 1n; i <= 3n; i++) {
-          await (mockSablier as any).setWithdrawableAmount(i, amount);
+          await mockSablier.setWithdrawableAmount(i, amount);
 
           const tx = await executeDelegatecall('withdrawMaxFromStream', [
             await mockSablier.getAddress(),
-            await (mockHatAccount as any).getAddress(),
+            await mockHatAccount.getAddress(),
             i,
             recipient.address,
           ]);
@@ -561,7 +547,7 @@ describe('UtilityRolesManagementV1', () => {
           await expect(tx).to.not.be.reverted;
 
           // Verify the stream was withdrawn
-          expect(await (mockSablier as any).withdrawableAmountOf(i)).to.equal(0);
+          expect(await mockSablier.withdrawableAmountOf(i)).to.equal(0);
         }
       });
     });
@@ -576,7 +562,7 @@ describe('UtilityRolesManagementV1', () => {
         status: number,
         shouldCancel: boolean,
       ) {
-        await (mockSablier as any).setStreamStatus(streamId, status);
+        await mockSablier.setStreamStatus(streamId, status);
 
         const tx = await executeDelegatecall('cancelStream', [
           await mockSablier.getAddress(),
@@ -588,10 +574,10 @@ describe('UtilityRolesManagementV1', () => {
 
         // For cancellable statuses, verify the stream status is now CANCELED
         if (shouldCancel) {
-          expect(await (mockSablier as any).statusOf(streamId)).to.equal(CONSTANTS.Status.CANCELED);
+          expect(await mockSablier.statusOf(streamId)).to.equal(CONSTANTS.Status.CANCELED);
         } else {
           // For non-cancellable statuses, verify status remains unchanged
-          expect(await (mockSablier as any).statusOf(streamId)).to.equal(status);
+          expect(await mockSablier.statusOf(streamId)).to.equal(status);
         }
       }
 
@@ -630,7 +616,7 @@ describe('UtilityRolesManagementV1', () => {
 
       it('should create Sablier streams with proper token approvals', async () => {
         // Verify streams were created
-        const nextStreamId = await (mockSablier as any).nextStreamId();
+        const nextStreamId = await mockSablier.nextStreamId();
         expect(nextStreamId).to.equal(2); // Started at 1, created 1 stream
 
         // Check that tokens were transferred to Sablier
@@ -664,6 +650,71 @@ describe('UtilityRolesManagementV1', () => {
           ),
         ).to.be.reverted;
       });
+    });
+  });
+
+  describe('Delegatecall enforcement', function () {
+    it('should revert when createAndDeclareTree is called directly', async () => {
+      const treeParams = {
+        keyValuePairs: await mockKeyValuePairs.getAddress(),
+        hatsProtocol: await mockHats.getAddress(),
+        erc6551Registry: await mockERC6551Registry.getAddress(),
+        hatsModuleFactory: ethers.ZeroAddress,
+        systemDeployer: await mockSystemDeployer.getAddress(),
+        decentAutonomousAdminImplementation: await mockAutonomousAdmin.getAddress(),
+        hatsAccountImplementation: ethers.ZeroAddress,
+        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
+        topHat: {
+          details: 'Top Hat',
+          imageURI: 'ipfs://top',
+        },
+        adminHat: {
+          details: 'Admin Hat',
+          imageURI: 'ipfs://admin',
+          isMutable: true,
+        },
+        hats: [],
+      };
+
+      await expect(
+        rolesManagementUtility.createAndDeclareTree(treeParams),
+      ).to.be.revertedWithCustomError(rolesManagementUtility, 'MustBeCalledViaDelegatecall');
+    });
+
+    it('should revert when createRoleHats is called directly', async () => {
+      const roleHatsParams = {
+        hatsProtocol: await mockHats.getAddress(),
+        erc6551Registry: await mockERC6551Registry.getAddress(),
+        hatsAccountImplementation: ethers.ZeroAddress,
+        topHatId: 1n << 224n,
+        topHatWearer: user1.address,
+        keyValuePairs: await mockKeyValuePairs.getAddress(),
+        hatsModuleFactory: ethers.ZeroAddress,
+        hatsElectionsEligibilityImplementation: ethers.ZeroAddress,
+        adminHatId: (1n << 224n) + 1n,
+        hats: [],
+      };
+
+      await expect(
+        rolesManagementUtility.createRoleHats(roleHatsParams),
+      ).to.be.revertedWithCustomError(rolesManagementUtility, 'MustBeCalledViaDelegatecall');
+    });
+
+    it('should revert when withdrawMaxFromStream is called directly', async () => {
+      await expect(
+        rolesManagementUtility.withdrawMaxFromStream(
+          ethers.ZeroAddress,
+          ethers.ZeroAddress,
+          1,
+          user1.address,
+        ),
+      ).to.be.revertedWithCustomError(rolesManagementUtility, 'MustBeCalledViaDelegatecall');
+    });
+
+    it('should revert when cancelStream is called directly', async () => {
+      await expect(
+        rolesManagementUtility.cancelStream(ethers.ZeroAddress, 1),
+      ).to.be.revertedWithCustomError(rolesManagementUtility, 'MustBeCalledViaDelegatecall');
     });
   });
 
