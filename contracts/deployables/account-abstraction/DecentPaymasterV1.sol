@@ -12,6 +12,9 @@ import {
 } from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IBasePaymaster
+} from "../../interfaces/decent/deployables/IBasePaymaster.sol";
 import {BasePaymaster} from "./BasePaymaster.sol";
 import {LightAccountValidator} from "./LightAccountValidator.sol";
 import {
@@ -326,13 +329,14 @@ contract DecentPaymasterV1 is
 
     /**
      * @inheritdoc ERC165
-     * @dev Supports IDecentPaymasterV1, ILightAccountValidator, IPaymaster, IVersion, IDeploymentBlock, and IERC165
+     * @dev Supports IDecentPaymasterV1, IBasePaymaster, ILightAccountValidator, IPaymaster, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
             interfaceId_ == type(IDecentPaymasterV1).interfaceId ||
+            interfaceId_ == type(IBasePaymaster).interfaceId ||
             interfaceId_ == type(ILightAccountValidator).interfaceId ||
             interfaceId_ == type(IPaymaster).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
