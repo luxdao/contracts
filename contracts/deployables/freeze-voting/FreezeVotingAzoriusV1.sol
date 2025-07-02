@@ -1,16 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IFreezeVotingAzoriusV1} from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
-import {IVotingAdapterBase} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
-import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
+import {
+    IFreezeVotingAzoriusV1
+} from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    IVotingAdapterBase
+} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IModuleAzoriusV1
+} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {FreezeVotingBase} from "./FreezeVotingBase.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -46,7 +59,8 @@ contract FreezeVotingAzoriusV1 is
     IFreezeVotingAzoriusV1,
     IVersion,
     FreezeVotingBase,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -75,12 +89,14 @@ contract FreezeVotingAzoriusV1 is
     /**
      * @dev Returns the storage struct for FreezeVotingAzoriusV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeVotingAzoriusV1
      */
     function _getFreezeVotingAzoriusStorage()
         internal
         pure
         returns (FreezeVotingAzoriusStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_VOTING_AZORIUS_STORAGE_LOCATION
         }
@@ -107,6 +123,16 @@ contract FreezeVotingAzoriusV1 is
         address parentAzorius_,
         address lightAccountFactory_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(
+                owner_,
+                freezeVotesThreshold_,
+                freezeProposalPeriod_,
+                freezePeriod_,
+                parentAzorius_,
+                lightAccountFactory_
+            )
+        );
         __FreezeVotingBase_init(
             owner_,
             freezeProposalPeriod_,
@@ -114,7 +140,7 @@ contract FreezeVotingAzoriusV1 is
             freezeVotesThreshold_,
             lightAccountFactory_
         );
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
         $.parentAzorius = IModuleAzoriusV1(parentAzorius_);

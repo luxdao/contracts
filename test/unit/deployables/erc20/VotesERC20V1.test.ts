@@ -17,6 +17,7 @@ import {
   VotesERC20V1__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
@@ -1116,6 +1117,47 @@ describe('VotesERC20V1', () => {
 
     runDeploymentBlockTests({
       getContract: () => votesERC20,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    let deployer: SignerWithAddress;
+    let ownerSigner: SignerWithAddress;
+
+    beforeEach(async () => {
+      [deployer, ownerSigner] = await ethers.getSigners();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: VotesERC20V1__factory,
+      masterCopy: async () =>
+        await (await new VotesERC20V1__factory(deployer).deploy()).getAddress(),
+      deployer: () => deployer,
+      initializeParams: () => [
+        { name: 'Test Token', symbol: 'TEST' },
+        [],
+        ownerSigner.address,
+        false,
+        ethers.parseEther('1000000'),
+      ],
+      getExpectedInitData: async () => {
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          [
+            'tuple(string name, string symbol)',
+            'tuple(address to, uint256 amount)[]',
+            'address',
+            'bool',
+            'uint256',
+          ],
+          [
+            { name: 'Test Token', symbol: 'TEST' },
+            [],
+            ownerSigner.address,
+            false,
+            ethers.parseEther('1000000'),
+          ],
+        );
+      },
     });
   });
 });

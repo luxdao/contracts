@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IStrategyV1} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
-import {IVotingAdapterERC721V1} from "../../../../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
-import {IVotingAdapterBase} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IVotingAdapterERC721V1
+} from "../../../../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
+import {
+    IVotingAdapterBase
+} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IDeploymentBlock
+} from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {VotingAdapterBase} from "./VotingAdapterBase.sol";
-import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -33,7 +41,8 @@ contract VotingAdapterERC721V1 is
     IVotingAdapterERC721V1,
     IVersion,
     VotingAdapterBase,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -66,12 +75,14 @@ contract VotingAdapterERC721V1 is
     /**
      * @dev Returns the storage struct for VotingAdapterERC721V1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for VotingAdapterERC721V1
      */
     function _getVotingAdapterERC721Storage()
         internal
         pure
         returns (VotingAdapterERC721Storage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := VOTING_ADAPTER_ERC721_STORAGE_LOCATION
         }
@@ -93,8 +104,11 @@ contract VotingAdapterERC721V1 is
         address strategy_,
         uint256 weightPerToken_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(token_, strategy_, weightPerToken_)
+        );
         __VotingAdapterBase_init(strategy_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         VotingAdapterERC721Storage storage $ = _getVotingAdapterERC721Storage();
         $.token = IERC721(token_);
@@ -508,6 +522,7 @@ contract VotingAdapterERC721V1 is
         }
 
         // Resize array to actual count of unused tokens
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(unusedFreezeTokenIds, unusedTokenCount)
         }
@@ -571,6 +586,7 @@ contract VotingAdapterERC721V1 is
 
         // Resize the array to actual unique count using assembly
         // This is more gas efficient than creating a new array
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(uniqueTokenIds, uniqueCount)
         }
@@ -613,6 +629,7 @@ contract VotingAdapterERC721V1 is
         }
 
         // Resize array to actual count of owned tokens
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(ownedTokenIds, ownedTokenCount)
         }
@@ -653,6 +670,7 @@ contract VotingAdapterERC721V1 is
         }
 
         // Resize array to actual count of unused tokens
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(unusedTokenIds, unusedTokenCount)
         }

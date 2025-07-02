@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {ILightAccount} from "../../interfaces/light-account/ILightAccount.sol";
-import {ILightAccountFactory} from "../../interfaces/light-account/ILightAccountFactory.sol";
-import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    ILightAccountFactory
+} from "../../interfaces/light-account/ILightAccountFactory.sol";
+import {
+    PackedUserOperation
+} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title LightAccountValidator
@@ -63,12 +71,14 @@ abstract contract LightAccountValidator is
     /**
      * @dev Returns the storage struct for LightAccountValidator
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for LightAccountValidator
      */
     function _getLightAccountValidatorStorage()
         internal
         pure
         returns (LightAccountValidatorStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := LIGHT_ACCOUNT_VALIDATOR_STORAGE_LOCATION
         }
@@ -89,6 +99,7 @@ abstract contract LightAccountValidator is
      * @param lightAccountFactory_ The authorized Light Account Factory address
      */
     function __LightAccountValidator_init(
+        // solhint-disable-previous-line func-name-mixedcase
         address lightAccountFactory_
     ) internal onlyInitializing {
         LightAccountValidatorStorage
@@ -161,6 +172,7 @@ abstract contract LightAccountValidator is
     ) internal view virtual returns (bool, address) {
         // Check 1: Verify the address has code (is a contract)
         uint256 size;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             size := extcodesize(lightAccount_)
         }

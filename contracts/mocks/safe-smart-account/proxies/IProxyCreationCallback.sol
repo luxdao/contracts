@@ -14,5 +14,10 @@ interface IProxyCreationCallback {
      * @param initializer The initializer function call data.
      * @param saltNonce The nonce used to generate the salt for the proxy deployment.
      */
-    function proxyCreated(SafeProxy proxy, address _singleton, bytes calldata initializer, uint256 saltNonce) external;
+    function proxyCreated(
+        SafeProxy proxy,
+        address _singleton,
+        bytes calldata initializer,
+        uint256 saltNonce
+    ) external;
 }

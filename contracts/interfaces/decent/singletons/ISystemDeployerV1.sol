@@ -28,15 +28,20 @@ import {IVotesERC20V1} from "../deployables/IVotesERC20V1.sol";
  * 7. Optionally deploys freeze mechanisms for parent DAO control
  *
  * Security:
- * - Called through delegatecall from Safe during setup
+ * - Must be called through delegatecall from Safe during setup
+ * - Direct calls to deployProxy will revert with MustBeCalledViaDelegatecall
  * - Validates all implementation addresses before deployment
  * - Ensures proper initialization of all components
+ * - Gracefully handles existing contracts at predicted addresses
  */
 interface ISystemDeployerV1 {
     // --- Errors ---
 
     /** @notice Thrown when attempting to deploy a proxy with a non-contract implementation */
     error ImplementationMustBeAContract();
+
+    /** @notice Thrown when deployProxy is called directly instead of via delegatecall */
+    error MustBeCalledViaDelegatecall();
 
     /** @notice Thrown when referencing a governance token that wasn't deployed */
     error VotesERC20V1NotFoundAtIndex(uint256 tokenIndex);
@@ -322,7 +327,7 @@ interface ISystemDeployerV1 {
      */
     function predictProxyAddress(
         address implementation_,
-        bytes calldata initData_,
+        bytes memory initData_,
         bytes32 salt_,
         address deployer_
     ) external view returns (address proxy);
@@ -355,12 +360,15 @@ interface ISystemDeployerV1 {
     /**
      * @notice Deploys a proxy contract with deterministic address
      * @dev Uses CREATE2 for deterministic deployment. The proxy uses ERC1967 standard.
+     * If a contract already exists at the predicted address, returns that address
+     * without redeploying. Must be called via delegatecall from a Safe.
      * @param implementation_ The implementation contract address
      * @param initData_ Initialization calldata to call on the proxy
      * @param salt_ Salt for CREATE2 deployment
-     * @return proxy The deployed proxy address
+     * @return proxy The deployed proxy address (or existing contract address)
      * @custom:throws ImplementationMustBeAContract if implementation has no code
-     * @custom:emits ProxyDeployed
+     * @custom:throws MustBeCalledViaDelegatecall if called directly
+     * @custom:emits ProxyDeployed (only emitted for new deployments, not existing contracts)
      */
     function deployProxy(
         address implementation_,

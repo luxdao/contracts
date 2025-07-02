@@ -1,26 +1,58 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {ISystemDeployerV1} from "../interfaces/decent/singletons/ISystemDeployerV1.sol";
+import {
+    ISystemDeployerV1
+} from "../interfaces/decent/singletons/ISystemDeployerV1.sol";
 import {ISafe} from "../interfaces/safe/ISafe.sol";
-import {IVotesERC20V1} from "../interfaces/decent/deployables/IVotesERC20V1.sol";
-import {IProposerAdapterERC20V1} from "../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
-import {IProposerAdapterERC721V1} from "../interfaces/decent/deployables/IProposerAdapterERC721V1.sol";
-import {IProposerAdapterHatsV1} from "../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
+import {
+    IVotesERC20V1
+} from "../interfaces/decent/deployables/IVotesERC20V1.sol";
+import {
+    IProposerAdapterERC20V1
+} from "../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
+import {
+    IProposerAdapterERC721V1
+} from "../interfaces/decent/deployables/IProposerAdapterERC721V1.sol";
+import {
+    IProposerAdapterHatsV1
+} from "../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
-import {IVotingAdapterERC20V1} from "../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
-import {IVotingAdapterERC721V1} from "../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
-import {IModuleAzoriusV1} from "../interfaces/decent/deployables/IModuleAzoriusV1.sol";
-import {IModuleFractalV1} from "../interfaces/decent/deployables/IModuleFractalV1.sol";
-import {IFreezeVotingMultisigV1} from "../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
-import {IFreezeVotingAzoriusV1} from "../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
-import {IFreezeGuardMultisigV1} from "../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
-import {IFreezeGuardAzoriusV1} from "../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
-import {ISystemDeployerEventEmitterV1} from "../interfaces/decent/singletons/ISystemDeployerEventEmitterV1.sol";
+import {
+    IVotingAdapterERC20V1
+} from "../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
+import {
+    IVotingAdapterERC721V1
+} from "../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
+import {
+    IModuleAzoriusV1
+} from "../interfaces/decent/deployables/IModuleAzoriusV1.sol";
+import {
+    IModuleFractalV1
+} from "../interfaces/decent/deployables/IModuleFractalV1.sol";
+import {
+    IFreezeVotingMultisigV1
+} from "../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
+import {
+    IFreezeVotingAzoriusV1
+} from "../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
+import {
+    IFreezeGuardMultisigV1
+} from "../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
+import {
+    IFreezeGuardAzoriusV1
+} from "../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
+import {
+    ISystemDeployerEventEmitterV1
+} from "../interfaces/decent/singletons/ISystemDeployerEventEmitterV1.sol";
 import {IVersion} from "../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlockNonUpgradeable} from "../DeploymentBlockNonUpgradeable.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    DeploymentBlockNonInitializable
+} from "../DeploymentBlockNonInitializable.sol";
+import {
+    ERC1967Proxy
+} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -49,19 +81,50 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * 8. Deploy freeze mechanisms if configured
  *
  * Security considerations:
- * - Only accessible via delegatecall from Safe setup
+ * - Only accessible via delegatecall from Safe setup (enforced by MustBeCalledViaDelegatecall error)
  * - Validates all implementation contracts have code
  * - Ensures proper initialization of all components
- * - Emits events for deployment tracking
+ * - Gracefully handles existing contracts at predicted addresses
+ * - Emits events only for new deployments (not for existing contracts)
  *
  * @custom:security-contact security@decentlabs.io
  */
 contract SystemDeployerV1 is
     ISystemDeployerV1,
     IVersion,
-    DeploymentBlockNonUpgradeable,
+    DeploymentBlockNonInitializable,
     ERC165
 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
+    /** @notice Stores the SystemDeployer's address to detect delegatecall vs direct call */
+    address private immutable SYSTEM_DEPLOYER_ADDRESS;
+
+    // ======================================================================
+    // MODIFIERS
+    // ======================================================================
+
+    /**
+     * @notice Enforces that the function can only be called via delegatecall
+     * @dev This is used to ensure the Safe context is available during deployment
+     */
+    modifier onlyDelegatecall() {
+        if (address(this) == SYSTEM_DEPLOYER_ADDRESS) {
+            revert MustBeCalledViaDelegatecall();
+        }
+        _;
+    }
+
+    // ======================================================================
+    // CONSTRUCTOR
+    // ======================================================================
+
+    constructor() {
+        SYSTEM_DEPLOYER_ADDRESS = address(this);
+    }
+
     // ======================================================================
     // ISystemDeployer
     // ======================================================================
@@ -73,7 +136,7 @@ contract SystemDeployerV1 is
      */
     function predictProxyAddress(
         address implementation_,
-        bytes calldata initData_,
+        bytes memory initData_,
         bytes32 salt_,
         address deployer_
     ) public view override returns (address) {
@@ -104,16 +167,33 @@ contract SystemDeployerV1 is
 
     /**
      * @inheritdoc ISystemDeployerV1
+     * @dev Checks if a contract already exists at the predicted address and returns it if so.
+     * Also enforces that this function must be called via delegatecall.
      */
     function deployProxy(
         address implementation_,
         bytes memory initData_,
         bytes32 salt_
-    ) public returns (address) {
+    ) public onlyDelegatecall returns (address) {
         if (implementation_.code.length == 0) {
             revert ImplementationMustBeAContract();
         }
 
+        // Predict the proxy address using the existing function
+        address predictedAddress = predictProxyAddress(
+            implementation_,
+            initData_,
+            salt_,
+            address(this)
+        );
+
+        // Check if a contract already exists at the predicted address
+        if (predictedAddress.code.length > 0) {
+            // Contract already exists, return the existing address
+            return predictedAddress;
+        }
+
+        // Deploy new proxy
         address proxy = address(
             new ERC1967Proxy{salt: salt_}(implementation_, initData_)
         );

@@ -16,6 +16,7 @@ import {
   VotesERC20StakedV1__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
@@ -1905,6 +1906,20 @@ describe('VotesERC20StakedV1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => votesERC20Staked,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    runInitializerEventEmitterTests({
+      contractFactory: VotesERC20StakedV1__factory,
+      masterCopy: () => masterCopy,
+      deployer: () => proxyDeployer,
+      initializeParams: async () => [owner.address, await stakedToken.getAddress()],
+      getExpectedInitData: async () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address'],
+          [owner.address, await stakedToken.getAddress()],
+        ),
     });
   });
 });
