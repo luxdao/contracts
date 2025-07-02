@@ -395,6 +395,57 @@ describe('VotesERC20V1', () => {
     });
   });
 
+  describe('RenounceMinting function', () => {
+    const locked = false;
+    const maxTotalSupply = ethers.parseEther('2');
+    let proxy: VotesERC20V1;
+
+    beforeEach(async () => {
+      proxy = await deployVotesERC20Proxy(
+        proxyDeployer,
+        owner,
+        locked,
+        maxTotalSupply,
+        'Test',
+        'TEST',
+        [],
+        [],
+      );
+    });
+
+    describe('Called by the owner should succeed', () => {
+      let updateTx: ContractTransactionResponse;
+
+      beforeEach(async () => {
+        updateTx = await proxy.connect(owner).renounceMinting();
+      });
+
+      it('should be updated', async () => {
+        expect(await proxy.mintingRenounced()).to.equal(true);
+      });
+
+      it('should emit an event', async () => {
+        await expect(updateTx).to.emit(proxy, 'MintingRenounced');
+      });
+
+      it('should not emit an event if called again', async () => {
+        await expect(await proxy.connect(owner).renounceMinting()).not.to.emit(
+          proxy,
+          'MintingRenounced',
+        );
+      });
+    });
+
+    describe('Called by a non-owner should fail', () => {
+      it('should revert', async () => {
+        await expect(proxy.connect(nonOwner).renounceMinting()).to.be.revertedWithCustomError(
+          proxy,
+          'AccessControlUnauthorizedAccount',
+        );
+      });
+    });
+  });
+
   describe('Transferring Tokens', () => {
     let tokenHolderAddresses: string[];
     let tokenHolderAmounts: bigint[];
@@ -729,6 +780,14 @@ describe('VotesERC20V1', () => {
           await expect(proxy.connect(owner).mint(owner.address, 1n)).to.be.revertedWithCustomError(
             proxy,
             'ExceedMaxTotalSupply',
+          );
+        });
+
+        it('should revert when mint is disabled', async () => {
+          await proxy.connect(owner).renounceMinting();
+          await expect(proxy.connect(owner).mint(owner.address, 1n)).to.be.revertedWithCustomError(
+            proxy,
+            'MintingDisabled',
           );
         });
       });
