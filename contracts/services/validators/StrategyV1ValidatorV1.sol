@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IFunctionValidator} from "../../interfaces/decent/services/IFunctionValidator.sol";
+import {
+    IFunctionValidator
+} from "../../interfaces/decent/services/IFunctionValidator.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlockNonUpgradeable} from "../../DeploymentBlockNonUpgradeable.sol";
+import {
+    DeploymentBlockNonInitializable
+} from "../../DeploymentBlockNonInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -33,7 +37,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract StrategyV1ValidatorV1 is
     IFunctionValidator,
     IVersion,
-    DeploymentBlockNonUpgradeable,
+    DeploymentBlockNonInitializable,
     ERC165
 {
     // ======================================================================

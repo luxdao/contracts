@@ -14,6 +14,7 @@ import {
   ProposerAdapterERC20V1__factory,
 } from '../../../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
 
 async function deployERC20ProposerAdapterProxy(
@@ -162,6 +163,30 @@ describe('ProposerAdapterERC20V1', () => {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => adapter,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    let testMockTokenAddress: string;
+    let testDeployer: SignerWithAddress;
+
+    beforeEach(async () => {
+      [testDeployer] = await ethers.getSigners();
+      const testMockToken = await new MockERC20Votes__factory(testDeployer).deploy();
+      testMockTokenAddress = await testMockToken.getAddress();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: ProposerAdapterERC20V1__factory,
+      masterCopy: async () =>
+        await (await new ProposerAdapterERC20V1__factory(testDeployer).deploy()).getAddress(),
+      deployer: () => testDeployer,
+      initializeParams: () => [testMockTokenAddress, DEFAULT_PROPOSER_THRESHOLD],
+      getExpectedInitData: () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'uint256'],
+          [testMockTokenAddress, DEFAULT_PROPOSER_THRESHOLD],
+        ),
     });
   });
 });

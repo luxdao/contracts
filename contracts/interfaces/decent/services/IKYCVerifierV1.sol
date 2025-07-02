@@ -19,15 +19,6 @@ pragma solidity ^0.8.30;
  * - Verification logic is critical for compliance
  */
 interface IKYCVerifierV1 {
-    // --- Initializer Functions ---
-
-    /**
-     * @notice Initializes the KYC verifier contract
-     * @dev Can only be called once during deployment. Sets up any necessary state
-     * for the verification system.
-     */
-    function initialize() external;
-
     // --- View Functions ---
 
     /**

@@ -2,16 +2,29 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IFreezeGuardAzoriusV1} from "../../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
-import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
+import {
+    IFreezeGuardAzoriusV1
+} from "../../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    IFreezeGuardBaseV1
+} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * @title FreezeGuardAzoriusV1
@@ -40,7 +53,8 @@ contract FreezeGuardAzoriusV1 is
     IVersion,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -67,12 +81,14 @@ contract FreezeGuardAzoriusV1 is
     /**
      * @dev Returns the storage struct for FreezeGuardAzoriusV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeGuardAzoriusV1
      */
     function _getFreezeGuardAzoriusStorage()
         internal
         pure
         returns (FreezeGuardAzoriusStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_GUARD_AZORIUS_STORAGE_LOCATION
         }
@@ -95,9 +111,10 @@ contract FreezeGuardAzoriusV1 is
         address owner_,
         address freezeVoting_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode(owner_, freezeVoting_));
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         FreezeGuardAzoriusStorage storage $ = _getFreezeGuardAzoriusStorage();
         $.freezeVoting = IFreezeVotingBase(freezeVoting_);
@@ -115,7 +132,10 @@ contract FreezeGuardAzoriusV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IFreezeGuardBaseV1
@@ -166,7 +186,9 @@ contract FreezeGuardAzoriusV1 is
      * @inheritdoc IGuard
      * @dev No post-execution checks needed. This guard only prevents execution when frozen.
      */
-    function checkAfterExecution(bytes32, bool) public view virtual override {}
+    function checkAfterExecution(bytes32, bool) public view virtual override {
+        // solhint-disable-previous-line no-empty-blocks
+    }
 
     // ======================================================================
     // IVersion

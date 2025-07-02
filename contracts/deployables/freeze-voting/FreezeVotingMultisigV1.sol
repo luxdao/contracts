@@ -1,14 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
-import {IFreezeVotingMultisigV1} from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    IFreezeVotingMultisigV1
+} from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {FreezeVotingBase} from "./FreezeVotingBase.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -44,7 +53,8 @@ contract FreezeVotingMultisigV1 is
     IFreezeVotingMultisigV1,
     IVersion,
     FreezeVotingBase,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -73,12 +83,14 @@ contract FreezeVotingMultisigV1 is
     /**
      * @dev Returns the storage struct for FreezeVotingMultisigV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeVotingMultisigV1
      */
     function _getFreezeVotingMultisigStorage()
         internal
         pure
         returns (FreezeVotingMultisigStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_VOTING_MULTISIG_STORAGE_LOCATION
         }
@@ -105,6 +117,16 @@ contract FreezeVotingMultisigV1 is
         address parentSafe_,
         address lightAccountFactory_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(
+                owner_,
+                freezeVotesThreshold_,
+                freezeProposalPeriod_,
+                freezePeriod_,
+                parentSafe_,
+                lightAccountFactory_
+            )
+        );
         __FreezeVotingBase_init(
             owner_,
             freezeProposalPeriod_,
@@ -112,7 +134,7 @@ contract FreezeVotingMultisigV1 is
             freezeVotesThreshold_,
             lightAccountFactory_
         );
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         FreezeVotingMultisigStorage
             storage $ = _getFreezeVotingMultisigStorage();

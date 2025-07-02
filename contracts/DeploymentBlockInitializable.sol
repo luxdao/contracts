@@ -2,24 +2,26 @@
 pragma solidity ^0.8.30;
 
 import {IDeploymentBlock} from "./interfaces/decent/IDeploymentBlock.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
- * @title DeploymentBlock
+ * @title DeploymentBlockInitializable
  * @author Decent Labs
- * @notice Abstract implementation of deployment block tracking for upgradeable contracts
+ * @notice Abstract implementation of deployment block tracking for initializable contracts
  * @dev This abstract contract implements IDeploymentBlock, providing a standard
- * way to record when upgradeable contracts are deployed.
+ * way to record when initializable contracts are deployed.
  *
  * Implementation details:
  * - Uses EIP-7201 namespaced storage pattern for upgradeability
  * - Records block number during initialization
  * - Deployment block is immutable once set
  * - Designed for UUPS and transparent proxy patterns
- * - Must be inherited by upgradeable contracts
+ * - Must be inherited by initializable contracts
  *
  * Usage:
- * - Call __DeploymentBlock_init() in the inheriting contract's initializer
+ * - Call __DeploymentBlockInitializable_init() in the inheriting contract's initializer
  * - The deployment block is automatically set to the current block
  * - Query deploymentBlock() to get the recorded value
  *
@@ -30,39 +32,44 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  *
  * @custom:security-contact security@decentlabs.io
  */
-abstract contract DeploymentBlock is Initializable, IDeploymentBlock {
+abstract contract DeploymentBlockInitializable is
+    Initializable,
+    IDeploymentBlock
+{
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
     /**
-     * @notice Main storage struct for DeploymentBlock following EIP-7201
+     * @notice Main storage struct for DeploymentBlockInitializable following EIP-7201
      * @dev Stores the block number when the contract was deployed
-     * @custom:storage-location erc7201:Decent.DeploymentBlock.main
+     * @custom:storage-location erc7201:Decent.DeploymentBlockInitializable.main
      */
-    struct DeploymentBlockStorage {
+    struct DeploymentBlockInitializableStorage {
         /** @notice The block number when this contract was deployed */
         uint256 deploymentBlock;
     }
 
     /**
-     * @dev Storage slot for DeploymentBlockStorage calculated using EIP-7201 formula:
-     * keccak256(abi.encode(uint256(keccak256("Decent.DeploymentBlock.main")) - 1)) & ~bytes32(uint256(0xff))
+     * @dev Storage slot for DeploymentBlockInitializableStorage calculated using EIP-7201 formula:
+     * keccak256(abi.encode(uint256(keccak256("Decent.DeploymentBlockInitializable.main")) - 1)) & ~bytes32(uint256(0xff))
      */
-    bytes32 internal constant DEPLOYMENT_BLOCK_STORAGE_LOCATION =
-        0x07af5ac754c2e5f80e47cd633175198c53fef8f38c1a295a987ff54fb077b600;
+    bytes32 internal constant DEPLOYMENT_BLOCK_INITIALIZABLE_STORAGE_LOCATION =
+        0x8a73f35b9df1b6f9967ddd5a4ec6ec57f8bdee83334d4552823c6e36f981ab00;
 
     /**
-     * @dev Returns the storage struct for DeploymentBlock
+     * @dev Returns the storage struct for DeploymentBlockInitializable
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for DeploymentBlockInitializable
      */
-    function _getDeploymentBlockStorage()
+    function _getDeploymentBlockInitializableStorage()
         internal
         pure
-        returns (DeploymentBlockStorage storage $)
+        returns (DeploymentBlockInitializableStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
-            $.slot := DEPLOYMENT_BLOCK_STORAGE_LOCATION
+            $.slot := DEPLOYMENT_BLOCK_INITIALIZABLE_STORAGE_LOCATION
         }
     }
 
@@ -77,8 +84,10 @@ abstract contract DeploymentBlock is Initializable, IDeploymentBlock {
      * Can only be called once due to the check for existing value.
      * @custom:throws DeploymentBlockAlreadySet if already initialized
      */
-    function __DeploymentBlock_init() internal onlyInitializing {
-        DeploymentBlockStorage storage $ = _getDeploymentBlockStorage();
+    function __DeploymentBlockInitializable_init() internal onlyInitializing {
+        // solhint-disable-previous-line func-name-mixedcase
+        DeploymentBlockInitializableStorage
+            storage $ = _getDeploymentBlockInitializableStorage();
         if ($.deploymentBlock != 0) {
             revert DeploymentBlockAlreadySet();
         }
@@ -96,7 +105,8 @@ abstract contract DeploymentBlock is Initializable, IDeploymentBlock {
      * @inheritdoc IDeploymentBlock
      */
     function deploymentBlock() public view virtual override returns (uint256) {
-        DeploymentBlockStorage storage $ = _getDeploymentBlockStorage();
+        DeploymentBlockInitializableStorage
+            storage $ = _getDeploymentBlockInitializableStorage();
         return $.deploymentBlock;
     }
 }

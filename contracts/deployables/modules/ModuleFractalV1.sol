@@ -1,15 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IModuleFractalV1} from "../../interfaces/decent/deployables/IModuleFractalV1.sol";
+import {
+    IModuleFractalV1
+} from "../../interfaces/decent/deployables/IModuleFractalV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
-import {GuardableModule, Enum} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    GuardableModule
+} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -34,7 +47,8 @@ contract ModuleFractalV1 is
     IModuleFractalV1,
     IVersion,
     GuardableModule,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ERC165
@@ -55,9 +69,10 @@ contract ModuleFractalV1 is
         address avatar_,
         address target_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode(owner_, avatar_, target_));
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         avatar = avatar_;
         target = target_;
@@ -92,7 +107,10 @@ contract ModuleFractalV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IModuleFractalV1
