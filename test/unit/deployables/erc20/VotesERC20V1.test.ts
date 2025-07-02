@@ -315,26 +315,12 @@ describe('VotesERC20V1', () => {
         );
       });
 
-      describe('Locking by the owner should succeed', () => {
-        let unlockTime: bigint;
-        let lockTx: ContractTransactionResponse;
-
-        beforeEach(async () => {
-          unlockTime = await proxy.getUnlockTime();
-          await mine(1);
-          lockTx = await proxy.connect(owner).lock(true);
-        });
-
-        it('should be locked', async () => {
-          expect(await proxy.locked()).to.equal(true);
-        });
-
-        it('should emit an event', async () => {
-          await expect(lockTx).to.emit(proxy, 'Locked').withArgs(true);
-        });
-
-        it('should not update unlockTime', async () => {
-          expect(await proxy.getUnlockTime()).to.equal(unlockTime);
+      describe('Locking by the owner should fail', () => {
+        it('should revert', async () => {
+          await expect(proxy.connect(owner).lock(true)).to.be.revertedWithCustomError(
+            proxy,
+            'LockFromUnlockedState',
+          );
         });
       });
 
