@@ -1,14 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IKYCVerifierV1} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
+import {
+    IKYCVerifierV1
+} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {ICountersignV1} from "../../interfaces/decent/deployables/ICountersignV1.sol";
+import {
+    ICountersignV1
+} from "../../interfaces/decent/deployables/ICountersignV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {IMultisend} from "../../interfaces/safe/IMultiSend.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * @title CountersignV1
@@ -44,7 +53,8 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 contract CountersignV1 is
     ICountersignV1,
     IVersion,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165,
     Ownable2StepUpgradeable
 {
@@ -90,12 +100,14 @@ contract CountersignV1 is
     /**
      * @dev Returns the storage struct for CountersignV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for CountersignV1
      */
     function _getCountersignStorage()
         internal
         pure
         returns (CountersignStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := COUNTERSIGN_STORAGE_LOCATION
         }
@@ -129,8 +141,21 @@ contract CountersignV1 is
         bytes memory preExecutionTransactions_,
         SignerInitialization[] memory signerInitializations_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(
+                owner_,
+                agreementUri_,
+                kycVerifier_,
+                signingDeadline_,
+                executionDeadline_,
+                multisend_,
+                minWeight_,
+                preExecutionTransactions_,
+                signerInitializations_
+            )
+        );
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         CountersignStorage storage $ = _getCountersignStorage();
         $.agreementUri = agreementUri_;
@@ -408,6 +433,7 @@ contract CountersignV1 is
     function _initialExecution(CountersignStorage storage $) internal {
         // Step 1: Execute pre-execution transactions if any
         if ($.preExecutionTransactions.length > 0) {
+            // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = $.multisend.delegatecall(
                 abi.encodeCall(IMultisend.multiSend, $.preExecutionTransactions)
             );
@@ -438,6 +464,7 @@ contract CountersignV1 is
 
             // Execute signer's transactions if any
             if (signer.transactions.length > 0) {
+                // solhint-disable-next-line avoid-low-level-calls
                 (bool success, ) = $.multisend.delegatecall(
                     abi.encodeCall(IMultisend.multiSend, signer.transactions)
                 );
@@ -501,6 +528,7 @@ contract CountersignV1 is
             }
 
             // Attempt to execute signer's transactions
+            // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = $.multisend.delegatecall(
                 abi.encodeCall(IMultisend.multiSend, signer.transactions)
             );

@@ -1,16 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IModuleAzoriusV1} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
+import {
+    IModuleAzoriusV1
+} from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {Transaction} from "../../interfaces/decent/Module.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
-import {GuardableModule} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    GuardableModule
+} from "@gnosis-guild/zodiac/contracts/core/GuardableModule.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -36,7 +49,8 @@ contract ModuleAzoriusV1 is
     IModuleAzoriusV1,
     IVersion,
     GuardableModule,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ERC165
@@ -73,12 +87,14 @@ contract ModuleAzoriusV1 is
     /**
      * @dev Returns the storage struct for ModuleAzoriusV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for ModuleAzoriusV1
      */
     function _getModuleAzoriusStorage()
         internal
         pure
         returns (ModuleAzoriusStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := MODULE_AZORIUS_STORAGE_LOCATION
         }
@@ -119,9 +135,19 @@ contract ModuleAzoriusV1 is
         uint32 timelockPeriod_,
         uint32 executionPeriod_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(
+                owner_,
+                avatar_,
+                target_,
+                strategy_,
+                timelockPeriod_,
+                executionPeriod_
+            )
+        );
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         // avoids onlyOwner requirement on setAvatar and setTarget
         avatar = avatar_;
@@ -175,7 +201,10 @@ contract ModuleAzoriusV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IModuleAzoriusV1

@@ -2,17 +2,30 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IFreezeGuardMultisigV1} from "../../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
-import {IFreezeGuardBaseV1} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
-import {IFreezeVotingBase} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {
+    IFreezeGuardMultisigV1
+} from "../../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
+import {
+    IFreezeGuardBaseV1
+} from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
+import {
+    IFreezeVotingBase
+} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {Enum} from "@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 import {IGuard} from "@gnosis-guild/zodiac/contracts/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * @title FreezeGuardMultisigV1
@@ -42,7 +55,8 @@ contract FreezeGuardMultisigV1 is
     IVersion,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -77,12 +91,14 @@ contract FreezeGuardMultisigV1 is
     /**
      * @dev Returns the storage struct for FreezeGuardMultisigV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for FreezeGuardMultisigV1
      */
     function _getFreezeGuardMultisigStorage()
         internal
         pure
         returns (FreezeGuardMultisigStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := FREEZE_GUARD_MULTISIG_STORAGE_LOCATION
         }
@@ -108,10 +124,18 @@ contract FreezeGuardMultisigV1 is
         address freezeVoting_,
         address childGnosisSafe_
     ) public virtual override initializer {
-        // Initialize inherited contracts
+        __InitializerEventEmitter_init(
+            abi.encode(
+                timelockPeriod_,
+                executionPeriod_,
+                owner_,
+                freezeVoting_,
+                childGnosisSafe_
+            )
+        );
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         // Set timelock parameters (also emits events)
         _updateTimelockPeriod(timelockPeriod_);
@@ -135,7 +159,10 @@ contract FreezeGuardMultisigV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IFreezeGuardMultisigV1
@@ -336,7 +363,9 @@ contract FreezeGuardMultisigV1 is
      * @inheritdoc IGuard
      * @dev No post-execution checks needed. This guard only validates before execution.
      */
-    function checkAfterExecution(bytes32, bool) public view virtual override {}
+    function checkAfterExecution(bytes32, bool) public view virtual override {
+        // solhint-disable-previous-line no-empty-blocks
+    }
 
     // ======================================================================
     // IVersion

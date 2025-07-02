@@ -2,16 +2,32 @@
 pragma solidity ^0.8.30;
 
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
-import {IVotesERC20StakedV1} from "../../interfaces/decent/deployables/IVotesERC20StakedV1.sol";
+import {
+    IVotesERC20StakedV1
+} from "../../interfaces/decent/deployables/IVotesERC20StakedV1.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC20VotesUpgradeable, VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    IERC20Metadata
+} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ERC20VotesUpgradeable,
+    VotesUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -49,7 +65,8 @@ contract VotesERC20StakedV1 is
     ERC20VotesUpgradeable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     using SafeERC20 for IERC20;
@@ -88,12 +105,14 @@ contract VotesERC20StakedV1 is
     /**
      * @dev Returns the storage struct for VotesERC20StakedV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for VotesERC20StakedV1
      */
     function _getVotesERC20StakedStorage()
         internal
         pure
         returns (VotesERC20StakedStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := VOTES_ERC20_STAKED_STORAGE_LOCATION
         }
@@ -126,6 +145,7 @@ contract VotesERC20StakedV1 is
         address owner_,
         address stakedToken_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(abi.encode(owner_, stakedToken_));
         __ERC20_init(
             string(
                 abi.encodePacked("Staked ", IERC20Metadata(stakedToken_).name())
@@ -137,7 +157,7 @@ contract VotesERC20StakedV1 is
         __ERC20Votes_init();
         __UUPSUpgradeable_init();
         __Ownable_init(owner_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         VotesERC20StakedStorage storage $ = _getVotesERC20StakedStorage();
         $.stakedToken = IERC20(stakedToken_);
@@ -166,7 +186,10 @@ contract VotesERC20StakedV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IVotesERC20StakedV1
@@ -178,6 +201,7 @@ contract VotesERC20StakedV1 is
      * @inheritdoc IVotesERC20StakedV1
      */
     function CLOCK_MODE()
+        // solhint-disable-previous-line func-name-mixedcase
         public
         pure
         virtual

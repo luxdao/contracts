@@ -1,19 +1,34 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IVotingAdapterERC20V1} from "../../../../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
-import {IVotingAdapterBase} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
-import {IStrategyV1} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
+import {
+    IVotingAdapterERC20V1
+} from "../../../../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
+import {
+    IVotingAdapterBase
+} from "../../../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    IStrategyV1
+} from "../../../../interfaces/decent/deployables/IStrategyV1.sol";
 import {ClockMode} from "../../../../interfaces/decent/ClockMode.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IDeploymentBlock
+} from "../../../../interfaces/decent/IDeploymentBlock.sol";
 import {VotingAdapterBase} from "./VotingAdapterBase.sol";
-import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {ClockModeLib} from "../../../../libs/ClockModeLib.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
+import {
+    ERC20Votes
+} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {
+    Checkpoints
+} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 /**
  * @title VotingAdapterERC20V1
@@ -37,7 +52,8 @@ contract VotingAdapterERC20V1 is
     IVotingAdapterERC20V1,
     IVersion,
     VotingAdapterBase,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -72,12 +88,14 @@ contract VotingAdapterERC20V1 is
     /**
      * @dev Returns the storage struct for VotingAdapterERC20V1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for VotingAdapterERC20V1
      */
     function _getVotingAdapterERC20Storage()
         internal
         pure
         returns (VotingAdapterERC20Storage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := VOTING_ADAPTER_ERC20_STORAGE_LOCATION
         }
@@ -101,8 +119,11 @@ contract VotingAdapterERC20V1 is
         address strategy_,
         uint256 weightPerToken_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(token_, strategy_, weightPerToken_)
+        );
         __VotingAdapterBase_init(strategy_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
 
         VotingAdapterERC20Storage storage $ = _getVotingAdapterERC20Storage();
         $.token = IVotes(token_);

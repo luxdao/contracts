@@ -2,8 +2,12 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
-import {IVotingAdapterBase} from "../interfaces/decent/deployables/IVotingAdapterBase.sol";
-import {LightAccountValidator} from "../deployables/account-abstraction/LightAccountValidator.sol";
+import {
+    IVotingAdapterBase
+} from "../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {
+    LightAccountValidator
+} from "../deployables/account-abstraction/LightAccountValidator.sol";
 
 contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
     struct TimestampPoints {

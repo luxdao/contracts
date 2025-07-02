@@ -109,6 +109,7 @@ interface IVotesERC20V1 {
      * @return clockMode The clock mode string per EIP-6372
      */
     function CLOCK_MODE() external pure returns (string memory clockMode);
+    // solhint-disable-previous-line func-name-mixedcase
 
     // --- View Functions ---
 

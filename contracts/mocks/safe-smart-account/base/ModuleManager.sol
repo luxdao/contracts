@@ -35,7 +35,16 @@ abstract contract ModuleManager is SelfAuthorized, Executor {
         if (to != address(0)) {
             require(isContract(to), "GS002");
             // Setup has to complete successfully or transaction fails.
-            require(execute(to, 0, data, Enum.Operation.DelegateCall, type(uint256).max), "GS000");
+            require(
+                execute(
+                    to,
+                    0,
+                    data,
+                    Enum.Operation.DelegateCall,
+                    type(uint256).max
+                ),
+                "GS000"
+            );
         }
     }
 
@@ -60,7 +69,10 @@ abstract contract ModuleManager is SelfAuthorized, Executor {
      * @param prevModule Previous module in the modules linked list.
      * @param module Module to be removed.
      */
-    function disableModule(address prevModule, address module) public authorized {
+    function disableModule(
+        address prevModule,
+        address module
+    ) public authorized {
         // Validate module address and check that it corresponds to module index.
         require(module != address(0) && module != SENTINEL_MODULES, "GS101");
         require(modules[prevModule] == module, "GS103");
@@ -85,7 +97,10 @@ abstract contract ModuleManager is SelfAuthorized, Executor {
         Enum.Operation operation
     ) public virtual returns (bool success) {
         // Only whitelisted modules are allowed.
-        require(msg.sender != SENTINEL_MODULES && modules[msg.sender] != address(0), "GS104");
+        require(
+            msg.sender != SENTINEL_MODULES && modules[msg.sender] != address(0),
+            "GS104"
+        );
         // Execute transaction without further confirmations.
         success = execute(to, value, data, operation, type(uint256).max);
         if (success) emit ExecutionFromModuleSuccess(msg.sender);
@@ -141,7 +156,10 @@ abstract contract ModuleManager is SelfAuthorized, Executor {
      * @return array Array of modules.
      * @return next Start of the next page.
      */
-    function getModulesPaginated(address start, uint256 pageSize) external view returns (address[] memory array, address next) {
+    function getModulesPaginated(
+        address start,
+        uint256 pageSize
+    ) external view returns (address[] memory array, address next) {
         require(start == SENTINEL_MODULES || isModuleEnabled(start), "GS105");
         require(pageSize > 0, "GS106");
         // Init array with max page size
@@ -150,7 +168,11 @@ abstract contract ModuleManager is SelfAuthorized, Executor {
         // Populate return array
         uint256 moduleCount = 0;
         next = modules[start];
-        while (next != address(0) && next != SENTINEL_MODULES && moduleCount < pageSize) {
+        while (
+            next != address(0) &&
+            next != SENTINEL_MODULES &&
+            moduleCount < pageSize
+        ) {
             array[moduleCount] = next;
             next = modules[next];
             moduleCount++;

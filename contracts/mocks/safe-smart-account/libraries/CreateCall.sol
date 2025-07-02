@@ -18,10 +18,19 @@ contract CreateCall {
      * @param salt The salt value to use for the contract creation.
      * @return newContract The address of the newly created contract.
      */
-    function performCreate2(uint256 value, bytes memory deploymentData, bytes32 salt) public returns (address newContract) {
+    function performCreate2(
+        uint256 value,
+        bytes memory deploymentData,
+        bytes32 salt
+    ) public returns (address newContract) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            newContract := create2(value, add(0x20, deploymentData), mload(deploymentData), salt)
+            newContract := create2(
+                value,
+                add(0x20, deploymentData),
+                mload(deploymentData),
+                salt
+            )
         }
         require(newContract != address(0), "Could not deploy contract");
         emit ContractCreation(newContract);
@@ -33,10 +42,17 @@ contract CreateCall {
      * @param deploymentData The initialisation code of the contract to be created.
      * @return newContract The address of the newly created contract.
      */
-    function performCreate(uint256 value, bytes memory deploymentData) public returns (address newContract) {
+    function performCreate(
+        uint256 value,
+        bytes memory deploymentData
+    ) public returns (address newContract) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            newContract := create(value, add(deploymentData, 0x20), mload(deploymentData))
+            newContract := create(
+                value,
+                add(deploymentData, 0x20),
+                mload(deploymentData)
+            )
         }
         require(newContract != address(0), "Could not deploy contract");
         emit ContractCreation(newContract);

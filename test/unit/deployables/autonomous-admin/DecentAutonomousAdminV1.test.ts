@@ -11,6 +11,7 @@ import {
   IVersion__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 // Helper function for deploying DecentAutonomousAdminV1 instances using ERC1967Proxy
@@ -69,6 +70,24 @@ describe('DecentAutonomousAdminV1', function () {
   describe('Deployment Block', () => {
     runDeploymentBlockTests({
       getContract: () => decentAutonomousAdmin,
+    });
+  });
+
+  // Test InitializerEventEmitter functionality
+  describe('InitializerEventEmitter', () => {
+    let deployer: SignerWithAddress;
+
+    beforeEach(async () => {
+      [deployer] = await ethers.getSigners();
+    });
+
+    runInitializerEventEmitterTests({
+      contractFactory: DecentAutonomousAdminV1__factory,
+      masterCopy: async () =>
+        await (await new DecentAutonomousAdminV1__factory(deployer).deploy()).getAddress(),
+      deployer: () => deployer,
+      initializeParams: () => [],
+      getExpectedInitData: () => ethers.AbiCoder.defaultAbiCoder().encode([], []),
     });
   });
 });
