@@ -24,7 +24,9 @@ interface Guard is IERC165 {
 }
 
 abstract contract BaseGuard is Guard {
-    function supportsInterface(bytes4 interfaceId) external view virtual override returns (bool) {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) external view virtual override returns (bool) {
         return
             interfaceId == type(Guard).interfaceId || // 0xe6d7a83a
             interfaceId == type(IERC165).interfaceId; // 0x01ffc9a7
@@ -39,7 +41,8 @@ abstract contract GuardManager is SelfAuthorized {
     event ChangedGuard(address indexed guard);
 
     // keccak256("guard_manager.guard.address")
-    bytes32 internal constant GUARD_STORAGE_SLOT = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
+    bytes32 internal constant GUARD_STORAGE_SLOT =
+        0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
 
     /**
      * @dev Set a guard that checks transactions before execution
@@ -52,7 +55,10 @@ abstract contract GuardManager is SelfAuthorized {
      */
     function setGuard(address guard) external authorized {
         if (guard != address(0)) {
-            require(Guard(guard).supportsInterface(type(Guard).interfaceId), "GS300");
+            require(
+                Guard(guard).supportsInterface(type(Guard).interfaceId),
+                "GS300"
+            );
         }
         bytes32 slot = GUARD_STORAGE_SLOT;
         // solhint-disable-next-line no-inline-assembly

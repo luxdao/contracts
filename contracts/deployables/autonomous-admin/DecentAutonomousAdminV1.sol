@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IDecentAutonomousAdminV1} from "../../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
-import {IHatsElectionsEligibility} from "../../interfaces/hats/modules/IHatsElectionsEligibility.sol";
+import {
+    IDecentAutonomousAdminV1
+} from "../../interfaces/decent/deployables/IDecentAutonomousAdminV1.sol";
+import {
+    IHatsElectionsEligibility
+} from "../../interfaces/hats/modules/IHatsElectionsEligibility.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -23,7 +30,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * - Handles automatic hat burning and minting
  *
  * Workflow:
- * 1. DecentHatsCreationModule deploys and mints admin hat to this contract
+ * 1. UtilityRolesManagementV1 deploys and mints admin hat to this contract
  * 2. This contract becomes the admin for child role hats
  * 3. When terms expire, anyone can call triggerStartNextTerm
  * 4. Transitions happen automatically without manual intervention
@@ -39,7 +46,8 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract DecentAutonomousAdminV1 is
     IDecentAutonomousAdminV1,
     IVersion,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -54,7 +62,8 @@ contract DecentAutonomousAdminV1 is
      * @inheritdoc IDecentAutonomousAdminV1
      */
     function initialize() public virtual override initializer {
-        __DeploymentBlock_init();
+        __InitializerEventEmitter_init(abi.encode());
+        __DeploymentBlockInitializable_init();
     }
 
     // ======================================================================

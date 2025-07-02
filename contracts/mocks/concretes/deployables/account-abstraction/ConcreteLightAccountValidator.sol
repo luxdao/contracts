@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {LightAccountValidator} from "../../../../deployables/account-abstraction/LightAccountValidator.sol";
-import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {
+    LightAccountValidator
+} from "../../../../deployables/account-abstraction/LightAccountValidator.sol";
+import {
+    PackedUserOperation
+} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 
 contract ConcreteLightAccountValidator is LightAccountValidator {
     function initialize(address _lightAccountFactory) public initializer {

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IKYCVerifierV1} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
+import {
+    IKYCVerifierV1
+} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
+import {
+    DeploymentBlockNonInitializable
+} from "../../DeploymentBlockNonInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -18,7 +22,6 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * - Mock implementation for testing and development
  * - Always returns true for any address verification
  * - Deployed as singleton service per chain
- * - Upgradeable using UUPS pattern via proxy
  * - Production implementations would integrate with real KYC providers
  *
  * Production considerations:
@@ -29,24 +32,12 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  *
  * @custom:security-contact security@decentlabs.io
  */
-contract KYCVerifierV1 is IKYCVerifierV1, IVersion, DeploymentBlock, ERC165 {
-    // ======================================================================
-    // CONSTRUCTOR & INITIALIZERS
-    // ======================================================================
-
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @inheritdoc IKYCVerifierV1
-     * @dev Initializes the deployment block tracking. In production implementations,
-     * this would also initialize KYC provider integrations and access controls.
-     */
-    function initialize() public virtual override initializer {
-        __DeploymentBlock_init();
-    }
-
+contract KYCVerifierV1 is
+    IKYCVerifierV1,
+    IVersion,
+    DeploymentBlockNonInitializable,
+    ERC165
+{
     // ======================================================================
     // IKYCVerifier
     // ======================================================================

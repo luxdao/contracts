@@ -1,20 +1,43 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IDecentPaymasterV1} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
-import {IFunctionValidator} from "../../interfaces/decent/services/IFunctionValidator.sol";
-import {ILightAccountValidator} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
+import {
+    IDecentPaymasterV1
+} from "../../interfaces/decent/deployables/IDecentPaymasterV1.sol";
+import {
+    IFunctionValidator
+} from "../../interfaces/decent/services/IFunctionValidator.sol";
+import {
+    ILightAccountValidator
+} from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    IBasePaymaster
+} from "../../interfaces/decent/deployables/IBasePaymaster.sol";
 import {BasePaymaster} from "./BasePaymaster.sol";
 import {LightAccountValidator} from "./LightAccountValidator.sol";
-import {DeploymentBlock} from "../../DeploymentBlock.sol";
-import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {PackedUserOperation, IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    IEntryPoint
+} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {
+    PackedUserOperation,
+    IPaymaster
+} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
@@ -50,7 +73,8 @@ contract DecentPaymasterV1 is
     IVersion,
     BasePaymaster,
     LightAccountValidator,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ERC165
@@ -79,12 +103,14 @@ contract DecentPaymasterV1 is
     /**
      * @dev Returns the storage struct for DecentPaymasterV1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for DecentPaymasterV1
      */
     function _getDecentPaymasterStorage()
         internal
         pure
         returns (DecentPaymasterStorage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := DECENT_PAYMASTER_STORAGE_LOCATION
         }
@@ -108,9 +134,12 @@ contract DecentPaymasterV1 is
         address entryPoint_,
         address lightAccountFactory_
     ) public virtual override initializer {
+        __InitializerEventEmitter_init(
+            abi.encode(owner_, entryPoint_, lightAccountFactory_)
+        );
         __BasePaymaster_init(owner_, IEntryPoint(entryPoint_));
         __LightAccountValidator_init(lightAccountFactory_);
-        __DeploymentBlock_init();
+        __DeploymentBlockInitializable_init();
     }
 
     // ======================================================================
@@ -125,7 +154,10 @@ contract DecentPaymasterV1 is
      */
     function _authorizeUpgrade(
         address newImplementation_
-    ) internal virtual override onlyOwner {}
+    ) internal virtual override onlyOwner {
+        // solhint-disable-previous-line no-empty-blocks
+        // Intentionally empty - authorization logic handled by onlyOwner modifier
+    }
 
     // ======================================================================
     // IDecentPaymasterV1
@@ -297,13 +329,14 @@ contract DecentPaymasterV1 is
 
     /**
      * @inheritdoc ERC165
-     * @dev Supports IDecentPaymasterV1, ILightAccountValidator, IPaymaster, IVersion, IDeploymentBlock, and IERC165
+     * @dev Supports IDecentPaymasterV1, IBasePaymaster, ILightAccountValidator, IPaymaster, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
     ) public view virtual override returns (bool) {
         return
             interfaceId_ == type(IDecentPaymasterV1).interfaceId ||
+            interfaceId_ == type(IBasePaymaster).interfaceId ||
             interfaceId_ == type(ILightAccountValidator).interfaceId ||
             interfaceId_ == type(IPaymaster).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||

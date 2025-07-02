@@ -15,6 +15,7 @@ import {
   MockFreezeVoting__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
+import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 import { runUUPSUpgradeabilityTests } from '../../shared/uupsUpgradeabilityTests';
 
@@ -271,6 +272,20 @@ describe('FreezeGuardAzoriusV1', () => {
 
     runDeploymentBlockTests({
       getContract: () => azoriusFreezeGuard,
+    });
+  });
+
+  describe('InitializerEventEmitter', () => {
+    runInitializerEventEmitterTests({
+      contractFactory: FreezeGuardAzoriusV1__factory,
+      masterCopy: () => masterCopy,
+      deployer: () => proxyDeployer,
+      initializeParams: async () => [owner.address, await mockFreezeVoting.getAddress()],
+      getExpectedInitData: async () =>
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address'],
+          [owner.address, await mockFreezeVoting.getAddress()],
+        ),
     });
   });
 });

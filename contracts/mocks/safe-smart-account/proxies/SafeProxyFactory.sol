@@ -23,20 +23,43 @@ contract SafeProxyFactory {
      * @param salt Create2 salt to use for calculating the address of the new proxy contract.
      * @return proxy Address of the new proxy contract.
      */
-    function deployProxy(address _singleton, bytes memory initializer, bytes32 salt) internal returns (SafeProxy proxy) {
+    function deployProxy(
+        address _singleton,
+        bytes memory initializer,
+        bytes32 salt
+    ) internal returns (SafeProxy proxy) {
         require(isContract(_singleton), "Singleton contract not deployed");
 
-        bytes memory deploymentData = abi.encodePacked(type(SafeProxy).creationCode, uint256(uint160(_singleton)));
+        bytes memory deploymentData = abi.encodePacked(
+            type(SafeProxy).creationCode,
+            uint256(uint160(_singleton))
+        );
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            proxy := create2(0x0, add(0x20, deploymentData), mload(deploymentData), salt)
+            proxy := create2(
+                0x0,
+                add(0x20, deploymentData),
+                mload(deploymentData),
+                salt
+            )
         }
         require(address(proxy) != address(0), "Create2 call failed");
 
         if (initializer.length > 0) {
             // solhint-disable-next-line no-inline-assembly
             assembly {
-                if eq(call(gas(), proxy, 0, add(initializer, 0x20), mload(initializer), 0, 0), 0) {
+                if eq(
+                    call(
+                        gas(),
+                        proxy,
+                        0,
+                        add(initializer, 0x20),
+                        mload(initializer),
+                        0,
+                        0
+                    ),
+                    0
+                ) {
                     revert(0, 0)
                 }
             }
@@ -49,9 +72,15 @@ contract SafeProxyFactory {
      * @param initializer Payload for a message call to be sent to a new proxy contract.
      * @param saltNonce Nonce that will be used to generate the salt to calculate the address of the new proxy contract.
      */
-    function createProxyWithNonce(address _singleton, bytes memory initializer, uint256 saltNonce) public returns (SafeProxy proxy) {
+    function createProxyWithNonce(
+        address _singleton,
+        bytes memory initializer,
+        uint256 saltNonce
+    ) public returns (SafeProxy proxy) {
         // If the initializer changes the proxy address should change too. Hashing the initializer data is cheaper than just concatinating it
-        bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer), saltNonce));
+        bytes32 salt = keccak256(
+            abi.encodePacked(keccak256(initializer), saltNonce)
+        );
         proxy = deployProxy(_singleton, initializer, salt);
         emit ProxyCreation(proxy, _singleton);
     }
@@ -70,7 +99,9 @@ contract SafeProxyFactory {
         uint256 saltNonce
     ) public returns (SafeProxy proxy) {
         // If the initializer changes the proxy address should change too. Hashing the initializer data is cheaper than just concatinating it
-        bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer), saltNonce, getChainId()));
+        bytes32 salt = keccak256(
+            abi.encodePacked(keccak256(initializer), saltNonce, getChainId())
+        );
         proxy = deployProxy(_singleton, initializer, salt);
         emit ProxyCreation(proxy, _singleton);
     }
@@ -89,9 +120,16 @@ contract SafeProxyFactory {
         uint256 saltNonce,
         IProxyCreationCallback callback
     ) public returns (SafeProxy proxy) {
-        uint256 saltNonceWithCallback = uint256(keccak256(abi.encodePacked(saltNonce, callback)));
-        proxy = createProxyWithNonce(_singleton, initializer, saltNonceWithCallback);
-        if (address(callback) != address(0)) callback.proxyCreated(proxy, _singleton, initializer, saltNonce);
+        uint256 saltNonceWithCallback = uint256(
+            keccak256(abi.encodePacked(saltNonce, callback))
+        );
+        proxy = createProxyWithNonce(
+            _singleton,
+            initializer,
+            saltNonceWithCallback
+        );
+        if (address(callback) != address(0))
+            callback.proxyCreated(proxy, _singleton, initializer, saltNonce);
     }
 
     /**

@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IProposerAdapterERC20V1} from "../../../../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
-import {IProposerAdapterBaseV1} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {
+    IProposerAdapterERC20V1
+} from "../../../../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
+import {
+    IProposerAdapterBaseV1
+} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
 import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
-import {IDeploymentBlock} from "../../../../interfaces/decent/IDeploymentBlock.sol";
-import {DeploymentBlock} from "../../../../DeploymentBlock.sol";
+import {
+    IDeploymentBlock
+} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+import {
+    DeploymentBlockInitializable
+} from "../../../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -30,7 +39,8 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract ProposerAdapterERC20V1 is
     IProposerAdapterERC20V1,
     IVersion,
-    DeploymentBlock,
+    DeploymentBlockInitializable,
+    InitializerEventEmitter,
     ERC165
 {
     // ======================================================================
@@ -59,12 +69,14 @@ contract ProposerAdapterERC20V1 is
     /**
      * @dev Returns the storage struct for ProposerAdapterERC20V1
      * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
+     * @return $ The storage struct for ProposerAdapterERC20V1
      */
     function _getProposerAdapterERC20Storage()
         internal
         pure
         returns (ProposerAdapterERC20Storage storage $)
     {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := PROPOSER_ADAPTER_ERC20_STORAGE_LOCATION
         }
@@ -87,7 +99,8 @@ contract ProposerAdapterERC20V1 is
         address token_,
         uint256 proposerThreshold_
     ) public virtual override initializer {
-        __DeploymentBlock_init();
+        __InitializerEventEmitter_init(abi.encode(token_, proposerThreshold_));
+        __DeploymentBlockInitializable_init();
 
         ProposerAdapterERC20Storage
             storage $ = _getProposerAdapterERC20Storage();
