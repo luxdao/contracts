@@ -252,7 +252,7 @@ async function deployProxyViaSafe(params: {
   const deployProxyData = systemDeployer.interface.encodeFunctionData('deployProxy', [
     implementation,
     initData,
-    ethers.toBeHex(salt),
+    ethers.toBeHex(salt, 32),
   ]);
 
   // Use safeTxGas = 1 when expecting failure to avoid GS013 error
@@ -282,7 +282,7 @@ async function deployProxyViaSafe(params: {
     predictedAddress = await systemDeployer.predictProxyAddress(
       implementation,
       initData,
-      ethers.toBeHex(salt),
+      ethers.toBeHex(salt, 32),
       await safe.getAddress(),
     );
   }
@@ -4198,7 +4198,7 @@ describe('SystemDeployerV1', () => {
         fixtureData.systemDeployer.predictProxyAddress(
           nonContractAddress,
           initData,
-          ethers.toBeHex(salt),
+          ethers.toBeHex(salt, 32),
           await fixtureData.systemDeployer.getAddress(),
         ),
       ).to.be.revertedWithCustomError(fixtureData.systemDeployer, 'ImplementationMustBeAContract');
@@ -4218,14 +4218,14 @@ describe('SystemDeployerV1', () => {
       const predictedAddress1 = await fixtureData.systemDeployer.predictProxyAddress(
         implementation,
         initData,
-        ethers.toBeHex(salt),
+        ethers.toBeHex(salt, 32),
         await fixtureData.systemDeployer.getAddress(),
       );
 
       const predictedAddress2 = await fixtureData.systemDeployer.predictProxyAddress(
         implementation,
         initData,
-        ethers.toBeHex(salt),
+        ethers.toBeHex(salt, 32),
         fixtureData.user1.address, // Different deployer
       );
 
@@ -4261,7 +4261,7 @@ describe('SystemDeployerV1', () => {
           const predictedProxyAddress = await fixtureData.systemDeployer.predictProxyAddress(
             fixtureData.upgradeableMasterCopy,
             initData,
-            ethers.toBeHex(salt),
+            ethers.toBeHex(salt, 32),
             await fixtureData.testSafe.getAddress(),
           );
 
@@ -4296,7 +4296,7 @@ describe('SystemDeployerV1', () => {
           const predictedProxyAddress = await fixtureData.systemDeployer.predictProxyAddress(
             fixtureData.minimalImplementation,
             emptyInitData,
-            ethers.toBeHex(salt),
+            ethers.toBeHex(salt, 32),
             await fixtureData.testSafe.getAddress(),
           );
 
@@ -4369,7 +4369,7 @@ describe('SystemDeployerV1', () => {
           const secondProxyAddress = await fixtureData.systemDeployer.predictProxyAddress(
             fixtureData.upgradeableMasterCopy,
             initData,
-            ethers.toBeHex(salt),
+            ethers.toBeHex(salt, 32),
             await fixtureData.testSafe.getAddress(),
           );
 
@@ -4411,7 +4411,7 @@ describe('SystemDeployerV1', () => {
           const predictedAddress = await fixtureData.systemDeployer.predictProxyAddress(
             fixtureData.upgradeableMasterCopy,
             initData,
-            ethers.toBeHex(salt),
+            ethers.toBeHex(salt, 32),
             await fixtureData.testSafe.getAddress(),
           );
 
@@ -5010,7 +5010,7 @@ describe('SystemDeployerV1', () => {
             fixtureData.systemDeployer.deployProxy(
               fixtureData.upgradeableMasterCopy,
               initData,
-              ethers.toBeHex(salt),
+              ethers.toBeHex(salt, 32),
             ),
           ).to.be.revertedWithCustomError(
             fixtureData.systemDeployer,
