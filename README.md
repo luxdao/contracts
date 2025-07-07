@@ -97,7 +97,7 @@ The codebase is organized into four distinct contract categories based on deploy
 - **Deployment**: One instance per chain
 - **Characteristics**: No DAO contracts hold references to these, used by client applications
 - **Examples**:
-  - SystemDeployerV1: Orchestrates contract deployments
+  - SystemDeployerV1: Orchestrates contract deployments (called via delegatecall from Safe setup)
   - KeyValuePairsV1: On-chain key-value storage
 
 ### 3. Utilities (`contracts/utilities/`)
@@ -293,6 +293,7 @@ There are three types of releases:
 
 - Some contracts use UUPS proxy pattern for upgradability
 - Contracts follow OpenZeppelin's upgradeable patterns
+- SystemDeployerV1 must be called via delegatecall from Safe setup (direct calls will revert)
 - Test files mirror contract structure in `/test` directory
 - Integration tests in `/test/integration` demonstrate full workflows
 - Solidity version 0.8.30 with optimizer enabled (200 runs)

@@ -93,6 +93,8 @@ contract VotesERC20V1 is
     struct VotesERC20Storage {
         /** @notice Whether token transfers are locked */
         bool locked;
+        /** @notice Whether token minting is renounced */
+        bool mintingRenounced;
         /** @notice Maximum total supply cap for the token */
         uint256 maxTotalSupply;
         /** @notice Timestamp when the token was last unlocked */
@@ -285,6 +287,14 @@ contract VotesERC20V1 is
     /**
      * @inheritdoc IVotesERC20V1
      */
+    function mintingRenounced() public view virtual override returns (bool) {
+        VotesERC20Storage storage $ = _getVotesERC20Storage();
+        return $.mintingRenounced;
+    }
+
+    /**
+     * @inheritdoc IVotesERC20V1
+     */
     function maxTotalSupply() public view virtual override returns (uint256) {
         VotesERC20Storage storage $ = _getVotesERC20Storage();
         return $.maxTotalSupply;
@@ -307,11 +317,30 @@ contract VotesERC20V1 is
         bool locked_
     ) public virtual override onlyRole(DEFAULT_ADMIN_ROLE) {
         VotesERC20Storage storage $ = _getVotesERC20Storage();
+        if (locked_ && !$.locked) {
+            revert LockFromUnlockedState();
+        }
         if (!locked_) {
             $.unlockTime = uint48(block.timestamp);
         }
         $.locked = locked_;
         emit Locked(locked_);
+    }
+
+    /**
+     * @inheritdoc IVotesERC20V1
+     */
+    function renounceMinting()
+        public
+        virtual
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        VotesERC20Storage storage $ = _getVotesERC20Storage();
+        if (!$.mintingRenounced) {
+            $.mintingRenounced = true;
+            emit MintingRenounced();
+        }
     }
 
     /**
@@ -338,9 +367,13 @@ contract VotesERC20V1 is
         address to_,
         uint256 amount_
     ) public virtual override onlyRole(MINTER_ROLE) {
+        VotesERC20Storage storage $ = _getVotesERC20Storage();
+        if ($.mintingRenounced) {
+            revert MintingDisabled();
+        }
+
         uint256 newTotalSupply = totalSupply() + amount_;
 
-        VotesERC20Storage storage $ = _getVotesERC20Storage();
         if (newTotalSupply > $.maxTotalSupply) {
             revert ExceedMaxTotalSupply();
         }
