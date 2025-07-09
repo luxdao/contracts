@@ -200,45 +200,10 @@ contract WarrantHedgeyV1 is
     }
 
     // ======================================================================
-    // INTERNAL HELPERS
+    // WarrantBase
     // ======================================================================
 
-    /**
-     * @notice Validates Hedgey vesting parameters and calculates end time
-     * @dev Ensures all parameters create a valid vesting schedule
-     * @param token_ Address of the token being vested
-     * @param start_ Start time of vesting
-     * @param cliff_ Absolute cliff time
-     * @param amount_ Total amount to vest
-     * @param rate_ Amount vested per period
-     * @param period_ Duration of each vesting period
-     * @custom:throws InvalidAmount if amount is zero
-     * @custom:throws InvalidRate if rate is zero
-     * @custom:throws RateExceedsAmount if rate is greater than amount
-     * @custom:throws InvalidPeriod if period is zero
-     * @custom:throws CliffExceedsEnd if cliff time exceeds vesting end time
-     */
-    function _validateHedgeyParams(
-        address token_,
-        uint256 start_,
-        uint256 cliff_,
-        uint256 amount_,
-        uint256 rate_,
-        uint256 period_
-    ) internal pure {
-        if (token_ == address(0)) revert InvalidToken();
-        if (amount_ == 0) revert InvalidAmount();
-        if (rate_ == 0) revert InvalidRate();
-        if (rate_ > amount_) revert RateExceedsAmount();
-        if (period_ == 0) revert InvalidPeriod();
-
-        // Calculate vesting end time
-        uint256 end = (amount_ % rate_ == 0)
-            ? (amount_ / rate_) * period_ + start_
-            : ((amount_ / rate_) * period_) + period_ + start_;
-
-        if (cliff_ > end) revert CliffExceedsEnd(cliff_, end);
-    }
+    // --- Internal Functions ---
 
     /**
      * @notice Implementation of warrant execution that creates a Hedgey vesting plan
@@ -283,6 +248,47 @@ contract WarrantHedgeyV1 is
             );
 
         emit HedgeyPlanCreated(planId, recipient_);
+    }
+
+    // ======================================================================
+    // INTERNAL HELPERS
+    // ======================================================================
+
+    /**
+     * @notice Validates Hedgey vesting parameters and calculates end time
+     * @dev Ensures all parameters create a valid vesting schedule
+     * @param token_ Address of the token being vested
+     * @param start_ Start time of vesting
+     * @param cliff_ Absolute cliff time
+     * @param amount_ Total amount to vest
+     * @param rate_ Amount vested per period
+     * @param period_ Duration of each vesting period
+     * @custom:throws InvalidAmount if amount is zero
+     * @custom:throws InvalidRate if rate is zero
+     * @custom:throws RateExceedsAmount if rate is greater than amount
+     * @custom:throws InvalidPeriod if period is zero
+     * @custom:throws CliffExceedsEnd if cliff time exceeds vesting end time
+     */
+    function _validateHedgeyParams(
+        address token_,
+        uint256 start_,
+        uint256 cliff_,
+        uint256 amount_,
+        uint256 rate_,
+        uint256 period_
+    ) internal pure {
+        if (token_ == address(0)) revert InvalidToken();
+        if (amount_ == 0) revert InvalidAmount();
+        if (rate_ == 0) revert InvalidRate();
+        if (rate_ > amount_) revert RateExceedsAmount();
+        if (period_ == 0) revert InvalidPeriod();
+
+        // Calculate vesting end time
+        uint256 end = (amount_ % rate_ == 0)
+            ? (amount_ / rate_) * period_ + start_
+            : ((amount_ / rate_) * period_) + period_ + start_;
+
+        if (cliff_ > end) revert CliffExceedsEnd(cliff_, end);
     }
 
     // ======================================================================
