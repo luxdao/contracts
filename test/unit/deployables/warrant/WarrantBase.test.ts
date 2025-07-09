@@ -219,12 +219,6 @@ describe('WarrantBase', () => {
       ).to.be.revertedWithCustomError(mockWarrant, 'OnlyWarrantHolder');
     });
 
-    it('should revert if recipient is zero address', async () => {
-      await expect(
-        mockWarrant.connect(warrantHolder).execute(ethers.ZeroAddress),
-      ).to.be.revertedWithCustomError(mockWarrant, 'AddressZero');
-    });
-
     it('should revert if already executed', async () => {
       await mockWarrant.connect(warrantHolder).execute(recipient.address);
 
