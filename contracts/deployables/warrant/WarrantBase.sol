@@ -8,9 +8,6 @@ import {
     IVotesERC20V1
 } from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {
     Ownable2StepUpgradeable
@@ -38,8 +35,6 @@ import {
  * @custom:security-contact security@decentlabs.io
  */
 abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
-    using SafeERC20 for IERC20;
-
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
@@ -260,11 +255,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
 
         // Calculate and collect fee
         uint256 feeAmount = ($.tokenAmount * $.tokenPrice) / PRECISION;
-        IERC20($.feeToken).safeTransferFrom(
-            msg.sender,
-            $.feeReceiver,
-            feeAmount
-        );
+        IERC20($.feeToken).transferFrom(msg.sender, $.feeReceiver, feeAmount);
 
         // Mark as executed
         $.executed = true;
@@ -297,7 +288,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         }
 
         // Transfer tokens to recipient
-        IERC20($.token).safeTransfer(recipient_, $.tokenAmount);
+        IERC20($.token).transfer(recipient_, $.tokenAmount);
 
         emit Clawback(recipient_, $.tokenAmount);
     }
