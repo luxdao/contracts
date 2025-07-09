@@ -47,11 +47,11 @@ interface IWarrantHedgeyV1 {
      * @param relativeTime Whether to use relative time based on token unlock
      * @param owner Owner address who can clawback after expiration
      * @param warrantHolder Address authorized to execute the warrant
-     * @param token Token to be vested
-     * @param feeToken Token used for fee payment
-     * @param tokenAmount Amount of tokens to vest
-     * @param tokenPrice Price per token in fee token units (18 decimals)
-     * @param feeReceiver Address that receives fee payments
+     * @param warrantToken Token to be vested
+     * @param paymentToken Token used for payment
+     * @param warrantTokenAmount Amount of warrant tokens to vest
+     * @param warrantTokenPrice Price per warrant token in payment token units (18 decimals)
+     * @param paymentReceiver Address that receives payment
      * @param expiration Expiration timestamp or duration
      * @param hedgeyTokenLockupPlans Hedgey contract address
      * @param hedgeyStart Vesting start time (absolute or relative)
@@ -63,11 +63,11 @@ interface IWarrantHedgeyV1 {
         bool relativeTime;
         address owner;
         address warrantHolder;
-        address token;
-        address feeToken;
-        uint256 tokenAmount;
-        uint256 tokenPrice;
-        address feeReceiver;
+        address warrantToken;
+        address paymentToken;
+        uint256 warrantTokenAmount;
+        uint256 warrantTokenPrice;
+        address paymentReceiver;
         uint256 expiration;
         address hedgeyTokenLockupPlans;
         uint256 hedgeyStart;
