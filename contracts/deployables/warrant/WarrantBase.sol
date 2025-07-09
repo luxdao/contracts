@@ -266,7 +266,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
             feeAmount
         );
 
-        // Mark as executed before external call
+        // Mark as executed
         $.executed = true;
 
         // Delegate to implementation-specific logic
