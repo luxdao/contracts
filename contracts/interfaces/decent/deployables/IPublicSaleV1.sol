@@ -42,6 +42,15 @@ interface IPublicSaleV1 {
         address saleTokenHolder_;
     }
 
+    // --- Enums ---
+
+    enum SaleState {
+        INACTIVE,
+        ACTIVE,
+        CLOSED,
+        FAILED
+    }
+
     // --- Events ---
 
     event BidPlaced(address indexed user, uint256 amount);
