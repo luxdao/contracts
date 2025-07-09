@@ -38,6 +38,9 @@ export default buildModule('Deployables', m => {
   // Deploy CountersignV1 implementation
   const countersignV1 = m.contract('CountersignV1');
 
+  // Deploy WarrantHedgeyV1 implementation
+  const warrantHedgeyV1 = m.contract('WarrantHedgeyV1');
+
   return {
     moduleAzoriusV1,
     moduleFractalV1,
@@ -65,5 +68,7 @@ export default buildModule('Deployables', m => {
     decentAutonomousAdminV1,
 
     countersignV1,
+
+    warrantHedgeyV1,
   };
 });
