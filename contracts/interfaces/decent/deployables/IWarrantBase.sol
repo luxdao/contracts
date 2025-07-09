@@ -27,7 +27,7 @@ interface IWarrantBase {
     error AlreadyExecuted();
 
     /** @notice Thrown when warrant has expired and cannot be executed */
-    error Expired();
+    error WarrantExpired();
 
     /** @notice Thrown when attempting clawback before warrant expiration */
     error WarrantNotExpired();
