@@ -232,7 +232,7 @@ describe('WarrantBase', () => {
 
       await expect(
         mockWarrant.connect(warrantHolder).execute(recipient.address),
-      ).to.be.revertedWithCustomError(mockWarrant, 'Expired');
+      ).to.be.revertedWithCustomError(mockWarrant, 'WarrantExpired');
     });
 
     it('should revert if insufficient fee token balance', async () => {
@@ -309,7 +309,7 @@ describe('WarrantBase', () => {
 
       await expect(
         mockWarrant.connect(warrantHolder).execute(recipient.address),
-      ).to.be.revertedWithCustomError(mockWarrant, 'Expired');
+      ).to.be.revertedWithCustomError(mockWarrant, 'WarrantExpired');
     });
   });
 
