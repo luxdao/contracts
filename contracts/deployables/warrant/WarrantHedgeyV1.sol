@@ -94,7 +94,9 @@ contract WarrantHedgeyV1 is
     // CONSTRUCTOR & INITIALIZERS
     // ======================================================================
 
-    constructor() WarrantBase() {}
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
      * @inheritdoc IWarrantHedgeyV1
