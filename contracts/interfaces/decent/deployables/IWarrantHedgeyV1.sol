@@ -40,48 +40,6 @@ interface IWarrantHedgeyV1 {
     /** @notice Thrown when cliff exceeds vesting end time */
     error CliffExceedsEnd(uint256 cliff, uint256 end);
 
-    // --- Events ---
-
-    /**
-     * @notice Emitted when a Hedgey vesting plan is created
-     * @param planId The ID of the created vesting plan
-     * @param recipient The address that will receive the vested tokens
-     */
-    event HedgeyPlanCreated(uint256 indexed planId, address indexed recipient);
-
-    // --- View Functions ---
-
-    /**
-     * @notice Address of the Hedgey TokenLockupPlans contract
-     * @return The Hedgey contract address for creating vesting plans
-     */
-    function hedgeyTokenLockupPlans() external view returns (address);
-
-    /**
-     * @notice Start time for Hedgey vesting plan
-     * @return For absolute time: timestamp when vesting starts
-     *         For relative time: offset from token unlock time
-     */
-    function hedgeyStart() external view returns (uint256);
-
-    /**
-     * @notice Cliff duration before tokens can be claimed
-     * @return Duration in seconds from hedgeyStart
-     */
-    function hedgeyRelativeCliff() external view returns (uint256);
-
-    /**
-     * @notice Amount of tokens vested per period
-     * @return Token amount vested each period
-     */
-    function hedgeyRate() external view returns (uint256);
-
-    /**
-     * @notice Time interval for vesting
-     * @return Period duration in seconds
-     */
-    function hedgeyPeriod() external view returns (uint256);
-
     // --- Structs ---
 
     /**
@@ -118,11 +76,53 @@ interface IWarrantHedgeyV1 {
         uint256 hedgeyPeriod;
     }
 
-    // --- State-Changing Functions ---
+    // --- Events ---
+
+    /**
+     * @notice Emitted when a Hedgey vesting plan is created
+     * @param planId The ID of the created vesting plan
+     * @param recipient The address that will receive the vested tokens
+     */
+    event HedgeyPlanCreated(uint256 indexed planId, address indexed recipient);
+
+    // --- Initializer Functions ---
 
     /**
      * @notice Initialize the warrant with Hedgey-specific parameters
      * @param params_ Struct containing all initialization parameters
      */
     function initialize(InitParams calldata params_) external;
+
+    // --- View Functions ---
+
+    /**
+     * @notice Address of the Hedgey TokenLockupPlans contract
+     * @return The Hedgey contract address for creating vesting plans
+     */
+    function hedgeyTokenLockupPlans() external view returns (address);
+
+    /**
+     * @notice Start time for Hedgey vesting plan
+     * @return For absolute time: timestamp when vesting starts
+     *         For relative time: offset from token unlock time
+     */
+    function hedgeyStart() external view returns (uint256);
+
+    /**
+     * @notice Cliff duration before tokens can be claimed
+     * @return Duration in seconds from hedgeyStart
+     */
+    function hedgeyRelativeCliff() external view returns (uint256);
+
+    /**
+     * @notice Amount of tokens vested per period
+     * @return Token amount vested each period
+     */
+    function hedgeyRate() external view returns (uint256);
+
+    /**
+     * @notice Time interval for vesting
+     * @return Period duration in seconds
+     */
+    function hedgeyPeriod() external view returns (uint256);
 }
