@@ -84,14 +84,12 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
     function _getWarrantBaseStorage()
         internal
         pure
-        returns (WarrantBaseStorage storage)
+        returns (WarrantBaseStorage storage $)
     {
-        WarrantBaseStorage storage $;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := WARRANT_BASE_STORAGE_LOCATION
         }
-        return $;
     }
 
     /** @notice Precision for token price calculations (18 decimals) */
