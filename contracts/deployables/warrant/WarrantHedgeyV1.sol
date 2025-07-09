@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {WarrantBase} from "./WarrantBase.sol";
 import {
     IWarrantBase
 } from "../../interfaces/decent/deployables/IWarrantBase.sol";
@@ -16,6 +15,7 @@ import {
 } from "../../interfaces/decent/deployables/IVotesERC20V1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
+import {WarrantBase} from "./WarrantBase.sol";
 import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
