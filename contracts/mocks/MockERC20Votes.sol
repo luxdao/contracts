@@ -10,13 +10,17 @@ import {ClockMode} from "../interfaces/decent/ClockMode.sol";
 import {
     Checkpoints
 } from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {
+    IVotesERC20V1
+} from "../interfaces/decent/deployables/IVotesERC20V1.sol";
 
 /**
  * @title MockERC20Votes
  * @dev Mock ERC20 token with IVotes implementation for testing voting functionality
- * Enhanced with proper historical snapshot support
+ * Enhanced with proper historical snapshot support and locking functionality
  */
-contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
+contract MockERC20Votes is ERC20, ERC20Permit, IVotes, ERC165 {
     mapping(address => mapping(uint256 => uint256)) private _mockPastVotes;
     mapping(address => mapping(uint256 => bool))
         private _hasMockPastVoteBeenSet;
@@ -27,6 +31,10 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
 
     // Checkpoint mocking
     mapping(address => Checkpoints.Checkpoint208[]) internal _checkpoints;
+
+    // Locking functionality
+    bool private _locked;
+    uint48 private _unlockTime;
 
     constructor()
         ERC20("Mock Voting Token", "MVT")
@@ -196,5 +204,41 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes {
         // If no explicit value is set for this timepoint, return the current total supply
         // In a real implementation, this would use a checkpoint system
         return totalSupply();
+    }
+
+    // --- Locking functionality ---
+
+    /**
+     * @notice Returns whether the token is locked (non-transferable)
+     */
+    function locked() external view returns (bool) {
+        return _locked;
+    }
+
+    /**
+     * @notice Returns when the token was last unlocked
+     */
+    function getUnlockTime() external view returns (uint48) {
+        return _unlockTime;
+    }
+
+    // Mock setters for testing
+    function setLocked(bool locked_) external {
+        _locked = locked_;
+    }
+
+    function setUnlockTime(uint48 unlockTime_) external {
+        _unlockTime = unlockTime_;
+    }
+
+    /**
+     * @notice Check if contract supports a given interface
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IVotesERC20V1).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }
