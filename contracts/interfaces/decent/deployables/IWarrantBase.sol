@@ -23,9 +23,6 @@ interface IWarrantBase {
     /** @notice Thrown when caller is not the designated warrant holder */
     error OnlyWarrantHolder();
 
-    /** @notice Thrown when attempting to use zero address */
-    error AddressZero();
-
     /** @notice Thrown when warrant has already been executed */
     error AlreadyExecuted();
 

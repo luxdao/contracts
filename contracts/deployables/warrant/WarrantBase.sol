@@ -247,7 +247,6 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
 
         // Validate caller and state
         if (msg.sender != $.warrantHolder) revert OnlyWarrantHolder();
-        if (recipient_ == address(0)) revert AddressZero();
         if ($.executed) revert AlreadyExecuted();
 
         // Check expiration based on time mode and token lock if relative time
