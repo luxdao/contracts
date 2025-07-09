@@ -21,7 +21,7 @@ import {
  * @author Decent Labs
  * @notice Abstract base contract for warrant implementations
  * @dev This abstract contract provides the core warrant functionality that can be extended
- * by specific implementations (e.g., Hedgey, Sablier). It handles fee collection,
+ * by specific implementations (e.g., Hedgey, Sablier). It handles payment collection,
  * expiration logic, and clawback functionality.
  *
  * Key features:
@@ -57,15 +57,15 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         /** @notice Address authorized to execute this warrant */
         address warrantHolder;
         /** @notice Token to be vested upon execution */
-        address token;
-        /** @notice Token used for fee payment */
-        address feeToken;
-        /** @notice Amount of tokens to be vested */
-        uint256 tokenAmount;
-        /** @notice Price per token in fee token units (18 decimal precision) */
-        uint256 tokenPrice;
-        /** @notice Address that receives fee payments */
-        address feeReceiver;
+        address warrantToken;
+        /** @notice Token used for payment */
+        address paymentToken;
+        /** @notice Amount of warrant tokens to be vested */
+        uint256 warrantTokenAmount;
+        /** @notice Price per warrant token in payment token units (18 decimal precision) */
+        uint256 warrantTokenPrice;
+        /** @notice Address that receives payment */
+        address paymentReceiver;
         /** @notice Expiration timestamp or duration based on time mode */
         uint256 expiration;
     }
@@ -108,11 +108,11 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
      * @param relativeTime_ Whether to use relative time based on token unlock
      * @param owner_ Owner address who can clawback after expiration
      * @param warrantHolder_ Address authorized to execute the warrant
-     * @param token_ Token to be vested
-     * @param feeToken_ Token used for fee payment
-     * @param tokenAmount_ Amount of tokens to vest
-     * @param tokenPrice_ Price per token in fee token units (18 decimals)
-     * @param feeReceiver_ Address that receives fee payments
+     * @param warrantToken_ Token to be vested
+     * @param paymentToken_ Token used for payment
+     * @param warrantTokenAmount_ Amount of warrant tokens to vest
+     * @param warrantTokenPrice_ Price per warrant token in payment token units (18 decimals)
+     * @param paymentReceiver_ Address that receives payment
      * @param expiration_ Expiration timestamp or duration
      */
     function __WarrantBase_init(
@@ -120,11 +120,11 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         bool relativeTime_,
         address owner_,
         address warrantHolder_,
-        address token_,
-        address feeToken_,
-        uint256 tokenAmount_,
-        uint256 tokenPrice_,
-        address feeReceiver_,
+        address warrantToken_,
+        address paymentToken_,
+        uint256 warrantTokenAmount_,
+        uint256 warrantTokenPrice_,
+        address paymentReceiver_,
         uint256 expiration_
     ) internal onlyInitializing {
         __Ownable_init(owner_);
@@ -133,7 +133,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         if (relativeTime_) {
             bool supported;
             try
-                ERC165(token_).supportsInterface(
+                ERC165(warrantToken_).supportsInterface(
                     type(IVotesERC20V1).interfaceId
                 )
             returns (bool result) {
@@ -148,11 +148,11 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
         $.relativeTime = relativeTime_;
         $.warrantHolder = warrantHolder_;
-        $.token = token_;
-        $.feeToken = feeToken_;
-        $.tokenAmount = tokenAmount_;
-        $.tokenPrice = tokenPrice_;
-        $.feeReceiver = feeReceiver_;
+        $.warrantToken = warrantToken_;
+        $.paymentToken = paymentToken_;
+        $.warrantTokenAmount = warrantTokenAmount_;
+        $.warrantTokenPrice = warrantTokenPrice_;
+        $.paymentReceiver = paymentReceiver_;
         $.expiration = expiration_;
     }
 
@@ -181,41 +181,53 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
     /**
      * @inheritdoc IWarrantBase
      */
-    function token() public view virtual override returns (address) {
+    function warrantToken() public view virtual override returns (address) {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
-        return $.token;
+        return $.warrantToken;
     }
 
     /**
      * @inheritdoc IWarrantBase
      */
-    function feeToken() public view virtual override returns (address) {
+    function paymentToken() public view virtual override returns (address) {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
-        return $.feeToken;
+        return $.paymentToken;
     }
 
     /**
      * @inheritdoc IWarrantBase
      */
-    function tokenAmount() public view virtual override returns (uint256) {
+    function warrantTokenAmount()
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
-        return $.tokenAmount;
+        return $.warrantTokenAmount;
     }
 
     /**
      * @inheritdoc IWarrantBase
      */
-    function tokenPrice() public view virtual override returns (uint256) {
+    function warrantTokenPrice()
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
-        return $.tokenPrice;
+        return $.warrantTokenPrice;
     }
 
     /**
      * @inheritdoc IWarrantBase
      */
-    function feeReceiver() public view virtual override returns (address) {
+    function paymentReceiver() public view virtual override returns (address) {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
-        return $.feeReceiver;
+        return $.paymentReceiver;
     }
 
     /**
@@ -238,7 +250,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
 
     /**
      * @inheritdoc IWarrantBase
-     * @dev Validates conditions, collects fee, and delegates to _executeWarrant
+     * @dev Validates conditions, collects payment, and delegates to _executeWarrant
      */
     function execute(address recipient_) public virtual override {
         WarrantBaseStorage storage $ = _getWarrantBaseStorage();
@@ -249,21 +261,22 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
 
         // Check expiration based on time mode and token lock if relative time
         if ($.relativeTime) {
-            if (IVotesERC20V1($.token).locked()) revert TokenLocked();
+            if (IVotesERC20V1($.warrantToken).locked()) revert TokenLocked();
             if (
                 block.timestamp >
-                IVotesERC20V1($.token).getUnlockTime() + $.expiration
+                IVotesERC20V1($.warrantToken).getUnlockTime() + $.expiration
             ) revert WarrantExpired();
         } else {
             if (block.timestamp > $.expiration) revert WarrantExpired();
         }
 
-        // Calculate and collect fee
-        uint256 feeAmount = ($.tokenAmount * $.tokenPrice) / PRECISION;
-        IERC20($.feeToken).safeTransferFrom(
+        // Calculate and collect payment
+        uint256 paymentAmount = ($.warrantTokenAmount * $.warrantTokenPrice) /
+            PRECISION;
+        IERC20($.paymentToken).safeTransferFrom(
             msg.sender,
-            $.feeReceiver,
-            feeAmount
+            $.paymentReceiver,
+            paymentAmount
         );
 
         // Mark as executed
@@ -285,10 +298,10 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
 
         // Check expiration based on time mode
         if ($.relativeTime) {
-            if (IVotesERC20V1($.token).locked()) revert TokenLocked();
+            if (IVotesERC20V1($.warrantToken).locked()) revert TokenLocked();
             if (
                 block.timestamp <
-                IVotesERC20V1($.token).getUnlockTime() + $.expiration
+                IVotesERC20V1($.warrantToken).getUnlockTime() + $.expiration
             ) {
                 revert WarrantNotExpired();
             }
@@ -297,9 +310,9 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         }
 
         // Transfer tokens to recipient
-        IERC20($.token).safeTransfer(recipient_, $.tokenAmount);
+        IERC20($.warrantToken).safeTransfer(recipient_, $.warrantTokenAmount);
 
-        emit Clawback(recipient_, $.tokenAmount);
+        emit Clawback(recipient_, $.warrantTokenAmount);
     }
 
     // ======================================================================

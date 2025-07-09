@@ -32,8 +32,8 @@ describe('WarrantBase', () => {
 
   let mockWarrant: ConcreteWarrantBase;
   let mockWarrantImplementation: ConcreteWarrantBase;
-  let mockToken: MockERC20;
-  let mockFeeToken: MockERC20;
+  let mockWarrantToken: MockERC20;
+  let mockPaymentToken: MockERC20;
   let mockVotesToken: MockERC20Votes;
 
   const TOKEN_AMOUNT = ethers.parseEther('1000');
@@ -79,16 +79,16 @@ describe('WarrantBase', () => {
       await ethers.getSigners();
 
     // Deploy mock tokens
-    mockToken = await new MockERC20__factory(owner).deploy('Mock Token', 'MTK', 18);
-    mockFeeToken = await new MockERC20__factory(owner).deploy('Mock Fee Token', 'MFT', 18);
+    mockWarrantToken = await new MockERC20__factory(owner).deploy('Mock Token', 'MTK', 18);
+    mockPaymentToken = await new MockERC20__factory(owner).deploy('Mock Fee Token', 'MFT', 18);
     mockVotesToken = await new MockERC20Votes__factory(owner).deploy();
 
     // Deploy implementation
     mockWarrantImplementation = await new ConcreteWarrantBase__factory(owner).deploy();
 
     // Mint tokens for testing
-    await mockToken.mint(owner.address, ethers.parseEther('10000'));
-    await mockFeeToken.mint(warrantHolder.address, ethers.parseEther('10000'));
+    await mockWarrantToken.mint(owner.address, ethers.parseEther('10000'));
+    await mockPaymentToken.mint(warrantHolder.address, ethers.parseEther('10000'));
   });
 
   describe('Initialization', () => {
@@ -100,8 +100,8 @@ describe('WarrantBase', () => {
         false, // absolute time
         owner.address,
         warrantHolder.address,
-        await mockToken.getAddress(),
-        await mockFeeToken.getAddress(),
+        await mockWarrantToken.getAddress(),
+        await mockPaymentToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
@@ -111,11 +111,11 @@ describe('WarrantBase', () => {
       expect(await mockWarrant.relativeTime()).to.be.false;
       expect(await mockWarrant.owner()).to.equal(owner.address);
       expect(await mockWarrant.warrantHolder()).to.equal(warrantHolder.address);
-      expect(await mockWarrant.token()).to.equal(await mockToken.getAddress());
-      expect(await mockWarrant.feeToken()).to.equal(await mockFeeToken.getAddress());
-      expect(await mockWarrant.tokenAmount()).to.equal(TOKEN_AMOUNT);
-      expect(await mockWarrant.tokenPrice()).to.equal(TOKEN_PRICE);
-      expect(await mockWarrant.feeReceiver()).to.equal(feeReceiver.address);
+      expect(await mockWarrant.warrantToken()).to.equal(await mockWarrantToken.getAddress());
+      expect(await mockWarrant.paymentToken()).to.equal(await mockPaymentToken.getAddress());
+      expect(await mockWarrant.warrantTokenAmount()).to.equal(TOKEN_AMOUNT);
+      expect(await mockWarrant.warrantTokenPrice()).to.equal(TOKEN_PRICE);
+      expect(await mockWarrant.paymentReceiver()).to.equal(feeReceiver.address);
       expect(await mockWarrant.expiration()).to.equal(expirationTime);
       expect(await mockWarrant.executed()).to.be.false;
     });
@@ -126,7 +126,7 @@ describe('WarrantBase', () => {
         owner.address,
         warrantHolder.address,
         await mockVotesToken.getAddress(),
-        await mockFeeToken.getAddress(),
+        await mockPaymentToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
@@ -136,11 +136,11 @@ describe('WarrantBase', () => {
       expect(await mockWarrant.relativeTime()).to.be.true;
       expect(await mockWarrant.owner()).to.equal(owner.address);
       expect(await mockWarrant.warrantHolder()).to.equal(warrantHolder.address);
-      expect(await mockWarrant.token()).to.equal(await mockVotesToken.getAddress());
-      expect(await mockWarrant.feeToken()).to.equal(await mockFeeToken.getAddress());
-      expect(await mockWarrant.tokenAmount()).to.equal(TOKEN_AMOUNT);
-      expect(await mockWarrant.tokenPrice()).to.equal(TOKEN_PRICE);
-      expect(await mockWarrant.feeReceiver()).to.equal(feeReceiver.address);
+      expect(await mockWarrant.warrantToken()).to.equal(await mockVotesToken.getAddress());
+      expect(await mockWarrant.paymentToken()).to.equal(await mockPaymentToken.getAddress());
+      expect(await mockWarrant.warrantTokenAmount()).to.equal(TOKEN_AMOUNT);
+      expect(await mockWarrant.warrantTokenPrice()).to.equal(TOKEN_PRICE);
+      expect(await mockWarrant.paymentReceiver()).to.equal(feeReceiver.address);
       expect(await mockWarrant.expiration()).to.equal(BigInt(EXPIRATION_DURATION));
       expect(await mockWarrant.executed()).to.be.false;
     });
@@ -151,8 +151,8 @@ describe('WarrantBase', () => {
           true, // relative time
           owner.address,
           warrantHolder.address,
-          await mockToken.getAddress(), // regular ERC20, not IVotesERC20V1
-          await mockFeeToken.getAddress(),
+          await mockWarrantToken.getAddress(), // regular ERC20, not IVotesERC20V1
+          await mockPaymentToken.getAddress(),
           TOKEN_AMOUNT,
           TOKEN_PRICE,
           feeReceiver.address,
@@ -173,8 +173,8 @@ describe('WarrantBase', () => {
         false, // absolute time
         owner.address,
         warrantHolder.address,
-        await mockToken.getAddress(),
-        await mockFeeToken.getAddress(),
+        await mockWarrantToken.getAddress(),
+        await mockPaymentToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
@@ -182,22 +182,22 @@ describe('WarrantBase', () => {
       );
 
       // Mint tokens to warrant contract
-      await mockToken.mint(await mockWarrant.getAddress(), TOKEN_AMOUNT);
+      await mockWarrantToken.mint(await mockWarrant.getAddress(), TOKEN_AMOUNT);
 
       // Approve fee payment
-      await mockFeeToken
+      await mockPaymentToken
         .connect(warrantHolder)
         .approve(await mockWarrant.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant successfully', async () => {
       const expectedFee = (TOKEN_AMOUNT * TOKEN_PRICE) / ethers.parseEther('1');
-      const feeReceiverBalanceBefore = await mockFeeToken.balanceOf(feeReceiver.address);
+      const feeReceiverBalanceBefore = await mockPaymentToken.balanceOf(feeReceiver.address);
 
       const tx = await mockWarrant.connect(warrantHolder).execute(recipient.address);
 
       // Check fee was transferred
-      expect(await mockFeeToken.balanceOf(feeReceiver.address)).to.equal(
+      expect(await mockPaymentToken.balanceOf(feeReceiver.address)).to.equal(
         feeReceiverBalanceBefore + expectedFee,
       );
 
@@ -237,12 +237,12 @@ describe('WarrantBase', () => {
 
     it('should revert if insufficient fee token balance', async () => {
       // Remove fee tokens from warrant holder
-      const balance = await mockFeeToken.balanceOf(warrantHolder.address);
-      await mockFeeToken.connect(warrantHolder).transfer(other.address, balance);
+      const balance = await mockPaymentToken.balanceOf(warrantHolder.address);
+      await mockPaymentToken.connect(warrantHolder).transfer(other.address, balance);
 
       await expect(
         mockWarrant.connect(warrantHolder).execute(recipient.address),
-      ).to.be.revertedWithCustomError(mockFeeToken, 'ERC20InsufficientBalance');
+      ).to.be.revertedWithCustomError(mockPaymentToken, 'ERC20InsufficientBalance');
     });
   });
 
@@ -255,7 +255,7 @@ describe('WarrantBase', () => {
         owner.address,
         warrantHolder.address,
         await mockVotesToken.getAddress(),
-        await mockFeeToken.getAddress(),
+        await mockPaymentToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
@@ -271,19 +271,19 @@ describe('WarrantBase', () => {
       await mockVotesToken.setUnlockTime(UNLOCK_TIME);
 
       // Approve fee payment
-      await mockFeeToken
+      await mockPaymentToken
         .connect(warrantHolder)
         .approve(await mockWarrant.getAddress(), ethers.MaxUint256);
     });
 
     it('should execute warrant after token unlock', async () => {
       const expectedFee = (TOKEN_AMOUNT * TOKEN_PRICE) / ethers.parseEther('1');
-      const feeReceiverBalanceBefore = await mockFeeToken.balanceOf(feeReceiver.address);
+      const feeReceiverBalanceBefore = await mockPaymentToken.balanceOf(feeReceiver.address);
 
       const tx = await mockWarrant.connect(warrantHolder).execute(recipient.address);
 
       // Check fee was transferred
-      expect(await mockFeeToken.balanceOf(feeReceiver.address)).to.equal(
+      expect(await mockPaymentToken.balanceOf(feeReceiver.address)).to.equal(
         feeReceiverBalanceBefore + expectedFee,
       );
 
@@ -324,8 +324,8 @@ describe('WarrantBase', () => {
         false, // absolute time
         owner.address,
         warrantHolder.address,
-        await mockToken.getAddress(),
-        await mockFeeToken.getAddress(),
+        await mockWarrantToken.getAddress(),
+        await mockPaymentToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
@@ -333,17 +333,17 @@ describe('WarrantBase', () => {
       );
 
       // Transfer tokens to warrant contract
-      await mockToken.transfer(await mockWarrant.getAddress(), TOKEN_AMOUNT);
+      await mockWarrantToken.transfer(await mockWarrant.getAddress(), TOKEN_AMOUNT);
     });
 
     it('should allow owner to clawback after expiration', async () => {
       await time.increaseTo(expirationTime + 1);
 
-      const recipientBalanceBefore = await mockToken.balanceOf(recipient.address);
+      const recipientBalanceBefore = await mockWarrantToken.balanceOf(recipient.address);
 
       const tx = await mockWarrant.connect(owner).clawback(recipient.address);
 
-      expect(await mockToken.balanceOf(recipient.address)).to.equal(
+      expect(await mockWarrantToken.balanceOf(recipient.address)).to.equal(
         recipientBalanceBefore + TOKEN_AMOUNT,
       );
 
@@ -360,7 +360,7 @@ describe('WarrantBase', () => {
 
     it('should revert if warrant already executed', async () => {
       // Execute warrant first
-      await mockFeeToken
+      await mockPaymentToken
         .connect(warrantHolder)
         .approve(await mockWarrant.getAddress(), ethers.MaxUint256);
       await mockWarrant.connect(warrantHolder).execute(recipient.address);
@@ -388,7 +388,7 @@ describe('WarrantBase', () => {
         owner.address,
         warrantHolder.address,
         await mockVotesToken.getAddress(),
-        await mockFeeToken.getAddress(),
+        await mockPaymentToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,
@@ -440,8 +440,8 @@ describe('WarrantBase', () => {
         false,
         owner.address,
         warrantHolder.address,
-        await mockToken.getAddress(),
-        await mockFeeToken.getAddress(),
+        await mockWarrantToken.getAddress(),
+        await mockPaymentToken.getAddress(),
         TOKEN_AMOUNT,
         TOKEN_PRICE,
         feeReceiver.address,

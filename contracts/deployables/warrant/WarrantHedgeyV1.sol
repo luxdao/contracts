@@ -110,11 +110,11 @@ contract WarrantHedgeyV1 is
             params_.relativeTime,
             params_.owner,
             params_.warrantHolder,
-            params_.token,
-            params_.feeToken,
-            params_.tokenAmount,
-            params_.tokenPrice,
-            params_.feeReceiver,
+            params_.warrantToken,
+            params_.paymentToken,
+            params_.warrantTokenAmount,
+            params_.warrantTokenPrice,
+            params_.paymentReceiver,
             params_.expiration
         );
         __DeploymentBlockInitializable_init();
@@ -124,10 +124,10 @@ contract WarrantHedgeyV1 is
         uint256 absoluteCliff = params_.hedgeyStart +
             params_.hedgeyRelativeCliff;
         _validateHedgeyParams(
-            params_.token,
+            params_.warrantToken,
             params_.hedgeyStart,
             absoluteCliff,
-            params_.tokenAmount,
+            params_.warrantTokenAmount,
             params_.hedgeyRate,
             params_.hedgeyPeriod
         );
@@ -207,7 +207,7 @@ contract WarrantHedgeyV1 is
 
     /**
      * @notice Implementation of warrant execution that creates a Hedgey vesting plan
-     * @dev Called by base contract after fee collection and validation
+     * @dev Called by base contract after payment collection and validation
      * @param recipient_ Address that will receive the vested tokens
      */
     function _executeWarrant(address recipient_) internal virtual override {
@@ -218,7 +218,7 @@ contract WarrantHedgeyV1 is
         uint256 startTime;
         if (base$.relativeTime) {
             startTime =
-                IVotesERC20V1(base$.token).getUnlockTime() +
+                IVotesERC20V1(base$.warrantToken).getUnlockTime() +
                 $.hedgeyStart;
         } else {
             // Check if we've reached the hedgey start time in absolute mode
@@ -230,17 +230,17 @@ contract WarrantHedgeyV1 is
         uint256 hedgeyAbsoluteCliff = startTime + $.hedgeyRelativeCliff;
 
         // Approve Hedgey contract to transfer tokens
-        IERC20(base$.token).approve(
+        IERC20(base$.warrantToken).approve(
             $.hedgeyTokenLockupPlans,
-            base$.tokenAmount
+            base$.warrantTokenAmount
         );
 
         // Create vesting plan through Hedgey
         uint256 planId = IVotingTokenLockupPlans($.hedgeyTokenLockupPlans)
             .createPlan(
                 recipient_,
-                base$.token,
-                base$.tokenAmount,
+                base$.warrantToken,
+                base$.warrantTokenAmount,
                 startTime,
                 hedgeyAbsoluteCliff,
                 $.hedgeyRate,

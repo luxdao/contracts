@@ -31,8 +31,8 @@ describe('WarrantHedgeyV1', () => {
 
   let warrantHedgey: WarrantHedgeyV1;
   let warrantHedgeyImplementation: WarrantHedgeyV1;
-  let mockToken: MockERC20;
-  let mockFeeToken: MockERC20;
+  let mockWarrantToken: MockERC20;
+  let mockPaymentToken: MockERC20;
   let mockVotesToken: MockERC20Votes;
   let mockHedgey: MockVotingTokenLockupPlans;
 
@@ -64,8 +64,8 @@ describe('WarrantHedgeyV1', () => {
     [owner, warrantHolder, feeReceiver, recipient, , proxyDeployer] = await ethers.getSigners();
 
     // Deploy mock tokens
-    mockToken = await new MockERC20__factory(owner).deploy('Mock Token', 'MTK', 18);
-    mockFeeToken = await new MockERC20__factory(owner).deploy('Mock Fee Token', 'MFT', 18);
+    mockWarrantToken = await new MockERC20__factory(owner).deploy('Mock Token', 'MTK', 18);
+    mockPaymentToken = await new MockERC20__factory(owner).deploy('Mock Fee Token', 'MFT', 18);
     mockVotesToken = await new MockERC20Votes__factory(owner).deploy();
 
     // Deploy mock Hedgey
@@ -75,8 +75,8 @@ describe('WarrantHedgeyV1', () => {
     warrantHedgeyImplementation = await new WarrantHedgeyV1__factory(owner).deploy();
 
     // Mint tokens for testing
-    await mockToken.mint(owner.address, ethers.parseEther('10000'));
-    await mockFeeToken.mint(warrantHolder.address, ethers.parseEther('10000'));
+    await mockWarrantToken.mint(owner.address, ethers.parseEther('10000'));
+    await mockPaymentToken.mint(warrantHolder.address, ethers.parseEther('10000'));
   });
 
   describe('Initialization', () => {
@@ -89,11 +89,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: false,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: TOKEN_AMOUNT,
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockWarrantToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: TOKEN_AMOUNT,
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: expirationTime,
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: hedgeyStartTime,
@@ -108,11 +108,11 @@ describe('WarrantHedgeyV1', () => {
       expect(await warrantHedgey.relativeTime()).to.be.false;
       expect(await warrantHedgey.owner()).to.equal(owner.address);
       expect(await warrantHedgey.warrantHolder()).to.equal(warrantHolder.address);
-      expect(await warrantHedgey.token()).to.equal(await mockToken.getAddress());
-      expect(await warrantHedgey.feeToken()).to.equal(await mockFeeToken.getAddress());
-      expect(await warrantHedgey.tokenAmount()).to.equal(TOKEN_AMOUNT);
-      expect(await warrantHedgey.tokenPrice()).to.equal(TOKEN_PRICE);
-      expect(await warrantHedgey.feeReceiver()).to.equal(feeReceiver.address);
+      expect(await warrantHedgey.warrantToken()).to.equal(await mockWarrantToken.getAddress());
+      expect(await warrantHedgey.paymentToken()).to.equal(await mockPaymentToken.getAddress());
+      expect(await warrantHedgey.warrantTokenAmount()).to.equal(TOKEN_AMOUNT);
+      expect(await warrantHedgey.warrantTokenPrice()).to.equal(TOKEN_PRICE);
+      expect(await warrantHedgey.paymentReceiver()).to.equal(feeReceiver.address);
       expect(await warrantHedgey.expiration()).to.equal(expirationTime);
       expect(await warrantHedgey.executed()).to.be.false;
 
@@ -133,11 +133,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: false,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: 0n,
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockWarrantToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: 0n,
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: expirationTime,
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: hedgeyStartTime,
@@ -159,11 +159,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: false,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: TOKEN_AMOUNT,
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockWarrantToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: TOKEN_AMOUNT,
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: currentTime + EXPIRATION_DURATION,
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: currentTime + HEDGEY_START,
@@ -185,11 +185,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: false,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: TOKEN_AMOUNT,
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockWarrantToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: TOKEN_AMOUNT,
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: currentTime + EXPIRATION_DURATION,
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: currentTime + HEDGEY_START,
@@ -211,11 +211,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: false,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: TOKEN_AMOUNT,
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockWarrantToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: TOKEN_AMOUNT,
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: currentTime + EXPIRATION_DURATION,
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: currentTime + HEDGEY_START,
@@ -242,11 +242,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: false,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: ethers.parseEther('100'), // 100 tokens
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockWarrantToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: ethers.parseEther('100'), // 100 tokens
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: currentTime + EXPIRATION_DURATION,
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: currentTime + HEDGEY_START,
@@ -276,11 +276,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: false,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: TOKEN_AMOUNT,
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockWarrantToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: TOKEN_AMOUNT,
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: expirationTime,
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: hedgeyStartTime,
@@ -292,10 +292,10 @@ describe('WarrantHedgeyV1', () => {
       warrantHedgey = await deployWarrantHedgeyProxy(params);
 
       // Transfer tokens to warrant contract
-      await mockToken.transfer(await warrantHedgey.getAddress(), TOKEN_AMOUNT);
+      await mockWarrantToken.transfer(await warrantHedgey.getAddress(), TOKEN_AMOUNT);
 
       // Approve fee payment
-      await mockFeeToken
+      await mockPaymentToken
         .connect(warrantHolder)
         .approve(await warrantHedgey.getAddress(), ethers.MaxUint256);
     });
@@ -305,12 +305,12 @@ describe('WarrantHedgeyV1', () => {
       await time.increaseTo(hedgeyStartTime + 1);
 
       const expectedFee = (TOKEN_AMOUNT * TOKEN_PRICE) / ethers.parseEther('1');
-      const feeReceiverBalanceBefore = await mockFeeToken.balanceOf(feeReceiver.address);
+      const feeReceiverBalanceBefore = await mockPaymentToken.balanceOf(feeReceiver.address);
 
       const tx = await warrantHedgey.connect(warrantHolder).execute(recipient.address);
 
       // Check fee was transferred
-      expect(await mockFeeToken.balanceOf(feeReceiver.address)).to.equal(
+      expect(await mockPaymentToken.balanceOf(feeReceiver.address)).to.equal(
         feeReceiverBalanceBefore + expectedFee,
       );
 
@@ -320,7 +320,7 @@ describe('WarrantHedgeyV1', () => {
       // Check Hedgey was called with correct parameters
       const createPlanCall = await mockHedgey.lastCreatePlanCall();
       expect(createPlanCall.recipient).to.equal(recipient.address);
-      expect(createPlanCall.token).to.equal(await mockToken.getAddress());
+      expect(createPlanCall.token).to.equal(await mockWarrantToken.getAddress());
       expect(createPlanCall.amount).to.equal(TOKEN_AMOUNT);
       expect(createPlanCall.start).to.equal(hedgeyStartTime);
       expect(createPlanCall.cliff).to.equal(hedgeyStartTime + HEDGEY_CLIFF);
@@ -347,11 +347,11 @@ describe('WarrantHedgeyV1', () => {
         relativeTime: true,
         owner: owner.address,
         warrantHolder: warrantHolder.address,
-        token: await mockVotesToken.getAddress(),
-        feeToken: await mockFeeToken.getAddress(),
-        tokenAmount: TOKEN_AMOUNT,
-        tokenPrice: TOKEN_PRICE,
-        feeReceiver: feeReceiver.address,
+        warrantToken: await mockVotesToken.getAddress(),
+        paymentToken: await mockPaymentToken.getAddress(),
+        warrantTokenAmount: TOKEN_AMOUNT,
+        warrantTokenPrice: TOKEN_PRICE,
+        paymentReceiver: feeReceiver.address,
         expiration: EXPIRATION_DURATION, // duration after unlock
         hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
         hedgeyStart: HEDGEY_START, // offset from unlock time
@@ -371,7 +371,7 @@ describe('WarrantHedgeyV1', () => {
       await mockVotesToken.setUnlockTime(UNLOCK_TIME);
 
       // Approve fee payment
-      await mockFeeToken
+      await mockPaymentToken
         .connect(warrantHolder)
         .approve(await warrantHedgey.getAddress(), ethers.MaxUint256);
     });
@@ -438,11 +438,11 @@ describe('WarrantHedgeyV1', () => {
           relativeTime: false,
           owner: owner.address,
           warrantHolder: warrantHolder.address,
-          token: await mockToken.getAddress(),
-          feeToken: await mockFeeToken.getAddress(),
-          tokenAmount: TOKEN_AMOUNT,
-          tokenPrice: TOKEN_PRICE,
-          feeReceiver: feeReceiver.address,
+          warrantToken: await mockWarrantToken.getAddress(),
+          paymentToken: await mockPaymentToken.getAddress(),
+          warrantTokenAmount: TOKEN_AMOUNT,
+          warrantTokenPrice: TOKEN_PRICE,
+          paymentReceiver: feeReceiver.address,
           expiration: 1000000, // Static timestamp
           hedgeyTokenLockupPlans: await mockHedgey.getAddress(),
           hedgeyStart: 1000001, // Static timestamp
@@ -461,8 +461,8 @@ describe('WarrantHedgeyV1', () => {
               false,
               owner.address,
               warrantHolder.address,
-              await mockToken.getAddress(),
-              await mockFeeToken.getAddress(),
+              await mockWarrantToken.getAddress(),
+              await mockPaymentToken.getAddress(),
               TOKEN_AMOUNT,
               TOKEN_PRICE,
               feeReceiver.address,

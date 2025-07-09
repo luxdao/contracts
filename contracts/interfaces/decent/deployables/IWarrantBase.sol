@@ -69,33 +69,33 @@ interface IWarrantBase {
 
     /**
      * @notice The token that will be vested upon execution
-     * @return Address of the token contract
+     * @return Address of the warrant token contract
      */
-    function token() external view returns (address);
+    function warrantToken() external view returns (address);
 
     /**
-     * @notice The token used for fee payment
-     * @return Address of the fee token contract
+     * @notice The token used for payment
+     * @return Address of the payment token contract
      */
-    function feeToken() external view returns (address);
+    function paymentToken() external view returns (address);
 
     /**
-     * @notice Amount of tokens to be vested
-     * @return The token amount
+     * @notice Amount of warrant tokens to be vested
+     * @return The warrant token amount
      */
-    function tokenAmount() external view returns (uint256);
+    function warrantTokenAmount() external view returns (uint256);
 
     /**
-     * @notice Price per token in fee token units (18 decimal precision)
-     * @return The token price
+     * @notice Price per warrant token in payment token units (18 decimal precision)
+     * @return The warrant token price
      */
-    function tokenPrice() external view returns (uint256);
+    function warrantTokenPrice() external view returns (uint256);
 
     /**
-     * @notice Address that receives fee payments
-     * @return The fee receiver address
+     * @notice Address that receives payment
+     * @return The payment receiver address
      */
-    function feeReceiver() external view returns (address);
+    function paymentReceiver() external view returns (address);
 
     /**
      * @notice Expiration timestamp or duration based on time mode

@@ -41,33 +41,33 @@ contract ConcreteWarrantBase is
      * @param relativeTime_ Whether to use relative time based on token unlock
      * @param owner_ Owner address who can clawback after expiration
      * @param warrantHolder_ Address authorized to execute the warrant
-     * @param token_ Token to be vested
-     * @param feeToken_ Token used for fee payment
-     * @param tokenAmount_ Amount of tokens to vest
-     * @param tokenPrice_ Price per token in fee token units (18 decimals)
-     * @param feeReceiver_ Address that receives fee payments
+     * @param warrantToken_ Token to be vested
+     * @param paymentToken_ Token used for payment
+     * @param warrantTokenAmount_ Amount of warrant tokens to vest
+     * @param warrantTokenPrice_ Price per warrant token in payment token units (18 decimals)
+     * @param paymentReceiver_ Address that receives payment
      * @param expiration_ Expiration timestamp or duration
      */
     function initialize(
         bool relativeTime_,
         address owner_,
         address warrantHolder_,
-        address token_,
-        address feeToken_,
-        uint256 tokenAmount_,
-        uint256 tokenPrice_,
-        address feeReceiver_,
+        address warrantToken_,
+        address paymentToken_,
+        uint256 warrantTokenAmount_,
+        uint256 warrantTokenPrice_,
+        address paymentReceiver_,
         uint256 expiration_
     ) public initializer {
         __WarrantBase_init(
             relativeTime_,
             owner_,
             warrantHolder_,
-            token_,
-            feeToken_,
-            tokenAmount_,
-            tokenPrice_,
-            feeReceiver_,
+            warrantToken_,
+            paymentToken_,
+            warrantTokenAmount_,
+            warrantTokenPrice_,
+            paymentReceiver_,
             expiration_
         );
         __DeploymentBlockInitializable_init();
