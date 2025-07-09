@@ -87,6 +87,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
         returns (WarrantBaseStorage storage)
     {
         WarrantBaseStorage storage $;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := WARRANT_BASE_STORAGE_LOCATION
         }
@@ -117,6 +118,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
      * @param expiration_ Expiration timestamp or duration
      */
     function __WarrantBase_init(
+        // solhint-disable-previous-line func-name-mixedcase
         bool relativeTime_,
         address owner_,
         address warrantHolder_,
@@ -139,6 +141,7 @@ abstract contract WarrantBase is IWarrantBase, Ownable2StepUpgradeable {
             returns (bool result) {
                 supported = result;
             } catch {
+                // solhint-disable-previous-line no-empty-blocks
                 // supported is already false by default
             }
             if (!supported) revert UnsupportedToken();
