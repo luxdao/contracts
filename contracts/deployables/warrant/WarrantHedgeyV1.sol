@@ -85,6 +85,7 @@ contract WarrantHedgeyV1 is
         returns (WarrantHedgeyStorage storage)
     {
         WarrantHedgeyStorage storage $;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := WARRANT_HEDGEY_STORAGE_LOCATION
         }
