@@ -95,4 +95,12 @@ interface IFreezeVotingMultisigV1 {
      * @custom:emits FreezeVoteCast with voter address and weight of 1
      */
     function castFreezeVote(uint256 lightAccountIndex_) external;
+
+    /**
+     * @notice Allows the owner to manually unfreeze the child DAO
+     * @dev Only the parent DAO (owner) can call this function. Resets all freeze
+     * state including proposal counts and frozen status.
+     * @custom:access Restricted to owner (parent DAO)
+     */
+    function unfreeze() external;
 }

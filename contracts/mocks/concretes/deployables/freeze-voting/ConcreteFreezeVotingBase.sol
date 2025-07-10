@@ -4,17 +4,23 @@ pragma solidity ^0.8.30;
 import {
     FreezeVotingBase
 } from "../../../../deployables/freeze-voting/FreezeVotingBase.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract ConcreteFreezeVotingBase is FreezeVotingBase {
+contract ConcreteFreezeVotingBase is FreezeVotingBase, Ownable2StepUpgradeable {
     function initialize(
         address owner_,
         uint256 freezeVotesThreshold_,
-        uint32 freezeProposalPeriod_
+        uint32 freezeProposalPeriod_,
+        address lightAccountFactory_
     ) public initializer {
+        __FreezeVotingBase_init(
+            freezeProposalPeriod_,
+            freezeVotesThreshold_,
+            lightAccountFactory_
+        );
         __Ownable_init(owner_);
-        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
-        $base.freezeVotesThreshold = freezeVotesThreshold_;
-        $base.freezeProposalPeriod = freezeProposalPeriod_;
     }
 
     function castFreezeVote() external {
@@ -32,5 +38,12 @@ contract ConcreteFreezeVotingBase is FreezeVotingBase {
         );
 
         _recordFreezeVote(msg.sender, 1);
+    }
+
+    function unfreeze() external onlyOwner {
+        FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
+        $.isFrozen = false;
+        $.freezeProposalCreated = 0;
+        $.freezeProposalVoteCount = 0;
     }
 }
