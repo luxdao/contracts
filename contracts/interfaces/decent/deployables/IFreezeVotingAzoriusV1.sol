@@ -73,7 +73,6 @@ interface IFreezeVotingAzoriusV1 {
      * @param owner_ The parent DAO that will have unfreeze powers
      * @param freezeVotesThreshold_ Voting weight required to freeze the child DAO
      * @param freezeProposalPeriod_ Duration in seconds that freeze proposals remain active
-     * @param freezePeriod_ Duration in seconds that a freeze remains active
      * @param parentAzorius_ The parent DAO's Azorius module address
      * @param lightAccountFactory_ Factory for Light Account support (ERC-4337)
      */
@@ -81,7 +80,6 @@ interface IFreezeVotingAzoriusV1 {
         address owner_,
         uint256 freezeVotesThreshold_,
         uint32 freezeProposalPeriod_,
-        uint32 freezePeriod_,
         address parentAzorius_,
         address lightAccountFactory_
     ) external;

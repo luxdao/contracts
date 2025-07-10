@@ -993,7 +993,6 @@ contract SystemDeployerV1 is
                         freezeVotingMultisigV1Params.owner,
                         freezeVotingMultisigV1Params.freezeVotesThreshold,
                         freezeVotingMultisigV1Params.freezeProposalPeriod,
-                        freezeVotingMultisigV1Params.freezePeriod,
                         freezeVotingMultisigV1Params.parentSafe,
                         freezeVotingMultisigV1Params.lightAccountFactory
                     )
@@ -1011,7 +1010,6 @@ contract SystemDeployerV1 is
                         freezeVotingAzoriusV1Params.owner,
                         freezeVotingAzoriusV1Params.freezeVotesThreshold,
                         freezeVotingAzoriusV1Params.freezeProposalPeriod,
-                        freezeVotingAzoriusV1Params.freezePeriod,
                         freezeVotingAzoriusV1Params.parentAzorius,
                         freezeVotingAzoriusV1Params.lightAccountFactory
                     )

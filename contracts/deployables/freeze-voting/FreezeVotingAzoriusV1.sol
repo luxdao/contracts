@@ -126,7 +126,6 @@ contract FreezeVotingAzoriusV1 is
         address owner_,
         uint256 freezeVotesThreshold_,
         uint32 freezeProposalPeriod_,
-        uint32 freezePeriod_,
         address parentAzorius_,
         address lightAccountFactory_
     ) public virtual override initializer {
@@ -135,7 +134,6 @@ contract FreezeVotingAzoriusV1 is
                 owner_,
                 freezeVotesThreshold_,
                 freezeProposalPeriod_,
-                freezePeriod_,
                 parentAzorius_,
                 lightAccountFactory_
             )
@@ -143,7 +141,6 @@ contract FreezeVotingAzoriusV1 is
         __FreezeVotingBase_init(
             owner_,
             freezeProposalPeriod_,
-            freezePeriod_,
             freezeVotesThreshold_,
             lightAccountFactory_
         );
