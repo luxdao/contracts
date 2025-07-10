@@ -224,6 +224,9 @@ contract FreezeGuardMultisigV1 is
     ) public virtual override {
         FreezeGuardMultisigStorage storage $ = _getFreezeGuardMultisigStorage();
 
+        // Check if DAO is frozen - no new timelocks allowed while frozen
+        if ($.freezable.isFrozen()) revert DAOFrozen();
+
         // Check 1: Ensure this exact set of signatures hasn't been timelocked already
         // Using signature hash as unique identifier prevents replay attacks
         if ($.transactionTimelocked[keccak256(signatures_)] != 0)
@@ -311,7 +314,12 @@ contract FreezeGuardMultisigV1 is
      * 1. Transaction must be timelocked
      * 2. Timelock period must have passed
      * 3. Must be within execution window
-     * 4. DAO must not be frozen
+     * 4. Transaction must have been timelocked AFTER the most recent freeze
+     * 5. DAO must not be currently frozen
+     *
+     * CRITICAL SECURITY INVARIANT: Check 4 ensures that any transaction timelocked
+     * before the most recent freeze is permanently invalidated, even after unfreeze.
+     *
      * Only the signatures parameter is used; others are ignored.
      */
     function checkTransaction(
@@ -352,8 +360,21 @@ contract FreezeGuardMultisigV1 is
                 $.executionPeriod
         ) revert Expired();
 
-        // Check 4: DAO must not be frozen
-        // Final check allows parent to block execution even after timelock
+        // Check 4: Enforce critical security invariant for freeze protection
+        // SECURITY INVARIANT: Any transaction timelocked BEFORE the most recent freeze
+        // is permanently invalidated and can NEVER be executed, even after unfreeze.
+        // This prevents malicious signers from queuing harmful transactions and waiting
+        // for an unfreeze to execute them.
+        uint48 lastFreeze = $.freezable.lastKnownFreezeTime();
+        if (
+            lastFreeze != 0 &&
+            $.transactionTimelocked[signaturesHash] < lastFreeze
+        ) {
+            revert TimelockedBeforeFreeze();
+        }
+
+        // Check 5: DAO must not be currently frozen
+        // Final check prevents execution during freeze
         if ($.freezable.isFrozen()) revert DAOFrozen();
     }
 

@@ -10,6 +10,7 @@ import {IFreezable} from "../interfaces/decent/deployables/IFreezable.sol";
  */
 contract MockFreezable is IFreezable {
     bool private _isFrozen;
+    uint48 private _lastFreezeTimestamp;
 
     /**
      * @notice Sets the frozen state for testing
@@ -20,9 +21,24 @@ contract MockFreezable is IFreezable {
     }
 
     /**
+     * @notice Sets the last known freeze timestamp for testing
+     * @param timestamp The most recent freeze timestamp
+     */
+    function setLastKnownFreezeTime(uint48 timestamp) external {
+        _lastFreezeTimestamp = timestamp;
+    }
+
+    /**
      * @inheritdoc IFreezable
      */
     function isFrozen() external view override returns (bool) {
         return _isFrozen;
+    }
+
+    /**
+     * @inheritdoc IFreezable
+     */
+    function lastKnownFreezeTime() external view override returns (uint48) {
+        return _lastFreezeTimestamp;
     }
 }
