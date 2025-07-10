@@ -4,11 +4,13 @@ pragma solidity ^0.8.30;
 interface IPublicSaleV1 {
     // --- Errors ---
 
-    error InvalidSaleEndTimestamp();
+    error InvalidSaleStartTimestamp();
 
     error InvalidSaleTimestamps();
 
     error InvalidCommitmentAmounts();
+
+    error InvalidTotalCommitmentAmounts();
 
     error TransferFailed();
 
@@ -18,7 +20,15 @@ interface IPublicSaleV1 {
 
     error SaleNotStarted();
 
-    error SaleClosed();
+    error SaleNotActive();
+
+    error SaleNotEnded();
+
+    error AlreadySettled();
+
+    error DecreaseAmountExceedsCommitment();
+
+    error SaleEnded();
 
     error MinimumCommitment();
 
@@ -26,34 +36,67 @@ interface IPublicSaleV1 {
 
     error MaximumTotalCommitment();
 
+    error NoChangeToCommitment();
+
+    error ZeroAmount();
+
+    error KYCVerificationFailed();
+
+    error InvalidDecreaseCommitmentFee();
+
+    error NoFeesToClaim();
+
+    error ZeroCommitment();
+
+    error InvalidProtocolFee();
+
+    error InvalidCommitmentToken();
+
     // --- Structs ---
 
     struct InitializerParams {
-        address owner_;
-        address commitmentToken_;
-        address saleToken_;
-        uint256 minimumCommitment_;
-        uint256 maximumCommitment_;
-        uint256 minimumTotalCommitment_;
-        uint256 maximumTotalCommitment_;
-        uint256 saleTokenPrice_;
-        uint48 saleStartTimestamp_;
-        uint48 saleCloseTimestamp_;
-        address saleTokenHolder_;
+        address owner;
+        address commitmentToken;
+        address saleToken;
+        uint256 minimumCommitment;
+        uint256 maximumCommitment;
+        uint256 minimumTotalCommitment;
+        uint256 maximumTotalCommitment;
+        uint256 saleTokenPrice;
+        uint48 saleStartTimestamp;
+        uint48 saleEndTimestamp;
+        uint256 decreaseCommitmentFee;
+        uint256 protocolFee;
+        address saleProceedsReceiver;
+        address protocolFeeReceiver;
+        address saleTokenHolder;
+        address kycVerifier;
     }
 
     // --- Enums ---
 
     enum SaleState {
-        INACTIVE,
+        NOT_STARTED,
         ACTIVE,
-        CLOSED,
+        SUCCEEDED,
         FAILED
     }
 
     // --- Events ---
 
-    event BidPlaced(address indexed user, uint256 amount);
+    event CommitmentIncreased(address indexed account, uint256 amount);
+
+    event CommitmentDecreased(address indexed account, uint256 amount);
+
+    // event FeesClaimed(address indexed recipient, uint256 amount);
+
+    event SuccessfulSaleSettled(address indexed account, address indexed recipient, uint256 saleTokenAmount);
+
+    event FailedSaleSettled(address indexed account, address indexed recipient, uint256 commitmentTokenAmount);
+
+    event SuccessfulSaleOwnerSettled(address indexed owner, uint256 saleProceeds, uint256 protocolFee);
+
+    event FailedSaleOwnerSettled(address indexed owner, uint256 saleTokenAmount, uint256 decreaseCommitmentFees);
 
     // --- Initializer Functions ---
 
@@ -63,7 +106,4 @@ interface IPublicSaleV1 {
 
     // --- State-Changing Functions ---
 
-    function commit(uint256 amount_) external payable;
-
-    function close() external;
 }

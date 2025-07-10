@@ -7,17 +7,22 @@ import {
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {
+    IKYCVerifierV1
+} from "../../interfaces/decent/services/IKYCVerifierV1.sol";
+import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
     SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+// TODO: add onlyOwner function to update feeReceiver
 
 contract PublicSaleV1 is
     IPublicSaleV1,
@@ -41,15 +46,23 @@ contract PublicSaleV1 is
     struct PublicSaleStorage {
         address commitmentToken;
         address saleToken;
+        address kycVerifier;
         uint256 minimumCommitment;
         uint256 maximumCommitment;
         uint256 minimumTotalCommitment;
         uint256 maximumTotalCommitment;
         uint256 saleTokenPrice;
         uint48 saleStartTimestamp;
-        uint48 saleCloseTimestamp;
+        uint48 saleEndTimestamp;
+        uint256 decreaseCommitmentFee;
+        uint256 protocolFee;
+        address saleProceedsReceiver;
+        address protocolFeeReceiver;
         uint256 totalCommitments;
+        uint256 collectedDecreaseCommitmentFees;
+        bool ownerSettled;
         mapping(address account => uint256 commitmentAmount) commitments;
+        mapping(address account => bool settled) settled;
     }
 
     /**
@@ -83,6 +96,18 @@ contract PublicSaleV1 is
     uint256 internal constant PRECISION = 10 ** 18;
 
     // ======================================================================
+    // MODIFIERS
+    // ======================================================================
+
+    // TODO: add optional signature bytes to IKYCVerifierV1
+    modifier isKYCVerified() {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        if (!IKYCVerifierV1($.kycVerifier).verify(msg.sender))
+            revert KYCVerificationFailed();
+        _;
+    }
+
+    // ======================================================================
     // CONSTRUCTOR & INITIALIZERS
     // ======================================================================
 
@@ -93,43 +118,49 @@ contract PublicSaleV1 is
     function initialize(
         InitializerParams memory params_
     ) public virtual override initializer {
-        if (params_.saleStartTimestamp_ > params_.saleCloseTimestamp_) {
+        if (params_.saleStartTimestamp > params_.saleEndTimestamp)
             revert InvalidSaleTimestamps();
-        }
 
-        if (params_.saleCloseTimestamp_ < block.timestamp) {
-            revert InvalidSaleEndTimestamp();
-        }
+        if (params_.saleStartTimestamp < block.timestamp)
+            revert InvalidSaleStartTimestamp();
 
-        if (params_.minimumCommitment_ > params_.maximumCommitment_) {
+        if (params_.minimumCommitment > params_.maximumCommitment)
             revert InvalidCommitmentAmounts();
-        }
 
-        __InitializerEventEmitter_init(
-            abi.encode(
-                params_
-            )
-        );
-        __Ownable_init(params_.owner_);
+        if (params_.minimumTotalCommitment > params_.maximumTotalCommitment)
+            revert InvalidTotalCommitmentAmounts();
+
+        if (params_.decreaseCommitmentFee > PRECISION)
+            revert InvalidDecreaseCommitmentFee();
+
+        if (params_.protocolFee > PRECISION) revert InvalidProtocolFee();
+
+        __InitializerEventEmitter_init(abi.encode(params_));
+        __Ownable_init(params_.owner);
         __DeploymentBlockInitializable_init();
 
         PublicSaleStorage storage $ = _getPublicSaleStorage();
-        $.commitmentToken = params_.commitmentToken_;
-        $.saleToken = params_.saleToken_;
-        $.minimumCommitment = params_.minimumCommitment_;
-        $.maximumCommitment = params_.maximumCommitment_;
-        $.minimumTotalCommitment = params_.minimumTotalCommitment_;
-        $.maximumTotalCommitment = params_.maximumTotalCommitment_;
-        $.saleTokenPrice = params_.saleTokenPrice_;
-        $.saleStartTimestamp = params_.saleStartTimestamp_;
-        $.saleCloseTimestamp = params_.saleCloseTimestamp_;
+        $.commitmentToken = params_.commitmentToken;
+        $.saleToken = params_.saleToken;
+        $.kycVerifier = params_.kycVerifier;
+        $.minimumCommitment = params_.minimumCommitment;
+        $.maximumCommitment = params_.maximumCommitment;
+        $.minimumTotalCommitment = params_.minimumTotalCommitment;
+        $.maximumTotalCommitment = params_.maximumTotalCommitment;
+        $.saleTokenPrice = params_.saleTokenPrice;
+        $.saleStartTimestamp = params_.saleStartTimestamp;
+        $.saleEndTimestamp = params_.saleEndTimestamp;
+        $.decreaseCommitmentFee = params_.decreaseCommitmentFee;
+        $.protocolFee = params_.protocolFee;
+        $.saleProceedsReceiver = params_.saleProceedsReceiver;
+        $.protocolFeeReceiver = params_.protocolFeeReceiver;
 
-        uint256 saleTokenEscrowAmount = (params_.maximumTotalCommitment_ * PRECISION) /
-            params_.saleTokenPrice_;
+        uint256 saleTokenEscrowAmount = (params_.maximumTotalCommitment *
+            PRECISION) / params_.saleTokenPrice;
 
         // transfer sale token from holder to this contract
-        IERC20(params_.saleToken_).safeTransferFrom(
-            params_.saleTokenHolder_,
+        IERC20(params_.saleToken).safeTransferFrom(
+            params_.saleTokenHolder,
             address(this),
             saleTokenEscrowAmount
         );
@@ -141,66 +172,281 @@ contract PublicSaleV1 is
 
     // --- View Functions ---
 
-    // --- State-Changing Functions ---
-
-    function commit(uint256 amount_) public payable virtual override {
-        // TODO: check that sale is active
+    // TODO: add to interface and override
+    function saleState() public view virtual returns (SaleState) {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if (block.timestamp < $.saleStartTimestamp) {
-            revert SaleNotStarted();
+            return SaleState.NOT_STARTED;
+        } else if ($.totalCommitments >= $.maximumTotalCommitment) {
+            return SaleState.SUCCEEDED;
+        } else if (block.timestamp > $.saleEndTimestamp) {
+            // sale has ended
+            if ($.totalCommitments >= $.minimumTotalCommitment) {
+                return SaleState.SUCCEEDED;
+            } else {
+                return SaleState.FAILED;
+            }
+        } else {
+            return SaleState.ACTIVE;
         }
+    }
 
-        if (block.timestamp > $.saleCloseTimestamp) {
-            revert SaleClosed();
-        }
+    // --- State-Changing Functions ---
 
-        // cannot commit less than minimum commitment, 
-        // unless it reaches the maximumTotalCommitment
+    // TODO: add to interface and override
+    // TODO: split out into native / ERC20
+    function increaseCommitment(
+        uint256 increaseAmount_
+    ) public payable virtual isKYCVerified {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        if (saleState() != SaleState.ACTIVE) revert SaleNotActive();
+
+        if (increaseAmount_ == 0) revert ZeroAmount();
+
+        if ($.totalCommitments + increaseAmount_ > $.maximumTotalCommitment)
+            revert MaximumTotalCommitment();
+
+        uint256 previousCommitment = $.commitments[msg.sender];
+
+        // revert if new commitment amount is less than minimum commitment,
+        // unless commitment makes total commitments reach maximum total commitment
         if (
-            amount_ < $.minimumCommitment &&
-            amount_ + $.totalCommitments != $.maximumTotalCommitment
+            previousCommitment + increaseAmount_ < $.minimumCommitment &&
+            $.totalCommitments + increaseAmount_ != $.maximumTotalCommitment
+        ) revert MinimumCommitment();
+
+        if (previousCommitment + increaseAmount_ > $.maximumCommitment)
+            revert MaximumCommitment();
+
+        // update state
+        $.commitments[msg.sender] += increaseAmount_;
+        $.totalCommitments += increaseAmount_;
+
+        if ($.commitmentToken == NATIVE_ASSET) {
+            if (msg.value != increaseAmount_) revert InvalidBidAmount();
+        } else {
+            if (msg.value != 0) revert InvalidBidAmount(); // TODO: Update this error
+
+            IERC20($.commitmentToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                increaseAmount_
+            );
+        }
+
+        emit CommitmentIncreased(msg.sender, increaseAmount_);
+    }
+
+    // TODO: add to interface and override
+    function increaseCommitmentNative() public payable virtual isKYCVerified {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        if ($.commitmentToken != NATIVE_ASSET) revert InvalidCommitmentToken();
+
+        _increaseCommitment(msg.sender, msg.value);
+    }
+
+    // TODO: add to interface and override
+    function increaseCommitmentERC20(
+        uint256 increaseAmount_
+    ) public virtual isKYCVerified {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        if ($.commitmentToken == NATIVE_ASSET) revert InvalidCommitmentToken();
+
+        _increaseCommitment(msg.sender, increaseAmount_);
+
+        IERC20($.commitmentToken).safeTransferFrom(
+            msg.sender,
+            address(this),
+            increaseAmount_
+        );
+    }
+
+    function _increaseCommitment(
+        address account_,
+        uint256 increaseAmount_
+    ) internal {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        if (saleState() != SaleState.ACTIVE) revert SaleNotActive();
+
+        if (increaseAmount_ == 0) revert ZeroAmount();
+
+        if ($.totalCommitments + increaseAmount_ > $.maximumTotalCommitment)
+            revert MaximumTotalCommitment();
+
+        uint256 previousCommitment = $.commitments[account_];
+
+        // revert if new commitment amount is less than minimum commitment,
+        // unless commitment makes total commitments reach maximum total commitment
+        if (
+            previousCommitment + increaseAmount_ < $.minimumCommitment &&
+            $.totalCommitments + increaseAmount_ != $.maximumTotalCommitment
+        ) revert MinimumCommitment();
+
+        if (previousCommitment + increaseAmount_ > $.maximumCommitment)
+            revert MaximumCommitment();
+
+        // update state
+        $.commitments[account_] += increaseAmount_;
+        $.totalCommitments += increaseAmount_;
+
+        emit CommitmentIncreased(account_, increaseAmount_);
+    }
+
+    // TODO: add to interface and override
+    function decreaseCommitment(
+        uint256 decreaseAmount_,
+        address recipient_
+    ) public virtual {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        if (saleState() != SaleState.ACTIVE) revert SaleNotActive();
+
+        if (decreaseAmount_ == 0) revert ZeroAmount();
+
+        if (decreaseAmount_ > $.commitments[msg.sender])
+            revert DecreaseAmountExceedsCommitment();
+
+        // throw error if caller's commitment will be less than minimum commitment,
+        // unless commitment will be zeroed out
+        if (
+            $.commitments[msg.sender] - decreaseAmount_ < $.minimumCommitment &&
+            $.commitments[msg.sender] != decreaseAmount_
         ) {
             revert MinimumCommitment();
         }
 
-        if (amount_ + $.totalCommitments > $.maximumTotalCommitment) {
-            revert MaximumTotalCommitment();
-        }
+        uint256 decreaseCommitmentFee = (decreaseAmount_ *
+            $.decreaseCommitmentFee) / PRECISION;
 
-        if (amount_ > $.maximumCommitment) {
-            revert MaximumCommitment();
-        }
+        // update state
+        $.commitments[msg.sender] -= decreaseAmount_;
+        $.totalCommitments -= decreaseAmount_;
+        $.collectedDecreaseCommitmentFees += decreaseCommitmentFee;
 
-        address commitmentToken = $.commitmentToken;
+        uint256 receivedAmount = decreaseAmount_ - decreaseCommitmentFee;
 
-        if (commitmentToken == NATIVE_ASSET) {
-            if (msg.value != amount_) {
-                revert InvalidBidAmount();
-            }
-        } else {
-            IERC20(commitmentToken).safeTransferFrom(
-                msg.sender,
-                address(this),
-                amount_
-            );
-        }
+        // transfer commitment token to msg.sender
+        _transferTokenOrNative($.commitmentToken, recipient_, receivedAmount);
 
-        $.commitments[msg.sender] += amount_;
-        $.totalCommitments += amount_;
-
-        emit BidPlaced(msg.sender, amount_);
+        emit CommitmentDecreased(msg.sender, decreaseAmount_);
     }
 
-    function close() public virtual override {
+    // TODO: add to interface and override
+    function settle(address recipient_) public virtual {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
-        if (block.timestamp < $.saleCloseTimestamp) {
-            revert SaleCloseTimestampNotElapsed();
-        }
 
-        // TODO: transfer sale token to sale token holder
-        // TODO: transfer fee token to fee token holder
-        // TODO: emit SaleClosed event
+        if ($.settled[msg.sender]) revert AlreadySettled();
+
+        if ($.commitments[msg.sender] == 0) revert ZeroCommitment();
+
+        $.settled[msg.sender] = true;
+
+        SaleState state = saleState();
+
+        if (state == SaleState.SUCCEEDED) {
+            // send the caller their purchased sale tokens
+            uint256 saleTokenAmount = ($.commitments[msg.sender] * PRECISION) /
+                $.saleTokenPrice;
+
+            IERC20($.saleToken).safeTransfer(recipient_, saleTokenAmount);
+
+            emit SuccessfulSaleSettled(msg.sender, recipient_, saleTokenAmount);
+        } else if (state == SaleState.FAILED) {
+            uint256 commitmentTokenAmount = $.commitments[msg.sender];
+
+            _transferTokenOrNative(
+                $.commitmentToken,
+                recipient_,
+                commitmentTokenAmount
+            );
+
+            emit FailedSaleSettled(
+                msg.sender,
+                recipient_,
+                commitmentTokenAmount
+            );
+        } else {
+            revert SaleNotEnded();
+        }
+    }
+
+    // TODO: add to interface and override
+    function ownerSettle() public virtual onlyOwner {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        if ($.ownerSettled) revert AlreadySettled();
+
+        $.ownerSettled = true;
+
+        SaleState state = saleState();
+
+        if (state == SaleState.SUCCEEDED) {
+            uint256 commitmentTokenAmount;
+            if ($.commitmentToken == NATIVE_ASSET) {
+                commitmentTokenAmount = address(this).balance;
+            } else {
+                commitmentTokenAmount = IERC20($.commitmentToken).balanceOf(
+                    address(this)
+                );
+            }
+
+            uint256 protocolFee = (commitmentTokenAmount * $.protocolFee) /
+                PRECISION;
+            uint256 saleProceeds = commitmentTokenAmount - protocolFee;
+
+            // send (commitments + decrease commitment fees - protocol fee) to saleProceedsReceiver
+            _transferTokenOrNative(
+                $.commitmentToken,
+                $.saleProceedsReceiver,
+                saleProceeds
+            );
+
+            // send protocol fee to protocolFeeReceiver
+            _transferTokenOrNative(
+                $.commitmentToken,
+                $.protocolFeeReceiver,
+                protocolFee
+            );
+
+            emit SuccessfulSaleOwnerSettled(
+                msg.sender,
+                saleProceeds,
+                protocolFee
+            );
+        } else if (state == SaleState.FAILED) {
+            // transfer entire balance of sale tokens to saleProceedsReceiver
+            uint256 saleTokenAmount = IERC20($.saleToken).balanceOf(
+                address(this)
+            );
+
+            IERC20($.saleToken).safeTransfer(
+                $.saleProceedsReceiver,
+                saleTokenAmount
+            );
+
+            // transfer collected decrease commitment fees to saleProceedsReceiver
+            uint256 collectedDecreaseCommitmentFees = $
+                .collectedDecreaseCommitmentFees;
+
+            _transferTokenOrNative(
+                $.commitmentToken,
+                $.saleProceedsReceiver,
+                collectedDecreaseCommitmentFees
+            );
+
+            emit FailedSaleOwnerSettled(
+                msg.sender,
+                saleTokenAmount,
+                collectedDecreaseCommitmentFees
+            );
+        } else {
+            revert SaleNotEnded();
+        }
     }
 
     // ======================================================================
@@ -240,16 +486,18 @@ contract PublicSaleV1 is
     // INTERNAL HELPERS
     // ======================================================================
 
-    // function _transferFeeToken(address to_, uint256 amount_) internal {
-    //     PublicSaleStorage storage $ = _getPublicSaleStorage();
-    //     address feeToken = $.feeToken;
-    //     if (feeToken == NATIVE_ASSET) {
-    //         (bool success, ) = to_.call{value: amount_}("");
-    //         if (!success) {
-    //             revert TransferFailed();
-    //         }
-    //     } else {
-    //         IERC20(feeToken).safeTransfer(to_, amount_);
-    //     }
-    // }
+    function _transferTokenOrNative(
+        address token_,
+        address to_,
+        uint256 amount_
+    ) internal {
+        if (token_ == NATIVE_ASSET) {
+            (bool success, ) = to_.call{value: amount_}("");
+            if (!success) {
+                revert TransferFailed();
+            }
+        } else {
+            IERC20(token_).safeTransfer(to_, amount_);
+        }
+    }
 }
