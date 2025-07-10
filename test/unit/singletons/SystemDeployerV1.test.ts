@@ -1262,7 +1262,7 @@ async function findAndVerifyFreezeGuardMultisigV1(params: {
   expect(await freezeGuardMultisigProxy.owner()).to.equal(owner);
   expect(await freezeGuardMultisigProxy.timelockPeriod()).to.equal(timelockPeriod);
   expect(await freezeGuardMultisigProxy.executionPeriod()).to.equal(executionPeriod);
-  expect(await freezeGuardMultisigProxy.freezeVoting()).to.equal(freezeVoting);
+  expect(await freezeGuardMultisigProxy.freezable()).to.equal(freezeVoting);
 
   return freezeGuardMultisigProxy;
 }
@@ -1303,7 +1303,7 @@ async function findAndVerifyFreezeGuardAzoriusV1(params: {
   );
 
   expect(await freezeGuardAzoriusProxy.owner()).to.equal(owner);
-  expect(await freezeGuardAzoriusProxy.freezeVoting()).to.equal(freezeVoting);
+  expect(await freezeGuardAzoriusProxy.freezable()).to.equal(freezeVoting);
 
   return freezeGuardAzoriusProxy;
 }

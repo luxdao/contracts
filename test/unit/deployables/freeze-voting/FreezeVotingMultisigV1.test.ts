@@ -8,6 +8,7 @@ import {
   FreezeVotingMultisigV1__factory,
   IDeploymentBlock__factory,
   IERC165__factory,
+  IFreezable__factory,
   IFreezeVotingBase__factory,
   IFreezeVotingMultisigV1__factory,
   ILightAccountValidator__factory,
@@ -509,11 +510,9 @@ describe('FreezeVotingMultisigV1', () => {
     runSupportsInterfaceTests({
       getContract: () => freezeVoting,
       supportedInterfaceFactories: [
-        {
-          factory: IFreezeVotingMultisigV1__factory,
-          inheritedFactories: [IFreezeVotingBase__factory],
-        },
+        IFreezeVotingMultisigV1__factory,
         IFreezeVotingBase__factory,
+        IFreezable__factory,
         ILightAccountValidator__factory,
         IERC165__factory,
         IVersion__factory,
