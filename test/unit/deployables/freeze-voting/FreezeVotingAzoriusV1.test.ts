@@ -38,7 +38,6 @@ async function deployAzoriusFreezeVotingProxy(
   owner: string,
   freezeVotesThreshold: bigint,
   freezeProposalPeriod: number,
-  freezePeriod: number,
   parentAzoriusAddress: string,
   lightAccountFactoryAddress: string,
 ): Promise<FreezeVotingAzoriusV1> {
@@ -48,7 +47,6 @@ async function deployAzoriusFreezeVotingProxy(
       owner,
       freezeVotesThreshold,
       freezeProposalPeriod,
-      freezePeriod,
       parentAzoriusAddress,
       lightAccountFactoryAddress,
     ],
@@ -76,7 +74,6 @@ describe('FreezeVotingAzoriusV1', () => {
 
   const DEFAULT_FREEZE_VOTES_THRESHOLD = 100n;
   const DEFAULT_FREEZE_PROPOSAL_PERIOD = 60 * 60 * 24; // 1 day
-  const DEFAULT_FREEZE_PERIOD = 60 * 60 * 24 * 7; // 7 days
 
   async function fixture() {
     const [d, o, paa, v1, v2] = await ethers.getSigners();
@@ -133,7 +130,6 @@ describe('FreezeVotingAzoriusV1', () => {
       owner.address,
       DEFAULT_FREEZE_VOTES_THRESHOLD,
       DEFAULT_FREEZE_PROPOSAL_PERIOD,
-      DEFAULT_FREEZE_PERIOD,
       await mockParentAzorius.getAddress(),
       mockLightAccountFactory.target as string,
     );
@@ -148,7 +144,6 @@ describe('FreezeVotingAzoriusV1', () => {
       expect(await azoriusFreezeVoting.freezeProposalPeriod()).to.equal(
         DEFAULT_FREEZE_PROPOSAL_PERIOD,
       );
-      expect(await azoriusFreezeVoting.freezePeriod()).to.equal(DEFAULT_FREEZE_PERIOD);
       expect(await azoriusFreezeVoting.parentAzorius()).to.equal(
         await mockParentAzorius.getAddress(),
       );
@@ -163,7 +158,6 @@ describe('FreezeVotingAzoriusV1', () => {
           owner.address,
           DEFAULT_FREEZE_VOTES_THRESHOLD,
           DEFAULT_FREEZE_PROPOSAL_PERIOD,
-          DEFAULT_FREEZE_PERIOD,
           await mockParentAzorius.getAddress(),
           mockLightAccountFactory.target as string,
         ),
@@ -180,7 +174,6 @@ describe('FreezeVotingAzoriusV1', () => {
           owner.address,
           DEFAULT_FREEZE_VOTES_THRESHOLD,
           DEFAULT_FREEZE_PROPOSAL_PERIOD,
-          DEFAULT_FREEZE_PERIOD,
           await mockParentAzorius.getAddress(),
           mockLightAccountFactory.target as string,
         ),
@@ -668,18 +661,16 @@ describe('FreezeVotingAzoriusV1', () => {
         owner.address,
         DEFAULT_FREEZE_VOTES_THRESHOLD,
         DEFAULT_FREEZE_PROPOSAL_PERIOD,
-        DEFAULT_FREEZE_PERIOD,
         await mockParentAzorius.getAddress(),
         mockLightAccountFactory.target as string,
       ],
       getExpectedInitData: async () =>
         ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'uint32', 'uint32', 'address', 'address'],
+          ['address', 'uint256', 'uint32', 'address', 'address'],
           [
             owner.address,
             DEFAULT_FREEZE_VOTES_THRESHOLD,
             DEFAULT_FREEZE_PROPOSAL_PERIOD,
-            DEFAULT_FREEZE_PERIOD,
             await mockParentAzorius.getAddress(),
             mockLightAccountFactory.target as string,
           ],

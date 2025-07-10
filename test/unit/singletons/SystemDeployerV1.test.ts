@@ -375,7 +375,6 @@ function createSetupSafeParams(overrides?: {
         owner: ethers.ZeroAddress,
         freezeVotesThreshold: 0,
         freezeProposalPeriod: 0,
-        freezePeriod: 0,
         parentSafe: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
         ...overrides?.freezeVotingMultisigParams,
@@ -385,7 +384,6 @@ function createSetupSafeParams(overrides?: {
         owner: ethers.ZeroAddress,
         freezeVotesThreshold: 0,
         freezeProposalPeriod: 0,
-        freezePeriod: 0,
         parentAzorius: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
         ...overrides?.freezeVotingAzoriusParams,
@@ -1319,7 +1317,6 @@ async function findAndVerifyFreezeVotingMultisigV1(params: {
   owner: AddressLike;
   freezeVotesThreshold: BigNumberish;
   freezeProposalPeriod: BigNumberish;
-  freezePeriod: BigNumberish;
   lightAccountFactory: AddressLike;
 }) {
   const {
@@ -1329,7 +1326,6 @@ async function findAndVerifyFreezeVotingMultisigV1(params: {
     owner,
     freezeVotesThreshold,
     freezeProposalPeriod,
-    freezePeriod,
     lightAccountFactory,
   } = params;
 
@@ -1348,7 +1344,6 @@ async function findAndVerifyFreezeVotingMultisigV1(params: {
   expect(await freezeVotingMultisigProxy.owner()).to.equal(owner);
   expect(await freezeVotingMultisigProxy.freezeVotesThreshold()).to.equal(freezeVotesThreshold);
   expect(await freezeVotingMultisigProxy.freezeProposalPeriod()).to.equal(freezeProposalPeriod);
-  expect(await freezeVotingMultisigProxy.freezePeriod()).to.equal(freezePeriod);
   expect(await freezeVotingMultisigProxy.lightAccountFactory()).to.equal(lightAccountFactory);
 
   return freezeVotingMultisigProxy;
@@ -1365,7 +1360,6 @@ async function findAndVerifyFreezeVotingAzoriusV1(params: {
   owner: AddressLike;
   freezeVotesThreshold: BigNumberish;
   freezeProposalPeriod: BigNumberish;
-  freezePeriod: BigNumberish;
   parentAzorius: AddressLike;
   lightAccountFactory: AddressLike;
 }) {
@@ -1376,7 +1370,6 @@ async function findAndVerifyFreezeVotingAzoriusV1(params: {
     owner,
     freezeVotesThreshold,
     freezeProposalPeriod,
-    freezePeriod,
     parentAzorius,
     lightAccountFactory,
   } = params;
@@ -1395,7 +1388,6 @@ async function findAndVerifyFreezeVotingAzoriusV1(params: {
 
   expect(await freezeVotingAzoriusProxy.owner()).to.equal(owner);
   expect(await freezeVotingAzoriusProxy.freezeProposalPeriod()).to.equal(freezeProposalPeriod);
-  expect(await freezeVotingAzoriusProxy.freezePeriod()).to.equal(freezePeriod);
   expect(await freezeVotingAzoriusProxy.freezeVotesThreshold()).to.equal(freezeVotesThreshold);
   expect(await freezeVotingAzoriusProxy.parentAzorius()).to.equal(parentAzorius);
   expect(await freezeVotingAzoriusProxy.lightAccountFactory()).to.equal(lightAccountFactory);
@@ -2150,7 +2142,6 @@ describe('SystemDeployerV1', () => {
         owner: fixtureData.user1.address,
         freezeVotesThreshold: 26,
         freezeProposalPeriod: 65,
-        freezePeriod: 129,
         parentSafe: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
       };
@@ -2160,7 +2151,6 @@ describe('SystemDeployerV1', () => {
         owner: fixtureData.user1.address,
         freezeVotesThreshold: 12,
         freezeProposalPeriod: 60,
-        freezePeriod: 120,
         parentAzorius: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
       };
