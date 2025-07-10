@@ -3,19 +3,19 @@ pragma solidity ^0.8.30;
 
 import {
     IProposerAdapterHatsV1
-} from "../../../../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
+} from "../../../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
 import {
     IProposerAdapterBaseV1
-} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
-import {IHats} from "../../../../interfaces/hats/IHats.sol";
-import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
+} from "../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {IHats} from "../../../interfaces/hats/IHats.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {
     IDeploymentBlock
-} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+} from "../../../interfaces/decent/IDeploymentBlock.sol";
 import {
     DeploymentBlockInitializable
-} from "../../../../DeploymentBlockInitializable.sol";
-import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
+} from "../../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../../InitializerEventEmitter.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**

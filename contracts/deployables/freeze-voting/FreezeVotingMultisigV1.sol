@@ -255,7 +255,9 @@ contract FreezeVotingMultisigV1 is
      * 2. Must not have already voted on this proposal
      * 3. Marks voter as having voted to prevent double voting
      * @param voter_ The resolved voter address
-     * @return votes 1 if eligible to vote, 0 otherwise
+     * @return votes Always returns 1 for eligible signers
+     * @custom:throws NoVotingWeight if voter is not a current signer
+     * @custom:throws AlreadyVoted if voter has already voted on this proposal
      */
     function _getVotesAndUpdateHasVoted(
         address voter_
@@ -266,7 +268,7 @@ contract FreezeVotingMultisigV1 is
         // Check 1: Verify voter is a current signer of the parent Safe
         // This ensures removed signers cannot vote
         if (!$.parentSafe.isOwner(voter_)) {
-            return 0;
+            revert NoVotingWeight();
         }
 
         FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
@@ -274,7 +276,7 @@ contract FreezeVotingMultisigV1 is
         // Check 2: Ensure voter hasn't already voted on this proposal
         // Each signer can only vote once per proposal
         if ($.accountHasFreezeVoted[$base.freezeProposalCreated][voter_]) {
-            return 0;
+            revert AlreadyVoted();
         }
 
         // Mark voter as having voted on this proposal

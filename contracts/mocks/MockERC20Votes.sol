@@ -184,12 +184,16 @@ contract MockERC20Votes is ERC20, ERC20Permit, IVotes, ERC165 {
         address account,
         uint256 timepoint
     ) public view override returns (uint256) {
+        require(timepoint < block.timestamp, "ERC5805FutureLookup");
         if (_hasMockPastVoteBeenSet[account][timepoint]) {
             return _mockPastVotes[account][timepoint];
         }
         // If no explicit value is set for this timepoint, return the current balance
-        // In a real implementation, this would use a checkpoint system
-        return balanceOf(account);
+        // if the account has delegated to themselves
+        if (_delegates[account] == account) {
+            return balanceOf(account);
+        }
+        return 0;
     }
 
     /**
