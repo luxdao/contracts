@@ -10,6 +10,7 @@ import {
 import {
     IFreezeVotingBase
 } from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {
     IModuleAzoriusV1
 } from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
@@ -269,7 +270,7 @@ contract FreezeVotingAzoriusV1 is
 
     /**
      * @inheritdoc ERC165
-     * @dev Supports IFreezeVotingAzoriusV1, IFreezeVotingBase, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
+     * @dev Supports IFreezeVotingAzoriusV1, IFreezeVotingBase, IFreezable, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
@@ -277,6 +278,7 @@ contract FreezeVotingAzoriusV1 is
         return
             interfaceId_ == type(IFreezeVotingAzoriusV1).interfaceId ||
             interfaceId_ == type(IFreezeVotingBase).interfaceId ||
+            interfaceId_ == type(IFreezable).interfaceId ||
             interfaceId_ == type(ILightAccountValidator).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlock).interfaceId ||
