@@ -2,9 +2,13 @@
 pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
+import {IVotingTypes} from "../interfaces/decent/deployables/IVotingTypes.sol";
 import {
-    IVotingAdapterBase
-} from "../interfaces/decent/deployables/IVotingAdapterBase.sol";
+    IVotingWeightV1
+} from "../interfaces/decent/deployables/IVotingWeightV1.sol";
+import {
+    IVoteTrackerV1
+} from "../interfaces/decent/deployables/IVoteTrackerV1.sol";
 import {
     LightAccountValidator
 } from "../deployables/account-abstraction/LightAccountValidator.sol";
@@ -20,8 +24,9 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
     mapping(uint32 => uint48) public votingStartTimestampsMap;
     mapping(uint32 => uint48) public votingEndTimestampsMap;
     mapping(uint32 => uint32) public votingStartBlocksMap;
-    mapping(address => bool) internal _isVotingAdapterMap;
+    uint256 internal _mockVotingConfigsCount;
     mapping(address => bool) internal _isProposerAdapterMap;
+    IStrategyV1.VotingConfig[] internal _mockVotingConfigs;
 
     mapping(address => bool) internal _authorizedFreezeVotersMapping;
     address[] internal _authorizedFreezeVotersArray;
@@ -32,12 +37,11 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
     bool private _shouldCheckExpectedParams;
     uint32 private _expected_proposalId;
     uint8 private _expected_voteType;
-    bytes32 private _expected_votingAdaptersDataHash;
+    bytes32 private _expected_votingConfigsDataHash;
 
     uint32 internal _mockVotingPeriod;
     uint256 internal _mockQuorumThreshold;
     uint256 internal _mockBasisNumerator;
-    address[] internal _mockVotingAdapters;
     address[] internal _mockProposerAdapters;
 
     constructor(address _mockStrategyAdmin) {
@@ -64,14 +68,15 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
 
     function initialize2(
         address strategyAdmin_,
-        address[] calldata votingAdapters_
+        IStrategyV1.VotingConfig[] calldata votingConfigs_
     ) external override {
         mockStrategyAdmin = strategyAdmin_;
-        _mockVotingAdapters = votingAdapters_;
-
-        for (uint i = 0; i < votingAdapters_.length; i++) {
-            _isVotingAdapterMap[votingAdapters_[i]] = true;
+        // Store voting configs
+        delete _mockVotingConfigs;
+        for (uint i = 0; i < votingConfigs_.length; i++) {
+            _mockVotingConfigs.push(votingConfigs_[i]);
         }
+        _mockVotingConfigsCount = votingConfigs_.length;
     }
 
     function strategyAdmin() external view override returns (address) {
@@ -96,13 +101,23 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
         return proposalVotingDetailsMap[proposalId];
     }
 
-    function votingAdapters()
+    function votingConfigs()
         external
         view
         override
-        returns (address[] memory)
+        returns (IStrategyV1.VotingConfig[] memory)
     {
-        return _mockVotingAdapters;
+        return _mockVotingConfigs;
+    }
+
+    function votingConfig(
+        uint256 configIndex_
+    ) external view override returns (IStrategyV1.VotingConfig memory) {
+        require(
+            configIndex_ < _mockVotingConfigs.length,
+            "Invalid config index"
+        );
+        return _mockVotingConfigs[configIndex_];
     }
 
     function proposerAdapters()
@@ -114,18 +129,10 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
         return _mockProposerAdapters;
     }
 
-    function isVotingAdapter(address va) external view override returns (bool) {
-        return _isVotingAdapterMap[va];
-    }
-
     function isProposerAdapter(
         address pa
     ) external view override returns (bool) {
         return _isProposerAdapterMap[pa];
-    }
-
-    function setVotingAdapter(address adapter, bool isAdapter) external {
-        _isVotingAdapterMap[adapter] = isAdapter;
     }
 
     function setVotingTimestamps(
@@ -187,7 +194,7 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
     function castVote(
         uint32 _proposalId,
         uint8 _voteType,
-        IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData,
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsData,
         uint256 lightAccountIndex_
     ) external virtual override {
         address resolvedLightAccountOwner = potentialLightAccountResolvedOwner(
@@ -198,14 +205,9 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
             _proposalId
         ];
         uint256 totalWeight = 0;
-        for (uint i = 0; i < votingAdaptersData.length; i++) {
-            totalWeight += IVotingAdapterBase(
-                votingAdaptersData[i].votingAdapter
-            ).recordVote(
-                    resolvedLightAccountOwner,
-                    _proposalId,
-                    votingAdaptersData[i].adapterVoteData
-                );
+        // Mock implementation - just add a fixed weight per config
+        for (uint i = 0; i < votingConfigsData.length; i++) {
+            totalWeight += 100; // Fixed weight for testing
         }
         if (_voteType == uint8(VoteType.YES)) proposal.yesVotes += totalWeight;
         else if (_voteType == uint8(VoteType.NO))
@@ -238,12 +240,12 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
     function setExpectedValidStrategyVoteParams(
         uint32 expectedProposalId,
         uint8 expectedVoteType,
-        IStrategyV1.VotingAdapterVoteData[] calldata expectedVotingAdaptersData
+        IVotingTypes.VotingConfigVoteData[] calldata expectedVotingConfigsData
     ) external {
         _expected_proposalId = expectedProposalId;
         _expected_voteType = expectedVoteType;
-        _expected_votingAdaptersDataHash = keccak256(
-            abi.encode(expectedVotingAdaptersData)
+        _expected_votingConfigsDataHash = keccak256(
+            abi.encode(expectedVotingConfigsData)
         );
         _shouldCheckExpectedParams = true;
     }
@@ -323,7 +325,7 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
         address,
         uint32 proposalId_,
         uint8 voteType_,
-        IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData_
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsData_
     ) external view override returns (bool) {
         if (_shouldCheckExpectedParams) {
             if (proposalId_ != _expected_proposalId) {
@@ -333,10 +335,10 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
                 revert("Mismatched voteType");
             }
             if (
-                keccak256(abi.encode(votingAdaptersData_)) !=
-                _expected_votingAdaptersDataHash
+                keccak256(abi.encode(votingConfigsData_)) !=
+                _expected_votingConfigsDataHash
             ) {
-                revert("Mismatched votingAdaptersData");
+                revert("Mismatched votingConfigsData");
             }
         }
         return _validStrategyVoteToReturn;

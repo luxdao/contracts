@@ -244,7 +244,8 @@ abstract contract FreezeVotingBase is
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
 
         // Start new freeze proposal
-        $.freezeProposalCreated = uint48(block.timestamp); // Mark creation time
+        // Use previous timestamp to ensure ERC5805 getPastVotes works
+        $.freezeProposalCreated = uint48(block.timestamp - 1); // Mark creation time
         $.freezeProposalVoteCount = 0; // Reset vote count
         $.freezeActivated = 0; // Clear any previous freeze
     }

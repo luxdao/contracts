@@ -115,7 +115,7 @@ describe('FreezeVotingBase', () => {
 
       // Check state after first vote
       const currentTimestamp = await time.latest();
-      expect(await freezeVoting.freezeProposalCreated()).to.equal(currentTimestamp);
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(currentTimestamp - 1);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
     });
 
