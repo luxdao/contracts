@@ -61,6 +61,8 @@ abstract contract FreezeVotingBase is
         bool isFrozen;
         /** @notice Voting weight required to trigger a freeze */
         uint256 freezeVotesThreshold;
+        /** @notice Timestamp of the most recent freeze (NEVER cleared, even on unfreeze) */
+        uint48 lastFreezeTimestamp;
     }
 
     /**
@@ -133,6 +135,23 @@ abstract contract FreezeVotingBase is
     function isFrozen() public view virtual override returns (bool) {
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
         return $.isFrozen;
+    }
+
+    /**
+     * @inheritdoc IFreezable
+     * @dev CRITICAL SECURITY FUNCTION: Returns the most recent freeze timestamp.
+     * This timestamp is NEVER cleared, even after unfreeze or auto-expiry.
+     * Used by guards to permanently invalidate all transactions timelocked before this time.
+     */
+    function lastKnownFreezeTime()
+        public
+        view
+        virtual
+        override
+        returns (uint48)
+    {
+        FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
+        return $.lastFreezeTimestamp;
     }
 
     // ======================================================================
@@ -255,6 +274,11 @@ abstract contract FreezeVotingBase is
         if (
             $.freezeProposalVoteCount >= $.freezeVotesThreshold && !$.isFrozen
         ) {
+            // CRITICAL: Update lastFreezeTimestamp to enforce security invariant
+            // This timestamp is NEVER cleared and ensures all transactions
+            // timelocked before this moment are permanently invalidated
+            $.lastFreezeTimestamp = uint48(block.timestamp);
+
             $.isFrozen = true;
             emit DAOFrozen(block.timestamp);
         }
