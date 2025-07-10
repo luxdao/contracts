@@ -26,7 +26,7 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
     mapping(uint32 => uint32) public votingStartBlocksMap;
     uint256 internal _mockVotingConfigsCount;
     mapping(address => bool) internal _isProposerAdapterMap;
-    IStrategyV1.VotingConfig[] internal _mockVotingConfigs;
+    IVotingTypes.VotingConfig[] internal _mockVotingConfigs;
 
     mapping(address => bool) internal _authorizedFreezeVotersMapping;
     address[] internal _authorizedFreezeVotersArray;
@@ -68,7 +68,7 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
 
     function initialize2(
         address strategyAdmin_,
-        IStrategyV1.VotingConfig[] calldata votingConfigs_
+        IVotingTypes.VotingConfig[] calldata votingConfigs_
     ) external override {
         mockStrategyAdmin = strategyAdmin_;
         // Store voting configs
@@ -105,14 +105,14 @@ contract MockVotingStrategy is IStrategyV1, LightAccountValidator {
         external
         view
         override
-        returns (IStrategyV1.VotingConfig[] memory)
+        returns (IVotingTypes.VotingConfig[] memory)
     {
         return _mockVotingConfigs;
     }
 
     function votingConfig(
         uint256 configIndex_
-    ) external view override returns (IStrategyV1.VotingConfig memory) {
+    ) external view override returns (IVotingTypes.VotingConfig memory) {
         require(
             configIndex_ < _mockVotingConfigs.length,
             "Invalid config index"
