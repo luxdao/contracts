@@ -44,6 +44,9 @@ interface IFreezeGuardMultisigV1 is IFreezeGuardBaseV1 {
     /** @notice Thrown when attempting to execute a transaction after execution period expired */
     error Expired();
 
+    /** @notice Thrown when attempting to execute a transaction that was timelocked before the most recent freeze */
+    error TimelockedBeforeFreeze();
+
     // --- Events ---
 
     /**
