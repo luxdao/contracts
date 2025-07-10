@@ -15,11 +15,12 @@ async function deployConcreteBaseFreezeVotingProxy(
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
+  lightAccountFactory: string,
 ): Promise<ConcreteFreezeVotingBase> {
   // Combine selector and encoded params
   const fullInitData = ConcreteFreezeVotingBase__factory.createInterface().encodeFunctionData(
     'initialize',
-    [owner.address, freezeVotesThreshold, freezeProposalPeriod],
+    [owner.address, freezeVotesThreshold, freezeProposalPeriod, lightAccountFactory],
   );
 
   // Deploy the proxy with the implementation
@@ -40,6 +41,7 @@ describe('FreezeVotingBase', () => {
   // contracts
   let masterCopy: string;
   let freezeVoting: ConcreteFreezeVotingBase;
+  let lightAccountFactory: SignerWithAddress;
 
   // constants
   const FREEZE_VOTES_THRESHOLD = 3;
@@ -47,7 +49,7 @@ describe('FreezeVotingBase', () => {
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, voter1, voter2, voter3] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3, lightAccountFactory] = await ethers.getSigners();
 
     // Deploy implementation
     const implementation = await new ConcreteFreezeVotingBase__factory(proxyDeployer).deploy();
@@ -60,6 +62,7 @@ describe('FreezeVotingBase', () => {
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
+      lightAccountFactory.address,
     );
   });
 
@@ -72,7 +75,12 @@ describe('FreezeVotingBase', () => {
 
     it('should not allow reinitialization', async () => {
       await expect(
-        freezeVoting.initialize(owner.address, FREEZE_VOTES_THRESHOLD, FREEZE_PROPOSAL_PERIOD),
+        freezeVoting.initialize(
+          owner.address,
+          FREEZE_VOTES_THRESHOLD,
+          FREEZE_PROPOSAL_PERIOD,
+          lightAccountFactory.address,
+        ),
       ).to.be.revertedWithCustomError(freezeVoting, 'InvalidInitialization');
     });
 
@@ -87,6 +95,7 @@ describe('FreezeVotingBase', () => {
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
+          lightAccountFactory.address,
         ),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });

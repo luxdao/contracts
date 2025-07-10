@@ -13,13 +13,13 @@ pragma solidity ^0.8.30;
  * - Votes accumulate until the threshold is reached
  * - Once threshold is met, the child DAO is immediately frozen
  * - Freezes are permanent until explicitly unfrozen
- * - Only the owner (parent DAO) can manually unfreeze
+ * - Concrete implementations define their own unfreeze mechanism
  *
  * Security features:
  * - Time-limited freeze proposals prevent stale votes
  * - Permanent freezes require explicit unfreeze action
  * - Configurable threshold allows DAOs to set appropriate requirements
- * - Parent DAO retains ultimate control through ownership
+ * - Implementations may add ownership or voting-based control
  *
  * This base interface defines the common freeze voting functionality shared by
  * different implementations (Azorius-based and Multisig-based parent DAOs).
@@ -86,14 +86,4 @@ interface IFreezeVotingBase {
         external
         view
         returns (uint256 freezeVotesThreshold);
-
-    // --- State-Changing Functions ---
-
-    /**
-     * @notice Allows the owner to manually unfreeze the child DAO
-     * @dev Resets freeze state and proposal counts. Only the parent DAO can call this.
-     * Freezes are permanent until this function is called.
-     * @custom:access Restricted to owner (parent DAO)
-     */
-    function unfreeze() external;
 }

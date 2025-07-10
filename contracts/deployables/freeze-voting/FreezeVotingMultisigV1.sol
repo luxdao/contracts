@@ -19,6 +19,9 @@ import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -56,6 +59,7 @@ contract FreezeVotingMultisigV1 is
     FreezeVotingBase,
     DeploymentBlockInitializable,
     InitializerEventEmitter,
+    Ownable2StepUpgradeable,
     ERC165
 {
     // ======================================================================
@@ -127,11 +131,11 @@ contract FreezeVotingMultisigV1 is
             )
         );
         __FreezeVotingBase_init(
-            owner_,
             freezeProposalPeriod_,
             freezeVotesThreshold_,
             lightAccountFactory_
         );
+        __Ownable_init(owner_);
         __DeploymentBlockInitializable_init();
 
         FreezeVotingMultisigStorage
@@ -207,6 +211,18 @@ contract FreezeVotingMultisigV1 is
             resolvedVoter,
             _getVotesAndUpdateHasVoted(resolvedVoter)
         );
+    }
+
+    /**
+     * @inheritdoc IFreezeVotingMultisigV1
+     */
+    function unfreeze() public virtual override onlyOwner {
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
+
+        // Reset all freeze state
+        $base.isFrozen = false;
+        $base.freezeProposalCreated = 0;
+        $base.freezeProposalVoteCount = 0;
     }
 
     // ======================================================================
