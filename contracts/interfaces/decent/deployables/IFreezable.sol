@@ -24,4 +24,23 @@ interface IFreezable {
      * @return isFrozen True if the DAO is currently frozen, false otherwise
      */
     function isFrozen() external view returns (bool isFrozen);
+
+    /**
+     * @notice Returns the timestamp of the most recent freeze, even if currently unfrozen
+     * @dev CRITICAL SECURITY FUNCTION: This enables the freeze guard security model.
+     *
+     * Security Invariant: Any transaction that was timelocked BEFORE this timestamp
+     * will NEVER be executable, regardless of the current freeze/unfreeze state.
+     *
+     * This timestamp:
+     * - Is set to block.timestamp whenever the DAO is frozen
+     * - Is NEVER cleared (remains set even after unfreeze)
+     * - Ensures all pre-freeze timelocked transactions are permanently invalidated
+     *
+     * @return lastFreezeTimestamp Timestamp of the most recent freeze, or 0 if never frozen
+     */
+    function lastFreezeTime()
+        external
+        view
+        returns (uint48 lastFreezeTimestamp);
 }

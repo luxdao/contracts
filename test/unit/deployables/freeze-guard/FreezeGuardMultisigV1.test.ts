@@ -269,6 +269,27 @@ describe('FreezeGuardMultisigV1', () => {
         ),
       ).to.be.reverted;
     });
+
+    it('should revert if trying to timelock when DAO is frozen', async () => {
+      // Set DAO to frozen
+      await mockFreezable.setIsFrozen(true);
+
+      await expect(
+        multisigFreezeGuard.timelockTransaction(
+          to,
+          value,
+          data,
+          operation,
+          safeTxGas,
+          baseGas,
+          gasPrice,
+          gasToken,
+          refundReceiver,
+          mockSignatures,
+          nonce,
+        ),
+      ).to.be.revertedWithCustomError(multisigFreezeGuard, 'DAOFrozen');
+    });
   });
 
   describe('Transaction Checking', () => {
@@ -406,6 +427,188 @@ describe('FreezeGuardMultisigV1', () => {
           ethers.ZeroAddress,
         ),
       ).not.to.be.reverted;
+    });
+
+    it('should revert if transaction was timelocked before the most recent freeze', async () => {
+      // First timelock the transaction (already done in beforeEach)
+      // Get the timelock timestamp
+      const timelockTimestamp =
+        await multisigFreezeGuard.getTransactionTimelocked(mockSignaturesHash);
+
+      // Wait for timelock period to pass
+      await time.increase(TIMELOCK_PERIOD + 1);
+
+      // Simulate a freeze that happened AFTER the timelock
+      const freezeTimestamp = timelockTimestamp + 10n; // 10 seconds after timelock
+      await mockFreezable.setLastKnownFreezeTime(freezeTimestamp);
+
+      // DAO is not currently frozen but there was a freeze after this transaction was timelocked
+      await mockFreezable.setIsFrozen(false);
+
+      // Should revert because transaction was timelocked before the most recent freeze
+      await expect(
+        multisigFreezeGuard.checkTransaction(
+          to,
+          value,
+          data,
+          operation,
+          safeTxGas,
+          baseGas,
+          gasPrice,
+          gasToken,
+          refundReceiver,
+          mockSignatures,
+          ethers.ZeroAddress,
+        ),
+      ).to.be.revertedWithCustomError(multisigFreezeGuard, 'TimelockedBeforeFreeze');
+    });
+
+    it('should allow transaction if timelocked after the most recent freeze', async () => {
+      // First timelock the transaction (already done in beforeEach)
+      // Get the timelock timestamp
+      const timelockTimestamp =
+        await multisigFreezeGuard.getTransactionTimelocked(mockSignaturesHash);
+
+      // Wait for timelock period to pass
+      await time.increase(TIMELOCK_PERIOD + 1);
+
+      // Simulate a freeze that happened BEFORE the timelock
+      const freezeTimestamp = timelockTimestamp - 10n; // 10 seconds before timelock
+      await mockFreezable.setLastKnownFreezeTime(freezeTimestamp);
+
+      // DAO is not currently frozen
+      await mockFreezable.setIsFrozen(false);
+
+      // Should not revert because transaction was timelocked after the most recent freeze
+      await expect(
+        multisigFreezeGuard.checkTransaction(
+          to,
+          value,
+          data,
+          operation,
+          safeTxGas,
+          baseGas,
+          gasPrice,
+          gasToken,
+          refundReceiver,
+          mockSignatures,
+          ethers.ZeroAddress,
+        ),
+      ).not.to.be.reverted;
+    });
+
+    it('should allow transaction if lastKnownFreezeTime returns 0 (never frozen)', async () => {
+      await time.increase(TIMELOCK_PERIOD + 1);
+
+      // Set never frozen state
+      await mockFreezable.setIsFrozen(false);
+      await mockFreezable.setLastKnownFreezeTime(0);
+
+      // Should not revert
+      await expect(
+        multisigFreezeGuard.checkTransaction(
+          to,
+          value,
+          data,
+          operation,
+          safeTxGas,
+          baseGas,
+          gasPrice,
+          gasToken,
+          refundReceiver,
+          mockSignatures,
+          ethers.ZeroAddress,
+        ),
+      ).not.to.be.reverted;
+    });
+
+    it('should enforce security invariant across multiple freeze/unfreeze cycles', async () => {
+      // CRITICAL TEST: Demonstrates the security invariant that transactions
+      // timelocked before the most recent freeze are permanently invalid
+
+      // Timeline:
+      // T1: Transaction A is timelocked (already done in beforeEach)
+
+      // T2: First freeze occurs after the timelock
+      await time.increase(10);
+      const firstFreezeTime = await time.latest();
+      await mockFreezable.setLastKnownFreezeTime(firstFreezeTime);
+      await mockFreezable.setIsFrozen(true);
+
+      // T3: DAO is unfrozen
+      await time.increase(10);
+      await mockFreezable.setIsFrozen(false);
+      // CRITICAL: lastKnownFreezeTime is NOT cleared
+
+      // Transaction A should still be blocked even though DAO is unfrozen
+      // Wait for timelock period to pass
+      await time.increase(TIMELOCK_PERIOD);
+
+      await expect(
+        multisigFreezeGuard.checkTransaction(
+          to,
+          value,
+          data,
+          operation,
+          safeTxGas,
+          baseGas,
+          gasPrice,
+          gasToken,
+          refundReceiver,
+          mockSignatures,
+          ethers.ZeroAddress,
+        ),
+      ).to.be.revertedWithCustomError(multisigFreezeGuard, 'TimelockedBeforeFreeze');
+
+      // T4: New transaction B is timelocked after unfreeze
+      const newSignatures = ethers.randomBytes(65);
+      const newSignaturesHash = ethers.keccak256(newSignatures);
+      await mockSafe.setValidSignature(newSignaturesHash, true);
+
+      await multisigFreezeGuard.timelockTransaction(
+        ethers.ZeroAddress,
+        0,
+        '0x',
+        Operation.Call,
+        0,
+        0,
+        0,
+        ethers.ZeroAddress,
+        ethers.ZeroAddress,
+        newSignatures,
+        1,
+      );
+
+      // T5: Second freeze occurs
+      await time.increase(10);
+      const secondFreezeTime = await time.latest();
+      await mockFreezable.setLastKnownFreezeTime(secondFreezeTime);
+      await mockFreezable.setIsFrozen(true);
+
+      // T6: DAO is unfrozen again
+      await time.increase(10);
+      await mockFreezable.setIsFrozen(false);
+
+      // Transaction A has now exceeded its execution window, but let's verify
+      // Transaction B which is still within its window
+
+      // Transaction B should be blocked (was before second freeze)
+      await time.increase(TIMELOCK_PERIOD);
+      await expect(
+        multisigFreezeGuard.checkTransaction(
+          ethers.ZeroAddress,
+          0,
+          '0x',
+          Operation.Call,
+          0,
+          0,
+          0,
+          ethers.ZeroAddress,
+          ethers.ZeroAddress,
+          newSignatures,
+          ethers.ZeroAddress,
+        ),
+      ).to.be.revertedWithCustomError(multisigFreezeGuard, 'TimelockedBeforeFreeze');
     });
   });
 
