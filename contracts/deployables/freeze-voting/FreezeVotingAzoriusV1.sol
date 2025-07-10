@@ -316,7 +316,7 @@ contract FreezeVotingAzoriusV1 is
                 revert InvalidVotingConfig(configData.configIndex);
             }
 
-            IStrategyV1.VotingConfig memory config = strategy.votingConfig(
+            IVotingTypes.VotingConfig memory config = strategy.votingConfig(
                 configData.configIndex
             );
 
