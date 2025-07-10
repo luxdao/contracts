@@ -12,7 +12,7 @@ import {IVotesERC20V1} from "../deployables/IVotesERC20V1.sol";
  *
  * Key features:
  * - One-transaction deployment of complete DAO systems
- * - Handles circular dependency resolution (Azorius ↔ Strategy ↔ VotingAdapters)
+ * - Handles circular dependency resolution (Azorius ↔ Strategy ↔ VotingConfigs)
  * - Deploys and configures all governance components
  * - Supports multiple governance token deployments
  * - Configures freeze mechanisms for parent-child DAO relationships
@@ -139,37 +139,41 @@ interface ISystemDeployerV1 {
     }
 
     /**
-     * @notice Parameters for ERC20 token-based voting
-     * @param implementation The VotingAdapterERC20V1 implementation
+     * @notice Parameters for ERC20 token-based voting configuration
+     * @param votingWeightImplementation The VotingWeightERC20V1 implementation
+     * @param voteTrackerImplementation The VoteTrackerERC20V1 implementation
      * @param token Existing token or 0 to use newly deployed token
      * @param newTokenIndex Index in votesERC20V1Params if using new token
      * @param weightPerToken Voting weight per token
      */
-    struct VotingAdapterERC20V1Params {
-        address implementation;
+    struct VotingConfigERC20V1Params {
+        address votingWeightImplementation;
+        address voteTrackerImplementation;
         address token;
         uint256 newTokenIndex;
         uint256 weightPerToken;
     }
 
     /**
-     * @notice Parameters for NFT-based voting
-     * @param implementation The VotingAdapterERC721V1 implementation
+     * @notice Parameters for NFT-based voting configuration
+     * @param votingWeightImplementation The VotingWeightERC721V1 implementation
+     * @param voteTrackerImplementation The VoteTrackerERC721V1 implementation
      * @param token The NFT contract address
      * @param weightPerToken Voting weight per NFT
      */
-    struct VotingAdapterERC721V1Params {
-        address implementation;
+    struct VotingConfigERC721V1Params {
+        address votingWeightImplementation;
+        address voteTrackerImplementation;
         address token;
         uint256 weightPerToken;
     }
 
     /**
-     * @notice Collection of all voting adapter configurations
+     * @notice Collection of all voting configuration parameters
      */
-    struct VotingAdapterParams {
-        VotingAdapterERC20V1Params[] votingAdapterERC20V1Params;
-        VotingAdapterERC721V1Params[] votingAdapterERC721V1Params;
+    struct VotingConfigParams {
+        VotingConfigERC20V1Params[] votingConfigERC20V1Params;
+        VotingConfigERC721V1Params[] votingConfigERC721V1Params;
     }
 
     /**
@@ -190,7 +194,7 @@ interface ISystemDeployerV1 {
     struct AzoriusGovernanceParams {
         ProposerAdapterParams proposerAdapterParams;
         StrategyV1Params strategyV1Params;
-        VotingAdapterParams votingAdapterParams;
+        VotingConfigParams votingConfigParams;
         ModuleAzoriusV1Params moduleAzoriusV1Params;
     }
 
