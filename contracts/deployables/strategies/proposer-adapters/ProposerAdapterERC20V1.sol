@@ -3,18 +3,18 @@ pragma solidity ^0.8.30;
 
 import {
     IProposerAdapterERC20V1
-} from "../../../../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
+} from "../../../interfaces/decent/deployables/IProposerAdapterERC20V1.sol";
 import {
     IProposerAdapterBaseV1
-} from "../../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
-import {IVersion} from "../../../../interfaces/decent/deployables/IVersion.sol";
+} from "../../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
+import {IVersion} from "../../../interfaces/decent/deployables/IVersion.sol";
 import {
     IDeploymentBlock
-} from "../../../../interfaces/decent/IDeploymentBlock.sol";
+} from "../../../interfaces/decent/IDeploymentBlock.sol";
 import {
     DeploymentBlockInitializable
-} from "../../../../DeploymentBlockInitializable.sol";
-import {InitializerEventEmitter} from "../../../../InitializerEventEmitter.sol";
+} from "../../../DeploymentBlockInitializable.sol";
+import {InitializerEventEmitter} from "../../../InitializerEventEmitter.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 

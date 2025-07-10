@@ -3,8 +3,14 @@ pragma solidity ^0.8.30;
 
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {
-    IVotingAdapterBase
-} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+    IVotingTypes
+} from "../../interfaces/decent/deployables/IVotingTypes.sol";
+import {
+    IVotingWeightV1
+} from "../../interfaces/decent/deployables/IVotingWeightV1.sol";
+import {
+    IVoteTrackerV1
+} from "../../interfaces/decent/deployables/IVoteTrackerV1.sol";
 import {
     IProposerAdapterBaseV1
 } from "../../interfaces/decent/deployables/IProposerAdapterBaseV1.sol";
@@ -33,7 +39,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * - Uses EIP-7201 namespaced storage pattern for future upgradeability
  * - Non-upgradeable contract deployed per DAO
  * - Integrates Light Account support for gasless voting
- * - Supports multiple voting and proposer adapters
+ * - Supports multiple voting configurations and proposer adapters
  * - Implements two-phase initialization to resolve circular dependencies
  * - Tracks late vote attempts for informational purposes for gasless voting support
  * - Uses swap-and-pop pattern for array removals
@@ -68,12 +74,10 @@ contract StrategyV1 is
         uint256 basisNumerator;
         /** @notice Mapping from proposal ID to voting details and tallies */
         mapping(uint32 proposalId => ProposalVotingDetails proposalVotingDetails) proposalVotingDetails;
-        /** @notice Array of configured voting adapter addresses */
-        address[] votingAdapters;
+        /** @notice Array of configured voting configurations */
+        VotingConfig[] votingConfigs;
         /** @notice Array of configured proposer adapter addresses */
         address[] proposerAdapters;
-        /** @notice Quick lookup for valid voting adapters */
-        mapping(address votingAdapter => bool isVotingAdapter) isVotingAdapter;
         /** @notice Quick lookup for valid proposer adapters */
         mapping(address proposerAdapter => bool isProposerAdapter) isProposerAdapter;
         /** @notice Tracks authorized freeze voting contracts */
@@ -192,11 +196,11 @@ contract StrategyV1 is
      */
     function initialize2(
         address strategyAdmin_,
-        address[] calldata votingAdapters_
+        VotingConfig[] calldata votingConfigs_
     ) public virtual override reinitializer(2) {
-        // Validate at least one voting adapter is provided
-        if (votingAdapters_.length == 0) {
-            revert NoVotingAdapters();
+        // Validate at least one voting config is provided
+        if (votingConfigs_.length == 0) {
+            revert NoVotingConfigs();
         }
 
         StrategyStorage storage $ = _getStrategyStorage();
@@ -204,12 +208,9 @@ contract StrategyV1 is
         // Set the strategy admin (typically the Azorius module that will manage this strategy)
         $.strategyAdmin = strategyAdmin_;
 
-        // Store the array of voting adapters
-        $.votingAdapters = votingAdapters_;
-
-        // Mark all provided adapters as valid voting adapters for quick lookup
-        for (uint256 i = 0; i < votingAdapters_.length; ) {
-            $.isVotingAdapter[votingAdapters_[i]] = true;
+        // Store the array of voting configurations
+        for (uint256 i = 0; i < votingConfigs_.length; ) {
+            $.votingConfigs.push(votingConfigs_[i]);
             unchecked {
                 ++i;
             }
@@ -267,25 +268,28 @@ contract StrategyV1 is
     /**
      * @inheritdoc IStrategyV1
      */
-    function votingAdapters()
+    function votingConfigs()
         public
         view
         virtual
         override
-        returns (address[] memory)
+        returns (VotingConfig[] memory)
     {
         StrategyStorage storage $ = _getStrategyStorage();
-        return $.votingAdapters;
+        return $.votingConfigs;
     }
 
     /**
      * @inheritdoc IStrategyV1
      */
-    function isVotingAdapter(
-        address votingAdapter_
-    ) public view virtual override returns (bool) {
+    function votingConfig(
+        uint256 configIndex_
+    ) public view virtual override returns (VotingConfig memory) {
         StrategyStorage storage $ = _getStrategyStorage();
-        return $.isVotingAdapter[votingAdapter_];
+        if (configIndex_ >= $.votingConfigs.length) {
+            revert InvalidVotingConfig(configIndex_);
+        }
+        return $.votingConfigs[configIndex_];
     }
 
     /**
@@ -465,21 +469,31 @@ contract StrategyV1 is
 
     /**
      * @inheritdoc IStrategyV1
-     * @dev Performs comprehensive validation of a vote configuration:
-     * - Checks if proposal exists and voting hasn't ended
-     * - Validates vote type (must be 0, 1, or 2)
-     * - Verifies all adapters are configured
-     * - Ensures total voting weight > 0
-     * - Checks for late vote attempts (informational tracking)
+     * @dev Validates whether a vote configuration is eligible for gas sponsorship through ERC-4337 paymaster.
+     * This function is specifically designed for the gasless voting flow where:
+     * 1. User signs a vote operation off-chain
+     * 2. ERC-4337 bundler submits it through a Light Account
+     * 3. DecentPaymasterV1 calls its validator
+     * 4. Validator calls this function to determine if the vote should be sponsored
+     *
+     * IMPORTANT: This function uses getVotingWeightForPaymaster() instead of calculateWeight()
+     * to avoid ERC-4337 banned opcodes (block.timestamp, block.number) during validation phase.
+     *
+     * Validation checks:
+     * - Proposal exists and is still active
+     * - Vote type is valid (NO=0, YES=1, ABSTAIN=2)
+     * - All voting configs are valid
+     * - Voter has voting weight > 0
+     * - Voter hasn't already voted with these configs
      */
     function validStrategyVote(
         address voter_,
         uint32 proposalId_,
         uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData_
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsData_
     ) public view virtual override returns (bool) {
-        // Early return if no voting adapters provided
-        if (votingAdaptersData_.length == 0) {
+        // Early return if no voting configs provided
+        if (votingConfigsData_.length == 0) {
             return false;
         }
 
@@ -509,32 +523,45 @@ contract StrategyV1 is
 
         uint256 totalVotingWeight = 0;
 
-        // Step 4: Iterate through each voting adapter to validate and sum voting weights
-        for (uint256 i = 0; i < votingAdaptersData_.length; ) {
-            VotingAdapterVoteData
-                memory votingAdapterVoteData = votingAdaptersData_[i];
-            address votingAdapter = votingAdapterVoteData.votingAdapter;
+        // Step 4: Iterate through each voting config to validate and sum voting weights
+        for (uint256 i = 0; i < votingConfigsData_.length; ) {
+            IVotingTypes.VotingConfigVoteData
+                memory configData = votingConfigsData_[i];
 
-            // Verify the adapter is registered with this strategy
-            if (!$.isVotingAdapter[votingAdapter]) {
+            // Verify the config index is valid
+            if (configData.configIndex >= $.votingConfigs.length) {
                 return false;
             }
 
-            // Query the adapter to validate the vote and get voting weight
-            // Note: validVotingAdapterVote should NEVER return (true, 0)
-            (bool isValid, uint256 votingWeight) = IVotingAdapterBase(
-                votingAdapter
-            ).validVotingAdapterVote(
+            VotingConfig memory config = $.votingConfigs[
+                configData.configIndex
+            ];
+
+            // Calculate voting weight using paymaster-safe method
+            // This avoids banned opcodes during ERC-4337 validation phase
+            uint256 votingWeight = IVotingWeightV1(config.votingWeight)
+                .getVotingWeightForPaymaster(
                     voter_,
-                    proposalId_,
-                    votingAdapterVoteData.adapterVoteData
+                    details.votingStartTimestamp,
+                    configData.voteData
                 );
 
-            if (!isValid) {
+            if (votingWeight == 0) {
                 return false;
             }
 
-            // Accumulate voting weight from all adapters
+            // Check if already voted with this config
+            if (
+                IVoteTrackerV1(config.voteTracker).hasVoted(
+                    proposalId_,
+                    voter_,
+                    configData.voteData
+                )
+            ) {
+                return false;
+            }
+
+            // Accumulate voting weight from all configs
             totalVotingWeight += votingWeight;
 
             unchecked {
@@ -580,18 +607,18 @@ contract StrategyV1 is
      * @dev Implementation notes:
      * - Resolves Light Account ownership for gasless voting support
      * - Tracks late vote attempts for the first occurrence per proposal
-     * - Aggregates weights from all adapters before updating vote tallies
-     * - Each adapter enforces its own vote recording logic and constraints
+     * - Aggregates weights from all voting configs before updating vote tallies
+     * - Each voting config enforces its own vote recording logic and constraints
      */
     function castVote(
         uint32 proposalId_,
         uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData,
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsData_,
         uint256 lightAccountIndex_
     ) public virtual override {
-        // Validate at least one voting adapter is provided
-        if (votingAdaptersData.length == 0) {
-            revert NoVotingAdapters();
+        // Validate at least one voting config is provided
+        if (votingConfigsData_.length == 0) {
+            revert NoVotingConfigs();
         }
 
         // Step 1: Resolve the actual voter address (support for Light Accounts/ERC-4337)
@@ -623,31 +650,43 @@ contract StrategyV1 is
             revert ProposalNotActive();
         }
 
-        // Step 4: Process votes through each adapter and accumulate voting weights
+        // Step 4: Process votes through each config and accumulate voting weights
         uint256 totalWeightForThisVoteTransaction = 0;
 
-        for (uint256 i = 0; i < votingAdaptersData.length; ) {
-            VotingAdapterVoteData
-                memory votingAdapterVoteData = votingAdaptersData[i];
-            address votingAdapter = votingAdapterVoteData.votingAdapter;
+        for (uint256 i = 0; i < votingConfigsData_.length; ) {
+            IVotingTypes.VotingConfigVoteData
+                memory configData = votingConfigsData_[i];
 
-            // Verify the adapter is registered with this strategy
-            if (!$.isVotingAdapter[votingAdapter]) {
-                revert InvalidVotingAdapter(votingAdapter);
+            // Verify the config index is valid
+            if (configData.configIndex >= $.votingConfigs.length) {
+                revert InvalidVotingConfig(configData.configIndex);
             }
 
-            // Record the vote with the adapter and get the voting weight
-            // Each adapter enforces its own constraints (e.g., one vote per address for ERC20)
-            uint256 votingWeight = IVotingAdapterBase(votingAdapter).recordVote(
-                resolvedVoter,
-                proposalId_,
-                votingAdapterVoteData.adapterVoteData
-            );
+            VotingConfig memory config = $.votingConfigs[
+                configData.configIndex
+            ];
 
-            // Ensure the adapter returned a valid voting weight
+            // Calculate voting weight and get processed data
+            (
+                uint256 votingWeight,
+                bytes memory processedData
+            ) = IVotingWeightV1(config.votingWeight).calculateWeight(
+                    resolvedVoter,
+                    proposal.votingStartTimestamp,
+                    configData.voteData
+                );
+
+            // Ensure valid voting weight
             if (votingWeight == 0) {
-                revert NoVotingAdapterVotingWeight(votingAdapter);
+                revert NoVotingWeight(configData.configIndex);
             }
+
+            // Record the vote to prevent double voting
+            IVoteTrackerV1(config.voteTracker).recordVote(
+                proposalId_,
+                resolvedVoter,
+                processedData
+            );
 
             totalWeightForThisVoteTransaction += votingWeight;
 

@@ -62,11 +62,14 @@ import { InterfaceName } from 'path/to/interface.sol';
 
 ### Virtual/Override Rules
 
-- **Mark as `virtual`**: All functions except abstract contract's `__ContractName_init()`
-- **Mark as `override`**: All functions except:
-  - Abstract contract's `__ContractName_init()`
-  - Internal helper functions
-- Functions either override a base contract function OR implement an interface function
+- **Mark as `virtual`**: All functions except:
+  - Abstract contract's `__ContractName_init()` functions
+  - Storage getter functions (`_get{ContractName}Storage()`)
+  - Pure utility functions that should never be overridden
+- **Mark as `override`**: All functions that:
+  - Override a base contract function
+  - Implement an interface function
+  - (Except: abstract contract's `__ContractName_init()` and internal helper functions that don't override anything)
 
 ### Parameter and Return Conventions
 
@@ -182,6 +185,8 @@ Note: In implementation sections, we only organize functions by visibility since
 - Example: `returns (ContractStorage storage $)`
 - Function name pattern: `_get{ContractName}Storage()`
 - Assembly usage requires: `// solhint-disable-next-line no-inline-assembly`
+- **Never mark as `virtual`**: These functions return storage at fixed locations that must remain consistent
+- Always marked as `internal pure`
 
 ### Security Patterns
 
