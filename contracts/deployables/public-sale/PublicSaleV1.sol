@@ -22,8 +22,6 @@ import {
     SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// TODO: add onlyOwner function to update feeReceiver
-
 contract PublicSaleV1 is
     IPublicSaleV1,
     IVersion,
@@ -44,23 +42,23 @@ contract PublicSaleV1 is
      * @custom:storage-location erc7201:Decent.PublicSale.main
      */
     struct PublicSaleStorage {
+        bool ownerSettled;
+        uint48 saleStartTimestamp;
+        uint48 saleEndTimestamp;
         address commitmentToken;
         address saleToken;
         address kycVerifier;
+        address saleProceedsReceiver;
+        address protocolFeeReceiver;
         uint256 minimumCommitment;
         uint256 maximumCommitment;
         uint256 minimumTotalCommitment;
         uint256 maximumTotalCommitment;
         uint256 saleTokenPrice;
-        uint48 saleStartTimestamp;
-        uint48 saleEndTimestamp;
         uint256 decreaseCommitmentFee;
         uint256 protocolFee;
-        address saleProceedsReceiver;
-        address protocolFeeReceiver;
         uint256 totalCommitments;
         uint256 collectedDecreaseCommitmentFees;
-        bool ownerSettled;
         mapping(address account => uint256 commitmentAmount) commitments;
         mapping(address account => bool settled) settled;
     }
@@ -140,20 +138,21 @@ contract PublicSaleV1 is
         __DeploymentBlockInitializable_init();
 
         PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        $.saleStartTimestamp = params_.saleStartTimestamp;
+        $.saleEndTimestamp = params_.saleEndTimestamp;
         $.commitmentToken = params_.commitmentToken;
         $.saleToken = params_.saleToken;
         $.kycVerifier = params_.kycVerifier;
+        $.saleProceedsReceiver = params_.saleProceedsReceiver;
+        $.protocolFeeReceiver = params_.protocolFeeReceiver;
         $.minimumCommitment = params_.minimumCommitment;
         $.maximumCommitment = params_.maximumCommitment;
         $.minimumTotalCommitment = params_.minimumTotalCommitment;
         $.maximumTotalCommitment = params_.maximumTotalCommitment;
         $.saleTokenPrice = params_.saleTokenPrice;
-        $.saleStartTimestamp = params_.saleStartTimestamp;
-        $.saleEndTimestamp = params_.saleEndTimestamp;
         $.decreaseCommitmentFee = params_.decreaseCommitmentFee;
         $.protocolFee = params_.protocolFee;
-        $.saleProceedsReceiver = params_.saleProceedsReceiver;
-        $.protocolFeeReceiver = params_.protocolFeeReceiver;
 
         uint256 saleTokenEscrowAmount = (params_.maximumTotalCommitment *
             PRECISION) / params_.saleTokenPrice;
@@ -195,51 +194,6 @@ contract PublicSaleV1 is
     // --- State-Changing Functions ---
 
     // TODO: add to interface and override
-    // TODO: split out into native / ERC20
-    function increaseCommitment(
-        uint256 increaseAmount_
-    ) public payable virtual isKYCVerified {
-        PublicSaleStorage storage $ = _getPublicSaleStorage();
-
-        if (saleState() != SaleState.ACTIVE) revert SaleNotActive();
-
-        if (increaseAmount_ == 0) revert ZeroAmount();
-
-        if ($.totalCommitments + increaseAmount_ > $.maximumTotalCommitment)
-            revert MaximumTotalCommitment();
-
-        uint256 previousCommitment = $.commitments[msg.sender];
-
-        // revert if new commitment amount is less than minimum commitment,
-        // unless commitment makes total commitments reach maximum total commitment
-        if (
-            previousCommitment + increaseAmount_ < $.minimumCommitment &&
-            $.totalCommitments + increaseAmount_ != $.maximumTotalCommitment
-        ) revert MinimumCommitment();
-
-        if (previousCommitment + increaseAmount_ > $.maximumCommitment)
-            revert MaximumCommitment();
-
-        // update state
-        $.commitments[msg.sender] += increaseAmount_;
-        $.totalCommitments += increaseAmount_;
-
-        if ($.commitmentToken == NATIVE_ASSET) {
-            if (msg.value != increaseAmount_) revert InvalidBidAmount();
-        } else {
-            if (msg.value != 0) revert InvalidBidAmount(); // TODO: Update this error
-
-            IERC20($.commitmentToken).safeTransferFrom(
-                msg.sender,
-                address(this),
-                increaseAmount_
-            );
-        }
-
-        emit CommitmentIncreased(msg.sender, increaseAmount_);
-    }
-
-    // TODO: add to interface and override
     function increaseCommitmentNative() public payable virtual isKYCVerified {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
@@ -263,38 +217,6 @@ contract PublicSaleV1 is
             address(this),
             increaseAmount_
         );
-    }
-
-    function _increaseCommitment(
-        address account_,
-        uint256 increaseAmount_
-    ) internal {
-        PublicSaleStorage storage $ = _getPublicSaleStorage();
-
-        if (saleState() != SaleState.ACTIVE) revert SaleNotActive();
-
-        if (increaseAmount_ == 0) revert ZeroAmount();
-
-        if ($.totalCommitments + increaseAmount_ > $.maximumTotalCommitment)
-            revert MaximumTotalCommitment();
-
-        uint256 previousCommitment = $.commitments[account_];
-
-        // revert if new commitment amount is less than minimum commitment,
-        // unless commitment makes total commitments reach maximum total commitment
-        if (
-            previousCommitment + increaseAmount_ < $.minimumCommitment &&
-            $.totalCommitments + increaseAmount_ != $.maximumTotalCommitment
-        ) revert MinimumCommitment();
-
-        if (previousCommitment + increaseAmount_ > $.maximumCommitment)
-            revert MaximumCommitment();
-
-        // update state
-        $.commitments[account_] += increaseAmount_;
-        $.totalCommitments += increaseAmount_;
-
-        emit CommitmentIncreased(account_, increaseAmount_);
     }
 
     // TODO: add to interface and override
@@ -499,5 +421,37 @@ contract PublicSaleV1 is
         } else {
             IERC20(token_).safeTransfer(to_, amount_);
         }
+    }
+
+    function _increaseCommitment(
+        address account_,
+        uint256 increaseAmount_
+    ) internal {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+
+        if (saleState() != SaleState.ACTIVE) revert SaleNotActive();
+
+        if (increaseAmount_ == 0) revert ZeroAmount();
+
+        if ($.totalCommitments + increaseAmount_ > $.maximumTotalCommitment)
+            revert MaximumTotalCommitment();
+
+        uint256 previousCommitment = $.commitments[account_];
+
+        // revert if new commitment amount is less than minimum commitment,
+        // unless commitment makes total commitments reach maximum total commitment
+        if (
+            previousCommitment + increaseAmount_ < $.minimumCommitment &&
+            $.totalCommitments + increaseAmount_ != $.maximumTotalCommitment
+        ) revert MinimumCommitment();
+
+        if (previousCommitment + increaseAmount_ > $.maximumCommitment)
+            revert MaximumCommitment();
+
+        // update state
+        $.commitments[account_] += increaseAmount_;
+        $.totalCommitments += increaseAmount_;
+
+        emit CommitmentIncreased(account_, increaseAmount_);
     }
 }

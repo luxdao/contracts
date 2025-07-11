@@ -14,12 +14,6 @@ interface IPublicSaleV1 {
 
     error TransferFailed();
 
-    error InvalidBidAmount();
-
-    error SaleCloseTimestampNotElapsed();
-
-    error SaleNotStarted();
-
     error SaleNotActive();
 
     error SaleNotEnded();
@@ -28,23 +22,17 @@ interface IPublicSaleV1 {
 
     error DecreaseAmountExceedsCommitment();
 
-    error SaleEnded();
-
     error MinimumCommitment();
 
     error MaximumCommitment();
 
     error MaximumTotalCommitment();
 
-    error NoChangeToCommitment();
-
     error ZeroAmount();
 
     error KYCVerificationFailed();
 
     error InvalidDecreaseCommitmentFee();
-
-    error NoFeesToClaim();
 
     error ZeroCommitment();
 
@@ -55,22 +43,22 @@ interface IPublicSaleV1 {
     // --- Structs ---
 
     struct InitializerParams {
+        uint48 saleStartTimestamp;
+        uint48 saleEndTimestamp;
         address owner;
+        address saleTokenHolder;
         address commitmentToken;
         address saleToken;
+        address kycVerifier;
+        address saleProceedsReceiver;
+        address protocolFeeReceiver;
         uint256 minimumCommitment;
         uint256 maximumCommitment;
         uint256 minimumTotalCommitment;
         uint256 maximumTotalCommitment;
         uint256 saleTokenPrice;
-        uint48 saleStartTimestamp;
-        uint48 saleEndTimestamp;
         uint256 decreaseCommitmentFee;
         uint256 protocolFee;
-        address saleProceedsReceiver;
-        address protocolFeeReceiver;
-        address saleTokenHolder;
-        address kycVerifier;
     }
 
     // --- Enums ---
