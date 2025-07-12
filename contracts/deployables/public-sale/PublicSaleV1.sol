@@ -22,6 +22,12 @@ import {
     SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/**
+ * @title PublicSaleV1
+ * @notice Implementation of a public token sale with KYC verification
+ * @dev Supports time-based token sales with configurable parameters
+ * @custom:security-contact security@decent-dao.org
+ */
 contract PublicSaleV1 is
     IPublicSaleV1,
     IVersion,
@@ -97,6 +103,10 @@ contract PublicSaleV1 is
     // MODIFIERS
     // ======================================================================
 
+    /**
+     * @notice Ensures the caller has passed KYC verification
+     * @dev Calls the KYC verifier contract to check verification status
+     */
     // TODO: add optional signature bytes to IKYCVerifierV1
     modifier isKYCVerified() {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
@@ -109,10 +119,17 @@ contract PublicSaleV1 is
     // CONSTRUCTOR & INITIALIZERS
     // ======================================================================
 
+    /**
+     * @notice Disables initializers on implementation contract deployment
+     * @dev Prevents the implementation contract from being initialized
+     */
     constructor() {
         _disableInitializers();
     }
 
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
     function initialize(
         InitializerParams memory params_
     ) public virtual override initializer {
@@ -171,8 +188,10 @@ contract PublicSaleV1 is
 
     // --- View Functions ---
 
-    // TODO: add to interface and override
-    function saleState() public view virtual returns (SaleState) {
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function saleState() public view virtual override returns (SaleState) {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if (block.timestamp < $.saleStartTimestamp) {
@@ -191,10 +210,246 @@ contract PublicSaleV1 is
         }
     }
 
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function ownerSettled() external view virtual override returns (bool) {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.ownerSettled;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function saleStartTimestamp()
+        external
+        view
+        virtual
+        override
+        returns (uint48)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.saleStartTimestamp;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function saleEndTimestamp()
+        external
+        view
+        virtual
+        override
+        returns (uint48)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.saleEndTimestamp;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function commitmentToken()
+        external
+        view
+        virtual
+        override
+        returns (address)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.commitmentToken;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function saleToken() external view virtual override returns (address) {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.saleToken;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function kycVerifier() external view virtual override returns (address) {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.kycVerifier;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function saleProceedsReceiver()
+        external
+        view
+        virtual
+        override
+        returns (address)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.saleProceedsReceiver;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function protocolFeeReceiver()
+        external
+        view
+        virtual
+        override
+        returns (address)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.protocolFeeReceiver;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function minimumCommitment()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.minimumCommitment;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function maximumCommitment()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.maximumCommitment;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function minimumTotalCommitment()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.minimumTotalCommitment;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function maximumTotalCommitment()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.maximumTotalCommitment;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function saleTokenPrice() external view virtual override returns (uint256) {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.saleTokenPrice;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function decreaseCommitmentFee()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.decreaseCommitmentFee;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function protocolFee() external view virtual override returns (uint256) {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.protocolFee;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function totalCommitments()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.totalCommitments;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function collectedDecreaseCommitmentFees()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.collectedDecreaseCommitmentFees;
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function commitments(
+        address account_
+    ) external view virtual override returns (uint256) {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.commitments[account_];
+    }
+
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function settled(
+        address account_
+    ) external view virtual override returns (bool) {
+        PublicSaleStorage storage $ = _getPublicSaleStorage();
+        return $.settled[account_];
+    }
+
     // --- State-Changing Functions ---
 
-    // TODO: add to interface and override
-    function increaseCommitmentNative() public payable virtual isKYCVerified {
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function increaseCommitmentNative()
+        public
+        payable
+        virtual
+        override
+        isKYCVerified
+    {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.commitmentToken != NATIVE_ASSET) revert InvalidCommitmentToken();
@@ -202,10 +457,12 @@ contract PublicSaleV1 is
         _increaseCommitment(msg.sender, msg.value);
     }
 
-    // TODO: add to interface and override
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
     function increaseCommitmentERC20(
         uint256 increaseAmount_
-    ) public virtual isKYCVerified {
+    ) public virtual override isKYCVerified {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.commitmentToken == NATIVE_ASSET) revert InvalidCommitmentToken();
@@ -219,11 +476,13 @@ contract PublicSaleV1 is
         );
     }
 
-    // TODO: add to interface and override
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
     function decreaseCommitment(
         uint256 decreaseAmount_,
         address recipient_
-    ) public virtual {
+    ) public virtual override {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if (saleState() != SaleState.ACTIVE) revert SaleNotActive();
@@ -258,8 +517,10 @@ contract PublicSaleV1 is
         emit CommitmentDecreased(msg.sender, decreaseAmount_);
     }
 
-    // TODO: add to interface and override
-    function settle(address recipient_) public virtual {
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function settle(address recipient_) public virtual override {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.settled[msg.sender]) revert AlreadySettled();
@@ -297,8 +558,10 @@ contract PublicSaleV1 is
         }
     }
 
-    // TODO: add to interface and override
-    function ownerSettle() public virtual onlyOwner {
+    /**
+     * @inheritdoc IPublicSaleV1
+     */
+    function ownerSettle() public virtual override onlyOwner {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.ownerSettled) revert AlreadySettled();
@@ -408,6 +671,12 @@ contract PublicSaleV1 is
     // INTERNAL HELPERS
     // ======================================================================
 
+    /**
+     * @notice Transfers tokens or native assets to a recipient
+     * @param token_ Token address or NATIVE_ASSET constant
+     * @param to_ Recipient address
+     * @param amount_ Amount to transfer
+     */
     function _transferTokenOrNative(
         address token_,
         address to_,
@@ -423,6 +692,11 @@ contract PublicSaleV1 is
         }
     }
 
+    /**
+     * @notice Internal function to increase a user's commitment
+     * @param account_ Address of the committing user
+     * @param increaseAmount_ Amount to increase commitment by
+     */
     function _increaseCommitment(
         address account_,
         uint256 increaseAmount_
