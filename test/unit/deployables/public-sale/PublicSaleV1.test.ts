@@ -1232,14 +1232,14 @@ describe('PublicSaleV1', () => {
         .approve(await publicSale.getAddress(), ethers.parseEther('1000'));
     });
 
-    it('should allow operations when KYC verification passes', async () => {
+    it('should allow commitment increases when KYC verification passes', async () => {
       await kycVerifier.setVerify(true);
 
       await expect(publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'))).to
         .not.be.reverted;
     });
 
-    it('should block increase operations when KYC fails', async () => {
+    it('should block commitment increases when KYC fails', async () => {
       await kycVerifier.setVerify(false);
 
       await expect(
@@ -1247,7 +1247,7 @@ describe('PublicSaleV1', () => {
       ).to.be.revertedWithCustomError(publicSale, 'KYCVerificationFailed');
     });
 
-    it('should not require KYC for decrease and settle operations', async () => {
+    it('should not require KYC for decreasing commitment and settling', async () => {
       await kycVerifier.setVerify(true);
       await publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'));
 
