@@ -128,7 +128,7 @@ async function deployTestSale(
   return deployPublicSaleProxy(deployer, params);
 }
 
-async function setupCommitmentTokens(
+async function mintAndApproveCommitmentTokens(
   commitmentToken: MockERC20,
   sale: PublicSaleV1,
   users: SignerWithAddress[],
@@ -418,7 +418,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(publicSale);
 
       // Setup initial commitments
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice, bob],
@@ -453,7 +453,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(publicSale);
 
       // Commit less than minimum total
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice],
@@ -492,7 +492,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(publicSale);
 
       // Setup commitment tokens for test accounts
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice, bob],
@@ -544,7 +544,7 @@ describe('PublicSaleV1', () => {
       const users = [alice, bob, charlie, signers[5], signers[6]];
       const commitmentPerUser = ethers.parseEther('1000');
 
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         testSale,
         users,
@@ -608,11 +608,11 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(exceedSale);
 
       // Alice commits 150 ETH (within her per-user limit but leaves only 50 ETH room)
-      await setupCommitmentTokens(commitmentToken, exceedSale, [alice], [ethers.parseEther('150')]);
+      await mintAndApproveCommitmentTokens(commitmentToken, exceedSale, [alice], [ethers.parseEther('150')]);
       await exceedSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('150'));
 
       // Bob tries to commit 60 ETH which would exceed total maximum
-      await setupCommitmentTokens(commitmentToken, exceedSale, [bob], [ethers.parseEther('60')]);
+      await mintAndApproveCommitmentTokens(commitmentToken, exceedSale, [bob], [ethers.parseEther('60')]);
 
       await expect(
         exceedSale.connect(bob).increaseCommitmentERC20(ethers.parseEther('60')),
@@ -703,7 +703,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(publicSale);
 
       // Setup alice with commitment tokens and an initial commitment
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice],
@@ -760,7 +760,7 @@ describe('PublicSaleV1', () => {
       );
       await moveToSaleStart(zeroFeeSale);
 
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         zeroFeeSale,
         [alice],
@@ -840,7 +840,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(publicSale);
 
       // Setup commitments
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice, bob],
@@ -924,7 +924,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(activeSale);
 
       // Make a commitment
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         activeSale,
         [alice],
@@ -992,7 +992,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(publicSale);
 
       // Setup successful sale
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice, bob],
@@ -1053,7 +1053,7 @@ describe('PublicSaleV1', () => {
       );
 
       const users = signers.slice(2, 2 + numUsers); // Skip deployer and owner
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         customSale,
         users,
@@ -1190,7 +1190,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(extremeSale);
 
       // Setup alice with commitment tokens
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         extremeSale,
         [alice],
@@ -1356,7 +1356,7 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(raceSale);
 
       // Setup users with enough tokens
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         raceSale,
         [alice, bob],
@@ -1371,7 +1371,7 @@ describe('PublicSaleV1', () => {
       // We need to fill 5000 - 1000 (alice) - 1000 (remaining for bob) = 3000
       const amountPerUser = ethers.parseEther('1000');
       const fillUsers = signers.slice(9, 12); // 3 users
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         raceSale,
         fillUsers,
@@ -1403,7 +1403,7 @@ describe('PublicSaleV1', () => {
     });
 
     it('should emit CommitmentIncreased with correct parameters', async () => {
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice],
@@ -1418,7 +1418,7 @@ describe('PublicSaleV1', () => {
 
     it('should emit all settlement events correctly', async () => {
       // Setup successful sale - need multiple users
-      await setupCommitmentTokens(
+      await mintAndApproveCommitmentTokens(
         commitmentToken,
         publicSale,
         [alice],
