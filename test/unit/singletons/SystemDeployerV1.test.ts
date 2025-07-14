@@ -10,6 +10,7 @@ import {
   FreezeGuardMultisigV1__factory,
   FreezeVotingAzoriusV1__factory,
   FreezeVotingMultisigV1__factory,
+  FreezeVotingStandaloneV1__factory,
   IDeploymentBlock__factory,
   IncompatibleStorageContract__factory,
   ISystemDeployerV1,
@@ -303,6 +304,7 @@ function createSetupSafeParams(overrides?: {
   freezeGuardAzoriusParams?: Partial<ISystemDeployerV1.FreezeGuardAzoriusV1ParamsStruct>;
   freezeVotingMultisigParams?: Partial<ISystemDeployerV1.FreezeVotingMultisigV1ParamsStruct>;
   freezeVotingAzoriusParams?: Partial<ISystemDeployerV1.FreezeVotingAzoriusV1ParamsStruct>;
+  freezeVotingStandaloneParams?: Partial<ISystemDeployerV1.FreezeVotingStandaloneParamsStruct>;
 }) {
   // Default Votes ERC20 params (all empty/zero)
   const votesERC20Params: ISystemDeployerV1.VotesERC20V1ParamsStruct[] = overrides?.votesERC20Params
@@ -354,6 +356,7 @@ function createSetupSafeParams(overrides?: {
   };
 
   // Default Freeze params (all empty/zero)
+  // Build freeze params from individual parameters
   const freezeParams: ISystemDeployerV1.FreezeParamsStruct = {
     freezeGuardParams: {
       freezeGuardMultisigV1Params: {
@@ -387,6 +390,21 @@ function createSetupSafeParams(overrides?: {
         parentAzorius: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
         ...overrides?.freezeVotingAzoriusParams,
+      },
+      freezeVotingStandaloneParams: {
+        freezeVotingStandaloneV1Params: {
+          implementation: ethers.ZeroAddress,
+          freezeVotesThreshold: 0,
+          unfreezeVotesThreshold: 0,
+          freezeProposalPeriod: 0,
+          unfreezeProposalPeriod: 0,
+          lightAccountFactory: ethers.ZeroAddress,
+        },
+        votingConfigParams: {
+          votingConfigERC20V1Params: [],
+          votingConfigERC721V1Params: [],
+        },
+        ...overrides?.freezeVotingStandaloneParams,
       },
     },
   };
@@ -1395,6 +1413,131 @@ async function findAndVerifyFreezeVotingAzoriusV1(params: {
   return freezeVotingAzoriusProxy;
 }
 
+// Helper function to find and verify FreezeVotingStandalone deployment and configuration
+async function findAndVerifyFreezeVotingStandaloneV1(params: {
+  fixtureData: {
+    systemDeployer: SystemDeployerV1;
+    deployer: SignerWithAddress;
+    votingWeightERC20V1: VotingWeightERC20V1;
+    votingWeightERC721V1: VotingWeightERC721V1;
+    voteTrackerERC20V1: VoteTrackerERC20V1;
+    voteTrackerERC721V1: VoteTrackerERC721V1;
+    votesERC20V1: VotesERC20V1;
+  };
+  receipt: ContractTransactionReceipt;
+  implementation: AddressLike;
+  freezeVotesThreshold: BigNumberish;
+  unfreezeVotesThreshold: BigNumberish;
+  freezeProposalPeriod: BigNumberish;
+  unfreezeProposalPeriod: BigNumberish;
+  lightAccountFactory: AddressLike;
+  votesERC20V1Tokens?: VotesERC20V1[];
+  votingConfigERC20V1Datas?: {
+    params: {
+      votingWeightImplementation: AddressLike;
+      voteTrackerImplementation: AddressLike;
+      token: AddressLike;
+      newTokenIndex: BigNumberish;
+      weightPerToken: BigNumberish;
+    };
+    token?: string;
+  }[];
+  votingConfigERC721V1Datas?: {
+    params: {
+      votingWeightImplementation: AddressLike;
+      voteTrackerImplementation: AddressLike;
+      token: AddressLike;
+      weightPerToken: BigNumberish;
+    };
+  }[];
+}) {
+  const {
+    fixtureData,
+    receipt,
+    implementation,
+    freezeVotesThreshold,
+    unfreezeVotesThreshold,
+    freezeProposalPeriod,
+    unfreezeProposalPeriod,
+    lightAccountFactory,
+    votesERC20V1Tokens = [],
+    votingConfigERC20V1Datas,
+    votingConfigERC721V1Datas,
+  } = params;
+
+  const freezeVotingStandaloneAddress = await findProxyDeployed({
+    fixtureData,
+    receipt,
+    implementation,
+  });
+
+  // Connect to the deployed FreezeVotingStandalone proxy
+  const freezeVotingStandaloneProxy = FreezeVotingStandaloneV1__factory.connect(
+    freezeVotingStandaloneAddress,
+    fixtureData.deployer,
+  );
+
+  // Verify basic parameters
+  expect(await freezeVotingStandaloneProxy.freezeVotesThreshold()).to.equal(freezeVotesThreshold);
+  expect(await freezeVotingStandaloneProxy.unfreezeVotesThreshold()).to.equal(
+    unfreezeVotesThreshold,
+  );
+  expect(await freezeVotingStandaloneProxy.freezeProposalPeriod()).to.equal(freezeProposalPeriod);
+  expect(await freezeVotingStandaloneProxy.unfreezeProposalPeriod()).to.equal(
+    unfreezeProposalPeriod,
+  );
+  expect(await freezeVotingStandaloneProxy.lightAccountFactory()).to.equal(lightAccountFactory);
+
+  // Verify voting configs
+  let votingConfigERC20s: { votingWeight: string; voteTracker: string }[] = [];
+  if (votingConfigERC20V1Datas) {
+    votingConfigERC20s = await findAndVerifyVotingConfigERC20V1s({
+      fixtureData,
+      receipt,
+      implementation: await fixtureData.votingWeightERC20V1.getAddress(),
+      votingConfigDatas: await Promise.all(
+        votingConfigERC20V1Datas.map(async data => ({
+          ...data,
+          params: {
+            ...data.params,
+            strategy: freezeVotingStandaloneAddress, // Use freeze voting as the strategy
+          },
+          token:
+            data.token ??
+            (await votesERC20V1Tokens[Number(data.params.newTokenIndex)].getAddress()),
+        })),
+      ),
+    });
+  }
+
+  let votingConfigERC721s: { votingWeight: string; voteTracker: string }[] = [];
+  if (votingConfigERC721V1Datas) {
+    votingConfigERC721s = await findAndVerifyVotingConfigERC721V1s({
+      fixtureData,
+      receipt,
+      implementation: await fixtureData.votingWeightERC721V1.getAddress(),
+      votingConfigDatas: await Promise.all(
+        votingConfigERC721V1Datas.map(async data => ({
+          ...data,
+          params: { ...data.params, strategy: freezeVotingStandaloneAddress },
+        })),
+      ),
+    });
+  }
+
+  // Verify the voting configs match what's in the contract
+  const actualVotingConfigs = await freezeVotingStandaloneProxy.getVotingConfigs();
+  const expectedVotingConfigs = [...votingConfigERC20s, ...votingConfigERC721s];
+
+  expect(actualVotingConfigs.length).to.equal(expectedVotingConfigs.length);
+  for (let i = 0; i < actualVotingConfigs.length; i++) {
+    expect(actualVotingConfigs[i].votingWeight).to.equal(expectedVotingConfigs[i].votingWeight);
+    expect(actualVotingConfigs[i].voteTracker).to.equal(expectedVotingConfigs[i].voteTracker);
+  }
+
+  return freezeVotingStandaloneProxy;
+}
+
 // Helper function to verify the number of new contracts deployed
 function verifyNumberOfNewContractsDeployed(params: {
   fixtureData: {
@@ -1557,6 +1700,16 @@ async function findAndVerifySafe(params: {
     guardParams: ISystemDeployerV1.FreezeGuardMultisigV1ParamsStruct;
     votingMultisigParams?: ISystemDeployerV1.FreezeVotingMultisigV1ParamsStruct;
     votingAzoriusParams?: ISystemDeployerV1.FreezeVotingAzoriusV1ParamsStruct;
+    votingStandaloneParams?: {
+      freezeVotingParams: ISystemDeployerV1.FreezeVotingStandaloneV1ParamsStruct;
+      votingConfigERC20V1Datas?: {
+        params: ISystemDeployerV1.VotingConfigERC20V1ParamsStruct;
+        token?: string;
+      }[];
+      votingConfigERC721V1Datas?: {
+        params: ISystemDeployerV1.VotingConfigERC721V1ParamsStruct;
+      }[];
+    };
   };
   freezeGuardAzoriusV1Data?: {
     guardParams: ISystemDeployerV1.FreezeGuardAzoriusV1ParamsStruct;
@@ -1616,7 +1769,7 @@ async function findAndVerifySafe(params: {
     });
   }
 
-  let votesERC20V1Tokens: VotesERC20V1[];
+  let votesERC20V1Tokens: VotesERC20V1[] = [];
   if (votesERC20V1Datas && votesERC20V1Datas.length > 0) {
     votesERC20V1Tokens = await findAndVerifyVotesERC20V1s({
       fixtureData,
@@ -1753,11 +1906,14 @@ async function findAndVerifySafe(params: {
   }
 
   if (freezeGuardMultisigV1Data) {
-    if (
-      freezeGuardMultisigV1Data.votingAzoriusParams &&
-      freezeGuardMultisigV1Data.votingMultisigParams
-    ) {
-      throw new Error('Cannot have both votingAzoriusParams and votingMultisigParams');
+    const votingParamsCount = [
+      freezeGuardMultisigV1Data.votingAzoriusParams,
+      freezeGuardMultisigV1Data.votingMultisigParams,
+      freezeGuardMultisigV1Data.votingStandaloneParams,
+    ].filter(Boolean).length;
+
+    if (votingParamsCount > 1) {
+      throw new Error('Cannot have multiple voting params types');
     }
 
     let freezeVotingAddress: string | undefined;
@@ -1782,6 +1938,21 @@ async function findAndVerifySafe(params: {
       ).getAddress();
     }
 
+    if (freezeGuardMultisigV1Data.votingStandaloneParams) {
+      freezeVotingAddress = await (
+        await findAndVerifyFreezeVotingStandaloneV1({
+          fixtureData,
+          receipt,
+          ...freezeGuardMultisigV1Data.votingStandaloneParams.freezeVotingParams,
+          votesERC20V1Tokens,
+          votingConfigERC20V1Datas:
+            freezeGuardMultisigV1Data.votingStandaloneParams.votingConfigERC20V1Datas,
+          votingConfigERC721V1Datas:
+            freezeGuardMultisigV1Data.votingStandaloneParams.votingConfigERC721V1Datas,
+        })
+      ).getAddress();
+    }
+
     if (!freezeVotingAddress) {
       throw new Error('No freeze voting address found');
     }
@@ -1800,11 +1971,13 @@ async function findAndVerifySafe(params: {
       throw new Error('Azorius module is required to verify freeze guard Azorius');
     }
 
-    if (
-      freezeGuardAzoriusV1Data.votingAzoriusParams &&
-      freezeGuardAzoriusV1Data.votingMultisigParams
-    ) {
-      throw new Error('Cannot have both votingAzoriusParams and votingMultisigParams');
+    const votingParamsCount = [
+      freezeGuardAzoriusV1Data.votingAzoriusParams,
+      freezeGuardAzoriusV1Data.votingMultisigParams,
+    ].filter(Boolean).length;
+
+    if (votingParamsCount > 1) {
+      throw new Error('Cannot have multiple voting params types');
     }
 
     let freezeVotingAddress: string | undefined;
@@ -1980,6 +2153,7 @@ async function setupState() {
   const freezeGuardAzoriusV1 = await new FreezeGuardAzoriusV1__factory(deployer).deploy();
   const freezeVotingMultisigV1 = await new FreezeVotingMultisigV1__factory(deployer).deploy();
   const freezeVotingAzoriusV1 = await new FreezeVotingAzoriusV1__factory(deployer).deploy();
+  const freezeVotingStandaloneV1 = await new FreezeVotingStandaloneV1__factory(deployer).deploy();
   const moduleAzoriusV1 = await new ModuleAzoriusV1__factory(deployer).deploy();
   const strategyV1 = await new StrategyV1__factory(deployer).deploy();
   const votesERC20V1 = await new VotesERC20V1__factory(deployer).deploy();
@@ -2044,6 +2218,7 @@ async function setupState() {
     freezeGuardAzoriusV1,
     freezeVotingMultisigV1,
     freezeVotingAzoriusV1,
+    freezeVotingStandaloneV1,
     moduleAzoriusV1,
     strategyV1,
     votesERC20V1,
@@ -2293,6 +2468,66 @@ describe('SystemDeployerV1', () => {
               votingAzoriusParams: freezeVotingAzoriusParams,
             },
             numberOfNewContracts: 2,
+          });
+        });
+
+        it('succeeds with FreezeGuardMultisig and FreezeVotingStandalone contracts', async () => {
+          const freezeVotingStandaloneParams: ISystemDeployerV1.FreezeVotingStandaloneParamsStruct =
+            {
+              freezeVotingStandaloneV1Params: {
+                implementation: await fixtureData.freezeVotingStandaloneV1.getAddress(),
+                freezeVotesThreshold: ethers.parseEther('100'),
+                unfreezeVotesThreshold: ethers.parseEther('150'),
+                freezeProposalPeriod: 7200,
+                unfreezeProposalPeriod: 3600,
+                lightAccountFactory: ethers.ZeroAddress,
+              },
+              votingConfigParams: {
+                votingConfigERC20V1Params: [
+                  {
+                    votingWeightImplementation: await fixtureData.votingWeightERC20V1.getAddress(),
+                    voteTrackerImplementation: await fixtureData.voteTrackerERC20V1.getAddress(),
+                    token: ethers.ZeroAddress,
+                    newTokenIndex: 0,
+                    weightPerToken: ethers.parseEther('1'),
+                  },
+                ],
+                votingConfigERC721V1Params: [],
+              },
+            };
+
+          const setupSafeParams = createSetupSafeParams({
+            votesERC20Params: [votesERC20V1Params1],
+            freezeVotingStandaloneParams,
+            freezeGuardMultisigParams,
+          });
+
+          await findAndVerifySafe({
+            ...(await deploySafeWithSetup({
+              fixtureData,
+              owners,
+              threshold,
+              setupSafeParams,
+            })),
+            fixtureData,
+            owners,
+            threshold,
+            votesERC20V1Datas: [votesERC20V1Params1],
+            freezeGuardMultisigV1Data: {
+              guardParams: freezeGuardMultisigParams,
+              votingStandaloneParams: {
+                freezeVotingParams: freezeVotingStandaloneParams.freezeVotingStandaloneV1Params,
+                votingConfigERC20V1Datas:
+                  freezeVotingStandaloneParams.votingConfigParams.votingConfigERC20V1Params.map(
+                    p => ({ params: p }),
+                  ),
+                votingConfigERC721V1Datas:
+                  freezeVotingStandaloneParams.votingConfigParams.votingConfigERC721V1Params.map(
+                    p => ({ params: p }),
+                  ),
+              },
+            },
+            numberOfNewContracts: 5, // Safe + Token + FreezeVotingStandalone + VotingWeight + VoteTracker + FreezeGuardMultisig = 6, but Safe is not counted as "new"
           });
         });
       });
@@ -3956,6 +4191,109 @@ describe('SystemDeployerV1', () => {
               // now deploying should fail
               await expect(deploySafeWithSetup(data)).to.be.reverted;
             });
+
+            it('deploys with a FreezeGuardMultisig with FreezeVotingStandalone', async () => {
+              const freezeVotingStandaloneParams: ISystemDeployerV1.FreezeVotingStandaloneParamsStruct =
+                {
+                  freezeVotingStandaloneV1Params: {
+                    implementation: await fixtureData.freezeVotingStandaloneV1.getAddress(),
+                    freezeVotesThreshold: ethers.parseEther('150'),
+                    unfreezeVotesThreshold: ethers.parseEther('200'),
+                    freezeProposalPeriod: 7200,
+                    unfreezeProposalPeriod: 3600,
+                    lightAccountFactory: ethers.ZeroAddress,
+                  },
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [
+                      {
+                        votingWeightImplementation:
+                          await fixtureData.votingWeightERC20V1.getAddress(),
+                        voteTrackerImplementation:
+                          await fixtureData.voteTrackerERC20V1.getAddress(),
+                        token: ethers.ZeroAddress,
+                        newTokenIndex: 0,
+                        weightPerToken: ethers.parseEther('1'),
+                      },
+                    ],
+                    votingConfigERC721V1Params: [],
+                  },
+                };
+
+              const setupSafeParams = createSetupSafeParams({
+                votesERC20Params: [votesERC20V1Params1],
+                freezeGuardMultisigParams,
+                freezeVotingStandaloneParams,
+              });
+
+              await findAndVerifySafe({
+                ...(await deploySafeWithSetup({
+                  fixtureData,
+                  owners,
+                  threshold,
+                  setupSafeParams,
+                })),
+                fixtureData,
+                owners,
+                threshold,
+                votesERC20V1Datas: [votesERC20V1Params1],
+                freezeGuardMultisigV1Data: {
+                  guardParams: freezeGuardMultisigParams,
+                  votingStandaloneParams: {
+                    freezeVotingParams: freezeVotingStandaloneParams.freezeVotingStandaloneV1Params,
+                    votingConfigERC20V1Datas:
+                      freezeVotingStandaloneParams.votingConfigParams.votingConfigERC20V1Params.map(
+                        p => ({ params: p }),
+                      ),
+                    votingConfigERC721V1Datas:
+                      freezeVotingStandaloneParams.votingConfigParams.votingConfigERC721V1Params.map(
+                        p => ({ params: p }),
+                      ),
+                  },
+                },
+                numberOfNewContracts: 5, // Safe + Token + FreezeVotingStandalone + VotingWeight + VoteTracker + FreezeGuardMultisig = 6, but Safe is not counted as "new"
+              });
+            });
+
+            it('should revert when multiple freeze voting types are deployed', async () => {
+              // First, demonstrate that FreezeGuardMultisig works with FreezeVotingStandalone alone
+              const freezeVotingStandaloneParams: ISystemDeployerV1.FreezeVotingStandaloneParamsStruct =
+                {
+                  freezeVotingStandaloneV1Params: {
+                    implementation: await fixtureData.freezeVotingStandaloneV1.getAddress(),
+                    freezeVotesThreshold: 100,
+                    unfreezeVotesThreshold: 200,
+                    freezeProposalPeriod: 3600,
+                    unfreezeProposalPeriod: 1800,
+                    lightAccountFactory: ethers.ZeroAddress,
+                  },
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [],
+                    votingConfigERC721V1Params: [],
+                  },
+                };
+
+              const setupSafeParams = createSetupSafeParams({
+                freezeGuardMultisigParams,
+                freezeVotingStandaloneParams,
+              });
+
+              const data = {
+                fixtureData,
+                owners,
+                threshold,
+                setupSafeParams,
+              };
+
+              // Initial deployment should succeed
+              await deploySafeWithSetup(data);
+
+              // Now add FreezeVotingMultisig - the minimal change that triggers the error
+              data.setupSafeParams.freezeParams.freezeVotingParams.freezeVotingMultisigV1Params.implementation =
+                await fixtureData.freezeVotingMultisigV1.getAddress();
+
+              // Now deploying should fail
+              await expect(deploySafeWithSetup(data)).to.be.reverted;
+            });
           });
 
           describe('FreezeGuardAzorius configurations', () => {
@@ -4132,6 +4470,46 @@ describe('SystemDeployerV1', () => {
                 freezeVotingMultisigParams;
 
               // now deploying should fail
+              await expect(deploySafeWithSetup(data)).to.be.reverted;
+            });
+
+            it('should revert when FreezeVotingStandalone is paired with FreezeGuardAzorius', async () => {
+              // First, demonstrate that FreezeGuardAzorius works with FreezeVotingAzorius
+              const setupSafeParams = createSetupSafeParams({
+                azoriusGovernanceParams: {
+                  proposerAdapterParams: {
+                    proposerAdapterERC20V1Params: [{ ...proposerAdapterERC20V1Params1 }],
+                    proposerAdapterERC721V1Params: [],
+                    proposerAdapterHatsV1Params: [],
+                  },
+                  strategyV1Params,
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
+                  },
+                  moduleAzoriusV1Params,
+                },
+                freezeGuardAzoriusParams,
+                freezeVotingAzoriusParams,
+              });
+
+              const data = {
+                fixtureData,
+                owners,
+                threshold,
+                setupSafeParams,
+              };
+
+              // Initial deployment should succeed
+              await deploySafeWithSetup(data);
+
+              // Now change to FreezeVotingStandalone - the minimal change that triggers the error
+              data.setupSafeParams.freezeParams.freezeVotingParams.freezeVotingAzoriusV1Params.implementation =
+                ethers.ZeroAddress;
+              data.setupSafeParams.freezeParams.freezeVotingParams.freezeVotingStandaloneParams.freezeVotingStandaloneV1Params.implementation =
+                await fixtureData.freezeVotingStandaloneV1.getAddress();
+
+              // Now deploying should fail
               await expect(deploySafeWithSetup(data)).to.be.reverted;
             });
           });
