@@ -10,25 +10,27 @@ import {
     DeploymentBlockNonInitializable
 } from "../../DeploymentBlockNonInitializable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
  * @title KYCVerifierV1
  * @author Decent Labs
- * @notice Mock implementation of KYC verification service
- * @dev This contract implements IKYCVerifierV1, providing a simple KYC
- * verification service that always returns true.
+ * @notice KYC verification service using EIP-712 signature verification
+ * @dev This contract implements IKYCVerifierV1, providing KYC verification
+ * through cryptographic signature verification.
  *
  * Implementation details:
- * - Mock implementation for testing and development
- * - Always returns true for any address verification
+ * - Uses EIP-712 structured data signing for verification
+ * - Requires signature from authorized verifier address
  * - Deployed as singleton service per chain
- * - Production implementations would integrate with real KYC providers
+ * - Supports operating contract-specific verification
  *
- * Production considerations:
- * - Real implementations would check on-chain attestations
- * - Could integrate with identity protocols or oracles
- * - May use merkle trees or signature verification
- * - Should implement proper access controls for updates
+ * Security considerations:
+ * - Verifier address is immutable and set at deployment
+ * - Uses ECDSA signature recovery for verification
+ * - EIP-712 prevents signature replay across different domains
+ * - Operating contract context prevents cross-contract signature reuse
  *
  * @custom:security-contact security@decentlabs.io
  */
@@ -36,8 +38,28 @@ contract KYCVerifierV1 is
     IKYCVerifierV1,
     IVersion,
     DeploymentBlockNonInitializable,
-    ERC165
+    ERC165,
+    EIP712
 {
+    // ======================================================================
+    // STATE VARIABLES
+    // ======================================================================
+
+    address private immutable _verifier;
+
+    bytes32 internal constant TYPEHASH =
+        keccak256(
+            "VerificationData(address operatingContract,address account)"
+        );
+
+    // ======================================================================
+    // CONSTRUCTOR & INITIALIZERS
+    // ======================================================================
+
+    constructor(address verifier_) EIP712("KYCVerifier", "1") {
+        _verifier = verifier_;
+    }
+
     // ======================================================================
     // IKYCVerifier
     // ======================================================================
@@ -46,11 +68,26 @@ contract KYCVerifierV1 is
 
     /**
      * @inheritdoc IKYCVerifierV1
-     * @dev Mock implementation that always returns true. Production implementations
-     * would perform actual KYC verification checks against authorized data sources.
+     * @dev Verifies KYC status using EIP-712 signature verification. The signature
+     * must be provided by the authorized verifier address to confirm KYC compliance.
      */
-    function verify(address) public view virtual override returns (bool) {
-        return true;
+    function verify(
+        address operatingContract_,
+        address account_,
+        bytes calldata signature_
+    ) public view virtual override returns (bool) {
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(abi.encode(TYPEHASH, operatingContract_, account_))
+        );
+    
+        return ECDSA.recover(digest, signature_) == _verifier;
+    }
+
+    /**
+     * @inheritdoc IKYCVerifierV1
+     */
+    function verifier() public view virtual override returns (address) {
+        return _verifier;
     }
 
     // ======================================================================

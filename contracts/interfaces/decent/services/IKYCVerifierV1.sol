@@ -13,7 +13,7 @@ pragma solidity ^0.8.30;
  * - Stateless view function for gas-efficient checks
  *
  * Usage:
- * - CountersignV1 uses this to verify signers before accepting signatures
+ * - CountersignV1 and PublicSaleV1 use this to verify signers before accepting signatures
  *
  * Security:
  * - Verification logic is critical for compliance
@@ -22,12 +22,25 @@ interface IKYCVerifierV1 {
     // --- View Functions ---
 
     /**
-     * @notice Verifies if an address has completed KYC requirements
+     * @notice Verifies if an address is KYC verified
      * @dev Returns true if the address is KYC verified, false otherwise.
      * Implementation can check on-chain records, merkle proofs, or oracle data.
      * Should be gas-efficient as it may be called frequently.
+     * @param operatingContract_ The address of the contract that is verifying KYC status
      * @param account_ The address to verify KYC status for
+     * @param signature_ The verifier signature attesting to KYC status
      * @return verified True if the address is KYC verified, false otherwise
      */
-    function verify(address account_) external view returns (bool verified);
+    function verify(
+        address operatingContract_,
+        address account_,
+        bytes calldata signature_
+    ) external view returns (bool verified);
+
+    /**
+     * @notice Returns the address of the verifier
+     * @dev The verifier is the address that is authorized to sign KYC attestations
+     * @return verifier The address of the verifier
+     */
+    function verifier() external view returns (address);
 }

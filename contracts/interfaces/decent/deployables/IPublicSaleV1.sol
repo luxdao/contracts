@@ -366,16 +366,18 @@ interface IPublicSaleV1 {
 
     /**
      * @notice Increases commitment using native asset (ETH)
+     * @param verifyingSignature_ The verifier signature attesting to KYC status
      * @dev Reverts if commitment token is not NATIVE_ASSET
      */
-    function increaseCommitmentNative() external payable;
+    function increaseCommitmentNative(bytes calldata verifyingSignature_) external payable;
 
     /**
      * @notice Increases commitment using ERC20 tokens
      * @param increaseAmount_ Amount to increase commitment by
+     * @param verifyingSignature_ The verifier signature attesting to KYC status
      * @dev Reverts if commitment token is NATIVE_ASSET
      */
-    function increaseCommitmentERC20(uint256 increaseAmount_) external;
+    function increaseCommitmentERC20(uint256 increaseAmount_, bytes calldata verifyingSignature_) external;
 
     /**
      * @notice Decreases commitment and sends funds to recipient
