@@ -407,7 +407,9 @@ describe('PublicSaleV1', () => {
         await commitmentToken
           .connect(user)
           .approve(await succeededSale.getAddress(), defaultParams.maximumCommitment);
-        await succeededSale.connect(user).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+        await succeededSale
+          .connect(user)
+          .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
       }
 
       expect(await succeededSale.totalCommitments()).to.equal(ethers.parseEther('10000'));
@@ -426,10 +428,14 @@ describe('PublicSaleV1', () => {
       );
 
       // Alice commits minimum per user
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
 
       // Bob commits the rest
-      await publicSale.connect(bob).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(bob)
+        .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
 
       // Reach minimum total commitment
       await reachMinimumTotalCommitment(
@@ -459,7 +465,9 @@ describe('PublicSaleV1', () => {
         [alice],
         [BigInt(defaultParams.minimumCommitment)],
       );
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
 
       // Move past sale end
       await moveToSaleEnd(publicSale);
@@ -502,7 +510,9 @@ describe('PublicSaleV1', () => {
 
     it('should allow first commitment by user', async () => {
       const commitAmount = ethers.parseEther('100');
-      await expect(publicSale.connect(alice).increaseCommitmentERC20(commitAmount, ethers.getBytes('0x')))
+      await expect(
+        publicSale.connect(alice).increaseCommitmentERC20(commitAmount, ethers.getBytes('0x')),
+      )
         .to.emit(publicSale, 'CommitmentIncreased')
         .withArgs(alice.address, commitAmount);
 
@@ -522,12 +532,16 @@ describe('PublicSaleV1', () => {
     });
 
     it('should allow commitment that reaches exactly minimumCommitment', async () => {
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
       expect(await publicSale.commitments(alice.address)).to.equal(defaultParams.minimumCommitment);
     });
 
     it('should allow commitment that reaches exactly maximumCommitment', async () => {
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
       expect(await publicSale.commitments(alice.address)).to.equal(defaultParams.maximumCommitment);
     });
 
@@ -552,7 +566,9 @@ describe('PublicSaleV1', () => {
       );
 
       for (const user of users) {
-        await testSale.connect(user).increaseCommitmentERC20(commitmentPerUser, ethers.getBytes('0x'));
+        await testSale
+          .connect(user)
+          .increaseCommitmentERC20(commitmentPerUser, ethers.getBytes('0x'));
       }
 
       expect(await testSale.totalCommitments()).to.equal(ethers.parseEther('5000'));
@@ -566,7 +582,9 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(nativeSale);
 
       await expect(
-        nativeSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
+        nativeSale
+          .connect(alice)
+          .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
       ).to.be.revertedWithCustomError(nativeSale, 'InvalidCommitmentToken');
     });
 
@@ -581,7 +599,9 @@ describe('PublicSaleV1', () => {
       // Don't time travel - sale hasn't started yet
 
       await expect(
-        freshSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
+        freshSale
+          .connect(alice)
+          .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
       ).to.be.revertedWithCustomError(freshSale, 'SaleNotActive');
     });
 
@@ -589,7 +609,9 @@ describe('PublicSaleV1', () => {
       await time.increaseTo(Number(defaultParams.saleEndTimestamp) + 1);
 
       await expect(
-        publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
+        publicSale
+          .connect(alice)
+          .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
       ).to.be.revertedWithCustomError(publicSale, 'SaleNotActive');
     });
 
@@ -614,7 +636,9 @@ describe('PublicSaleV1', () => {
         [alice],
         [ethers.parseEther('150')],
       );
-      await exceedSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('150'), ethers.getBytes('0x'));
+      await exceedSale
+        .connect(alice)
+        .increaseCommitmentERC20(ethers.parseEther('150'), ethers.getBytes('0x'));
 
       // Bob tries to commit 60 ETH which would exceed total maximum
       await mintAndApproveCommitmentTokens(
@@ -625,11 +649,15 @@ describe('PublicSaleV1', () => {
       );
 
       await expect(
-        exceedSale.connect(bob).increaseCommitmentERC20(ethers.parseEther('60'), ethers.getBytes('0x')),
+        exceedSale
+          .connect(bob)
+          .increaseCommitmentERC20(ethers.parseEther('60'), ethers.getBytes('0x')),
       ).to.be.revertedWithCustomError(exceedSale, 'MaximumTotalCommitment');
 
       // Bob can commit exactly 50 ETH to reach the maximum
-      await exceedSale.connect(bob).increaseCommitmentERC20(ethers.parseEther('50'), ethers.getBytes('0x'));
+      await exceedSale
+        .connect(bob)
+        .increaseCommitmentERC20(ethers.parseEther('50'), ethers.getBytes('0x'));
       expect(await exceedSale.totalCommitments()).to.equal(ethers.parseEther('200'));
     });
 
@@ -651,7 +679,9 @@ describe('PublicSaleV1', () => {
       await kycVerifier.setVerify(false);
 
       await expect(
-        publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
+        publicSale
+          .connect(alice)
+          .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
       ).to.be.revertedWithCustomError(publicSale, 'KYCVerificationFailed');
     });
   });
@@ -667,7 +697,11 @@ describe('PublicSaleV1', () => {
 
     it('should allow first commitment by user with native asset', async () => {
       const commitAmount = ethers.parseEther('100');
-      await expect(nativeSale.connect(alice).increaseCommitmentNative(ethers.getBytes('0x'), { value: commitAmount }))
+      await expect(
+        nativeSale
+          .connect(alice)
+          .increaseCommitmentNative(ethers.getBytes('0x'), { value: commitAmount }),
+      )
         .to.emit(nativeSale, 'CommitmentIncreased')
         .withArgs(alice.address, commitAmount);
 
@@ -686,7 +720,9 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(erc20Sale);
 
       await expect(
-        erc20Sale.connect(alice).increaseCommitmentNative(ethers.getBytes('0x'), { value: ethers.parseEther('100') }),
+        erc20Sale
+          .connect(alice)
+          .increaseCommitmentNative(ethers.getBytes('0x'), { value: ethers.parseEther('100') }),
       ).to.be.revertedWithCustomError(erc20Sale, 'InvalidCommitmentToken');
     });
 
@@ -695,14 +731,18 @@ describe('PublicSaleV1', () => {
       await expect(
         nativeSale
           .connect(alice)
-          .increaseCommitmentNative(ethers.getBytes('0x'), { value: BigInt(defaultParams.minimumCommitment) - 1n }),
+          .increaseCommitmentNative(ethers.getBytes('0x'), {
+            value: BigInt(defaultParams.minimumCommitment) - 1n,
+          }),
       ).to.be.revertedWithCustomError(nativeSale, 'MinimumCommitment');
 
       // Test maximum commitment
       await expect(
         nativeSale
           .connect(alice)
-          .increaseCommitmentNative(ethers.getBytes('0x'), { value: BigInt(defaultParams.maximumCommitment) + 1n }),
+          .increaseCommitmentNative(ethers.getBytes('0x'), {
+            value: BigInt(defaultParams.maximumCommitment) + 1n,
+          }),
       ).to.be.revertedWithCustomError(nativeSale, 'MaximumCommitment');
     });
   });
@@ -719,7 +759,9 @@ describe('PublicSaleV1', () => {
         [alice],
         [ethers.parseEther('10000')],
       );
-      await publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('1000'), ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(ethers.parseEther('1000'), ethers.getBytes('0x'));
     });
 
     it('should allow partial decrease that stays above minimumCommitment', async () => {
@@ -776,7 +818,9 @@ describe('PublicSaleV1', () => {
         [alice],
         [ethers.parseEther('10000')],
       );
-      await zeroFeeSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('1000'), ethers.getBytes('0x'));
+      await zeroFeeSale
+        .connect(alice)
+        .increaseCommitmentERC20(ethers.parseEther('1000'), ethers.getBytes('0x'));
 
       const decreaseAmount = ethers.parseEther('500');
       await zeroFeeSale.connect(alice).decreaseCommitment(decreaseAmount, alice.address);
@@ -858,8 +902,12 @@ describe('PublicSaleV1', () => {
       );
 
       // Make enough commitments to succeed
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
-      await publicSale.connect(bob).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(bob)
+        .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
 
       // Reach minimum total commitment
       await reachMinimumTotalCommitment(
@@ -940,7 +988,9 @@ describe('PublicSaleV1', () => {
         [alice],
         [BigInt(defaultParams.minimumCommitment)],
       );
-      await activeSale.connect(alice).increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
+      await activeSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
 
       await expect(activeSale.connect(alice).settle(alice.address)).to.be.revertedWithCustomError(
         activeSale,
@@ -959,7 +1009,9 @@ describe('PublicSaleV1', () => {
       await commitmentToken
         .connect(alice)
         .approve(await publicSale.getAddress(), ethers.parseEther('100'));
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
 
       // Move to end of sale
       await time.increaseTo(Number(defaultParams.saleEndTimestamp) + 1);
@@ -1009,8 +1061,12 @@ describe('PublicSaleV1', () => {
         [ethers.parseEther('50000'), ethers.parseEther('50000')],
       );
 
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
-      await publicSale.connect(bob).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.minimumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(bob)
+        .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
 
       // Reach minimum total commitment
       await reachMinimumTotalCommitment(
@@ -1071,7 +1127,9 @@ describe('PublicSaleV1', () => {
       );
 
       for (const user of users) {
-        await customSale.connect(user).increaseCommitmentERC20(commitmentPerUser, ethers.getBytes('0x'));
+        await customSale
+          .connect(user)
+          .increaseCommitmentERC20(commitmentPerUser, ethers.getBytes('0x'));
       }
 
       await moveToSaleEnd(customSale);
@@ -1116,7 +1174,9 @@ describe('PublicSaleV1', () => {
         .approve(await publicSale.getAddress(), ethers.parseEther('1000'));
       await kycVerifier.setVerify(true);
 
-      await publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x'));
       await publicSale.connect(alice).decreaseCommitment(ethers.parseEther('50'), alice.address);
 
       // Move to end of sale
@@ -1208,7 +1268,9 @@ describe('PublicSaleV1', () => {
       );
 
       // Alice makes a commitment
-      await extremeSale.connect(alice).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+      await extremeSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
 
       // Reach minimum total commitment with other users
       await reachMinimumTotalCommitment(
@@ -1245,21 +1307,28 @@ describe('PublicSaleV1', () => {
     it('should allow commitment increases when KYC verification passes', async () => {
       await kycVerifier.setVerify(true);
 
-      await expect(publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x'))).to
-        .not.be.reverted;
+      await expect(
+        publicSale
+          .connect(alice)
+          .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
+      ).to.not.be.reverted;
     });
 
     it('should block commitment increases when KYC fails', async () => {
       await kycVerifier.setVerify(false);
 
       await expect(
-        publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
+        publicSale
+          .connect(alice)
+          .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x')),
       ).to.be.revertedWithCustomError(publicSale, 'KYCVerificationFailed');
     });
 
     it('should not require KYC for decreasing commitment and settling', async () => {
       await kycVerifier.setVerify(true);
-      await publicSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x'));
 
       // Now disable KYC
       await kycVerifier.setVerify(false);
@@ -1324,7 +1393,9 @@ describe('PublicSaleV1', () => {
       const commitAmount = ethers.parseEther('100');
       const initialBalance = await ethers.provider.getBalance(await nativeSale.getAddress());
 
-      await nativeSale.connect(alice).increaseCommitmentNative(ethers.getBytes('0x'), { value: commitAmount });
+      await nativeSale
+        .connect(alice)
+        .increaseCommitmentNative(ethers.getBytes('0x'), { value: commitAmount });
 
       expect(await ethers.provider.getBalance(await nativeSale.getAddress())).to.equal(
         BigInt(initialBalance) + BigInt(commitAmount),
@@ -1334,7 +1405,9 @@ describe('PublicSaleV1', () => {
     it('should refund ETH correctly on decrease', async () => {
       await moveToSaleStart(nativeSale);
 
-      await nativeSale.connect(alice).increaseCommitmentNative(ethers.getBytes('0x'), { value: ethers.parseEther('100') });
+      await nativeSale
+        .connect(alice)
+        .increaseCommitmentNative(ethers.getBytes('0x'), { value: ethers.parseEther('100') });
 
       const initialAliceBalance = await ethers.provider.getBalance(alice.address);
       const decreaseAmount = ethers.parseEther('50');
@@ -1374,7 +1447,9 @@ describe('PublicSaleV1', () => {
       );
 
       // Alice commits her maximum
-      await raceSale.connect(alice).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+      await raceSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
 
       // Fill more of the sale with other users, leaving exactly 1000 for Bob
       const signers = await ethers.getSigners();
@@ -1395,11 +1470,15 @@ describe('PublicSaleV1', () => {
       // Now only 1000 ETH remaining
       // Bob tries to commit more than remaining
       await expect(
-        raceSale.connect(bob).increaseCommitmentERC20(ethers.parseEther('1001'), ethers.getBytes('0x')),
+        raceSale
+          .connect(bob)
+          .increaseCommitmentERC20(ethers.parseEther('1001'), ethers.getBytes('0x')),
       ).to.be.revertedWithCustomError(raceSale, 'MaximumTotalCommitment');
 
       // Bob commits exactly the remaining amount
-      await raceSale.connect(bob).increaseCommitmentERC20(ethers.parseEther('1000'), ethers.getBytes('0x'));
+      await raceSale
+        .connect(bob)
+        .increaseCommitmentERC20(ethers.parseEther('1000'), ethers.getBytes('0x'));
 
       expect(await raceSale.totalCommitments()).to.equal(ethers.parseEther('5000'));
       await expectSaleState(raceSale, SaleState.SUCCEEDED);
@@ -1434,7 +1513,9 @@ describe('PublicSaleV1', () => {
         [alice],
         [BigInt(defaultParams.maximumCommitment)],
       );
-      await publicSale.connect(alice).increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
+      await publicSale
+        .connect(alice)
+        .increaseCommitmentERC20(defaultParams.maximumCommitment, ethers.getBytes('0x'));
 
       // Reach minimum total commitment
       await reachMinimumTotalCommitment(

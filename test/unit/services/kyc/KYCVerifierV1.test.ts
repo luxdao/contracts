@@ -53,7 +53,9 @@ describe('KYCVerifierV1', () => {
 
       const verifyingSignature = await verifier.signTypedData(domain, types, verificationMessage);
 
-      expect(await kycVerifier.verify(mockOperatingContract.address, alice.address, verifyingSignature)).to.be.true;
+      expect(
+        await kycVerifier.verify(mockOperatingContract.address, alice.address, verifyingSignature),
+      ).to.be.true;
     });
 
     it('should return false when the signature is invalid', async () => {
@@ -79,7 +81,9 @@ describe('KYCVerifierV1', () => {
       // invalid signature - message is signed by Alice rather than the verifier
       const verifyingSignature = await alice.signTypedData(domain, types, verificationMessage);
 
-      expect(await kycVerifier.verify(mockOperatingContract.address, alice.address, verifyingSignature)).to.be.false;
+      expect(
+        await kycVerifier.verify(mockOperatingContract.address, alice.address, verifyingSignature),
+      ).to.be.false;
     });
   });
 

@@ -79,7 +79,7 @@ contract KYCVerifierV1 is
         bytes32 digest = _hashTypedDataV4(
             keccak256(abi.encode(TYPEHASH, operatingContract_, account_))
         );
-    
+
         return ECDSA.recover(digest, signature_) == _verifier;
     }
 

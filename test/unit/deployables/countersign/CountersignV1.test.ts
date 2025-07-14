@@ -561,35 +561,31 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       await time.increaseTo(signingDeadline + 1n);
-      await expect(countersign.connect(investorAlice).sign(ethers.getBytes('0x'))).to.be.revertedWithCustomError(
-        countersign,
-        'SigningDeadlineElapsed',
-      );
+      await expect(
+        countersign.connect(investorAlice).sign(ethers.getBytes('0x')),
+      ).to.be.revertedWithCustomError(countersign, 'SigningDeadlineElapsed');
     });
 
     it('should not allow signers to sign if they are not a signer', async () => {
       await mockKYCVerifier.setVerify(true);
-      await expect(countersign.connect(anon).sign(ethers.getBytes('0x'))).to.be.revertedWithCustomError(
-        countersign,
-        'InvalidSigner',
-      );
+      await expect(
+        countersign.connect(anon).sign(ethers.getBytes('0x')),
+      ).to.be.revertedWithCustomError(countersign, 'InvalidSigner');
     });
 
     it('should not allow signers to sign if they have already signed', async () => {
       await mockKYCVerifier.setVerify(true);
       await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await expect(countersign.connect(investorAlice).sign(ethers.getBytes('0x'))).to.be.revertedWithCustomError(
-        countersign,
-        'SignerAlreadySigned',
-      );
+      await expect(
+        countersign.connect(investorAlice).sign(ethers.getBytes('0x')),
+      ).to.be.revertedWithCustomError(countersign, 'SignerAlreadySigned');
     });
 
     it('should not allow signers to sign if the KYCVerifier does not verify', async () => {
       await mockKYCVerifier.setVerify(false);
-      await expect(countersign.connect(investorAlice).sign(ethers.getBytes('0x'))).to.be.revertedWithCustomError(
-        countersign,
-        'InvalidKYCSignature',
-      );
+      await expect(
+        countersign.connect(investorAlice).sign(ethers.getBytes('0x')),
+      ).to.be.revertedWithCustomError(countersign, 'InvalidKYCSignature');
     });
   });
 
