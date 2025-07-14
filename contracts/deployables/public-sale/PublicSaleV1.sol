@@ -110,8 +110,13 @@ contract PublicSaleV1 is
      */
     modifier isKYCVerified(bytes calldata verifyingSignature_) {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
-        if (!IKYCVerifierV1($.kycVerifier).verify(address(this), msg.sender, verifyingSignature_))
-            revert KYCVerificationFailed();
+        if (
+            !IKYCVerifierV1($.kycVerifier).verify(
+                address(this),
+                msg.sender,
+                verifyingSignature_
+            )
+        ) revert KYCVerificationFailed();
         _;
     }
 
@@ -443,13 +448,9 @@ contract PublicSaleV1 is
     /**
      * @inheritdoc IPublicSaleV1
      */
-    function increaseCommitmentNative(bytes calldata verifyingSignature_)
-        public
-        payable
-        virtual
-        override
-        isKYCVerified(verifyingSignature_)
-    {
+    function increaseCommitmentNative(
+        bytes calldata verifyingSignature_
+    ) public payable virtual override isKYCVerified(verifyingSignature_) {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.commitmentToken != NATIVE_ASSET) revert InvalidCommitmentToken();

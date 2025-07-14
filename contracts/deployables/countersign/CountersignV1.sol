@@ -341,7 +341,13 @@ contract CountersignV1 is
         }
 
         // Check 4: Verify KYC status through external verifier
-        if (!IKYCVerifierV1($.kycVerifier).verify(address(this), msg.sender, verifyingSignature_)) {
+        if (
+            !IKYCVerifierV1($.kycVerifier).verify(
+                address(this),
+                msg.sender,
+                verifyingSignature_
+            )
+        ) {
             revert InvalidKYCSignature();
         }
 
