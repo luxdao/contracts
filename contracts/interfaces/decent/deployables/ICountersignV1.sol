@@ -252,13 +252,14 @@ interface ICountersignV1 {
      * @dev Caller must be in the signers list and pass KYC verification.
      * Can only be called during the signing period (before signingDeadline).
      * Each signer can only sign once.
+     * @param verifyingSignature_ The verifier signature attesting to KYC status
      * @custom:throws InvalidSigner if caller is not a valid signer
      * @custom:throws SigningDeadlineElapsed if past the signing deadline
      * @custom:throws SignerAlreadySigned if caller has already signed
      * @custom:throws InvalidKYCSignature if KYC verification fails
      * @custom:emits Signed when signature is recorded
      */
-    function sign() external;
+    function sign(bytes calldata verifyingSignature_) external;
 
     /**
      * @notice Executes the agreement after signing period ends

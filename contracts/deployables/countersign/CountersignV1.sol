@@ -320,7 +320,7 @@ contract CountersignV1 is
      * @dev Validates signer eligibility and KYC status before recording signature.
      * Updates signer state and timestamp upon successful signature.
      */
-    function sign() public virtual override {
+    function sign(bytes calldata verifyingSignature_) public virtual override {
         CountersignStorage storage $ = _getCountersignStorage();
 
         // Check 1: Ensure we're within the signing period
@@ -341,7 +341,7 @@ contract CountersignV1 is
         }
 
         // Check 4: Verify KYC status through external verifier
-        if (!IKYCVerifierV1($.kycVerifier).verify(msg.sender)) {
+        if (!IKYCVerifierV1($.kycVerifier).verify(address(this), msg.sender, verifyingSignature_)) {
             revert InvalidKYCSignature();
         }
 

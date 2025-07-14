@@ -14,18 +14,73 @@ import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
 describe('KYCVerifierV1', () => {
   // signers
-  let investorAlice: SignerWithAddress;
+  let alice: SignerWithAddress;
+  let verifier: SignerWithAddress;
   let deployer: SignerWithAddress;
+  let mockOperatingContract: SignerWithAddress;
 
   // contracts
   let kycVerifier: KYCVerifierV1;
 
   beforeEach(async () => {
     // Get signers
-    [investorAlice, deployer] = await ethers.getSigners();
+    [alice, verifier, deployer, mockOperatingContract] = await ethers.getSigners();
 
     // deploy KYC verifier
-    kycVerifier = await new KYCVerifierV1__factory(deployer).deploy();
+    kycVerifier = await new KYCVerifierV1__factory(deployer).deploy(verifier.address);
+  });
+
+  describe('Verifications', () => {
+    it('should return true when the signature is valid', async () => {
+      const domain = {
+        name: 'KYCVerifier',
+        version: '1',
+        chainId: await ethers.provider.getNetwork().then(n => n.chainId),
+        verifyingContract: await kycVerifier.getAddress(),
+      };
+
+      const types = {
+        VerificationData: [
+          { name: 'operatingContract', type: 'address' },
+          { name: 'account', type: 'address' },
+        ],
+      };
+
+      const verificationMessage = {
+        operatingContract: mockOperatingContract.address,
+        account: alice.address,
+      };
+
+      const verifyingSignature = await verifier.signTypedData(domain, types, verificationMessage);
+
+      expect(await kycVerifier.verify(mockOperatingContract.address, alice.address, verifyingSignature)).to.be.true;
+    });
+
+    it('should return false when the signature is invalid', async () => {
+      const domain = {
+        name: 'KYCVerifier',
+        version: '1',
+        chainId: await ethers.provider.getNetwork().then(n => n.chainId),
+        verifyingContract: await kycVerifier.getAddress(),
+      };
+
+      const types = {
+        VerificationData: [
+          { name: 'operatingContract', type: 'address' },
+          { name: 'account', type: 'address' },
+        ],
+      };
+
+      const verificationMessage = {
+        operatingContract: mockOperatingContract.address,
+        account: alice.address,
+      };
+
+      // invalid signature - message is signed by Alice rather than the verifier
+      const verifyingSignature = await alice.signTypedData(domain, types, verificationMessage);
+
+      expect(await kycVerifier.verify(mockOperatingContract.address, alice.address, verifyingSignature)).to.be.false;
+    });
   });
 
   describe('Version', () => {
@@ -43,12 +98,6 @@ describe('KYCVerifierV1', () => {
         IVersion__factory,
         IDeploymentBlock__factory,
       ],
-    });
-  });
-
-  describe('Verifications', () => {
-    it('should verify', async () => {
-      expect(await kycVerifier.verify(investorAlice.address)).to.be.true;
     });
   });
 
