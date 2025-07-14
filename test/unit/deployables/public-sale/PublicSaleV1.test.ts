@@ -608,11 +608,21 @@ describe('PublicSaleV1', () => {
       await moveToSaleStart(exceedSale);
 
       // Alice commits 150 ETH (within her per-user limit but leaves only 50 ETH room)
-      await mintAndApproveCommitmentTokens(commitmentToken, exceedSale, [alice], [ethers.parseEther('150')]);
+      await mintAndApproveCommitmentTokens(
+        commitmentToken,
+        exceedSale,
+        [alice],
+        [ethers.parseEther('150')],
+      );
       await exceedSale.connect(alice).increaseCommitmentERC20(ethers.parseEther('150'));
 
       // Bob tries to commit 60 ETH which would exceed total maximum
-      await mintAndApproveCommitmentTokens(commitmentToken, exceedSale, [bob], [ethers.parseEther('60')]);
+      await mintAndApproveCommitmentTokens(
+        commitmentToken,
+        exceedSale,
+        [bob],
+        [ethers.parseEther('60')],
+      );
 
       await expect(
         exceedSale.connect(bob).increaseCommitmentERC20(ethers.parseEther('60')),
