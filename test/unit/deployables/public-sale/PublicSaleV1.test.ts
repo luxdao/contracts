@@ -539,7 +539,7 @@ describe('PublicSaleV1', () => {
       });
       await moveToSaleStart(testSale);
 
-      // Use 5 users to reach exactly 5000 ETH total
+      // Use 5 users to reach exactly 5000 commitment tokens total
       const signers = await ethers.getSigners();
       const users = [alice, bob, charlie, signers[5], signers[6]];
       const commitmentPerUser = ethers.parseEther('1000');
