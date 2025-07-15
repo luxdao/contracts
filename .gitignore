@@ -17,5 +17,5 @@ index.ts
 /coverage
 /coverage.json
 
-/.cursor
 /.claude
+*.local.*
