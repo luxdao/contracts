@@ -40,7 +40,7 @@ interface IKYCVerifierV1 {
     /**
      * @notice Returns the address of the verifier
      * @dev The verifier is the address that is authorized to sign KYC attestations
-     * @return verifier The address of the verifier
+     * @return verifierAddress The address of the verifier
      */
-    function verifier() external view returns (address);
+    function verifier() external view returns (address verifierAddress);
 }

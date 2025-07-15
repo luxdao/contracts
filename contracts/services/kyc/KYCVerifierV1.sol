@@ -76,11 +76,15 @@ contract KYCVerifierV1 is
         address account_,
         bytes calldata signature_
     ) public view virtual override returns (bool) {
-        bytes32 digest = _hashTypedDataV4(
-            keccak256(abi.encode(TYPEHASH, operatingContract_, account_))
-        );
-
-        return ECDSA.recover(digest, signature_) == _verifier;
+        return
+            ECDSA.recover(
+                _hashTypedDataV4(
+                    keccak256(
+                        abi.encode(TYPEHASH, operatingContract_, account_)
+                    )
+                ),
+                signature_
+            ) == _verifier;
     }
 
     /**
