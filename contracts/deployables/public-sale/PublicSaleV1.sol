@@ -107,7 +107,6 @@ contract PublicSaleV1 is
      * @notice Ensures the caller has passed KYC verification
      * @dev Calls the KYC verifier contract to check verification status
      */
-    // TODO: add optional signature bytes to IKYCVerifierV1
     modifier isKYCVerified() {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
         if (!IKYCVerifierV1($.kycVerifier).verify(msg.sender))
