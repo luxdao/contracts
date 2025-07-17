@@ -26,6 +26,7 @@ export default buildModule('Deployables', m => {
   // Deploy Freeze Voting
   const freezeVotingAzoriusV1 = m.contract('FreezeVotingAzoriusV1');
   const freezeVotingMultisigV1 = m.contract('FreezeVotingMultisigV1');
+  const freezeVotingStandaloneV1 = m.contract('FreezeVotingStandaloneV1');
 
   // Deploy VotesERC20 implementations
   const votesERC20V1 = m.contract('VotesERC20V1');
@@ -63,6 +64,7 @@ export default buildModule('Deployables', m => {
 
     freezeVotingAzoriusV1,
     freezeVotingMultisigV1,
+    freezeVotingStandaloneV1,
 
     votesERC20V1,
     votesERC20StakedV1,

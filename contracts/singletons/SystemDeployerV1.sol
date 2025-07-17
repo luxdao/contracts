@@ -41,6 +41,9 @@ import {
     IFreezeVotingAzoriusV1
 } from "../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
 import {
+    IFreezeVotingStandaloneV1
+} from "../interfaces/decent/deployables/IFreezeVotingStandaloneV1.sol";
+import {
     IFreezeGuardMultisigV1
 } from "../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
 import {
@@ -241,7 +244,12 @@ contract SystemDeployerV1 is
 
         _deployModuleFractal(salt_, moduleFractalV1Params_);
 
-        _deployFreezeContracts(salt_, freezeParams_, azoriusModuleAddress);
+        _deployFreezeContracts(
+            salt_,
+            freezeParams_,
+            azoriusModuleAddress,
+            newVotesERC20V1Addresses
+        );
 
         bytes memory initData = abi.encode(
             votesERC20V1Params_,
@@ -935,16 +943,36 @@ contract SystemDeployerV1 is
      * @param salt_ Salt for deterministic deployment
      * @param freezeParams_ Freeze mechanism configurations
      * @param azoriusModuleAddress Address of Azorius module (for freeze guard attachment)
+     * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
      */
     function _deployFreezeContracts(
         bytes32 salt_,
         FreezeParams memory freezeParams_,
-        address azoriusModuleAddress
+        address azoriusModuleAddress,
+        address[] memory newVotesERC20V1Addresses
     ) internal {
+        // Validate that FreezeVotingStandaloneV1 is not paired with FreezeGuardAzoriusV1
+        if (
+            freezeParams_
+                .freezeVotingParams
+                .freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation !=
+            address(0) &&
+            freezeParams_
+                .freezeGuardParams
+                .freezeGuardAzoriusV1Params
+                .implementation !=
+            address(0)
+        ) {
+            revert InvalidFreezeVotingGuardPairing();
+        }
+
         // Deploy freeze voting contract (controls when child can be frozen)
         address freezeVotingAddress = _deployFreezeVoting(
             salt_,
-            freezeParams_.freezeVotingParams
+            freezeParams_.freezeVotingParams,
+            newVotesERC20V1Addresses
         );
 
         // Deploy freeze guard (enforces freeze when activated)
@@ -957,16 +985,18 @@ contract SystemDeployerV1 is
     }
 
     /**
-     * @notice Deploys freeze voting contract (multisig or Azorius-based)
+     * @notice Deploys freeze voting contract (multisig, Azorius-based, or standalone)
      * @dev Only one type can be deployed. Returns the deployed address or zero.
-     * Validates that both types aren't specified.
+     * Validates that multiple types aren't specified.
      * @param salt_ Salt for deterministic deployment
      * @param freezeVotingParams_ Freeze voting configurations
+     * @param newVotesERC20V1Addresses_ Addresses of newly deployed governance tokens
      * @return freezeVotingAddress The deployed freeze voting contract address
      */
     function _deployFreezeVoting(
         bytes32 salt_,
-        FreezeVotingParams memory freezeVotingParams_
+        FreezeVotingParams memory freezeVotingParams_,
+        address[] memory newVotesERC20V1Addresses_
     ) internal returns (address) {
         FreezeVotingMultisigV1Params
             memory freezeVotingMultisigV1Params = freezeVotingParams_
@@ -976,11 +1006,24 @@ contract SystemDeployerV1 is
             memory freezeVotingAzoriusV1Params = freezeVotingParams_
                 .freezeVotingAzoriusV1Params;
 
+        FreezeVotingStandaloneParams
+            memory freezeVotingStandaloneParams = freezeVotingParams_
+                .freezeVotingStandaloneParams;
+
+        // Count how many freeze voting types are specified
+        uint8 freezeVotingCount = 0;
+        if (freezeVotingMultisigV1Params.implementation != address(0))
+            freezeVotingCount++;
+        if (freezeVotingAzoriusV1Params.implementation != address(0))
+            freezeVotingCount++;
         if (
-            freezeVotingMultisigV1Params.implementation != address(0) &&
-            freezeVotingAzoriusV1Params.implementation != address(0)
-        ) {
-            revert CannotDeployBothFreezeVotingContracts();
+            freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation != address(0)
+        ) freezeVotingCount++;
+
+        if (freezeVotingCount > 1) {
+            revert CannotDeployMultipleFreezeVotingContracts();
         }
 
         address freezeVotingAddress;
@@ -1016,6 +1059,18 @@ contract SystemDeployerV1 is
                     )
                 ),
                 salt_
+            );
+        }
+
+        if (
+            freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation != address(0)
+        ) {
+            freezeVotingAddress = _deployFreezeVotingStandalone(
+                salt_,
+                freezeVotingStandaloneParams,
+                newVotesERC20V1Addresses_
             );
         }
 
@@ -1134,5 +1189,64 @@ contract SystemDeployerV1 is
             // Azorius Module has same "setGuard" function signature as Safe
             ISafe(azoriusModuleAddress).setGuard(azoriusFreezeGuardAddress);
         }
+    }
+
+    /**
+     * @notice Deploys FreezeVotingStandaloneV1 with voting configs
+     * @dev Handles the circular dependency between FreezeVotingStandalone and VoteTrackers
+     * by using a two-step initialization process.
+     * @param salt_ Salt for deterministic deployment
+     * @param freezeVotingStandaloneParams Parameters for standalone freeze voting and its voting configs
+     * @param newVotesERC20V1Addresses_ Addresses of newly deployed governance tokens
+     * @return freezeVotingAddress The deployed freeze voting standalone address
+     */
+    function _deployFreezeVotingStandalone(
+        bytes32 salt_,
+        FreezeVotingStandaloneParams memory freezeVotingStandaloneParams,
+        address[] memory newVotesERC20V1Addresses_
+    ) internal returns (address) {
+        // Step 1: Deploy FreezeVotingStandalone without voting configs
+        // This gives us a deterministic address we can use for vote tracker authorization
+        address freezeVotingAddress = deployProxy(
+            freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation,
+            abi.encodeCall(
+                IFreezeVotingStandaloneV1.initialize,
+                (
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .freezeVotesThreshold,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .unfreezeVotesThreshold,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .freezeProposalPeriod,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .unfreezeProposalPeriod,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .lightAccountFactory
+                )
+            ),
+            salt_
+        );
+
+        // Step 2: Deploy voting configs with FreezeVotingStandalone as authorized caller
+        IVotingTypes.VotingConfig[] memory votingConfigs = _deployVotingConfigs(
+            salt_,
+            freezeVotingStandaloneParams.votingConfigParams,
+            newVotesERC20V1Addresses_,
+            freezeVotingAddress // Use freeze voting as authorized caller
+        );
+
+        // Step 3: Complete initialization by setting the voting configs
+        IFreezeVotingStandaloneV1(freezeVotingAddress).initialize2(
+            votingConfigs
+        );
+
+        return freezeVotingAddress;
     }
 }
