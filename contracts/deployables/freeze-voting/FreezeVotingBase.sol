@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {
     IFreezeVotingBase
 } from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {
     LightAccountValidator
 } from "../account-abstraction/LightAccountValidator.sol";
@@ -36,6 +37,7 @@ import {
  */
 abstract contract FreezeVotingBase is
     IFreezeVotingBase,
+    IFreezable,
     LightAccountValidator,
     Ownable2StepUpgradeable
 {
@@ -124,6 +126,27 @@ abstract contract FreezeVotingBase is
     }
 
     // ======================================================================
+    // IFreezable
+    // ======================================================================
+
+    // --- View Functions ---
+
+    /**
+     * @inheritdoc IFreezable
+     * @dev Returns true only if:
+     * 1. Vote count has reached threshold
+     * 2. Current time is within the freeze period
+     */
+    function isFrozen() public view virtual override returns (bool) {
+        FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
+
+        // Check both conditions for freeze to be active
+        return
+            $.freezeProposalVoteCount >= $.freezeVotesThreshold && // Threshold reached
+            block.timestamp < $.freezeActivated + $.freezePeriod; // Within freeze period
+    }
+
+    // ======================================================================
     // IFreezeVotingBase
     // ======================================================================
 
@@ -199,21 +222,6 @@ abstract contract FreezeVotingBase is
     function freezeActivated() public view virtual override returns (uint48) {
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
         return $.freezeActivated;
-    }
-
-    /**
-     * @inheritdoc IFreezeVotingBase
-     * @dev Returns true only if:
-     * 1. Vote count has reached threshold
-     * 2. Current time is within the freeze period
-     */
-    function isFrozen() public view virtual override returns (bool) {
-        FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
-
-        // Check both conditions for freeze to be active
-        return
-            $.freezeProposalVoteCount >= $.freezeVotesThreshold && // Threshold reached
-            block.timestamp < $.freezeActivated + $.freezePeriod; // Within freeze period
     }
 
     // --- State-Changing Functions ---

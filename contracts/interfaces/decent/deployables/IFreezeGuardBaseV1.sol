@@ -30,9 +30,9 @@ interface IFreezeGuardBaseV1 is IGuard {
     // --- View Functions ---
 
     /**
-     * @notice Returns the freeze voting contract that determines freeze status
+     * @notice Returns the freezable contract that determines freeze status
      * @dev This contract is queried to check if the DAO is currently frozen
-     * @return freezeVoting The address of the associated FreezeVoting contract
+     * @return freezable The address of the contract implementing IFreezable
      */
-    function freezeVoting() external view returns (address freezeVoting);
+    function freezable() external view returns (address freezable);
 }

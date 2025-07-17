@@ -19,6 +19,7 @@ import {
   MockVotingStrategy,
   MockVotingStrategy__factory,
   MockERC20Votes,
+  IFreezable__factory,
 } from '../../../../typechain-types';
 import { IVotingTypes } from '../../../../typechain-types/contracts/interfaces/decent/deployables/IStrategyV1';
 import {
@@ -641,11 +642,9 @@ describe('FreezeVotingAzoriusV1', () => {
     runSupportsInterfaceTests({
       getContract: () => azoriusFreezeVoting,
       supportedInterfaceFactories: [
-        {
-          factory: IFreezeVotingAzoriusV1__factory,
-          inheritedFactories: [IFreezeVotingBase__factory],
-        },
+        IFreezeVotingAzoriusV1__factory,
         IFreezeVotingBase__factory,
+        IFreezable__factory,
         IVersion__factory,
         IERC165__factory,
         ILightAccountValidator__factory,

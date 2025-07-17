@@ -12,8 +12,8 @@ import {
   IFreezeGuardMultisigV1__factory,
   IGuard__factory,
   IVersion__factory,
-  MockFreezeVoting,
-  MockFreezeVoting__factory,
+  MockFreezable,
+  MockFreezable__factory,
   MockSafe,
   MockSafe__factory,
 } from '../../../../typechain-types';
@@ -64,7 +64,7 @@ describe('FreezeGuardMultisigV1', () => {
   // contracts
   let masterCopy: string;
   let multisigFreezeGuard: FreezeGuardMultisigV1;
-  let mockFreezeVoting: MockFreezeVoting;
+  let mockFreezable: MockFreezable;
   let mockSafe: MockSafe;
 
   // test data
@@ -84,7 +84,7 @@ describe('FreezeGuardMultisigV1', () => {
     masterCopy = await implementation.getAddress();
 
     // Deploy mock contracts
-    mockFreezeVoting = await new MockFreezeVoting__factory(owner).deploy();
+    mockFreezable = await new MockFreezable__factory(owner).deploy();
     mockSafe = await new MockSafe__factory(owner).deploy();
 
     // Deploy MultisigFreezeGuard with mock dependencies
@@ -94,7 +94,7 @@ describe('FreezeGuardMultisigV1', () => {
       owner,
       TIMELOCK_PERIOD,
       EXECUTION_PERIOD,
-      await mockFreezeVoting.getAddress(),
+      await mockFreezable.getAddress(),
       await mockSafe.getAddress(),
     );
   });
@@ -102,9 +102,7 @@ describe('FreezeGuardMultisigV1', () => {
   describe('Initialization', () => {
     it('should initialize with correct parameters', async () => {
       expect(await multisigFreezeGuard.owner()).to.equal(owner.address);
-      expect(await multisigFreezeGuard.freezeVoting()).to.equal(
-        await mockFreezeVoting.getAddress(),
-      );
+      expect(await multisigFreezeGuard.freezable()).to.equal(await mockFreezable.getAddress());
       expect(await multisigFreezeGuard.childGnosisSafe()).to.equal(await mockSafe.getAddress());
       expect(await multisigFreezeGuard.timelockPeriod()).to.equal(TIMELOCK_PERIOD);
       expect(await multisigFreezeGuard.executionPeriod()).to.equal(EXECUTION_PERIOD);
@@ -367,7 +365,7 @@ describe('FreezeGuardMultisigV1', () => {
       await time.increase(TIMELOCK_PERIOD + 1);
 
       // Set DAO to frozen
-      await mockFreezeVoting.setIsFrozen(true);
+      await mockFreezable.setIsFrozen(true);
 
       await expect(
         multisigFreezeGuard.checkTransaction(
@@ -390,7 +388,7 @@ describe('FreezeGuardMultisigV1', () => {
       await time.increase(TIMELOCK_PERIOD + 1);
 
       // Set DAO to not frozen
-      await mockFreezeVoting.setIsFrozen(false);
+      await mockFreezable.setIsFrozen(false);
 
       // Should not revert
       await expect(
@@ -508,7 +506,7 @@ describe('FreezeGuardMultisigV1', () => {
         TIMELOCK_PERIOD,
         EXECUTION_PERIOD,
         owner.address,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
         await mockSafe.getAddress(),
       ],
       getExpectedInitData: async () =>
@@ -518,7 +516,7 @@ describe('FreezeGuardMultisigV1', () => {
             TIMELOCK_PERIOD,
             EXECUTION_PERIOD,
             owner.address,
-            await mockFreezeVoting.getAddress(),
+            await mockFreezable.getAddress(),
             await mockSafe.getAddress(),
           ],
         ),

@@ -8,9 +8,7 @@ import {
 import {
     IFreezeGuardBaseV1
 } from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
-import {
-    IFreezeVotingBase
-} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {
@@ -69,8 +67,8 @@ contract FreezeGuardMultisigV1 is
      * @custom:storage-location erc7201:Decent.FreezeGuardMultisig.main
      */
     struct FreezeGuardMultisigStorage {
-        /** @notice The FreezeVoting contract that determines if DAO is frozen */
-        IFreezeVotingBase freezeVoting;
+        /** @notice The Freezable contract that determines if DAO is frozen */
+        IFreezable freezable;
         /** @notice Duration transactions must wait after timelocking before execution */
         uint32 timelockPeriod;
         /** @notice Window after timelock expires during which execution is allowed */
@@ -143,7 +141,7 @@ contract FreezeGuardMultisigV1 is
 
         // Set contract references
         FreezeGuardMultisigStorage storage $ = _getFreezeGuardMultisigStorage();
-        $.freezeVoting = IFreezeVotingBase(freezeVoting_);
+        $.freezable = IFreezable(freezeVoting_);
         $.childGnosisSafe = ISafe(childGnosisSafe_);
     }
 
@@ -296,9 +294,9 @@ contract FreezeGuardMultisigV1 is
     /**
      * @inheritdoc IFreezeGuardBaseV1
      */
-    function freezeVoting() public view virtual override returns (address) {
+    function freezable() public view virtual override returns (address) {
         FreezeGuardMultisigStorage storage $ = _getFreezeGuardMultisigStorage();
-        return address($.freezeVoting);
+        return address($.freezable);
     }
 
     // ======================================================================
@@ -356,7 +354,7 @@ contract FreezeGuardMultisigV1 is
 
         // Check 4: DAO must not be frozen
         // Final check allows parent to block execution even after timelock
-        if ($.freezeVoting.isFrozen()) revert DAOFrozen();
+        if ($.freezable.isFrozen()) revert DAOFrozen();
     }
 
     /**

@@ -5,9 +5,7 @@ import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {
     IFreezeGuardAzoriusV1
 } from "../../interfaces/decent/deployables/IFreezeGuardAzoriusV1.sol";
-import {
-    IFreezeVotingBase
-} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {
     IFreezeGuardBaseV1
 } from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
@@ -67,8 +65,8 @@ contract FreezeGuardAzoriusV1 is
      * @custom:storage-location erc7201:Decent.FreezeGuardAzorius.main
      */
     struct FreezeGuardAzoriusStorage {
-        /** @notice The FreezeVoting contract that determines if DAO is frozen */
-        IFreezeVotingBase freezeVoting;
+        /** @notice The Freezable contract that determines if DAO is frozen */
+        IFreezable freezable;
     }
 
     /**
@@ -117,7 +115,7 @@ contract FreezeGuardAzoriusV1 is
         __DeploymentBlockInitializable_init();
 
         FreezeGuardAzoriusStorage storage $ = _getFreezeGuardAzoriusStorage();
-        $.freezeVoting = IFreezeVotingBase(freezeVoting_);
+        $.freezable = IFreezable(freezeVoting_);
     }
 
     // ======================================================================
@@ -146,9 +144,9 @@ contract FreezeGuardAzoriusV1 is
     /**
      * @inheritdoc IFreezeGuardBaseV1
      */
-    function freezeVoting() public view virtual override returns (address) {
+    function freezable() public view virtual override returns (address) {
         FreezeGuardAzoriusStorage storage $ = _getFreezeGuardAzoriusStorage();
-        return address($.freezeVoting);
+        return address($.freezable);
     }
 
     // ======================================================================
@@ -179,7 +177,7 @@ contract FreezeGuardAzoriusV1 is
         FreezeGuardAzoriusStorage storage $ = _getFreezeGuardAzoriusStorage();
 
         // Simple check: if frozen, block ALL transactions
-        if ($.freezeVoting.isFrozen()) revert DAOFrozen();
+        if ($.freezable.isFrozen()) revert DAOFrozen();
     }
 
     /**
