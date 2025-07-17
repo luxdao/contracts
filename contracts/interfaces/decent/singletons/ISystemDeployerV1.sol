@@ -12,7 +12,7 @@ import {IVotesERC20V1} from "../deployables/IVotesERC20V1.sol";
  *
  * Key features:
  * - One-transaction deployment of complete DAO systems
- * - Handles circular dependency resolution (Azorius ↔ Strategy ↔ VotingAdapters)
+ * - Handles circular dependency resolution (Azorius ↔ Strategy ↔ VotingConfigs)
  * - Deploys and configures all governance components
  * - Supports multiple governance token deployments
  * - Configures freeze mechanisms for parent-child DAO relationships
@@ -46,14 +46,17 @@ interface ISystemDeployerV1 {
     /** @notice Thrown when referencing a governance token that wasn't deployed */
     error VotesERC20V1NotFoundAtIndex(uint256 tokenIndex);
 
-    /** @notice Thrown when attempting to deploy both Multisig and Azorius freeze voting */
-    error CannotDeployBothFreezeVotingContracts();
+    /** @notice Thrown when attempting to deploy multiple freeze voting contracts */
+    error CannotDeployMultipleFreezeVotingContracts();
 
     /** @notice Thrown when freeze guard references a freeze voting contract that wasn't deployed */
     error FreezeVotingContractNotDeployed();
 
     /** @notice Thrown when freeze components reference an Azorius module that wasn't deployed */
     error AzoriusModuleNotDeployed();
+
+    /** @notice Thrown when FreezeVotingStandaloneV1 is paired with FreezeGuardAzoriusV1 */
+    error InvalidFreezeVotingGuardPairing();
 
     // --- Structs ---
 
@@ -139,37 +142,41 @@ interface ISystemDeployerV1 {
     }
 
     /**
-     * @notice Parameters for ERC20 token-based voting
-     * @param implementation The VotingAdapterERC20V1 implementation
+     * @notice Parameters for ERC20 token-based voting configuration
+     * @param votingWeightImplementation The VotingWeightERC20V1 implementation
+     * @param voteTrackerImplementation The VoteTrackerERC20V1 implementation
      * @param token Existing token or 0 to use newly deployed token
      * @param newTokenIndex Index in votesERC20V1Params if using new token
      * @param weightPerToken Voting weight per token
      */
-    struct VotingAdapterERC20V1Params {
-        address implementation;
+    struct VotingConfigERC20V1Params {
+        address votingWeightImplementation;
+        address voteTrackerImplementation;
         address token;
         uint256 newTokenIndex;
         uint256 weightPerToken;
     }
 
     /**
-     * @notice Parameters for NFT-based voting
-     * @param implementation The VotingAdapterERC721V1 implementation
+     * @notice Parameters for NFT-based voting configuration
+     * @param votingWeightImplementation The VotingWeightERC721V1 implementation
+     * @param voteTrackerImplementation The VoteTrackerERC721V1 implementation
      * @param token The NFT contract address
      * @param weightPerToken Voting weight per NFT
      */
-    struct VotingAdapterERC721V1Params {
-        address implementation;
+    struct VotingConfigERC721V1Params {
+        address votingWeightImplementation;
+        address voteTrackerImplementation;
         address token;
         uint256 weightPerToken;
     }
 
     /**
-     * @notice Collection of all voting adapter configurations
+     * @notice Collection of all voting configuration parameters
      */
-    struct VotingAdapterParams {
-        VotingAdapterERC20V1Params[] votingAdapterERC20V1Params;
-        VotingAdapterERC721V1Params[] votingAdapterERC721V1Params;
+    struct VotingConfigParams {
+        VotingConfigERC20V1Params[] votingConfigERC20V1Params;
+        VotingConfigERC721V1Params[] votingConfigERC721V1Params;
     }
 
     /**
@@ -190,7 +197,7 @@ interface ISystemDeployerV1 {
     struct AzoriusGovernanceParams {
         ProposerAdapterParams proposerAdapterParams;
         StrategyV1Params strategyV1Params;
-        VotingAdapterParams votingAdapterParams;
+        VotingConfigParams votingConfigParams;
         ModuleAzoriusV1Params moduleAzoriusV1Params;
     }
 
@@ -234,7 +241,6 @@ interface ISystemDeployerV1 {
      * @param owner The parent DAO that can update settings
      * @param freezeVotesThreshold Votes required to freeze
      * @param freezeProposalPeriod Duration for freeze voting
-     * @param freezePeriod How long the child DAO stays frozen
      * @param parentSafe The parent Safe whose owners can cast freeze votes
      * @param lightAccountFactory Address of the LightAccountFactory
      */
@@ -243,7 +249,6 @@ interface ISystemDeployerV1 {
         address owner;
         uint256 freezeVotesThreshold;
         uint32 freezeProposalPeriod;
-        uint32 freezePeriod;
         address parentSafe;
         address lightAccountFactory;
     }
@@ -254,7 +259,6 @@ interface ISystemDeployerV1 {
      * @param owner The parent DAO that can update settings
      * @param freezeVotesThreshold Votes required to freeze
      * @param freezeProposalPeriod Duration for freeze voting
-     * @param freezePeriod How long the child DAO stays frozen
      * @param parentAzorius The parent DAO's Azorius module
      * @param lightAccountFactory Address of the LightAccountFactory
      */
@@ -263,8 +267,25 @@ interface ISystemDeployerV1 {
         address owner;
         uint256 freezeVotesThreshold;
         uint32 freezeProposalPeriod;
-        uint32 freezePeriod;
         address parentAzorius;
+        address lightAccountFactory;
+    }
+
+    /**
+     * @notice Parameters for standalone freeze voting
+     * @param implementation The FreezeVotingStandaloneV1 implementation
+     * @param freezeVotesThreshold Votes required to freeze
+     * @param unfreezeVotesThreshold Votes required to unfreeze
+     * @param freezeProposalPeriod Duration for freeze voting
+     * @param unfreezeProposalPeriod Duration for unfreeze voting
+     * @param lightAccountFactory Address of the LightAccountFactory
+     */
+    struct FreezeVotingStandaloneV1Params {
+        address implementation;
+        uint256 freezeVotesThreshold;
+        uint256 unfreezeVotesThreshold;
+        uint32 freezeProposalPeriod;
+        uint32 unfreezeProposalPeriod;
         address lightAccountFactory;
     }
 
@@ -277,11 +298,22 @@ interface ISystemDeployerV1 {
     }
 
     /**
+     * @notice Parameters for standalone freeze voting with its voting configs
+     * @param freezeVotingStandaloneV1Params Configuration for standalone token-based freeze voting
+     * @param votingConfigParams Voting configurations for the standalone freeze voting
+     */
+    struct FreezeVotingStandaloneParams {
+        FreezeVotingStandaloneV1Params freezeVotingStandaloneV1Params;
+        VotingConfigParams votingConfigParams;
+    }
+
+    /**
      * @notice Freeze voting configurations (choose one)
      */
     struct FreezeVotingParams {
         FreezeVotingMultisigV1Params freezeVotingMultisigV1Params;
         FreezeVotingAzoriusV1Params freezeVotingAzoriusV1Params;
+        FreezeVotingStandaloneParams freezeVotingStandaloneParams;
     }
 
     /**

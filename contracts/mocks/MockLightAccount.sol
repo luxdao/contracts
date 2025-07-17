@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ILightAccount} from "../interfaces/light-account/ILightAccount.sol";
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
+import {IVotingTypes} from "../interfaces/decent/deployables/IVotingTypes.sol";
 
 contract MockLightAccount is ILightAccount {
     address private _owner;
@@ -30,15 +31,15 @@ contract MockLightAccount is ILightAccount {
         IStrategyV1 strategy,
         uint32 proposalId,
         uint8 voteType,
-        IStrategyV1.VotingAdapterVoteData[] calldata votingAdaptersData,
-        uint256 lightAccountIndex
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsData,
+        uint128 lightAccountIndex
     ) external {
         // msg.sender here is the EOA calling MockLightAccount (e.g., relayer)
         // When strategy.vote is called, msg.sender from StrategyV1's perspective will be address(this)
         strategy.castVote(
             proposalId,
             voteType,
-            votingAdaptersData,
+            votingConfigsData,
             lightAccountIndex
         );
     }

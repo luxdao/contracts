@@ -18,12 +18,16 @@ import {
     IProposerAdapterHatsV1
 } from "../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
+import {IVotingTypes} from "../interfaces/decent/deployables/IVotingTypes.sol";
 import {
-    IVotingAdapterERC20V1
-} from "../interfaces/decent/deployables/IVotingAdapterERC20V1.sol";
+    IVotingWeightERC20V1
+} from "../interfaces/decent/deployables/IVotingWeightERC20V1.sol";
 import {
-    IVotingAdapterERC721V1
-} from "../interfaces/decent/deployables/IVotingAdapterERC721V1.sol";
+    IVotingWeightERC721V1
+} from "../interfaces/decent/deployables/IVotingWeightERC721V1.sol";
+import {
+    IVoteTrackerV1
+} from "../interfaces/decent/deployables/IVoteTrackerV1.sol";
 import {
     IModuleAzoriusV1
 } from "../interfaces/decent/deployables/IModuleAzoriusV1.sol";
@@ -36,6 +40,9 @@ import {
 import {
     IFreezeVotingAzoriusV1
 } from "../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
+import {
+    IFreezeVotingStandaloneV1
+} from "../interfaces/decent/deployables/IFreezeVotingStandaloneV1.sol";
 import {
     IFreezeGuardMultisigV1
 } from "../interfaces/decent/deployables/IFreezeGuardMultisigV1.sol";
@@ -76,7 +83,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * 3. Deploy strategy with proposer adapters
  * 4. Deploy voting adapters linked to strategy
  * 5. Deploy Azorius module with strategy reference
- * 6. Complete circular initialization (Strategy ↔ Azorius ↔ VotingAdapters)
+ * 6. Complete circular initialization (Strategy ↔ Azorius ↔ VotingConfigs)
  * 7. Deploy optional Fractal module for parent-child relationships
  * 8. Deploy freeze mechanisms if configured
  *
@@ -237,7 +244,12 @@ contract SystemDeployerV1 is
 
         _deployModuleFractal(salt_, moduleFractalV1Params_);
 
-        _deployFreezeContracts(salt_, freezeParams_, azoriusModuleAddress);
+        _deployFreezeContracts(
+            salt_,
+            freezeParams_,
+            azoriusModuleAddress,
+            newVotesERC20V1Addresses
+        );
 
         bytes memory initData = abi.encode(
             votesERC20V1Params_,
@@ -292,7 +304,7 @@ contract SystemDeployerV1 is
     /**
      * @notice Deploys the complete Azorius governance system
      * @dev Handles the complex deployment order and circular dependency resolution
-     * between Azorius, Strategy, and VotingAdapters.
+     * between Azorius, Strategy, and VotingConfigs.
      * @param salt_ Salt for deterministic deployment
      * @param azoriusGovernanceParams_ Complete governance configuration
      * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
@@ -333,17 +345,14 @@ contract SystemDeployerV1 is
                 proposerAdapterAddresses
             );
 
-            // Step 3: Deploy voting adapters linked to the strategy
-            VotingAdapterParams
-                memory votingAdapterParams = azoriusGovernanceParams_
-                    .votingAdapterParams;
-
-            address[] memory votingAdapterAddresses = _deployVotingAdapters(
-                salt_,
-                votingAdapterParams,
-                strategyProxyAddress,
-                newVotesERC20V1Addresses
-            );
+            // Step 3: Deploy voting configurations (weight strategies + vote trackers)
+            IVotingTypes.VotingConfig[]
+                memory votingConfigs = _deployVotingConfigs(
+                    salt_,
+                    azoriusGovernanceParams_.votingConfigParams,
+                    newVotesERC20V1Addresses,
+                    strategyProxyAddress
+                );
 
             // Step 4: Deploy Azorius module with strategy reference
             azoriusModuleAddress = _deployModuleAzorius(
@@ -353,10 +362,10 @@ contract SystemDeployerV1 is
             );
 
             // Step 5: Complete strategy initialization with circular dependencies
-            // This sets the Azorius module and voting adapters on the strategy
+            // This sets the Azorius module and voting configurations on the strategy
             IStrategyV1(strategyProxyAddress).initialize2(
                 azoriusModuleAddress,
-                votingAdapterAddresses
+                votingConfigs
             );
 
             // Step 6: Enable Azorius as a module on the Safe
@@ -682,90 +691,89 @@ contract SystemDeployerV1 is
     }
 
     /**
-     * @notice Deploys all voting adapters for the governance system
-     * @dev Handles deployment of ERC20 and ERC721 voting adapters.
-     * Each adapter is linked to the strategy during initialization.
+     * @notice Deploys all voting configurations for the governance system
+     * @dev Handles deployment of weight strategies and vote trackers.
      * @param salt_ Salt for deterministic deployment
-     * @param votingAdapterParams Configurations for all voting adapter types
-     * @param strategyProxyAddress Address of the deployed strategy
+     * @param votingConfigParams Configurations for all voting config types
      * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
-     * @return votingAdapterAddresses Combined array of all deployed adapter addresses
+     * @param strategyAddress The address of the strategy contract to authorize on vote trackers
+     * @return votingConfigs Combined array of all voting configurations
      */
-    function _deployVotingAdapters(
+    function _deployVotingConfigs(
         bytes32 salt_,
-        VotingAdapterParams memory votingAdapterParams,
-        address strategyProxyAddress,
-        address[] memory newVotesERC20V1Addresses
-    ) internal returns (address[] memory) {
-        VotingAdapterERC20V1Params[]
-            memory votingAdapterERC20V1Params = votingAdapterParams
-                .votingAdapterERC20V1Params;
+        VotingConfigParams memory votingConfigParams,
+        address[] memory newVotesERC20V1Addresses,
+        address strategyAddress
+    ) internal returns (IVotingTypes.VotingConfig[] memory) {
+        VotingConfigERC20V1Params[]
+            memory votingConfigERC20V1Params = votingConfigParams
+                .votingConfigERC20V1Params;
 
-        uint256 votingAdapterERC20V1ParamsLength = votingAdapterERC20V1Params
+        uint256 votingConfigERC20V1ParamsLength = votingConfigERC20V1Params
             .length;
 
-        VotingAdapterERC721V1Params[]
-            memory votingAdapterERC721V1Params = votingAdapterParams
-                .votingAdapterERC721V1Params;
+        VotingConfigERC721V1Params[]
+            memory votingConfigERC721V1Params = votingConfigParams
+                .votingConfigERC721V1Params;
 
-        uint256 votingAdapterERC721V1ParamsLength = votingAdapterERC721V1Params
+        uint256 votingConfigERC721V1ParamsLength = votingConfigERC721V1Params
             .length;
 
-        address[] memory votingAdapterAddresses = new address[](
-            votingAdapterERC20V1ParamsLength + votingAdapterERC721V1ParamsLength
-        );
+        IVotingTypes.VotingConfig[]
+            memory votingConfigs = new IVotingTypes.VotingConfig[](
+                votingConfigERC20V1ParamsLength +
+                    votingConfigERC721V1ParamsLength
+            );
 
-        _deployVotingAdaptersERC20(
+        _deployVotingConfigsERC20(
             salt_,
-            votingAdapterERC20V1ParamsLength,
-            votingAdapterERC20V1Params,
+            votingConfigERC20V1ParamsLength,
+            votingConfigERC20V1Params,
             newVotesERC20V1Addresses,
-            strategyProxyAddress,
-            votingAdapterAddresses
+            votingConfigs,
+            strategyAddress
         );
 
-        _deployVotingAdaptersERC721(
+        _deployVotingConfigsERC721(
             salt_,
-            votingAdapterERC721V1ParamsLength,
-            votingAdapterERC20V1ParamsLength,
-            votingAdapterERC721V1Params,
-            strategyProxyAddress,
-            votingAdapterAddresses
+            votingConfigERC721V1ParamsLength,
+            votingConfigERC20V1ParamsLength,
+            votingConfigERC721V1Params,
+            votingConfigs,
+            strategyAddress
         );
 
-        return votingAdapterAddresses;
+        return votingConfigs;
     }
 
     /**
-     * @notice Deploys ERC20-based voting adapters
-     * @dev Handles token resolution and links each adapter to the strategy.
-     * Weight per token determines voting power calculation.
+     * @notice Deploys ERC20-based voting configurations
+     * @dev Handles token resolution and deploys weight strategies and vote trackers.
      * @param salt_ Salt for deterministic deployment
-     * @param votingAdapterERC20V1ParamsLength Number of ERC20 adapters to deploy
-     * @param votingAdapterERC20V1Params Array of ERC20 adapter configurations
+     * @param votingConfigERC20V1ParamsLength Number of ERC20 configs to deploy
+     * @param votingConfigERC20V1Params Array of ERC20 config parameters
      * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
-     * @param strategyProxyAddress Address of the strategy to link adapters to
-     * @param votingAdapterAddresses Output array to store deployed addresses
+     * @param votingConfigs Output array to store voting configurations
+     * @param strategyAddress The address of the strategy contract to authorize on vote trackers
      */
-    function _deployVotingAdaptersERC20(
+    function _deployVotingConfigsERC20(
         bytes32 salt_,
-        uint256 votingAdapterERC20V1ParamsLength,
-        VotingAdapterERC20V1Params[] memory votingAdapterERC20V1Params,
+        uint256 votingConfigERC20V1ParamsLength,
+        VotingConfigERC20V1Params[] memory votingConfigERC20V1Params,
         address[] memory newVotesERC20V1Addresses,
-        address strategyProxyAddress,
-        address[] memory votingAdapterAddresses
+        IVotingTypes.VotingConfig[] memory votingConfigs,
+        address strategyAddress
     ) internal {
-        for (uint256 i = 0; i < votingAdapterERC20V1ParamsLength; ) {
-            VotingAdapterERC20V1Params
-                memory votingAdapterERC20V1Param = votingAdapterERC20V1Params[
-                    i
-                ];
+        for (uint256 i = 0; i < votingConfigERC20V1ParamsLength; ) {
+            VotingConfigERC20V1Params memory param = votingConfigERC20V1Params[
+                i
+            ];
             address tokenAddress;
 
             // Resolve token address - either existing or newly deployed
-            if (votingAdapterERC20V1Param.token == address(0)) {
+            if (param.token == address(0)) {
                 // Use newly deployed token at specified index
-                uint256 newTokenIndex = votingAdapterERC20V1Param.newTokenIndex;
+                uint256 newTokenIndex = param.newTokenIndex;
                 tokenAddress = newVotesERC20V1Addresses[newTokenIndex];
 
                 if (tokenAddress == address(0)) {
@@ -773,21 +781,37 @@ contract SystemDeployerV1 is
                 }
             } else {
                 // Use existing token address
-                tokenAddress = votingAdapterERC20V1Param.token;
+                tokenAddress = param.token;
             }
 
-            votingAdapterAddresses[i] = deployProxy(
-                votingAdapterERC20V1Param.implementation,
+            // Deploy weight strategy
+            address votingWeight = deployProxy(
+                param.votingWeightImplementation,
                 abi.encodeCall(
-                    IVotingAdapterERC20V1.initialize,
-                    (
-                        tokenAddress,
-                        strategyProxyAddress,
-                        votingAdapterERC20V1Param.weightPerToken
-                    )
+                    IVotingWeightERC20V1.initialize,
+                    (tokenAddress, param.weightPerToken)
                 ),
                 salt_
             );
+
+            // Deploy vote tracker with strategy as authorized caller
+            address[] memory authorizedCallers = new address[](1);
+            authorizedCallers[0] = strategyAddress;
+
+            // Use a unique salt for each vote tracker by combining the base salt with the index
+            bytes32 voteTrackerSalt = keccak256(abi.encodePacked(salt_, i));
+
+            address voteTracker = deployProxy(
+                param.voteTrackerImplementation,
+                abi.encodeCall(IVoteTrackerV1.initialize, (authorizedCallers)),
+                voteTrackerSalt
+            );
+
+            // Create voting config
+            votingConfigs[i] = IVotingTypes.VotingConfig({
+                votingWeight: votingWeight,
+                voteTracker: voteTracker
+            });
 
             unchecked {
                 ++i;
@@ -796,45 +820,57 @@ contract SystemDeployerV1 is
     }
 
     /**
-     * @notice Deploys NFT-based voting adapters
-     * @dev Each NFT provides equal voting weight. Adapters are linked to strategy.
-     * Stores addresses after ERC20 adapters in the combined array.
+     * @notice Deploys NFT-based voting configurations
+     * @dev Deploys weight strategies and vote trackers for NFT voting.
+     * Stores configs after ERC20 configs in the combined array.
      * @param salt_ Salt for deterministic deployment
-     * @param votingAdapterERC721V1ParamsLength Number of ERC721 adapters to deploy
-     * @param votingAdapterERC20V1ParamsLength Offset for array positioning
-     * @param votingAdapterERC721V1Params Array of ERC721 adapter configurations
-     * @param strategyProxyAddress Address of the strategy to link adapters to
-     * @param votingAdapterAddresses Output array to store deployed addresses
+     * @param votingConfigERC721V1ParamsLength Number of ERC721 configs to deploy
+     * @param votingConfigERC20V1ParamsLength Offset for array positioning
+     * @param votingConfigERC721V1Params Array of ERC721 config parameters
+     * @param votingConfigs Output array to store voting configurations
+     * @param strategyAddress The address of the strategy contract to authorize on vote trackers
      */
-    function _deployVotingAdaptersERC721(
+    function _deployVotingConfigsERC721(
         bytes32 salt_,
-        uint256 votingAdapterERC721V1ParamsLength,
-        uint256 votingAdapterERC20V1ParamsLength,
-        VotingAdapterERC721V1Params[] memory votingAdapterERC721V1Params,
-        address strategyProxyAddress,
-        address[] memory votingAdapterAddresses
+        uint256 votingConfigERC721V1ParamsLength,
+        uint256 votingConfigERC20V1ParamsLength,
+        VotingConfigERC721V1Params[] memory votingConfigERC721V1Params,
+        IVotingTypes.VotingConfig[] memory votingConfigs,
+        address strategyAddress
     ) internal {
-        for (uint256 i = 0; i < votingAdapterERC721V1ParamsLength; ) {
-            VotingAdapterERC721V1Params
-                memory votingAdapterERC721V1Param = votingAdapterERC721V1Params[
-                    i
-                ];
+        for (uint256 i = 0; i < votingConfigERC721V1ParamsLength; ) {
+            VotingConfigERC721V1Params
+                memory param = votingConfigERC721V1Params[i];
 
-            // Store at position after ERC20 adapters
-            votingAdapterAddresses[
-                votingAdapterERC20V1ParamsLength + i
-            ] = deployProxy(
-                votingAdapterERC721V1Param.implementation,
+            // Deploy weight strategy
+            address votingWeight = deployProxy(
+                param.votingWeightImplementation,
                 abi.encodeCall(
-                    IVotingAdapterERC721V1.initialize,
-                    (
-                        votingAdapterERC721V1Param.token,
-                        strategyProxyAddress,
-                        votingAdapterERC721V1Param.weightPerToken
-                    )
+                    IVotingWeightERC721V1.initialize,
+                    (param.token, param.weightPerToken)
                 ),
                 salt_
             );
+
+            // Deploy vote tracker with strategy as authorized caller
+            address[] memory authorizedCallers = new address[](1);
+            authorizedCallers[0] = strategyAddress;
+
+            // Use a unique salt for each vote tracker by combining the base salt with the index
+            bytes32 voteTrackerSalt = keccak256(abi.encodePacked(salt_, i));
+
+            address voteTracker = deployProxy(
+                param.voteTrackerImplementation,
+                abi.encodeCall(IVoteTrackerV1.initialize, (authorizedCallers)),
+                voteTrackerSalt
+            );
+
+            // Store at position after ERC20 configs
+            votingConfigs[votingConfigERC20V1ParamsLength + i] = IVotingTypes
+                .VotingConfig({
+                    votingWeight: votingWeight,
+                    voteTracker: voteTracker
+                });
 
             unchecked {
                 ++i;
@@ -907,16 +943,36 @@ contract SystemDeployerV1 is
      * @param salt_ Salt for deterministic deployment
      * @param freezeParams_ Freeze mechanism configurations
      * @param azoriusModuleAddress Address of Azorius module (for freeze guard attachment)
+     * @param newVotesERC20V1Addresses Addresses of newly deployed governance tokens
      */
     function _deployFreezeContracts(
         bytes32 salt_,
         FreezeParams memory freezeParams_,
-        address azoriusModuleAddress
+        address azoriusModuleAddress,
+        address[] memory newVotesERC20V1Addresses
     ) internal {
+        // Validate that FreezeVotingStandaloneV1 is not paired with FreezeGuardAzoriusV1
+        if (
+            freezeParams_
+                .freezeVotingParams
+                .freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation !=
+            address(0) &&
+            freezeParams_
+                .freezeGuardParams
+                .freezeGuardAzoriusV1Params
+                .implementation !=
+            address(0)
+        ) {
+            revert InvalidFreezeVotingGuardPairing();
+        }
+
         // Deploy freeze voting contract (controls when child can be frozen)
         address freezeVotingAddress = _deployFreezeVoting(
             salt_,
-            freezeParams_.freezeVotingParams
+            freezeParams_.freezeVotingParams,
+            newVotesERC20V1Addresses
         );
 
         // Deploy freeze guard (enforces freeze when activated)
@@ -929,16 +985,18 @@ contract SystemDeployerV1 is
     }
 
     /**
-     * @notice Deploys freeze voting contract (multisig or Azorius-based)
+     * @notice Deploys freeze voting contract (multisig, Azorius-based, or standalone)
      * @dev Only one type can be deployed. Returns the deployed address or zero.
-     * Validates that both types aren't specified.
+     * Validates that multiple types aren't specified.
      * @param salt_ Salt for deterministic deployment
      * @param freezeVotingParams_ Freeze voting configurations
+     * @param newVotesERC20V1Addresses_ Addresses of newly deployed governance tokens
      * @return freezeVotingAddress The deployed freeze voting contract address
      */
     function _deployFreezeVoting(
         bytes32 salt_,
-        FreezeVotingParams memory freezeVotingParams_
+        FreezeVotingParams memory freezeVotingParams_,
+        address[] memory newVotesERC20V1Addresses_
     ) internal returns (address) {
         FreezeVotingMultisigV1Params
             memory freezeVotingMultisigV1Params = freezeVotingParams_
@@ -948,11 +1006,24 @@ contract SystemDeployerV1 is
             memory freezeVotingAzoriusV1Params = freezeVotingParams_
                 .freezeVotingAzoriusV1Params;
 
+        FreezeVotingStandaloneParams
+            memory freezeVotingStandaloneParams = freezeVotingParams_
+                .freezeVotingStandaloneParams;
+
+        // Count how many freeze voting types are specified
+        uint8 freezeVotingCount = 0;
+        if (freezeVotingMultisigV1Params.implementation != address(0))
+            freezeVotingCount++;
+        if (freezeVotingAzoriusV1Params.implementation != address(0))
+            freezeVotingCount++;
         if (
-            freezeVotingMultisigV1Params.implementation != address(0) &&
-            freezeVotingAzoriusV1Params.implementation != address(0)
-        ) {
-            revert CannotDeployBothFreezeVotingContracts();
+            freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation != address(0)
+        ) freezeVotingCount++;
+
+        if (freezeVotingCount > 1) {
+            revert CannotDeployMultipleFreezeVotingContracts();
         }
 
         address freezeVotingAddress;
@@ -966,7 +1037,6 @@ contract SystemDeployerV1 is
                         freezeVotingMultisigV1Params.owner,
                         freezeVotingMultisigV1Params.freezeVotesThreshold,
                         freezeVotingMultisigV1Params.freezeProposalPeriod,
-                        freezeVotingMultisigV1Params.freezePeriod,
                         freezeVotingMultisigV1Params.parentSafe,
                         freezeVotingMultisigV1Params.lightAccountFactory
                     )
@@ -984,12 +1054,23 @@ contract SystemDeployerV1 is
                         freezeVotingAzoriusV1Params.owner,
                         freezeVotingAzoriusV1Params.freezeVotesThreshold,
                         freezeVotingAzoriusV1Params.freezeProposalPeriod,
-                        freezeVotingAzoriusV1Params.freezePeriod,
                         freezeVotingAzoriusV1Params.parentAzorius,
                         freezeVotingAzoriusV1Params.lightAccountFactory
                     )
                 ),
                 salt_
+            );
+        }
+
+        if (
+            freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation != address(0)
+        ) {
+            freezeVotingAddress = _deployFreezeVotingStandalone(
+                salt_,
+                freezeVotingStandaloneParams,
+                newVotesERC20V1Addresses_
             );
         }
 
@@ -1108,5 +1189,64 @@ contract SystemDeployerV1 is
             // Azorius Module has same "setGuard" function signature as Safe
             ISafe(azoriusModuleAddress).setGuard(azoriusFreezeGuardAddress);
         }
+    }
+
+    /**
+     * @notice Deploys FreezeVotingStandaloneV1 with voting configs
+     * @dev Handles the circular dependency between FreezeVotingStandalone and VoteTrackers
+     * by using a two-step initialization process.
+     * @param salt_ Salt for deterministic deployment
+     * @param freezeVotingStandaloneParams Parameters for standalone freeze voting and its voting configs
+     * @param newVotesERC20V1Addresses_ Addresses of newly deployed governance tokens
+     * @return freezeVotingAddress The deployed freeze voting standalone address
+     */
+    function _deployFreezeVotingStandalone(
+        bytes32 salt_,
+        FreezeVotingStandaloneParams memory freezeVotingStandaloneParams,
+        address[] memory newVotesERC20V1Addresses_
+    ) internal returns (address) {
+        // Step 1: Deploy FreezeVotingStandalone without voting configs
+        // This gives us a deterministic address we can use for vote tracker authorization
+        address freezeVotingAddress = deployProxy(
+            freezeVotingStandaloneParams
+                .freezeVotingStandaloneV1Params
+                .implementation,
+            abi.encodeCall(
+                IFreezeVotingStandaloneV1.initialize,
+                (
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .freezeVotesThreshold,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .unfreezeVotesThreshold,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .freezeProposalPeriod,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .unfreezeProposalPeriod,
+                    freezeVotingStandaloneParams
+                        .freezeVotingStandaloneV1Params
+                        .lightAccountFactory
+                )
+            ),
+            salt_
+        );
+
+        // Step 2: Deploy voting configs with FreezeVotingStandalone as authorized caller
+        IVotingTypes.VotingConfig[] memory votingConfigs = _deployVotingConfigs(
+            salt_,
+            freezeVotingStandaloneParams.votingConfigParams,
+            newVotesERC20V1Addresses_,
+            freezeVotingAddress // Use freeze voting as authorized caller
+        );
+
+        // Step 3: Complete initialization by setting the voting configs
+        IFreezeVotingStandaloneV1(freezeVotingAddress).initialize2(
+            votingConfigs
+        );
+
+        return freezeVotingAddress;
     }
 }

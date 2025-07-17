@@ -13,9 +13,11 @@ export default buildModule('Deployables', m => {
   const proposerAdapterERC721V1 = m.contract('ProposerAdapterERC721V1');
   const proposerAdapterHatsV1 = m.contract('ProposerAdapterHatsV1');
 
-  // Deploy Voting Adapters
-  const votingAdapterERC20V1 = m.contract('VotingAdapterERC20V1');
-  const votingAdapterERC721V1 = m.contract('VotingAdapterERC721V1');
+  // Deploy Vote Weight and Tracker Adapters
+  const voteTrackerERC20V1 = m.contract('VoteTrackerERC20V1');
+  const voteTrackerERC721V1 = m.contract('VoteTrackerERC721V1');
+  const votingWeightERC20V1 = m.contract('VotingWeightERC20V1');
+  const votingWeightERC721V1 = m.contract('VotingWeightERC721V1');
 
   // Deploy Freeze Guards
   const freezeGuardAzoriusV1 = m.contract('FreezeGuardAzoriusV1');
@@ -24,6 +26,7 @@ export default buildModule('Deployables', m => {
   // Deploy Freeze Voting
   const freezeVotingAzoriusV1 = m.contract('FreezeVotingAzoriusV1');
   const freezeVotingMultisigV1 = m.contract('FreezeVotingMultisigV1');
+  const freezeVotingStandaloneV1 = m.contract('FreezeVotingStandaloneV1');
 
   // Deploy VotesERC20 implementations
   const votesERC20V1 = m.contract('VotesERC20V1');
@@ -51,14 +54,17 @@ export default buildModule('Deployables', m => {
     proposerAdapterERC721V1,
     proposerAdapterHatsV1,
 
-    votingAdapterERC20V1,
-    votingAdapterERC721V1,
+    voteTrackerERC20V1,
+    voteTrackerERC721V1,
+    votingWeightERC20V1,
+    votingWeightERC721V1,
 
     freezeGuardAzoriusV1,
     freezeGuardMultisigV1,
 
     freezeVotingAzoriusV1,
     freezeVotingMultisigV1,
+    freezeVotingStandaloneV1,
 
     votesERC20V1,
     votesERC20StakedV1,

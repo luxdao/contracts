@@ -15,12 +15,12 @@ async function deployConcreteBaseFreezeVotingProxy(
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
-  freezePeriod: number,
+  lightAccountFactory: string,
 ): Promise<ConcreteFreezeVotingBase> {
   // Combine selector and encoded params
   const fullInitData = ConcreteFreezeVotingBase__factory.createInterface().encodeFunctionData(
     'initialize',
-    [owner.address, freezeVotesThreshold, freezeProposalPeriod, freezePeriod],
+    [owner.address, freezeVotesThreshold, freezeProposalPeriod, lightAccountFactory],
   );
 
   // Deploy the proxy with the implementation
@@ -41,15 +41,15 @@ describe('FreezeVotingBase', () => {
   // contracts
   let masterCopy: string;
   let freezeVoting: ConcreteFreezeVotingBase;
+  let lightAccountFactory: SignerWithAddress;
 
   // constants
   const FREEZE_VOTES_THRESHOLD = 3;
   const FREEZE_PROPOSAL_PERIOD = 5;
-  const FREEZE_PERIOD = 10;
 
   beforeEach(async () => {
     // Get signers
-    [proxyDeployer, owner, voter1, voter2, voter3] = await ethers.getSigners();
+    [proxyDeployer, owner, voter1, voter2, voter3, lightAccountFactory] = await ethers.getSigners();
 
     // Deploy implementation
     const implementation = await new ConcreteFreezeVotingBase__factory(proxyDeployer).deploy();
@@ -62,7 +62,7 @@ describe('FreezeVotingBase', () => {
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
-      FREEZE_PERIOD,
+      lightAccountFactory.address,
     );
   });
 
@@ -71,7 +71,6 @@ describe('FreezeVotingBase', () => {
       expect(await freezeVoting.owner()).to.equal(owner.address);
       expect(await freezeVoting.freezeVotesThreshold()).to.equal(FREEZE_VOTES_THRESHOLD);
       expect(await freezeVoting.freezeProposalPeriod()).to.equal(FREEZE_PROPOSAL_PERIOD);
-      expect(await freezeVoting.freezePeriod()).to.equal(FREEZE_PERIOD);
     });
 
     it('should not allow reinitialization', async () => {
@@ -80,7 +79,7 @@ describe('FreezeVotingBase', () => {
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
-          FREEZE_PERIOD,
+          lightAccountFactory.address,
         ),
       ).to.be.revertedWithCustomError(freezeVoting, 'InvalidInitialization');
     });
@@ -96,7 +95,7 @@ describe('FreezeVotingBase', () => {
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
-          FREEZE_PERIOD,
+          lightAccountFactory.address,
         ),
       ).to.be.revertedWithCustomError(implementationContract, 'InvalidInitialization');
     });
@@ -115,7 +114,7 @@ describe('FreezeVotingBase', () => {
 
       // Check state after first vote
       const currentTimestamp = await time.latest();
-      expect(await freezeVoting.freezeProposalCreated()).to.equal(currentTimestamp);
+      expect(await freezeVoting.freezeProposalCreated()).to.equal(currentTimestamp - 1);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
     });
 
@@ -171,7 +170,7 @@ describe('FreezeVotingBase', () => {
       expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
-    it('should automatically unfreeze after freeze period', async () => {
+    it('should remain frozen until explicitly unfrozen', async () => {
       // Cast enough votes to meet threshold
       await freezeVoting.connect(voter1).castFreezeVote();
       await freezeVoting.connect(voter2).castFreezeVote();
@@ -180,11 +179,11 @@ describe('FreezeVotingBase', () => {
       // Should be frozen initially
       expect(await freezeVoting.isFrozen()).to.be.true;
 
-      // Increase time to pass the freeze period
-      await time.increase(FREEZE_PERIOD + 1);
+      // Increase time significantly
+      await time.increase(60 * 60 * 24 * 30); // 30 days
 
-      // Should no longer be frozen
-      expect(await freezeVoting.isFrozen()).to.be.false;
+      // Should still be frozen (permanent freeze)
+      expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
     it('should allow owner to unfreeze manually', async () => {
@@ -205,7 +204,6 @@ describe('FreezeVotingBase', () => {
       // Check that state was reset
       expect(await freezeVoting.freezeProposalCreated()).to.equal(0);
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(0);
-      expect(await freezeVoting.freezeActivated()).to.equal(0);
     });
 
     it('should not allow non-owner to unfreeze', async () => {
@@ -254,108 +252,42 @@ describe('FreezeVotingBase', () => {
     });
   });
 
-  describe('Freeze Activation', () => {
-    it('should return 0 for freezeActivated initially', async () => {
-      expect(await freezeVoting.freezeActivated()).to.equal(0);
-    });
-
-    it('should return 0 for freezeActivated before threshold is reached', async () => {
-      // Cast votes below threshold
-      await freezeVoting.connect(voter1).castFreezeVote();
-      await freezeVoting.connect(voter2).castFreezeVote();
-
-      // freezeActivated should still be 0
-      expect(await freezeVoting.freezeActivated()).to.equal(0);
-    });
-
-    it('should set freezeActivated when threshold is reached', async () => {
+  describe('DAOFrozen Event', () => {
+    it('should emit DAOFrozen event when threshold is reached', async () => {
       // Cast votes to reach threshold
       await freezeVoting.connect(voter1).castFreezeVote();
       await freezeVoting.connect(voter2).castFreezeVote();
 
-      // Get timestamp before the final vote
-      const beforeTimestamp = await time.latest();
-
-      // Cast the threshold-reaching vote
-      await freezeVoting.connect(voter3).castFreezeVote();
-
-      // freezeActivated should be set to current timestamp
-      const afterTimestamp = await time.latest();
-      const freezeActivated = await freezeVoting.freezeActivated();
-
-      expect(freezeActivated).to.be.gte(beforeTimestamp);
-      expect(freezeActivated).to.be.lte(afterTimestamp);
+      // The final vote that reaches threshold should emit DAOFrozen
+      await expect(freezeVoting.connect(voter3).castFreezeVote()).to.emit(
+        freezeVoting,
+        'DAOFrozen',
+      );
     });
 
-    it('should reset freezeActivated when manually unfrozen', async () => {
-      // Cast enough votes to meet threshold
+    it('should emit DAOFrozen event only once when threshold is reached', async () => {
+      // Cast votes to reach threshold
       await freezeVoting.connect(voter1).castFreezeVote();
       await freezeVoting.connect(voter2).castFreezeVote();
-      await freezeVoting.connect(voter3).castFreezeVote();
 
-      // Verify freeze is activated
-      expect(await freezeVoting.freezeActivated()).to.not.equal(0);
+      // This vote reaches threshold and should emit DAOFrozen
+      await expect(freezeVoting.connect(voter3).castFreezeVote()).to.emit(
+        freezeVoting,
+        'DAOFrozen',
+      );
 
-      // Owner unfreezes manually
+      // After unfreezing and voting again
       await freezeVoting.connect(owner).unfreeze();
 
-      // freezeActivated should be reset to 0
-      expect(await freezeVoting.freezeActivated()).to.equal(0);
-    });
-
-    it('should use freezeActivated timestamp for freeze period calculation', async () => {
-      // Cast enough votes to meet threshold
+      // Start new freeze cycle
       await freezeVoting.connect(voter1).castFreezeVote();
       await freezeVoting.connect(voter2).castFreezeVote();
-      await freezeVoting.connect(voter3).castFreezeVote();
 
-      // Should be frozen immediately after threshold is reached
-      expect(await freezeVoting.isFrozen()).to.be.true;
-
-      // Get the freeze activation timestamp
-      const freezeActivated = await freezeVoting.freezeActivated();
-
-      // Advance time to just before freeze period expires
-      await time.increaseTo(Number(freezeActivated) + FREEZE_PERIOD - 1);
-
-      // Should still be frozen
-      expect(await freezeVoting.isFrozen()).to.be.true;
-
-      // Advance time to exactly when freeze period expires
-      await time.increaseTo(Number(freezeActivated) + FREEZE_PERIOD);
-
-      // Should no longer be frozen at the exact expiry time
-      expect(await freezeVoting.isFrozen()).to.be.false;
-
-      // Advance time past freeze period
-      await time.increaseTo(Number(freezeActivated) + FREEZE_PERIOD + 1);
-
-      // Should no longer be frozen
-      expect(await freezeVoting.isFrozen()).to.be.false;
-    });
-
-    it('should handle multiple freeze activation cycles correctly', async () => {
-      // First freeze cycle
-      await freezeVoting.connect(voter1).castFreezeVote();
-      await freezeVoting.connect(voter2).castFreezeVote();
-      await freezeVoting.connect(voter3).castFreezeVote();
-
-      const firstFreezeActivated = await freezeVoting.freezeActivated();
-      expect(firstFreezeActivated).to.not.equal(0);
-
-      // Manually unfreeze
-      await freezeVoting.connect(owner).unfreeze();
-      expect(await freezeVoting.freezeActivated()).to.equal(0);
-
-      // Second freeze cycle
-      await time.increase(1); // Ensure different timestamp
-      await freezeVoting.connect(voter1).castFreezeVote();
-      await freezeVoting.connect(voter2).castFreezeVote();
-      await freezeVoting.connect(voter3).castFreezeVote();
-
-      const secondFreezeActivated = await freezeVoting.freezeActivated();
-      expect(secondFreezeActivated).to.not.equal(0);
-      expect(secondFreezeActivated).to.be.gt(firstFreezeActivated);
+      // Should emit DAOFrozen again for the new freeze
+      await expect(freezeVoting.connect(voter3).castFreezeVote()).to.emit(
+        freezeVoting,
+        'DAOFrozen',
+      );
     });
   });
 });

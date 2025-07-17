@@ -5,14 +5,13 @@ import {
   IDeploymentBlock__factory,
   IERC165__factory,
   IFunctionValidator__factory,
-  IStrategyV1,
   IVersion__factory,
-  MockVotingAdapter__factory,
   MockVotingStrategy,
   MockVotingStrategy__factory,
   StrategyV1ValidatorV1,
   StrategyV1ValidatorV1__factory,
 } from '../../../../typechain-types';
+import { IVotingTypes } from '../../../../typechain-types/contracts/interfaces/decent/deployables/IStrategyV1';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
@@ -40,14 +39,13 @@ describe('StrategyV1ValidatorV1', function () {
   });
 
   describe('validateOperation', function () {
-    let votingAdaptersData: IStrategyV1.VotingAdapterVoteDataStruct[];
+    let votingConfigsData: IVotingTypes.VotingConfigVoteDataStruct[];
 
     beforeEach(async () => {
-      const mockAdapter = await new MockVotingAdapter__factory(deployer).deploy();
-      votingAdaptersData = [
+      votingConfigsData = [
         {
-          votingAdapter: await mockAdapter.getAddress(),
-          adapterVoteData: ethers.ZeroHash,
+          configIndex: 0,
+          voteData: ethers.ZeroHash,
         },
       ];
     });
@@ -69,7 +67,7 @@ describe('StrategyV1ValidatorV1', function () {
       const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
-        votingAdaptersData,
+        votingConfigsData,
         0, // lightAccountIndex
       ]);
 
@@ -89,7 +87,7 @@ describe('StrategyV1ValidatorV1', function () {
       const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
-        votingAdaptersData,
+        votingConfigsData,
         0, // lightAccountIndex
       ]);
 
@@ -108,13 +106,13 @@ describe('StrategyV1ValidatorV1', function () {
       await mockStrategy.setExpectedValidStrategyVoteParams(
         proposalId,
         voteType,
-        votingAdaptersData,
+        votingConfigsData,
       );
 
       const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
-        votingAdaptersData,
+        votingConfigsData,
         0, // lightAccountIndex
       ]);
 
@@ -143,14 +141,14 @@ describe('StrategyV1ValidatorV1', function () {
       await mockStrategy.setExpectedValidStrategyVoteParams(
         proposalId, // expecting 1
         voteType,
-        votingAdaptersData,
+        votingConfigsData,
       );
 
       // But create calldata with the *wrong* proposalId
       const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         wrongProposalId, // encoded with 999
         voteType,
-        votingAdaptersData,
+        votingConfigsData,
         0, // lightAccountIndex
       ]);
 
@@ -172,13 +170,13 @@ describe('StrategyV1ValidatorV1', function () {
       await mockStrategy.setExpectedValidStrategyVoteParams(
         proposalId,
         voteType, // Expecting YES (1)
-        votingAdaptersData,
+        votingConfigsData,
       );
 
       const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         wrongVoteType, // But encoded with NO (0)
-        votingAdaptersData,
+        votingConfigsData,
         0, // lightAccountIndex
       ]);
 
@@ -192,24 +190,24 @@ describe('StrategyV1ValidatorV1', function () {
       ).to.be.revertedWith('Mismatched voteType');
     });
 
-    it('should cause a revert if the validator passes the wrong votingAdaptersData', async function () {
-      const wrongVotingAdaptersData = [
+    it('should cause a revert if the validator passes the wrong votingConfigsData', async function () {
+      const wrongVotingConfigsData = [
         {
-          votingAdapter: votingAdaptersData[0].votingAdapter,
-          adapterVoteData: '0x1234', // Different data
+          configIndex: 0,
+          voteData: '0x1234', // Different data
         },
       ];
       await mockStrategy.setValidStrategyVoteResult(true);
       await mockStrategy.setExpectedValidStrategyVoteParams(
         proposalId,
         voteType,
-        votingAdaptersData, // Expecting original data
+        votingConfigsData, // Expecting original data
       );
 
       const calldata = mockStrategy.interface.encodeFunctionData('castVote', [
         proposalId,
         voteType,
-        wrongVotingAdaptersData, // But encoded with different data
+        wrongVotingConfigsData, // But encoded with different data
         0, // lightAccountIndex
       ]);
 
@@ -220,7 +218,7 @@ describe('StrategyV1ValidatorV1', function () {
           await mockStrategy.getAddress(),
           calldata,
         ),
-      ).to.be.revertedWith('Mismatched votingAdaptersData');
+      ).to.be.revertedWith('Mismatched votingConfigsData');
     });
   });
 
@@ -237,12 +235,12 @@ describe('StrategyV1ValidatorV1', function () {
   });
 
   describe('Version', function () {
-    it('Should return correct version', async function () {
+    it('should return the correct version', async function () {
       expect(await validator.version()).to.equal(1);
     });
   });
 
-  describe('Deployment Block', () => {
+  describe('Deployment Block', function () {
     runDeploymentBlockTests({
       getContract: () => validator,
       isNonUpgradeable: true,

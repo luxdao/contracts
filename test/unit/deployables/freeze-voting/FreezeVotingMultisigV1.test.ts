@@ -8,6 +8,7 @@ import {
   FreezeVotingMultisigV1__factory,
   IDeploymentBlock__factory,
   IERC165__factory,
+  IFreezable__factory,
   IFreezeVotingBase__factory,
   IFreezeVotingMultisigV1__factory,
   ILightAccountValidator__factory,
@@ -30,7 +31,6 @@ async function deployMultisigFreezeVotingProxy(
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
-  freezePeriod: number,
   parentGnosisSafe: MockSafe,
   lightAccountFactoryAddress: string,
 ): Promise<FreezeVotingMultisigV1> {
@@ -41,7 +41,6 @@ async function deployMultisigFreezeVotingProxy(
       owner.address,
       freezeVotesThreshold,
       freezeProposalPeriod,
-      freezePeriod,
       await parentGnosisSafe.getAddress(),
       lightAccountFactoryAddress,
     ],
@@ -72,7 +71,6 @@ describe('FreezeVotingMultisigV1', () => {
   // constants
   const FREEZE_VOTES_THRESHOLD = 2;
   const FREEZE_PROPOSAL_PERIOD = 5;
-  const FREEZE_PERIOD = 10;
 
   beforeEach(async () => {
     // Get signers
@@ -98,7 +96,6 @@ describe('FreezeVotingMultisigV1', () => {
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
-      FREEZE_PERIOD,
       mockSafe,
       lightAccountFactoryMockAddress,
     );
@@ -109,7 +106,6 @@ describe('FreezeVotingMultisigV1', () => {
       expect(await freezeVoting.owner()).to.equal(owner.address);
       expect(await freezeVoting.freezeVotesThreshold()).to.equal(FREEZE_VOTES_THRESHOLD);
       expect(await freezeVoting.freezeProposalPeriod()).to.equal(FREEZE_PROPOSAL_PERIOD);
-      expect(await freezeVoting.freezePeriod()).to.equal(FREEZE_PERIOD);
       expect(await freezeVoting.parentSafe()).to.equal(await mockSafe.getAddress());
       expect(await freezeVoting.lightAccountFactory()).to.equal(lightAccountFactoryMockAddress);
     });
@@ -120,7 +116,6 @@ describe('FreezeVotingMultisigV1', () => {
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
-          FREEZE_PERIOD,
           await mockSafe.getAddress(),
           lightAccountFactoryMockAddress,
         ),
@@ -138,7 +133,6 @@ describe('FreezeVotingMultisigV1', () => {
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
-          FREEZE_PERIOD,
           await mockSafe.getAddress(),
           lightAccountFactoryMockAddress,
         ),
@@ -150,7 +144,7 @@ describe('FreezeVotingMultisigV1', () => {
     it('should reject votes from users not in the parent Safe', async () => {
       await expect(
         freezeVoting.connect(nonSafeOwner).castFreezeVote(0n),
-      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotingWeight');
     });
 
     it('should create a freeze proposal when first user votes', async () => {
@@ -192,10 +186,10 @@ describe('FreezeVotingMultisigV1', () => {
       // First vote
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
-      // Attempting to vote again should fail with NoVotes as the internal logic will return 0 votes
+      // Attempting to vote again should fail with AlreadyVoted
       await expect(
         freezeVoting.connect(safeOwner1).castFreezeVote(0n),
-      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVoting, 'AlreadyVoted');
     });
 
     it('should create a new proposal after proposal period expiry', async () => {
@@ -225,7 +219,7 @@ describe('FreezeVotingMultisigV1', () => {
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
     });
 
-    it('should prevent a removed owner from re-contributing to the same proposal (effectively NoVotes)', async () => {
+    it('should prevent a removed owner from re-contributing to the same proposal', async () => {
       // Initial owner: safeOwner1
       await mockSafe.setOwner(safeOwner1.address);
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
@@ -239,7 +233,7 @@ describe('FreezeVotingMultisigV1', () => {
       // safeOwner1 (no longer an owner) tries to vote again on the same proposal
       await expect(
         freezeVoting.connect(safeOwner1).castFreezeVote(0n),
-      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotingWeight');
       // Vote count should not change
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(initialVoteCount);
       // Proposal timestamp should not change as it's within the same proposal period
@@ -324,7 +318,7 @@ describe('FreezeVotingMultisigV1', () => {
       expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
-    it('should automatically unfreeze after freeze period', async () => {
+    it('should remain frozen until explicitly unfrozen', async () => {
       // Set first Safe owner
       await mockSafe.setOwner(safeOwner1.address);
 
@@ -340,11 +334,11 @@ describe('FreezeVotingMultisigV1', () => {
       // Should be frozen initially
       expect(await freezeVoting.isFrozen()).to.be.true;
 
-      // Increase time to pass the freeze period
-      await time.increase(FREEZE_PERIOD + 1);
+      // Increase time significantly
+      await time.increase(60 * 60 * 24 * 30); // 30 days
 
-      // Should no longer be frozen
-      expect(await freezeVoting.isFrozen()).to.be.false;
+      // Should still be frozen (permanent freeze)
+      expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
     it('should allow owner to unfreeze manually', async () => {
@@ -509,11 +503,9 @@ describe('FreezeVotingMultisigV1', () => {
     runSupportsInterfaceTests({
       getContract: () => freezeVoting,
       supportedInterfaceFactories: [
-        {
-          factory: IFreezeVotingMultisigV1__factory,
-          inheritedFactories: [IFreezeVotingBase__factory],
-        },
+        IFreezeVotingMultisigV1__factory,
         IFreezeVotingBase__factory,
+        IFreezable__factory,
         ILightAccountValidator__factory,
         IERC165__factory,
         IVersion__factory,
@@ -565,7 +557,6 @@ describe('FreezeVotingMultisigV1', () => {
         owner,
         FREEZE_VOTES_THRESHOLD,
         FREEZE_PROPOSAL_PERIOD,
-        FREEZE_PERIOD,
         mockSafeSA,
         lightAccountFactorySA.target as string,
       );
@@ -599,7 +590,7 @@ describe('FreezeVotingMultisigV1', () => {
         mockSmartAccount
           .connect(relayerSA)
           .executeFreezeVote(await freezeVotingSA.getAddress(), castVoteCalldata),
-      ).to.be.revertedWithCustomError(freezeVotingSA, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVotingSA, 'NoVotingWeight');
     });
   });
 
@@ -632,18 +623,16 @@ describe('FreezeVotingMultisigV1', () => {
         testOwner.address,
         FREEZE_VOTES_THRESHOLD,
         FREEZE_PROPOSAL_PERIOD,
-        FREEZE_PERIOD,
         testMockSafeAddress,
         lightAccountFactoryAddress,
       ],
       getExpectedInitData: () =>
         ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'uint32', 'uint32', 'address', 'address'],
+          ['address', 'uint256', 'uint32', 'address', 'address'],
           [
             testOwner.address,
             FREEZE_VOTES_THRESHOLD,
             FREEZE_PROPOSAL_PERIOD,
-            FREEZE_PERIOD,
             testMockSafeAddress,
             lightAccountFactoryAddress,
           ],
