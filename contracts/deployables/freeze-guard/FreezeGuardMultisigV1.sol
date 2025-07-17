@@ -8,9 +8,7 @@ import {
 import {
     IFreezeGuardBaseV1
 } from "../../interfaces/decent/deployables/IFreezeGuardBaseV1.sol";
-import {
-    IFreezeVotingBase
-} from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {
@@ -69,8 +67,8 @@ contract FreezeGuardMultisigV1 is
      * @custom:storage-location erc7201:Decent.FreezeGuardMultisig.main
      */
     struct FreezeGuardMultisigStorage {
-        /** @notice The FreezeVoting contract that determines if DAO is frozen */
-        IFreezeVotingBase freezeVoting;
+        /** @notice The Freezable contract that determines if DAO is frozen */
+        IFreezable freezable;
         /** @notice Duration transactions must wait after timelocking before execution */
         uint32 timelockPeriod;
         /** @notice Window after timelock expires during which execution is allowed */
@@ -143,7 +141,7 @@ contract FreezeGuardMultisigV1 is
 
         // Set contract references
         FreezeGuardMultisigStorage storage $ = _getFreezeGuardMultisigStorage();
-        $.freezeVoting = IFreezeVotingBase(freezeVoting_);
+        $.freezable = IFreezable(freezeVoting_);
         $.childGnosisSafe = ISafe(childGnosisSafe_);
     }
 
@@ -226,6 +224,9 @@ contract FreezeGuardMultisigV1 is
     ) public virtual override {
         FreezeGuardMultisigStorage storage $ = _getFreezeGuardMultisigStorage();
 
+        // Check if DAO is frozen - no new timelocks allowed while frozen
+        if ($.freezable.isFrozen()) revert DAOFrozen();
+
         // Check 1: Ensure this exact set of signatures hasn't been timelocked already
         // Using signature hash as unique identifier prevents replay attacks
         if ($.transactionTimelocked[keccak256(signatures_)] != 0)
@@ -296,9 +297,9 @@ contract FreezeGuardMultisigV1 is
     /**
      * @inheritdoc IFreezeGuardBaseV1
      */
-    function freezeVoting() public view virtual override returns (address) {
+    function freezable() public view virtual override returns (address) {
         FreezeGuardMultisigStorage storage $ = _getFreezeGuardMultisigStorage();
-        return address($.freezeVoting);
+        return address($.freezable);
     }
 
     // ======================================================================
@@ -313,7 +314,12 @@ contract FreezeGuardMultisigV1 is
      * 1. Transaction must be timelocked
      * 2. Timelock period must have passed
      * 3. Must be within execution window
-     * 4. DAO must not be frozen
+     * 4. Transaction must have been timelocked AFTER the most recent freeze
+     * 5. DAO must not be currently frozen
+     *
+     * CRITICAL SECURITY INVARIANT: Check 4 ensures that any transaction timelocked
+     * before the most recent freeze is permanently invalidated, even after unfreeze.
+     *
      * Only the signatures parameter is used; others are ignored.
      */
     function checkTransaction(
@@ -354,9 +360,22 @@ contract FreezeGuardMultisigV1 is
                 $.executionPeriod
         ) revert Expired();
 
-        // Check 4: DAO must not be frozen
-        // Final check allows parent to block execution even after timelock
-        if ($.freezeVoting.isFrozen()) revert DAOFrozen();
+        // Check 4: Enforce critical security invariant for freeze protection
+        // SECURITY INVARIANT: Any transaction timelocked BEFORE the most recent freeze
+        // is permanently invalidated and can NEVER be executed, even after unfreeze.
+        // This prevents malicious signers from queuing harmful transactions and waiting
+        // for an unfreeze to execute them.
+        uint48 lastFreeze = $.freezable.lastFreezeTime();
+        if (
+            lastFreeze != 0 &&
+            $.transactionTimelocked[signaturesHash] < lastFreeze
+        ) {
+            revert TimelockedBeforeFreeze();
+        }
+
+        // Check 5: DAO must not be currently frozen
+        // Final check prevents execution during freeze
+        if ($.freezable.isFrozen()) revert DAOFrozen();
     }
 
     /**

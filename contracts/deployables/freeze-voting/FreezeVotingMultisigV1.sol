@@ -7,6 +7,7 @@ import {
 import {
     IFreezeVotingMultisigV1
 } from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {
     ILightAccountValidator
 } from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
@@ -18,6 +19,9 @@ import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -55,6 +59,7 @@ contract FreezeVotingMultisigV1 is
     FreezeVotingBase,
     DeploymentBlockInitializable,
     InitializerEventEmitter,
+    Ownable2StepUpgradeable,
     ERC165
 {
     // ======================================================================
@@ -113,7 +118,6 @@ contract FreezeVotingMultisigV1 is
         address owner_,
         uint256 freezeVotesThreshold_,
         uint32 freezeProposalPeriod_,
-        uint32 freezePeriod_,
         address parentSafe_,
         address lightAccountFactory_
     ) public virtual override initializer {
@@ -122,18 +126,16 @@ contract FreezeVotingMultisigV1 is
                 owner_,
                 freezeVotesThreshold_,
                 freezeProposalPeriod_,
-                freezePeriod_,
                 parentSafe_,
                 lightAccountFactory_
             )
         );
         __FreezeVotingBase_init(
-            owner_,
             freezeProposalPeriod_,
-            freezePeriod_,
             freezeVotesThreshold_,
             lightAccountFactory_
         );
+        __Ownable_init(owner_);
         __DeploymentBlockInitializable_init();
 
         FreezeVotingMultisigStorage
@@ -211,6 +213,18 @@ contract FreezeVotingMultisigV1 is
         );
     }
 
+    /**
+     * @inheritdoc IFreezeVotingMultisigV1
+     */
+    function unfreeze() public virtual override onlyOwner {
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
+
+        // Reset all freeze state
+        $base.isFrozen = false;
+        $base.freezeProposalCreated = 0;
+        $base.freezeProposalVoteCount = 0;
+    }
+
     // ======================================================================
     // IVersion
     // ======================================================================
@@ -230,7 +244,7 @@ contract FreezeVotingMultisigV1 is
 
     /**
      * @inheritdoc ERC165
-     * @dev Supports IFreezeVotingMultisigV1, IFreezeVotingBase, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
+     * @dev Supports IFreezeVotingMultisigV1, IFreezeVotingBase, IFreezable, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
@@ -238,6 +252,7 @@ contract FreezeVotingMultisigV1 is
         return
             interfaceId_ == type(IFreezeVotingMultisigV1).interfaceId ||
             interfaceId_ == type(IFreezeVotingBase).interfaceId ||
+            interfaceId_ == type(IFreezable).interfaceId ||
             interfaceId_ == type(ILightAccountValidator).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlock).interfaceId ||
@@ -255,7 +270,9 @@ contract FreezeVotingMultisigV1 is
      * 2. Must not have already voted on this proposal
      * 3. Marks voter as having voted to prevent double voting
      * @param voter_ The resolved voter address
-     * @return votes 1 if eligible to vote, 0 otherwise
+     * @return votes Always returns 1 for eligible signers
+     * @custom:throws NoVotingWeight if voter is not a current signer
+     * @custom:throws AlreadyVoted if voter has already voted on this proposal
      */
     function _getVotesAndUpdateHasVoted(
         address voter_
@@ -266,7 +283,7 @@ contract FreezeVotingMultisigV1 is
         // Check 1: Verify voter is a current signer of the parent Safe
         // This ensures removed signers cannot vote
         if (!$.parentSafe.isOwner(voter_)) {
-            return 0;
+            revert NoVotingWeight();
         }
 
         FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
@@ -274,7 +291,7 @@ contract FreezeVotingMultisigV1 is
         // Check 2: Ensure voter hasn't already voted on this proposal
         // Each signer can only vote once per proposal
         if ($.accountHasFreezeVoted[$base.freezeProposalCreated][voter_]) {
-            return 0;
+            revert AlreadyVoted();
         }
 
         // Mark voter as having voted on this proposal

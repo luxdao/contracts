@@ -5,14 +5,21 @@ import {
     IFreezeVotingAzoriusV1
 } from "../../interfaces/decent/deployables/IFreezeVotingAzoriusV1.sol";
 import {
+    IVotingTypes
+} from "../../interfaces/decent/deployables/IVotingTypes.sol";
+import {
     IFreezeVotingBase
 } from "../../interfaces/decent/deployables/IFreezeVotingBase.sol";
-import {
-    IVotingAdapterBase
-} from "../../interfaces/decent/deployables/IVotingAdapterBase.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {
     IModuleAzoriusV1
 } from "../../interfaces/decent/deployables/IModuleAzoriusV1.sol";
+import {
+    IVotingWeightV1
+} from "../../interfaces/decent/deployables/IVotingWeightV1.sol";
+import {
+    IVoteTrackerV1
+} from "../../interfaces/decent/deployables/IVoteTrackerV1.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {
@@ -24,6 +31,9 @@ import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -38,13 +48,13 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * - Inherits base freeze voting logic from FreezeVotingBase
  * - Integrates with parent's Azorius module for strategy/adapter validation
  * - Automatically creates new freeze proposals when needed
- * - Supports multiple voting adapters in single transaction
+ * - Supports multiple voting configurations in single transaction
  * - Light Account support for gasless voting
  *
  * Freeze proposal lifecycle:
  * - First voter automatically creates proposal if none active
  * - Captures parent's current strategy at proposal creation
- * - Aggregates votes from multiple voting adapters
+ * - Aggregates votes from multiple voting configurations
  * - Freezes immediately when threshold reached
  * - Proposals expire after freezeProposalPeriod
  *
@@ -61,6 +71,7 @@ contract FreezeVotingAzoriusV1 is
     FreezeVotingBase,
     DeploymentBlockInitializable,
     InitializerEventEmitter,
+    Ownable2StepUpgradeable,
     ERC165
 {
     // ======================================================================
@@ -119,7 +130,6 @@ contract FreezeVotingAzoriusV1 is
         address owner_,
         uint256 freezeVotesThreshold_,
         uint32 freezeProposalPeriod_,
-        uint32 freezePeriod_,
         address parentAzorius_,
         address lightAccountFactory_
     ) public virtual override initializer {
@@ -128,18 +138,16 @@ contract FreezeVotingAzoriusV1 is
                 owner_,
                 freezeVotesThreshold_,
                 freezeProposalPeriod_,
-                freezePeriod_,
                 parentAzorius_,
                 lightAccountFactory_
             )
         );
         __FreezeVotingBase_init(
-            owner_,
             freezeProposalPeriod_,
-            freezePeriod_,
             freezeVotesThreshold_,
             lightAccountFactory_
         );
+        __Ownable_init(owner_);
         __DeploymentBlockInitializable_init();
 
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
@@ -186,7 +194,7 @@ contract FreezeVotingAzoriusV1 is
      * 5. Records vote and potentially triggers freeze
      */
     function castFreezeVote(
-        VotingAdapterVoteData[] calldata votingAdaptersToUse_,
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsToUse_,
         uint256 lightAccountIndex_
     ) public virtual override {
         // Step 1: Resolve the actual voter (handles Light Account case)
@@ -219,29 +227,24 @@ contract FreezeVotingAzoriusV1 is
         // and record the vote (potentially triggering freeze)
         _recordFreezeVote(
             resolvedVoter,
-            _getVotes(resolvedVoter, votingAdaptersToUse_)
+            _aggregateFreezeVotes(resolvedVoter, votingConfigsToUse_)
         );
     }
 
-    // ======================================================================
-    // FreezeVotingBase
-    // ======================================================================
-
-    // --- State-Changing Functions ---
-
     /**
-     * @inheritdoc IFreezeVotingBase
-     * @dev Extends base unfreeze to also clear the freeze proposal strategy.
-     * This ensures a fresh strategy snapshot for the next freeze proposal.
+     * @inheritdoc IFreezeVotingAzoriusV1
      */
     function unfreeze() public virtual override onlyOwner {
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+
+        // Reset all freeze state
+        $base.isFrozen = false;
+        $base.freezeProposalCreated = 0;
+        $base.freezeProposalVoteCount = 0;
 
         // Clear the strategy snapshot to ensure fresh capture next time
         $.freezeProposalStrategy = address(0);
-
-        // Call parent implementation to reset freeze state
-        super.unfreeze();
     }
 
     // ======================================================================
@@ -263,7 +266,7 @@ contract FreezeVotingAzoriusV1 is
 
     /**
      * @inheritdoc ERC165
-     * @dev Supports IFreezeVotingAzoriusV1, IFreezeVotingBase, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
+     * @dev Supports IFreezeVotingAzoriusV1, IFreezeVotingBase, IFreezable, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
@@ -271,6 +274,7 @@ contract FreezeVotingAzoriusV1 is
         return
             interfaceId_ == type(IFreezeVotingAzoriusV1).interfaceId ||
             interfaceId_ == type(IFreezeVotingBase).interfaceId ||
+            interfaceId_ == type(IFreezable).interfaceId ||
             interfaceId_ == type(ILightAccountValidator).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlock).interfaceId ||
@@ -282,46 +286,72 @@ contract FreezeVotingAzoriusV1 is
     // ======================================================================
 
     /**
-     * @notice Aggregates voting weight from multiple voting adapters
-     * @dev Validates each adapter against the freeze proposal strategy before recording votes.
+     * @notice Aggregates voting weight from multiple voting configurations
+     * @dev Validates each config against the freeze proposal strategy before recording votes.
      * Uses the strategy snapshot to prevent manipulation during voting.
      * @param voter_ The resolved voter address
-     * @param votingAdaptersToUse_ Array of voting adapters and their data
-     * @return userVotes Total voting weight accumulated from all adapters
-     * @custom:throws InvalidVotingAdapter if adapter not in freeze proposal strategy
+     * @param votingConfigsToUse_ Array of voting configs and their data
+     * @return userVotes Total voting weight accumulated from all configs
+     * @custom:throws InvalidVotingConfig if config index is out of bounds
+     * @custom:throws NoVotingWeight if any config returns zero voting weight (includes config index and user input)
      */
-    function _getVotes(
+    function _aggregateFreezeVotes(
         address voter_,
-        VotingAdapterVoteData[] calldata votingAdaptersToUse_
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsToUse_
     ) internal virtual returns (uint256) {
         uint256 userVotes = 0;
 
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+        IStrategyV1 strategy = IStrategyV1($.freezeProposalStrategy);
 
-        // Process each voting adapter
-        for (uint256 i = 0; i < votingAdaptersToUse_.length; ) {
-            address adapterAddress = votingAdaptersToUse_[i].votingAdapter;
+        // Process each voting config
+        for (uint256 i = 0; i < votingConfigsToUse_.length; ) {
+            IVotingTypes.VotingConfigVoteData
+                memory configData = votingConfigsToUse_[i];
 
-            // Validate adapter is part of the freeze proposal strategy
-            // This prevents using adapters added after proposal creation
-            if (
-                !IStrategyV1($.freezeProposalStrategy).isVotingAdapter(
-                    adapterAddress
-                )
-            ) {
-                revert InvalidVotingAdapter();
+            // Validate config index
+            if (configData.configIndex >= strategy.votingConfigs().length) {
+                revert InvalidVotingConfig(configData.configIndex);
             }
 
-            FreezeVotingBaseStorage
-                storage $base = _getFreezeVotingBaseStorage();
+            IVotingTypes.VotingConfig memory config = strategy.votingConfig(
+                configData.configIndex
+            );
 
-            // Record vote through the adapter and accumulate weight
-            // Each adapter handles its own vote validation and weight calculation
-            userVotes += IVotingAdapterBase(adapterAddress).recordFreezeVote(
+            // Calculate voting weight at freeze proposal creation time
+            (uint256 weight, bytes memory processedData) = IVotingWeightV1(
+                config.votingWeight
+            ).calculateWeight(
+                    voter_,
+                    $base.freezeProposalCreated,
+                    configData.voteData
+                );
+
+            // Check for zero weight
+            if (weight == 0) {
+                revert NoVotingWeight(
+                    configData.configIndex,
+                    configData.voteData
+                );
+            }
+
+            // Record the freeze vote
+            IVoteTrackerV1(config.voteTracker).recordVote(
+                $base.freezeProposalCreated,
+                voter_,
+                processedData
+            );
+
+            // Emit per-config event
+            emit FreezeVoteRecorded(
                 voter_,
                 $base.freezeProposalCreated,
-                votingAdaptersToUse_[i].adapterVoteData
+                weight,
+                processedData
             );
+
+            userVotes += weight;
 
             unchecked {
                 ++i;

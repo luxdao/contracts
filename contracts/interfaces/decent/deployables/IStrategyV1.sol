@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
+import {IVotingTypes} from "./IVotingTypes.sol";
+
 /**
  * @title IStrategyV1
  * @notice Core voting strategy contract for the Azorius governance system
  * @dev This contract manages the voting logic for proposals created through ModuleAzoriusV1.
  * It handles vote counting, quorum and basis calculations, and determines whether proposals
- * pass or fail. The strategy delegates voter eligibility and voting weight calculations to
- * voting adapters, enabling support for various token standards (ERC20, ERC721, etc.).
+ * pass or fail. The strategy uses modular voting configurations that combine weight
+ * calculation strategies with vote tracking, enabling support for various token standards
+ * (ERC20, ERC721, etc.).
  *
  * Key features:
  * - Fixed voting period duration applied to all proposals
  * - Quorum threshold (minimum participation required)
  * - Basis threshold (minimum approval percentage required)
- * - Multiple voting adapters for different token types
+ * - Multiple voting configurations for different token types
  * - Multiple proposer adapters for access control
  * - Light Account support for gasless voting
  * - Freeze voter authorization for emergency governance
@@ -22,8 +25,8 @@ pragma solidity ^0.8.30;
  * - Supports YES, NO, and ABSTAIN votes
  * - Quorum calculation: YES + ABSTAIN votes must meet threshold
  * - Basis calculation: YES votes must exceed required percentage of YES + NO votes
- * - Voting constraints are adapter-specific (e.g., ERC20 adapters typically allow one vote per address,
- *   while ERC721 adapters allow one vote per NFT, enabling multiple votes from the same address)
+ * - Voting constraints are configuration-specific (e.g., ERC20 configs typically allow one vote per address,
+ *   while ERC721 configs allow one vote per NFT, enabling multiple votes from the same address)
  *
  * Integration with Azorius:
  * - Azorius calls initializeProposal() when a proposal is created
@@ -36,8 +39,8 @@ interface IStrategyV1 {
     /** @notice Thrown when attempting to use a proposer adapter that is not configured */
     error InvalidProposerAdapter();
 
-    /** @notice Thrown when attempting to initialize with no voting adapters */
-    error NoVotingAdapters();
+    /** @notice Thrown when attempting to initialize with no voting configs */
+    error NoVotingConfigs();
 
     /** @notice Thrown when attempting to initialize with no proposer adapters */
     error NoProposerAdapters();
@@ -51,8 +54,8 @@ interface IStrategyV1 {
     /** @notice Thrown when attempting to vote on a proposal after its voting period has ended */
     error ProposalNotActive();
 
-    /** @notice Thrown when a voting adapter returns zero voting weight for a voter */
-    error NoVotingAdapterVotingWeight(address votingAdapter);
+    /** @notice Thrown when a voting config returns zero voting weight for a voter */
+    error NoVotingWeight(uint256 configIndex);
 
     /** @notice Thrown when an invalid vote type is provided (not 0=NO, 1=YES, 2=ABSTAIN) */
     error InvalidVoteType();
@@ -60,8 +63,8 @@ interface IStrategyV1 {
     /** @notice Thrown when accessing a proposal that hasn't been initialized */
     error ProposalNotInitialized();
 
-    /** @notice Thrown when using a voting adapter that is not configured in the strategy */
-    error InvalidVotingAdapter(address votingAdapter);
+    /** @notice Thrown when using a voting config index that is out of bounds */
+    error InvalidVotingConfig(uint256 configIndex);
 
     /** @notice Thrown when attempting to add/remove address(0) as a freeze voter */
     error InvalidAddress();
@@ -84,16 +87,6 @@ interface IStrategyV1 {
         uint256 yesVotes;
         uint256 noVotes;
         uint256 abstainVotes;
-    }
-
-    /**
-     * @notice Data structure for casting votes through specific voting adapters
-     * @param votingAdapter Address of the voting adapter to use
-     * @param adapterVoteData Adapter-specific data (e.g., token ID for ERC721)
-     */
-    struct VotingAdapterVoteData {
-        address votingAdapter;
-        bytes adapterVoteData;
     }
 
     // --- Enums ---
@@ -165,11 +158,11 @@ interface IStrategyV1 {
      * @notice Initializes the strategy with core voting parameters (part 1 of 2)
      * @dev Split initialization is required to resolve circular dependencies:
      * - Azorius needs Strategy address during initialization
-     * - Strategy needs Azorius address (as strategyAdmin) and VotingAdapter addresses
-     * - VotingAdapters need Strategy address during initialization
+     * - Strategy needs Azorius address (as strategyAdmin) and VotingConfig addresses
+     * - VotingConfigs (weight strategies and vote trackers) need Strategy address during initialization
      *
      * This two-step process allows: 1) Deploy Strategy, 2) Deploy Azorius with Strategy address,
-     * 3) Deploy VotingAdapters with Strategy address, 4) Call initialize2 with Azorius and adapters.
+     * 3) Deploy VotingConfigs with Strategy address, 4) Call initialize2 with Azorius and configs.
      *
      * @param votingPeriod_ Duration in seconds for voting on each proposal
      * @param quorumThreshold_ Minimum total voting weight (YES + ABSTAIN) required for a proposal to pass
@@ -189,16 +182,16 @@ interface IStrategyV1 {
     ) external;
 
     /**
-     * @notice Completes initialization with admin and voting adapters (part 2 of 2)
+     * @notice Completes initialization with admin and voting configurations (part 2 of 2)
      * @dev Must be called after initialize() to complete the setup. This second step
      * provides the addresses that couldn't be provided in step 1 due to circular dependencies.
      * @param strategyAdmin_ Address that can initialize proposals and manage freeze voters (typically Azorius)
-     * @param votingAdapters_ Array of adapter contracts that calculate voting weights
-     * @custom:throws NoVotingAdapters if votingAdapters_ array is empty
+     * @param votingConfigs_ Array of voting configurations (weight strategy + vote tracker pairs)
+     * @custom:throws NoVotingConfigs if votingConfigs_ array is empty
      */
     function initialize2(
         address strategyAdmin_,
-        address[] calldata votingAdapters_
+        IVotingTypes.VotingConfig[] calldata votingConfigs_
     ) external;
 
     // --- View Functions ---
@@ -249,13 +242,13 @@ interface IStrategyV1 {
     ) external view returns (uint32 votingStartBlock);
 
     /**
-     * @notice Checks if an address is a configured voting adapter
-     * @param votingAdapter_ The address to check
-     * @return isVotingAdapter True if this is a configured voting adapter
+     * @notice Returns all configured voting configurations
+     * @return votingConfigs Array of voting configurations
      */
-    function isVotingAdapter(
-        address votingAdapter_
-    ) external view returns (bool isVotingAdapter);
+    function votingConfigs()
+        external
+        view
+        returns (IVotingTypes.VotingConfig[] memory votingConfigs);
 
     /**
      * @notice Checks if an address is a configured proposer adapter
@@ -306,13 +299,13 @@ interface IStrategyV1 {
         returns (ProposalVotingDetails memory proposalVotingDetails);
 
     /**
-     * @notice Returns all configured voting adapter addresses
-     * @return votingAdapters Array of voting adapter contract addresses
+     * @notice Returns a specific voting configuration
+     * @param configIndex_ The index of the voting config to retrieve
+     * @return votingConfig The voting configuration at the specified index
      */
-    function votingAdapters()
-        external
-        view
-        returns (address[] memory votingAdapters);
+    function votingConfig(
+        uint256 configIndex_
+    ) external view returns (IVotingTypes.VotingConfig memory votingConfig);
 
     /**
      * @notice Returns all configured proposer adapter addresses
@@ -379,14 +372,14 @@ interface IStrategyV1 {
      * @param voter_ The address that would cast the vote
      * @param proposalId_ The proposal to vote on
      * @param voteType_ The type of vote (0=NO, 1=YES, 2=ABSTAIN)
-     * @param votingAdaptersData_ Array of voting adapters and their data
+     * @param votingConfigsData_ Array of voting configs and their data
      * @return isValid True if the vote configuration is valid
      */
     function validStrategyVote(
         address voter_,
         uint32 proposalId_,
         uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData_
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsData_
     ) external view returns (bool isValid);
 
     // --- State-Changing Functions ---
@@ -404,28 +397,28 @@ interface IStrategyV1 {
 
     /**
      * @notice Casts a vote on an active proposal
-     * @dev Aggregates voting weight from multiple adapters in a single transaction.
+     * @dev Aggregates voting weight from multiple voting configurations in a single transaction.
      * Supports Light Account voting through account abstraction.
-     * Each adapter enforces its own voting constraints (e.g., ERC20 adapters may limit
-     * one vote per address, while ERC721 adapters allow one vote per NFT).
+     * Each configuration enforces its own voting constraints (e.g., ERC20 configs may limit
+     * one vote per address, while ERC721 configs allow one vote per NFT).
      * The same address can call castVote multiple times if using different voting
-     * credentials (e.g., different NFTs) that the adapters consider valid.
+     * credentials (e.g., different NFTs) that the configurations consider valid.
      * @param proposalId_ The proposal to vote on
      * @param voteType_ Type of vote: 0=NO, 1=YES, 2=ABSTAIN
-     * @param votingAdaptersData_ Array of voting adapters to use with their specific data
+     * @param votingConfigsData_ Array of voting configs to use with their specific data
      * @param lightAccountIndex_ Index for Light Account resolution (0 for direct voting)
      * @custom:throws ProposalNotInitialized if proposal doesn't exist
      * @custom:throws ProposalNotActive if voting period has ended
      * @custom:throws InvalidVoteType if voteType_ > 2
-     * @custom:throws InvalidVotingAdapter if adapter not configured
-     * @custom:throws NoVotingAdapterVotingWeight if adapter returns zero weight
+     * @custom:throws InvalidVotingConfig if config index is out of bounds
+     * @custom:throws NoVotingWeight if config returns zero weight
      * @custom:emits Voted with voter address and total weight used
      * @custom:emits VotingPeriodEnded if voting after period (before reverting)
      */
     function castVote(
         uint32 proposalId_,
         uint8 voteType_,
-        VotingAdapterVoteData[] calldata votingAdaptersData_,
+        IVotingTypes.VotingConfigVoteData[] calldata votingConfigsData_,
         uint256 lightAccountIndex_
     ) external;
 

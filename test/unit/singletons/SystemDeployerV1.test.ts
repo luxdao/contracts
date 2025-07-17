@@ -10,6 +10,7 @@ import {
   FreezeGuardMultisigV1__factory,
   FreezeVotingAzoriusV1__factory,
   FreezeVotingMultisigV1__factory,
+  FreezeVotingStandaloneV1__factory,
   IDeploymentBlock__factory,
   IncompatibleStorageContract__factory,
   ISystemDeployerV1,
@@ -41,10 +42,14 @@ import {
   UpgradeContractV3__factory,
   VotesERC20V1,
   VotesERC20V1__factory,
-  VotingAdapterERC20V1,
-  VotingAdapterERC20V1__factory,
-  VotingAdapterERC721V1,
-  VotingAdapterERC721V1__factory,
+  VoteTrackerERC20V1,
+  VoteTrackerERC20V1__factory,
+  VoteTrackerERC721V1,
+  VoteTrackerERC721V1__factory,
+  VotingWeightERC20V1,
+  VotingWeightERC20V1__factory,
+  VotingWeightERC721V1,
+  VotingWeightERC721V1__factory,
 } from '../../../typechain-types';
 import { runDeploymentBlockTests } from '../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
@@ -299,6 +304,7 @@ function createSetupSafeParams(overrides?: {
   freezeGuardAzoriusParams?: Partial<ISystemDeployerV1.FreezeGuardAzoriusV1ParamsStruct>;
   freezeVotingMultisigParams?: Partial<ISystemDeployerV1.FreezeVotingMultisigV1ParamsStruct>;
   freezeVotingAzoriusParams?: Partial<ISystemDeployerV1.FreezeVotingAzoriusV1ParamsStruct>;
+  freezeVotingStandaloneParams?: Partial<ISystemDeployerV1.FreezeVotingStandaloneParamsStruct>;
 }) {
   // Default Votes ERC20 params (all empty/zero)
   const votesERC20Params: ISystemDeployerV1.VotesERC20V1ParamsStruct[] = overrides?.votesERC20Params
@@ -330,9 +336,9 @@ function createSetupSafeParams(overrides?: {
       basisNumerator: 0,
       lightAccountFactory: ethers.ZeroAddress,
     },
-    votingAdapterParams: {
-      votingAdapterERC20V1Params: [],
-      votingAdapterERC721V1Params: [],
+    votingConfigParams: {
+      votingConfigERC20V1Params: [],
+      votingConfigERC721V1Params: [],
     },
     moduleAzoriusV1Params: {
       implementation: ethers.ZeroAddress,
@@ -350,6 +356,7 @@ function createSetupSafeParams(overrides?: {
   };
 
   // Default Freeze params (all empty/zero)
+  // Build freeze params from individual parameters
   const freezeParams: ISystemDeployerV1.FreezeParamsStruct = {
     freezeGuardParams: {
       freezeGuardMultisigV1Params: {
@@ -371,7 +378,6 @@ function createSetupSafeParams(overrides?: {
         owner: ethers.ZeroAddress,
         freezeVotesThreshold: 0,
         freezeProposalPeriod: 0,
-        freezePeriod: 0,
         parentSafe: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
         ...overrides?.freezeVotingMultisigParams,
@@ -381,10 +387,24 @@ function createSetupSafeParams(overrides?: {
         owner: ethers.ZeroAddress,
         freezeVotesThreshold: 0,
         freezeProposalPeriod: 0,
-        freezePeriod: 0,
         parentAzorius: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
         ...overrides?.freezeVotingAzoriusParams,
+      },
+      freezeVotingStandaloneParams: {
+        freezeVotingStandaloneV1Params: {
+          implementation: ethers.ZeroAddress,
+          freezeVotesThreshold: 0,
+          unfreezeVotesThreshold: 0,
+          freezeProposalPeriod: 0,
+          unfreezeProposalPeriod: 0,
+          lightAccountFactory: ethers.ZeroAddress,
+        },
+        votingConfigParams: {
+          votingConfigERC20V1Params: [],
+          votingConfigERC721V1Params: [],
+        },
+        ...overrides?.freezeVotingStandaloneParams,
       },
     },
   };
@@ -763,7 +783,7 @@ async function findAndVerifyStrategyV1(params: {
   basisNumerator: BigNumberish;
   strategyAdmin: string;
   proposerAdapters: string[];
-  votingAdapters: string[];
+  votingConfigs: { votingWeight: string; voteTracker: string }[];
 }) {
   const {
     fixtureData,
@@ -774,7 +794,7 @@ async function findAndVerifyStrategyV1(params: {
     basisNumerator,
     strategyAdmin,
     proposerAdapters,
-    votingAdapters,
+    votingConfigs,
   } = params;
 
   const strategyAddress = await findProxyDeployed({
@@ -797,11 +817,12 @@ async function findAndVerifyStrategyV1(params: {
     expect(actualProposerAdapters[i]).to.equal(proposerAdapters[i]);
   }
 
-  // Verify voting adapters
-  const actualVotingAdapters = await strategyProxy.votingAdapters();
-  expect(actualVotingAdapters).to.have.lengthOf(votingAdapters.length);
-  for (let i = 0; i < votingAdapters.length; i++) {
-    expect(actualVotingAdapters[i]).to.equal(votingAdapters[i]);
+  // Verify voting configs
+  const actualVotingConfigs = await strategyProxy.votingConfigs();
+  expect(actualVotingConfigs).to.have.lengthOf(votingConfigs.length);
+  for (let i = 0; i < votingConfigs.length; i++) {
+    expect(actualVotingConfigs[i].votingWeight).to.equal(votingConfigs[i].votingWeight);
+    expect(actualVotingConfigs[i].voteTracker).to.equal(votingConfigs[i].voteTracker);
   }
 
   return strategyProxy;
@@ -952,102 +973,260 @@ async function findAndVerifyProposerAdapterHatsV1s(params: {
   );
 }
 
-// Helper function to find and verify VotingAdapterERC20V1 deployment and configuration
-async function findAndVerifyVotingAdapterERC20V1s(params: {
+// Helper function to find and verify VotingConfigERC20V1 deployment and configuration
+async function findAndVerifyVotingConfigERC20V1s(params: {
   fixtureData: {
     systemDeployer: SystemDeployerV1;
     deployer: SignerWithAddress;
+    voteTrackerERC20V1: VoteTrackerERC20V1;
   };
   receipt: ContractTransactionReceipt;
   implementation: string;
-  votingAdapterDatas: {
+  votingConfigDatas: {
     params: {
       strategy: string;
       weightPerToken: BigNumberish;
     };
     token: string;
   }[];
-}) {
-  const { fixtureData, receipt, implementation, votingAdapterDatas } = params;
+}): Promise<{ votingWeight: string; voteTracker: string }[]> {
+  const { fixtureData, receipt, implementation, votingConfigDatas } = params;
 
-  const votingAdapterAddresess = await findProxiesDeployed({
-    fixtureData,
-    receipt,
-    implementation,
+  // Parse all ProxyDeployed events in order
+  const proxyDeployedEvents = receipt?.logs.filter(log => {
+    try {
+      const parsedLog = fixtureData.systemDeployer.interface.parseLog({
+        topics: log.topics,
+        data: log.data,
+      });
+      return parsedLog?.name === 'ProxyDeployed';
+    } catch {
+      return false;
+    }
   });
 
-  if (votingAdapterAddresess.length !== votingAdapterDatas.length) {
-    throw new Error(`Number of voting adapters does not match number of adapter datas`);
+  // Extract proxy deployments with their implementations
+  const deployments: { proxy: string; implementation: string }[] = [];
+  for (const event of proxyDeployedEvents || []) {
+    const parsedEvent = fixtureData.systemDeployer.interface.parseLog({
+      topics: event.topics,
+      data: event.data,
+    });
+    if (parsedEvent) {
+      deployments.push({
+        proxy: parsedEvent.args[0],
+        implementation: parsedEvent.args[1],
+      });
+    }
   }
 
-  for (let i = 0; i < votingAdapterAddresess.length; i++) {
-    const votingAdapterAddress = votingAdapterAddresess[i];
-    const votingAdapterData = votingAdapterDatas[i];
+  // Find voting weight and vote tracker pairs
+  const votingConfigs: { votingWeight: string; voteTracker: string }[] = [];
+  const voteTrackerImplementation = await fixtureData.voteTrackerERC20V1.getAddress();
 
-    const votingAdapterProxy = VotingAdapterERC20V1__factory.connect(
-      votingAdapterAddress,
+  // Find all weight strategies and vote trackers separately
+  const weightStrategies: { index: number; address: string }[] = [];
+  const voteTrackers: { index: number; address: string }[] = [];
+
+  for (let i = 0; i < deployments.length; i++) {
+    if (deployments[i].implementation === implementation) {
+      weightStrategies.push({ index: i, address: deployments[i].proxy });
+    } else if (deployments[i].implementation === voteTrackerImplementation) {
+      voteTrackers.push({ index: i, address: deployments[i].proxy });
+    }
+  }
+
+  // Verify we have the expected number
+  if (weightStrategies.length !== votingConfigDatas.length) {
+    throw new Error(
+      `Expected ${votingConfigDatas.length} weight strategies but found ${weightStrategies.length}`,
+    );
+  }
+
+  if (voteTrackers.length !== votingConfigDatas.length) {
+    throw new Error(
+      `Expected ${votingConfigDatas.length} vote trackers but found ${voteTrackers.length}`,
+    );
+  }
+
+  // Pair them based on deployment order
+  // SystemDeployerV1 deploys them in pairs: weight strategy then vote tracker
+  for (let i = 0; i < weightStrategies.length; i++) {
+    const votingWeight = weightStrategies[i];
+
+    // Find the vote tracker that was deployed immediately after this weight strategy
+    let pairedVoteTracker: { index: number; address: string } | undefined;
+    for (const voteTracker of voteTrackers) {
+      if (voteTracker.index > votingWeight.index) {
+        // Check if there's another weight strategy between them
+        const hasIntermediateWeightStrategy = weightStrategies.some(
+          ws => ws.index > votingWeight.index && ws.index < voteTracker.index,
+        );
+        if (!hasIntermediateWeightStrategy) {
+          pairedVoteTracker = voteTracker;
+          break;
+        }
+      }
+    }
+
+    if (!pairedVoteTracker) {
+      throw new Error(`Vote tracker not found for weight strategy at index ${i}`);
+    }
+
+    const votingConfigData = votingConfigDatas[i];
+
+    // Verify the weight strategy
+    const votingWeightProxy = VotingWeightERC20V1__factory.connect(
+      votingWeight.address,
       fixtureData.deployer,
     );
 
-    expect(await votingAdapterProxy.token()).to.equal(votingAdapterData.token);
-    expect(await votingAdapterProxy.strategy()).to.equal(votingAdapterData.params.strategy);
-    expect(await votingAdapterProxy.weightPerToken()).to.equal(
-      votingAdapterData.params.weightPerToken,
+    expect(await votingWeightProxy.token()).to.equal(votingConfigData.token);
+    expect(await votingWeightProxy.weightPerToken()).to.equal(
+      votingConfigData.params.weightPerToken,
+    );
+
+    votingConfigs.push({
+      votingWeight: votingWeight.address,
+      voteTracker: pairedVoteTracker.address,
+    });
+  }
+
+  if (votingConfigs.length !== votingConfigDatas.length) {
+    throw new Error(
+      `Expected ${votingConfigDatas.length} voting configs but found ${votingConfigs.length}`,
     );
   }
 
-  return votingAdapterAddresess.map(adapter =>
-    VotingAdapterERC20V1__factory.connect(adapter, fixtureData.deployer),
-  );
+  return votingConfigs;
 }
 
-// Helper function to find and verify VotingAdapterERC721V1 deployment and configuration
-async function findAndVerifyVotingAdapterERC721V1s(params: {
+// Helper function to find and verify VotingConfigERC721V1 deployment and configuration
+async function findAndVerifyVotingConfigERC721V1s(params: {
   fixtureData: {
     systemDeployer: SystemDeployerV1;
     deployer: SignerWithAddress;
+    voteTrackerERC721V1: VoteTrackerERC721V1;
   };
   receipt: ContractTransactionReceipt;
   implementation: string;
-  votingAdapterDatas: {
+  votingConfigDatas: {
     params: {
       strategy: string;
       weightPerToken: BigNumberish;
       token: AddressLike;
     };
   }[];
-}) {
-  const { fixtureData, receipt, implementation, votingAdapterDatas } = params;
+}): Promise<{ votingWeight: string; voteTracker: string }[]> {
+  const { fixtureData, receipt, implementation, votingConfigDatas } = params;
 
-  const votingAdapterAddresess = await findProxiesDeployed({
-    fixtureData,
-    receipt,
-    implementation,
+  // Parse all ProxyDeployed events in order
+  const proxyDeployedEvents = receipt?.logs.filter(log => {
+    try {
+      const parsedLog = fixtureData.systemDeployer.interface.parseLog({
+        topics: log.topics,
+        data: log.data,
+      });
+      return parsedLog?.name === 'ProxyDeployed';
+    } catch {
+      return false;
+    }
   });
 
-  if (votingAdapterAddresess.length !== votingAdapterDatas.length) {
-    throw new Error(`Number of voting adapters does not match number of adapter datas`);
+  // Extract proxy deployments with their implementations
+  const deployments: { proxy: string; implementation: string }[] = [];
+  for (const event of proxyDeployedEvents || []) {
+    const parsedEvent = fixtureData.systemDeployer.interface.parseLog({
+      topics: event.topics,
+      data: event.data,
+    });
+    if (parsedEvent) {
+      deployments.push({
+        proxy: parsedEvent.args[0],
+        implementation: parsedEvent.args[1],
+      });
+    }
   }
 
-  for (let i = 0; i < votingAdapterAddresess.length; i++) {
-    const votingAdapterAddress = votingAdapterAddresess[i];
-    const votingAdapterData = votingAdapterDatas[i];
+  // Find voting weight and vote tracker pairs
+  const votingConfigs: { votingWeight: string; voteTracker: string }[] = [];
+  const voteTrackerImplementation = await fixtureData.voteTrackerERC721V1.getAddress();
 
-    const votingAdapterProxy = VotingAdapterERC721V1__factory.connect(
-      votingAdapterAddress,
+  // Find all weight strategies and vote trackers separately
+  const weightStrategies: { index: number; address: string }[] = [];
+  const voteTrackers: { index: number; address: string }[] = [];
+
+  for (let i = 0; i < deployments.length; i++) {
+    if (deployments[i].implementation === implementation) {
+      weightStrategies.push({ index: i, address: deployments[i].proxy });
+    } else if (deployments[i].implementation === voteTrackerImplementation) {
+      voteTrackers.push({ index: i, address: deployments[i].proxy });
+    }
+  }
+
+  // Verify we have the expected number
+  if (weightStrategies.length !== votingConfigDatas.length) {
+    throw new Error(
+      `Expected ${votingConfigDatas.length} weight strategies but found ${weightStrategies.length}`,
+    );
+  }
+
+  if (voteTrackers.length !== votingConfigDatas.length) {
+    throw new Error(
+      `Expected ${votingConfigDatas.length} vote trackers but found ${voteTrackers.length}`,
+    );
+  }
+
+  // Pair them based on deployment order
+  // SystemDeployerV1 deploys them in pairs: weight strategy then vote tracker
+  for (let i = 0; i < weightStrategies.length; i++) {
+    const votingWeight = weightStrategies[i];
+
+    // Find the vote tracker that was deployed immediately after this weight strategy
+    let pairedVoteTracker: { index: number; address: string } | undefined;
+    for (const voteTracker of voteTrackers) {
+      if (voteTracker.index > votingWeight.index) {
+        // Check if there's another weight strategy between them
+        const hasIntermediateWeightStrategy = weightStrategies.some(
+          ws => ws.index > votingWeight.index && ws.index < voteTracker.index,
+        );
+        if (!hasIntermediateWeightStrategy) {
+          pairedVoteTracker = voteTracker;
+          break;
+        }
+      }
+    }
+
+    if (!pairedVoteTracker) {
+      throw new Error(`Vote tracker not found for weight strategy at index ${i}`);
+    }
+
+    const votingConfigData = votingConfigDatas[i];
+
+    // Verify the weight strategy
+    const votingWeightProxy = VotingWeightERC721V1__factory.connect(
+      votingWeight.address,
       fixtureData.deployer,
     );
 
-    expect(await votingAdapterProxy.token()).to.equal(votingAdapterData.params.token);
-    expect(await votingAdapterProxy.strategy()).to.equal(votingAdapterData.params.strategy);
-    expect(await votingAdapterProxy.weightPerToken()).to.equal(
-      votingAdapterData.params.weightPerToken,
+    expect(await votingWeightProxy.token()).to.equal(votingConfigData.params.token);
+    expect(await votingWeightProxy.weightPerToken()).to.equal(
+      votingConfigData.params.weightPerToken,
+    );
+
+    votingConfigs.push({
+      votingWeight: votingWeight.address,
+      voteTracker: pairedVoteTracker.address,
+    });
+  }
+
+  if (votingConfigs.length !== votingConfigDatas.length) {
+    throw new Error(
+      `Expected ${votingConfigDatas.length} voting configs but found ${votingConfigs.length}`,
     );
   }
 
-  return votingAdapterAddresess.map(adapter =>
-    VotingAdapterERC721V1__factory.connect(adapter, fixtureData.deployer),
-  );
+  return votingConfigs;
 }
 
 // Helper function to find and verify FreezeGuardMultisig deployment and configuration
@@ -1099,7 +1278,7 @@ async function findAndVerifyFreezeGuardMultisigV1(params: {
   expect(await freezeGuardMultisigProxy.owner()).to.equal(owner);
   expect(await freezeGuardMultisigProxy.timelockPeriod()).to.equal(timelockPeriod);
   expect(await freezeGuardMultisigProxy.executionPeriod()).to.equal(executionPeriod);
-  expect(await freezeGuardMultisigProxy.freezeVoting()).to.equal(freezeVoting);
+  expect(await freezeGuardMultisigProxy.freezable()).to.equal(freezeVoting);
 
   return freezeGuardMultisigProxy;
 }
@@ -1140,7 +1319,7 @@ async function findAndVerifyFreezeGuardAzoriusV1(params: {
   );
 
   expect(await freezeGuardAzoriusProxy.owner()).to.equal(owner);
-  expect(await freezeGuardAzoriusProxy.freezeVoting()).to.equal(freezeVoting);
+  expect(await freezeGuardAzoriusProxy.freezable()).to.equal(freezeVoting);
 
   return freezeGuardAzoriusProxy;
 }
@@ -1156,7 +1335,6 @@ async function findAndVerifyFreezeVotingMultisigV1(params: {
   owner: AddressLike;
   freezeVotesThreshold: BigNumberish;
   freezeProposalPeriod: BigNumberish;
-  freezePeriod: BigNumberish;
   lightAccountFactory: AddressLike;
 }) {
   const {
@@ -1166,7 +1344,6 @@ async function findAndVerifyFreezeVotingMultisigV1(params: {
     owner,
     freezeVotesThreshold,
     freezeProposalPeriod,
-    freezePeriod,
     lightAccountFactory,
   } = params;
 
@@ -1185,7 +1362,6 @@ async function findAndVerifyFreezeVotingMultisigV1(params: {
   expect(await freezeVotingMultisigProxy.owner()).to.equal(owner);
   expect(await freezeVotingMultisigProxy.freezeVotesThreshold()).to.equal(freezeVotesThreshold);
   expect(await freezeVotingMultisigProxy.freezeProposalPeriod()).to.equal(freezeProposalPeriod);
-  expect(await freezeVotingMultisigProxy.freezePeriod()).to.equal(freezePeriod);
   expect(await freezeVotingMultisigProxy.lightAccountFactory()).to.equal(lightAccountFactory);
 
   return freezeVotingMultisigProxy;
@@ -1202,7 +1378,6 @@ async function findAndVerifyFreezeVotingAzoriusV1(params: {
   owner: AddressLike;
   freezeVotesThreshold: BigNumberish;
   freezeProposalPeriod: BigNumberish;
-  freezePeriod: BigNumberish;
   parentAzorius: AddressLike;
   lightAccountFactory: AddressLike;
 }) {
@@ -1213,7 +1388,6 @@ async function findAndVerifyFreezeVotingAzoriusV1(params: {
     owner,
     freezeVotesThreshold,
     freezeProposalPeriod,
-    freezePeriod,
     parentAzorius,
     lightAccountFactory,
   } = params;
@@ -1232,12 +1406,136 @@ async function findAndVerifyFreezeVotingAzoriusV1(params: {
 
   expect(await freezeVotingAzoriusProxy.owner()).to.equal(owner);
   expect(await freezeVotingAzoriusProxy.freezeProposalPeriod()).to.equal(freezeProposalPeriod);
-  expect(await freezeVotingAzoriusProxy.freezePeriod()).to.equal(freezePeriod);
   expect(await freezeVotingAzoriusProxy.freezeVotesThreshold()).to.equal(freezeVotesThreshold);
   expect(await freezeVotingAzoriusProxy.parentAzorius()).to.equal(parentAzorius);
   expect(await freezeVotingAzoriusProxy.lightAccountFactory()).to.equal(lightAccountFactory);
 
   return freezeVotingAzoriusProxy;
+}
+
+// Helper function to find and verify FreezeVotingStandalone deployment and configuration
+async function findAndVerifyFreezeVotingStandaloneV1(params: {
+  fixtureData: {
+    systemDeployer: SystemDeployerV1;
+    deployer: SignerWithAddress;
+    votingWeightERC20V1: VotingWeightERC20V1;
+    votingWeightERC721V1: VotingWeightERC721V1;
+    voteTrackerERC20V1: VoteTrackerERC20V1;
+    voteTrackerERC721V1: VoteTrackerERC721V1;
+    votesERC20V1: VotesERC20V1;
+  };
+  receipt: ContractTransactionReceipt;
+  implementation: AddressLike;
+  freezeVotesThreshold: BigNumberish;
+  unfreezeVotesThreshold: BigNumberish;
+  freezeProposalPeriod: BigNumberish;
+  unfreezeProposalPeriod: BigNumberish;
+  lightAccountFactory: AddressLike;
+  votesERC20V1Tokens?: VotesERC20V1[];
+  votingConfigERC20V1Datas?: {
+    params: {
+      votingWeightImplementation: AddressLike;
+      voteTrackerImplementation: AddressLike;
+      token: AddressLike;
+      newTokenIndex: BigNumberish;
+      weightPerToken: BigNumberish;
+    };
+    token?: string;
+  }[];
+  votingConfigERC721V1Datas?: {
+    params: {
+      votingWeightImplementation: AddressLike;
+      voteTrackerImplementation: AddressLike;
+      token: AddressLike;
+      weightPerToken: BigNumberish;
+    };
+  }[];
+}) {
+  const {
+    fixtureData,
+    receipt,
+    implementation,
+    freezeVotesThreshold,
+    unfreezeVotesThreshold,
+    freezeProposalPeriod,
+    unfreezeProposalPeriod,
+    lightAccountFactory,
+    votesERC20V1Tokens = [],
+    votingConfigERC20V1Datas,
+    votingConfigERC721V1Datas,
+  } = params;
+
+  const freezeVotingStandaloneAddress = await findProxyDeployed({
+    fixtureData,
+    receipt,
+    implementation,
+  });
+
+  // Connect to the deployed FreezeVotingStandalone proxy
+  const freezeVotingStandaloneProxy = FreezeVotingStandaloneV1__factory.connect(
+    freezeVotingStandaloneAddress,
+    fixtureData.deployer,
+  );
+
+  // Verify basic parameters
+  expect(await freezeVotingStandaloneProxy.freezeVotesThreshold()).to.equal(freezeVotesThreshold);
+  expect(await freezeVotingStandaloneProxy.unfreezeVotesThreshold()).to.equal(
+    unfreezeVotesThreshold,
+  );
+  expect(await freezeVotingStandaloneProxy.freezeProposalPeriod()).to.equal(freezeProposalPeriod);
+  expect(await freezeVotingStandaloneProxy.unfreezeProposalPeriod()).to.equal(
+    unfreezeProposalPeriod,
+  );
+  expect(await freezeVotingStandaloneProxy.lightAccountFactory()).to.equal(lightAccountFactory);
+
+  // Verify voting configs
+  let votingConfigERC20s: { votingWeight: string; voteTracker: string }[] = [];
+  if (votingConfigERC20V1Datas) {
+    votingConfigERC20s = await findAndVerifyVotingConfigERC20V1s({
+      fixtureData,
+      receipt,
+      implementation: await fixtureData.votingWeightERC20V1.getAddress(),
+      votingConfigDatas: await Promise.all(
+        votingConfigERC20V1Datas.map(async data => ({
+          ...data,
+          params: {
+            ...data.params,
+            strategy: freezeVotingStandaloneAddress, // Use freeze voting as the strategy
+          },
+          token:
+            data.token ??
+            (await votesERC20V1Tokens[Number(data.params.newTokenIndex)].getAddress()),
+        })),
+      ),
+    });
+  }
+
+  let votingConfigERC721s: { votingWeight: string; voteTracker: string }[] = [];
+  if (votingConfigERC721V1Datas) {
+    votingConfigERC721s = await findAndVerifyVotingConfigERC721V1s({
+      fixtureData,
+      receipt,
+      implementation: await fixtureData.votingWeightERC721V1.getAddress(),
+      votingConfigDatas: await Promise.all(
+        votingConfigERC721V1Datas.map(async data => ({
+          ...data,
+          params: { ...data.params, strategy: freezeVotingStandaloneAddress },
+        })),
+      ),
+    });
+  }
+
+  // Verify the voting configs match what's in the contract
+  const actualVotingConfigs = await freezeVotingStandaloneProxy.getVotingConfigs();
+  const expectedVotingConfigs = [...votingConfigERC20s, ...votingConfigERC721s];
+
+  expect(actualVotingConfigs.length).to.equal(expectedVotingConfigs.length);
+  for (let i = 0; i < actualVotingConfigs.length; i++) {
+    expect(actualVotingConfigs[i].votingWeight).to.equal(expectedVotingConfigs[i].votingWeight);
+    expect(actualVotingConfigs[i].voteTracker).to.equal(expectedVotingConfigs[i].voteTracker);
+  }
+
+  return freezeVotingStandaloneProxy;
 }
 
 // Helper function to verify the number of new contracts deployed
@@ -1366,8 +1664,10 @@ async function findAndVerifySafe(params: {
     proposerAdapterHatsV1: ProposerAdapterHatsV1;
     strategyV1: StrategyV1;
     moduleAzoriusV1: ModuleAzoriusV1;
-    votingAdapterERC20V1: VotingAdapterERC20V1;
-    votingAdapterERC721V1: VotingAdapterERC721V1;
+    votingWeightERC20V1: VotingWeightERC20V1;
+    votingWeightERC721V1: VotingWeightERC721V1;
+    voteTrackerERC20V1: VoteTrackerERC20V1;
+    voteTrackerERC721V1: VoteTrackerERC721V1;
     votesERC20V1: VotesERC20V1;
   };
   receipt: ContractTransactionReceipt;
@@ -1389,17 +1689,27 @@ async function findAndVerifySafe(params: {
   }[];
   strategyV1Params?: ISystemDeployerV1.StrategyV1ParamsStruct;
   moduleAzoriusV1Params?: ISystemDeployerV1.ModuleAzoriusV1ParamsStruct;
-  votingAdapterERC20V1Datas?: {
-    params: ISystemDeployerV1.VotingAdapterERC20V1ParamsStruct;
+  votingConfigERC20V1Datas?: {
+    params: ISystemDeployerV1.VotingConfigERC20V1ParamsStruct;
     token?: string;
   }[];
-  votingAdapterERC721V1Datas?: {
-    params: ISystemDeployerV1.VotingAdapterERC721V1ParamsStruct;
+  votingConfigERC721V1Datas?: {
+    params: ISystemDeployerV1.VotingConfigERC721V1ParamsStruct;
   }[];
   freezeGuardMultisigV1Data?: {
     guardParams: ISystemDeployerV1.FreezeGuardMultisigV1ParamsStruct;
     votingMultisigParams?: ISystemDeployerV1.FreezeVotingMultisigV1ParamsStruct;
     votingAzoriusParams?: ISystemDeployerV1.FreezeVotingAzoriusV1ParamsStruct;
+    votingStandaloneParams?: {
+      freezeVotingParams: ISystemDeployerV1.FreezeVotingStandaloneV1ParamsStruct;
+      votingConfigERC20V1Datas?: {
+        params: ISystemDeployerV1.VotingConfigERC20V1ParamsStruct;
+        token?: string;
+      }[];
+      votingConfigERC721V1Datas?: {
+        params: ISystemDeployerV1.VotingConfigERC721V1ParamsStruct;
+      }[];
+    };
   };
   freezeGuardAzoriusV1Data?: {
     guardParams: ISystemDeployerV1.FreezeGuardAzoriusV1ParamsStruct;
@@ -1422,8 +1732,8 @@ async function findAndVerifySafe(params: {
     proposerAdapterHatsV1Datas,
     strategyV1Params,
     moduleAzoriusV1Params,
-    votingAdapterERC20V1Datas,
-    votingAdapterERC721V1Datas,
+    votingConfigERC20V1Datas,
+    votingConfigERC721V1Datas,
     freezeGuardMultisigV1Data,
     freezeGuardAzoriusV1Data,
     numberOfNewContracts,
@@ -1459,7 +1769,7 @@ async function findAndVerifySafe(params: {
     });
   }
 
-  let votesERC20V1Tokens: VotesERC20V1[];
+  let votesERC20V1Tokens: VotesERC20V1[] = [];
   if (votesERC20V1Datas && votesERC20V1Datas.length > 0) {
     votesERC20V1Tokens = await findAndVerifyVotesERC20V1s({
       fixtureData,
@@ -1532,18 +1842,18 @@ async function findAndVerifySafe(params: {
     });
   }
 
-  let votingAdapterERC20s: VotingAdapterERC20V1[] = [];
-  if (votingAdapterERC20V1Datas) {
+  let votingConfigERC20s: { votingWeight: string; voteTracker: string }[] = [];
+  if (votingConfigERC20V1Datas) {
     if (!strategyAddress) {
       throw new Error('Strategy is required to verify voting adapter ERC20');
     }
 
-    votingAdapterERC20s = await findAndVerifyVotingAdapterERC20V1s({
+    votingConfigERC20s = await findAndVerifyVotingConfigERC20V1s({
       fixtureData,
       receipt,
-      implementation: await fixtureData.votingAdapterERC20V1.getAddress(),
-      votingAdapterDatas: await Promise.all(
-        votingAdapterERC20V1Datas.map(async data => ({
+      implementation: await fixtureData.votingWeightERC20V1.getAddress(),
+      votingConfigDatas: await Promise.all(
+        votingConfigERC20V1Datas.map(async data => ({
           ...data,
           params: {
             ...data.params,
@@ -1557,18 +1867,18 @@ async function findAndVerifySafe(params: {
     });
   }
 
-  let votingAdapterERC721s: VotingAdapterERC721V1[] = [];
-  if (votingAdapterERC721V1Datas) {
+  let votingConfigERC721s: { votingWeight: string; voteTracker: string }[] = [];
+  if (votingConfigERC721V1Datas) {
     if (!strategyAddress) {
       throw new Error('Strategy is required to verify voting adapter ERC721');
     }
 
-    votingAdapterERC721s = await findAndVerifyVotingAdapterERC721V1s({
+    votingConfigERC721s = await findAndVerifyVotingConfigERC721V1s({
       fixtureData,
       receipt,
-      implementation: await fixtureData.votingAdapterERC721V1.getAddress(),
-      votingAdapterDatas: await Promise.all(
-        votingAdapterERC721V1Datas.map(async data => ({
+      implementation: await fixtureData.votingWeightERC721V1.getAddress(),
+      votingConfigDatas: await Promise.all(
+        votingConfigERC721V1Datas.map(async data => ({
           ...data,
           params: { ...data.params, strategy: strategyAddress },
         })),
@@ -1591,19 +1901,19 @@ async function findAndVerifySafe(params: {
         ...(await Promise.all(proposerAdapterERC721s.map(adapter => adapter.getAddress()))),
         ...(await Promise.all(proposerAdapterHatsV1s.map(adapter => adapter.getAddress()))),
       ],
-      votingAdapters: [
-        ...(await Promise.all(votingAdapterERC20s.map(adapter => adapter.getAddress()))),
-        ...(await Promise.all(votingAdapterERC721s.map(adapter => adapter.getAddress()))),
-      ],
+      votingConfigs: [...votingConfigERC20s, ...votingConfigERC721s],
     });
   }
 
   if (freezeGuardMultisigV1Data) {
-    if (
-      freezeGuardMultisigV1Data.votingAzoriusParams &&
-      freezeGuardMultisigV1Data.votingMultisigParams
-    ) {
-      throw new Error('Cannot have both votingAzoriusParams and votingMultisigParams');
+    const votingParamsCount = [
+      freezeGuardMultisigV1Data.votingAzoriusParams,
+      freezeGuardMultisigV1Data.votingMultisigParams,
+      freezeGuardMultisigV1Data.votingStandaloneParams,
+    ].filter(Boolean).length;
+
+    if (votingParamsCount > 1) {
+      throw new Error('Cannot have multiple voting params types');
     }
 
     let freezeVotingAddress: string | undefined;
@@ -1628,6 +1938,21 @@ async function findAndVerifySafe(params: {
       ).getAddress();
     }
 
+    if (freezeGuardMultisigV1Data.votingStandaloneParams) {
+      freezeVotingAddress = await (
+        await findAndVerifyFreezeVotingStandaloneV1({
+          fixtureData,
+          receipt,
+          ...freezeGuardMultisigV1Data.votingStandaloneParams.freezeVotingParams,
+          votesERC20V1Tokens,
+          votingConfigERC20V1Datas:
+            freezeGuardMultisigV1Data.votingStandaloneParams.votingConfigERC20V1Datas,
+          votingConfigERC721V1Datas:
+            freezeGuardMultisigV1Data.votingStandaloneParams.votingConfigERC721V1Datas,
+        })
+      ).getAddress();
+    }
+
     if (!freezeVotingAddress) {
       throw new Error('No freeze voting address found');
     }
@@ -1646,11 +1971,13 @@ async function findAndVerifySafe(params: {
       throw new Error('Azorius module is required to verify freeze guard Azorius');
     }
 
-    if (
-      freezeGuardAzoriusV1Data.votingAzoriusParams &&
-      freezeGuardAzoriusV1Data.votingMultisigParams
-    ) {
-      throw new Error('Cannot have both votingAzoriusParams and votingMultisigParams');
+    const votingParamsCount = [
+      freezeGuardAzoriusV1Data.votingAzoriusParams,
+      freezeGuardAzoriusV1Data.votingMultisigParams,
+    ].filter(Boolean).length;
+
+    if (votingParamsCount > 1) {
+      throw new Error('Cannot have multiple voting params types');
     }
 
     let freezeVotingAddress: string | undefined;
@@ -1826,14 +2153,17 @@ async function setupState() {
   const freezeGuardAzoriusV1 = await new FreezeGuardAzoriusV1__factory(deployer).deploy();
   const freezeVotingMultisigV1 = await new FreezeVotingMultisigV1__factory(deployer).deploy();
   const freezeVotingAzoriusV1 = await new FreezeVotingAzoriusV1__factory(deployer).deploy();
+  const freezeVotingStandaloneV1 = await new FreezeVotingStandaloneV1__factory(deployer).deploy();
   const moduleAzoriusV1 = await new ModuleAzoriusV1__factory(deployer).deploy();
   const strategyV1 = await new StrategyV1__factory(deployer).deploy();
   const votesERC20V1 = await new VotesERC20V1__factory(deployer).deploy();
   const proposerAdapterERC20V1 = await new ProposerAdapterERC20V1__factory(deployer).deploy();
   const proposerAdapterERC721V1 = await new ProposerAdapterERC721V1__factory(deployer).deploy();
   const proposerAdapterHatsV1 = await new ProposerAdapterHatsV1__factory(deployer).deploy();
-  const votingAdapterERC20V1 = await new VotingAdapterERC20V1__factory(deployer).deploy();
-  const votingAdapterERC721V1 = await new VotingAdapterERC721V1__factory(deployer).deploy();
+  const votingWeightERC20V1 = await new VotingWeightERC20V1__factory(deployer).deploy();
+  const votingWeightERC721V1 = await new VotingWeightERC721V1__factory(deployer).deploy();
+  const voteTrackerERC20V1 = await new VoteTrackerERC20V1__factory(deployer).deploy();
+  const voteTrackerERC721V1 = await new VoteTrackerERC721V1__factory(deployer).deploy();
 
   const upgradeableMasterCopy = await (
     await new UpgradeContractV1__factory(upgradeableContractOwner).deploy()
@@ -1888,14 +2218,17 @@ async function setupState() {
     freezeGuardAzoriusV1,
     freezeVotingMultisigV1,
     freezeVotingAzoriusV1,
+    freezeVotingStandaloneV1,
     moduleAzoriusV1,
     strategyV1,
     votesERC20V1,
     proposerAdapterERC20V1,
     proposerAdapterERC721V1,
     proposerAdapterHatsV1,
-    votingAdapterERC20V1,
-    votingAdapterERC721V1,
+    votingWeightERC20V1,
+    votingWeightERC721V1,
+    voteTrackerERC20V1,
+    voteTrackerERC721V1,
     upgradeableMasterCopy,
     minimalImplementation,
     failingImplementation,
@@ -1984,7 +2317,6 @@ describe('SystemDeployerV1', () => {
         owner: fixtureData.user1.address,
         freezeVotesThreshold: 26,
         freezeProposalPeriod: 65,
-        freezePeriod: 129,
         parentSafe: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
       };
@@ -1994,7 +2326,6 @@ describe('SystemDeployerV1', () => {
         owner: fixtureData.user1.address,
         freezeVotesThreshold: 12,
         freezeProposalPeriod: 60,
-        freezePeriod: 120,
         parentAzorius: ethers.ZeroAddress,
         lightAccountFactory: ethers.ZeroAddress,
       };
@@ -2139,6 +2470,66 @@ describe('SystemDeployerV1', () => {
             numberOfNewContracts: 2,
           });
         });
+
+        it('succeeds with FreezeGuardMultisig and FreezeVotingStandalone contracts', async () => {
+          const freezeVotingStandaloneParams: ISystemDeployerV1.FreezeVotingStandaloneParamsStruct =
+            {
+              freezeVotingStandaloneV1Params: {
+                implementation: await fixtureData.freezeVotingStandaloneV1.getAddress(),
+                freezeVotesThreshold: ethers.parseEther('100'),
+                unfreezeVotesThreshold: ethers.parseEther('150'),
+                freezeProposalPeriod: 7200,
+                unfreezeProposalPeriod: 3600,
+                lightAccountFactory: ethers.ZeroAddress,
+              },
+              votingConfigParams: {
+                votingConfigERC20V1Params: [
+                  {
+                    votingWeightImplementation: await fixtureData.votingWeightERC20V1.getAddress(),
+                    voteTrackerImplementation: await fixtureData.voteTrackerERC20V1.getAddress(),
+                    token: ethers.ZeroAddress,
+                    newTokenIndex: 0,
+                    weightPerToken: ethers.parseEther('1'),
+                  },
+                ],
+                votingConfigERC721V1Params: [],
+              },
+            };
+
+          const setupSafeParams = createSetupSafeParams({
+            votesERC20Params: [votesERC20V1Params1],
+            freezeVotingStandaloneParams,
+            freezeGuardMultisigParams,
+          });
+
+          await findAndVerifySafe({
+            ...(await deploySafeWithSetup({
+              fixtureData,
+              owners,
+              threshold,
+              setupSafeParams,
+            })),
+            fixtureData,
+            owners,
+            threshold,
+            votesERC20V1Datas: [votesERC20V1Params1],
+            freezeGuardMultisigV1Data: {
+              guardParams: freezeGuardMultisigParams,
+              votingStandaloneParams: {
+                freezeVotingParams: freezeVotingStandaloneParams.freezeVotingStandaloneV1Params,
+                votingConfigERC20V1Datas:
+                  freezeVotingStandaloneParams.votingConfigParams.votingConfigERC20V1Params.map(
+                    p => ({ params: p }),
+                  ),
+                votingConfigERC721V1Datas:
+                  freezeVotingStandaloneParams.votingConfigParams.votingConfigERC721V1Params.map(
+                    p => ({ params: p }),
+                  ),
+              },
+            },
+            numberOfNewContracts: 5, // Safe + Token + FreezeVotingStandalone + VotingWeight + VoteTracker + FreezeGuardMultisig = 6, but Safe is not counted as "new"
+          });
+        });
       });
 
       describe('with a Fractal Module and Freeze Guard Multisig', () => {
@@ -2223,10 +2614,10 @@ describe('SystemDeployerV1', () => {
       let proposerAdapterERC721V1Params2: ISystemDeployerV1.ProposerAdapterERC721V1ParamsStruct;
       let proposerAdapterHatsV1Params1: ISystemDeployerV1.ProposerAdapterHatsV1ParamsStruct;
       let proposerAdapterHatsV1Params2: ISystemDeployerV1.ProposerAdapterHatsV1ParamsStruct;
-      let votingAdapterERC20V1Params1: ISystemDeployerV1.VotingAdapterERC20V1ParamsStruct;
-      let votingAdapterERC20V1Params2: ISystemDeployerV1.VotingAdapterERC20V1ParamsStruct;
-      let votingAdapterERC721V1Params1: ISystemDeployerV1.VotingAdapterERC721V1ParamsStruct;
-      let votingAdapterERC721V1Params2: ISystemDeployerV1.VotingAdapterERC721V1ParamsStruct;
+      let votingConfigERC20V1Params1: ISystemDeployerV1.VotingConfigERC20V1ParamsStruct;
+      let votingConfigERC20V1Params2: ISystemDeployerV1.VotingConfigERC20V1ParamsStruct;
+      let votingConfigERC721V1Params1: ISystemDeployerV1.VotingConfigERC721V1ParamsStruct;
+      let votingConfigERC721V1Params2: ISystemDeployerV1.VotingConfigERC721V1ParamsStruct;
       let strategyV1Params: ISystemDeployerV1.StrategyV1ParamsStruct;
 
       beforeEach(async () => {
@@ -2278,28 +2669,32 @@ describe('SystemDeployerV1', () => {
           whitelistedHatIds: [4, 5, 6],
         };
 
-        votingAdapterERC20V1Params1 = {
-          implementation: await fixtureData.votingAdapterERC20V1.getAddress(),
+        votingConfigERC20V1Params1 = {
+          votingWeightImplementation: await fixtureData.votingWeightERC20V1.getAddress(),
+          voteTrackerImplementation: await fixtureData.voteTrackerERC20V1.getAddress(),
           token: randomVotesERC20Contract,
           weightPerToken: 14,
           newTokenIndex: 0,
         };
 
-        votingAdapterERC20V1Params2 = {
-          implementation: await fixtureData.votingAdapterERC20V1.getAddress(),
+        votingConfigERC20V1Params2 = {
+          votingWeightImplementation: await fixtureData.votingWeightERC20V1.getAddress(),
+          voteTrackerImplementation: await fixtureData.voteTrackerERC20V1.getAddress(),
           token: randomVotesERC20Contract,
           weightPerToken: 343,
           newTokenIndex: 0,
         };
 
-        votingAdapterERC721V1Params1 = {
-          implementation: await fixtureData.votingAdapterERC721V1.getAddress(),
+        votingConfigERC721V1Params1 = {
+          votingWeightImplementation: await fixtureData.votingWeightERC721V1.getAddress(),
+          voteTrackerImplementation: await fixtureData.voteTrackerERC721V1.getAddress(),
           token: randomVotesERC721Contract,
           weightPerToken: 14,
         };
 
-        votingAdapterERC721V1Params2 = {
-          implementation: await fixtureData.votingAdapterERC721V1.getAddress(),
+        votingConfigERC721V1Params2 = {
+          votingWeightImplementation: await fixtureData.votingWeightERC721V1.getAddress(),
+          voteTrackerImplementation: await fixtureData.voteTrackerERC721V1.getAddress(),
           token: randomVotesERC721Contract,
           weightPerToken: 343,
         };
@@ -2326,9 +2721,9 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterHatsV1Params: [],
               },
               strategyV1Params,
-              votingAdapterParams: {
-                votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                votingAdapterERC721V1Params: [],
+              votingConfigParams: {
+                votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                votingConfigERC721V1Params: [],
               },
               moduleAzoriusV1Params,
             },
@@ -2352,13 +2747,13 @@ describe('SystemDeployerV1', () => {
             ],
             strategyV1Params,
             moduleAzoriusV1Params,
-            votingAdapterERC20V1Datas: [
+            votingConfigERC20V1Datas: [
               {
-                params: votingAdapterERC20V1Params1,
+                params: votingConfigERC20V1Params1,
                 token: randomVotesERC20Contract,
               },
             ],
-            numberOfNewContracts: 4,
+            numberOfNewContracts: 5,
           });
         });
 
@@ -2374,9 +2769,9 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterHatsV1Params: [],
               },
               strategyV1Params,
-              votingAdapterParams: {
-                votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                votingAdapterERC721V1Params: [],
+              votingConfigParams: {
+                votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                votingConfigERC721V1Params: [],
               },
               moduleAzoriusV1Params,
             },
@@ -2400,13 +2795,13 @@ describe('SystemDeployerV1', () => {
             ],
             strategyV1Params,
             moduleAzoriusV1Params,
-            votingAdapterERC20V1Datas: [
+            votingConfigERC20V1Datas: [
               {
-                params: votingAdapterERC20V1Params1,
+                params: votingConfigERC20V1Params1,
                 token: randomVotesERC20Contract,
               },
             ],
-            numberOfNewContracts: 4,
+            numberOfNewContracts: 5,
           });
         });
       });
@@ -2432,9 +2827,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -2459,13 +2854,13 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
-                numberOfNewContracts: 5,
+                numberOfNewContracts: 6,
               });
             });
 
@@ -2479,9 +2874,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -2506,13 +2901,13 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
-                numberOfNewContracts: 6,
+                numberOfNewContracts: 7,
               });
             });
           });
@@ -2521,12 +2916,12 @@ describe('SystemDeployerV1', () => {
         describe('With Voting Adapters', () => {
           describe('ERC20 voting adapters', () => {
             describe('No new tokens', () => {
-              it('deploys with a VotingAdapterERC20V1 pointing to an existing token', async () => {
+              it('deploys with a VotingConfigERC20V1 pointing to an existing token', async () => {
                 const setupSafeParams = createSetupSafeParams({
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2556,25 +2951,25 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
+                  votingConfigERC20V1Datas: [
                     {
-                      params: votingAdapterERC20V1Params1,
+                      params: votingConfigERC20V1Params1,
                       token: randomVotesERC20Contract,
                     },
                   ],
-                  numberOfNewContracts: 4,
+                  numberOfNewContracts: 5, // module + strategy + proposer + votingWeight + voteTracker
                 });
               });
 
-              it('deploys multiple VotingAdapterERC20V1s pointing to existing tokens', async () => {
+              it('deploys multiple VotingConfigERC20V1s pointing to existing tokens', async () => {
                 const setupSafeParams = createSetupSafeParams({
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [
-                        votingAdapterERC20V1Params1,
-                        votingAdapterERC20V1Params2,
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [
+                        votingConfigERC20V1Params1,
+                        votingConfigERC20V1Params2,
                       ],
-                      votingAdapterERC721V1Params: [],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2604,25 +2999,25 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
+                  votingConfigERC20V1Datas: [
                     {
-                      params: votingAdapterERC20V1Params1,
+                      params: votingConfigERC20V1Params1,
                       token: randomVotesERC20Contract,
                     },
                     {
-                      params: votingAdapterERC20V1Params2,
+                      params: votingConfigERC20V1Params2,
                       token: randomVotesERC20Contract,
                     },
                   ],
-                  numberOfNewContracts: 5,
+                  numberOfNewContracts: 7,
                 });
               });
             });
 
             describe('One new VotesERC20 token', () => {
-              it('deploys a VotingAdapterERC20V1 pointing to the new token', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
+              it('deploys a VotingConfigERC20V1 pointing to the new token', async () => {
+                votingConfigERC20V1Params1 = {
+                  ...votingConfigERC20V1Params1,
                   token: ethers.ZeroAddress,
                   newTokenIndex: 0,
                 };
@@ -2630,9 +3025,9 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2663,78 +3058,78 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [{ params: votingAdapterERC20V1Params1 }],
-                  numberOfNewContracts: 5,
-                });
-              });
-
-              it('deploys multiple VotingAdapterERC20V1s pointing to the same new token', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
-                  token: ethers.ZeroAddress,
-                  newTokenIndex: 0,
-                };
-
-                votingAdapterERC20V1Params2 = {
-                  ...votingAdapterERC20V1Params2,
-                  token: ethers.ZeroAddress,
-                  newTokenIndex: 0,
-                };
-
-                const setupSafeParams = createSetupSafeParams({
-                  votesERC20Params: [votesERC20V1Params1],
-                  azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [
-                        votingAdapterERC20V1Params1,
-                        votingAdapterERC20V1Params2,
-                      ],
-                      votingAdapterERC721V1Params: [],
-                    },
-                    proposerAdapterParams: {
-                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
-                      proposerAdapterERC721V1Params: [],
-                      proposerAdapterHatsV1Params: [],
-                    },
-                    strategyV1Params,
-                    moduleAzoriusV1Params,
-                  },
-                });
-
-                await findAndVerifySafe({
-                  ...(await deploySafeWithSetup({
-                    fixtureData,
-                    owners,
-                    threshold,
-                    setupSafeParams,
-                  })),
-                  fixtureData,
-                  owners,
-                  threshold,
-                  votesERC20V1Datas: [votesERC20V1Params1],
-                  proposerAdapterERC20V1Datas: [
-                    {
-                      params: proposerAdapterERC20V1Params1,
-                      token: randomVotesERC20Contract,
-                    },
-                  ],
-                  strategyV1Params,
-                  moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1 },
-                    { params: votingAdapterERC20V1Params2 },
-                  ],
+                  votingConfigERC20V1Datas: [{ params: votingConfigERC20V1Params1 }],
                   numberOfNewContracts: 6,
                 });
               });
 
-              it('reverts if the VotingAdapterERC20 points to an invalid new token index', async () => {
+              it('deploys multiple VotingConfigERC20V1s pointing to the same new token', async () => {
+                votingConfigERC20V1Params1 = {
+                  ...votingConfigERC20V1Params1,
+                  token: ethers.ZeroAddress,
+                  newTokenIndex: 0,
+                };
+
+                votingConfigERC20V1Params2 = {
+                  ...votingConfigERC20V1Params2,
+                  token: ethers.ZeroAddress,
+                  newTokenIndex: 0,
+                };
+
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [
+                        votingConfigERC20V1Params1,
+                        votingConfigERC20V1Params2,
+                      ],
+                      votingConfigERC721V1Params: [],
+                    },
+                    proposerAdapterParams: {
+                      proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
+                      proposerAdapterERC721V1Params: [],
+                      proposerAdapterHatsV1Params: [],
+                    },
+                    strategyV1Params,
+                    moduleAzoriusV1Params,
+                  },
+                });
+
+                await findAndVerifySafe({
+                  ...(await deploySafeWithSetup({
+                    fixtureData,
+                    owners,
+                    threshold,
+                    setupSafeParams,
+                  })),
+                  fixtureData,
+                  owners,
+                  threshold,
+                  votesERC20V1Datas: [votesERC20V1Params1],
+                  proposerAdapterERC20V1Datas: [
+                    {
+                      params: proposerAdapterERC20V1Params1,
+                      token: randomVotesERC20Contract,
+                    },
+                  ],
+                  strategyV1Params,
+                  moduleAzoriusV1Params,
+                  votingConfigERC20V1Datas: [
+                    { params: votingConfigERC20V1Params1 },
+                    { params: votingConfigERC20V1Params2 },
+                  ],
+                  numberOfNewContracts: 8,
+                });
+              });
+
+              it('reverts if the VotingConfigERC20 points to an invalid new token index', async () => {
+                const setupSafeParams = createSetupSafeParams({
+                  votesERC20Params: [votesERC20V1Params1],
+                  azoriusGovernanceParams: {
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2757,9 +3152,9 @@ describe('SystemDeployerV1', () => {
                 await deploySafeWithSetup(data);
 
                 // now updating the setupSafeParams to include an invalid index should fail
-                // also the default votingAdapterERC20V1Params1 token is an external token, so set it to zero address so index is used
-                data.setupSafeParams.azoriusGovernanceParams.votingAdapterParams.votingAdapterERC20V1Params[0].newTokenIndex = 1;
-                data.setupSafeParams.azoriusGovernanceParams.votingAdapterParams.votingAdapterERC20V1Params[0].token =
+                // also the default votingConfigERC20V1Params1 token is an external token, so set it to zero address so index is used
+                data.setupSafeParams.azoriusGovernanceParams.votingConfigParams.votingConfigERC20V1Params[0].newTokenIndex = 1;
+                data.setupSafeParams.azoriusGovernanceParams.votingConfigParams.votingConfigERC20V1Params[0].token =
                   ethers.ZeroAddress;
 
                 await expect(deploySafeWithSetup(data)).to.be.reverted;
@@ -2767,9 +3162,9 @@ describe('SystemDeployerV1', () => {
             });
 
             describe('Multiple new VotesERC20 tokens', () => {
-              it('deploys a VotingAdapterERC20V1 pointing to one of the new tokens', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
+              it('deploys a VotingConfigERC20V1 pointing to one of the new tokens', async () => {
+                votingConfigERC20V1Params1 = {
+                  ...votingConfigERC20V1Params1,
                   token: ethers.ZeroAddress,
                   newTokenIndex: 1,
                 };
@@ -2777,9 +3172,9 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2810,20 +3205,20 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [{ params: votingAdapterERC20V1Params1 }],
-                  numberOfNewContracts: 6,
+                  votingConfigERC20V1Datas: [{ params: votingConfigERC20V1Params1 }],
+                  numberOfNewContracts: 7,
                 });
               });
 
-              it('deploys multiple VotingAdapterERC20V1s, each pointing to one of the new tokens', async () => {
-                votingAdapterERC20V1Params1 = {
-                  ...votingAdapterERC20V1Params1,
+              it('deploys multiple VotingConfigERC20V1s, each pointing to one of the new tokens', async () => {
+                votingConfigERC20V1Params1 = {
+                  ...votingConfigERC20V1Params1,
                   token: ethers.ZeroAddress,
                   newTokenIndex: 1,
                 };
 
-                votingAdapterERC20V1Params2 = {
-                  ...votingAdapterERC20V1Params2,
+                votingConfigERC20V1Params2 = {
+                  ...votingConfigERC20V1Params2,
                   token: ethers.ZeroAddress,
                   newTokenIndex: 0,
                 };
@@ -2831,12 +3226,12 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [
-                        votingAdapterERC20V1Params1,
-                        votingAdapterERC20V1Params2,
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [
+                        votingConfigERC20V1Params1,
+                        votingConfigERC20V1Params2,
                       ],
-                      votingAdapterERC721V1Params: [],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2867,23 +3262,23 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1 },
-                    { params: votingAdapterERC20V1Params2 },
+                  votingConfigERC20V1Datas: [
+                    { params: votingConfigERC20V1Params1 },
+                    { params: votingConfigERC20V1Params2 },
                   ],
-                  numberOfNewContracts: 7,
+                  numberOfNewContracts: 9,
                 });
               });
             });
           });
 
           describe('ERC721 voting adapters', () => {
-            it('deploys successfully with one VotingAdapterERC721', async () => {
+            it('deploys successfully with one VotingConfigERC721', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [],
-                    votingAdapterERC721V1Params: [votingAdapterERC721V1Params1],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [],
+                    votingConfigERC721V1Params: [votingConfigERC721V1Params1],
                   },
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -2913,19 +3308,19 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC721V1Datas: [{ params: votingAdapterERC721V1Params1 }],
-                numberOfNewContracts: 4,
+                votingConfigERC721V1Datas: [{ params: votingConfigERC721V1Params1 }],
+                numberOfNewContracts: 5,
               });
             });
 
-            it('deploys successfully with multiple VotingAdapterERC721s', async () => {
+            it('deploys successfully with multiple VotingConfigERC721s', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [],
-                    votingAdapterERC721V1Params: [
-                      votingAdapterERC721V1Params1,
-                      votingAdapterERC721V1Params2,
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [],
+                    votingConfigERC721V1Params: [
+                      votingConfigERC721V1Params1,
+                      votingConfigERC721V1Params2,
                     ],
                   },
                   proposerAdapterParams: {
@@ -2956,11 +3351,11 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC721V1Datas: [
-                  { params: votingAdapterERC721V1Params1 },
-                  { params: votingAdapterERC721V1Params2 },
+                votingConfigERC721V1Datas: [
+                  { params: votingConfigERC721V1Params1 },
+                  { params: votingConfigERC721V1Params2 },
                 ],
-                numberOfNewContracts: 5,
+                numberOfNewContracts: 7,
               });
             });
           });
@@ -2969,9 +3364,9 @@ describe('SystemDeployerV1', () => {
             it('deploys successfully with multiple voting adapters', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [votingAdapterERC721V1Params1],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [votingConfigERC721V1Params1],
                   },
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -3001,11 +3396,11 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                votingConfigERC20V1Datas: [
+                  { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                 ],
-                votingAdapterERC721V1Datas: [{ params: votingAdapterERC721V1Params1 }],
-                numberOfNewContracts: 5,
+                votingConfigERC721V1Datas: [{ params: votingConfigERC721V1Params1 }],
+                numberOfNewContracts: 7,
               });
             });
           });
@@ -3015,12 +3410,12 @@ describe('SystemDeployerV1', () => {
           describe('ERC20 proposer adapters', () => {
             describe('No new tokens', () => {
               it('deploys with a ProposerAdapterERC20V1 pointing to an existing token', async () => {
-                // Note: this is same test as "deploys with a VotingAdapterERC20V1 pointing to an existing token"
+                // Note: this is same test as "deploys with a VotingConfigERC20V1 pointing to an existing token"
                 const setupSafeParams = createSetupSafeParams({
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -3050,22 +3445,22 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
+                  votingConfigERC20V1Datas: [
                     {
-                      params: votingAdapterERC20V1Params1,
+                      params: votingConfigERC20V1Params1,
                       token: randomVotesERC20Contract,
                     },
                   ],
-                  numberOfNewContracts: 4,
+                  numberOfNewContracts: 5,
                 });
               });
 
               it('deploys multiple ProposerAdapterERC20V1s pointing to existing tokens', async () => {
                 const setupSafeParams = createSetupSafeParams({
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [
@@ -3102,13 +3497,13 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
+                  votingConfigERC20V1Datas: [
                     {
-                      params: votingAdapterERC20V1Params1,
+                      params: votingConfigERC20V1Params1,
                       token: randomVotesERC20Contract,
                     },
                   ],
-                  numberOfNewContracts: 5,
+                  numberOfNewContracts: 6,
                 });
               });
             });
@@ -3124,9 +3519,9 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -3152,10 +3547,10 @@ describe('SystemDeployerV1', () => {
                   proposerAdapterERC20V1Datas: [{ params: proposerAdapterERC20V1Params1 }],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                  votingConfigERC20V1Datas: [
+                    { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                   ],
-                  numberOfNewContracts: 5,
+                  numberOfNewContracts: 6,
                 });
               });
 
@@ -3175,9 +3570,9 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [
@@ -3209,10 +3604,10 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                  votingConfigERC20V1Datas: [
+                    { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                   ],
-                  numberOfNewContracts: 6,
+                  numberOfNewContracts: 7,
                 });
               });
 
@@ -3220,9 +3615,9 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -3265,9 +3660,9 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -3293,10 +3688,10 @@ describe('SystemDeployerV1', () => {
                   proposerAdapterERC20V1Datas: [{ params: proposerAdapterERC20V1Params1 }],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                  votingConfigERC20V1Datas: [
+                    { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                   ],
-                  numberOfNewContracts: 6,
+                  numberOfNewContracts: 7,
                 });
               });
 
@@ -3316,9 +3711,9 @@ describe('SystemDeployerV1', () => {
                 const setupSafeParams = createSetupSafeParams({
                   votesERC20Params: [votesERC20V1Params1, votesERC20V1Params2],
                   azoriusGovernanceParams: {
-                    votingAdapterParams: {
-                      votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                      votingAdapterERC721V1Params: [],
+                    votingConfigParams: {
+                      votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                      votingConfigERC721V1Params: [],
                     },
                     proposerAdapterParams: {
                       proposerAdapterERC20V1Params: [
@@ -3350,10 +3745,10 @@ describe('SystemDeployerV1', () => {
                   ],
                   strategyV1Params,
                   moduleAzoriusV1Params,
-                  votingAdapterERC20V1Datas: [
-                    { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                  votingConfigERC20V1Datas: [
+                    { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                   ],
-                  numberOfNewContracts: 7,
+                  numberOfNewContracts: 8,
                 });
               });
             });
@@ -3363,9 +3758,9 @@ describe('SystemDeployerV1', () => {
             it('deploys successfully with one ProposerAdapterERC721', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [],
                   },
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [],
@@ -3390,19 +3785,19 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterERC721V1Datas: [{ params: proposerAdapterERC721V1Params1 }],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                votingConfigERC20V1Datas: [
+                  { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                 ],
-                numberOfNewContracts: 4,
+                numberOfNewContracts: 5,
               });
             });
 
             it('deploys successfully with multiple ProposerAdapterERC721s', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [],
                   },
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [],
@@ -3433,10 +3828,10 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                votingConfigERC20V1Datas: [
+                  { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                 ],
-                numberOfNewContracts: 5,
+                numberOfNewContracts: 6,
               });
             });
           });
@@ -3445,9 +3840,9 @@ describe('SystemDeployerV1', () => {
             it('deploys successfully with one ProposerAdapterHats', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [],
                   },
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [],
@@ -3472,19 +3867,19 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterHatsV1Datas: [{ params: proposerAdapterHatsV1Params1 }],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                votingConfigERC20V1Datas: [
+                  { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                 ],
-                numberOfNewContracts: 4,
+                numberOfNewContracts: 5,
               });
             });
 
             it('deploys successfully with multiple ProposerAdapterHats', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [],
                   },
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [],
@@ -3515,10 +3910,10 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                votingConfigERC20V1Datas: [
+                  { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                 ],
-                numberOfNewContracts: 5,
+                numberOfNewContracts: 6,
               });
             });
           });
@@ -3527,9 +3922,9 @@ describe('SystemDeployerV1', () => {
             it('deploys successfully with multiple proposer adapters', async () => {
               const setupSafeParams = createSetupSafeParams({
                 azoriusGovernanceParams: {
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [votingAdapterERC20V1Params1],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [votingConfigERC20V1Params1],
+                    votingConfigERC721V1Params: [],
                   },
                   proposerAdapterParams: {
                     proposerAdapterERC20V1Params: [proposerAdapterERC20V1Params1],
@@ -3561,10 +3956,10 @@ describe('SystemDeployerV1', () => {
                 proposerAdapterHatsV1Datas: [{ params: proposerAdapterHatsV1Params1 }],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
-                  { params: votingAdapterERC20V1Params1, token: randomVotesERC20Contract },
+                votingConfigERC20V1Datas: [
+                  { params: votingConfigERC20V1Params1, token: randomVotesERC20Contract },
                 ],
-                numberOfNewContracts: 6,
+                numberOfNewContracts: 7,
               });
             });
           });
@@ -3579,9 +3974,9 @@ describe('SystemDeployerV1', () => {
                   proposerAdapterERC721V1Params: [],
                   proposerAdapterHatsV1Params: [],
                 },
-                votingAdapterParams: {
-                  votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                  votingAdapterERC721V1Params: [],
+                votingConfigParams: {
+                  votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                  votingConfigERC721V1Params: [],
                 },
                 strategyV1Params,
                 moduleAzoriusV1Params,
@@ -3608,13 +4003,13 @@ describe('SystemDeployerV1', () => {
               ],
               strategyV1Params,
               moduleAzoriusV1Params,
-              votingAdapterERC20V1Datas: [
+              votingConfigERC20V1Datas: [
                 {
-                  params: votingAdapterERC20V1Params1,
+                  params: votingConfigERC20V1Params1,
                   token: randomVotesERC20Contract,
                 },
               ],
-              numberOfNewContracts: 5,
+              numberOfNewContracts: 6,
             });
           });
         });
@@ -3630,9 +4025,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3658,9 +4053,9 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
@@ -3668,7 +4063,7 @@ describe('SystemDeployerV1', () => {
                   guardParams: freezeGuardMultisigParams,
                   votingMultisigParams: freezeVotingMultisigParams,
                 },
-                numberOfNewContracts: 6,
+                numberOfNewContracts: 7,
               });
             });
 
@@ -3681,9 +4076,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3709,9 +4104,9 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
@@ -3719,7 +4114,7 @@ describe('SystemDeployerV1', () => {
                   guardParams: freezeGuardMultisigParams,
                   votingAzoriusParams: freezeVotingAzoriusParams,
                 },
-                numberOfNewContracts: 6,
+                numberOfNewContracts: 7,
               });
             });
 
@@ -3732,9 +4127,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3769,9 +4164,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3796,6 +4191,109 @@ describe('SystemDeployerV1', () => {
               // now deploying should fail
               await expect(deploySafeWithSetup(data)).to.be.reverted;
             });
+
+            it('deploys with a FreezeGuardMultisig with FreezeVotingStandalone', async () => {
+              const freezeVotingStandaloneParams: ISystemDeployerV1.FreezeVotingStandaloneParamsStruct =
+                {
+                  freezeVotingStandaloneV1Params: {
+                    implementation: await fixtureData.freezeVotingStandaloneV1.getAddress(),
+                    freezeVotesThreshold: ethers.parseEther('150'),
+                    unfreezeVotesThreshold: ethers.parseEther('200'),
+                    freezeProposalPeriod: 7200,
+                    unfreezeProposalPeriod: 3600,
+                    lightAccountFactory: ethers.ZeroAddress,
+                  },
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [
+                      {
+                        votingWeightImplementation:
+                          await fixtureData.votingWeightERC20V1.getAddress(),
+                        voteTrackerImplementation:
+                          await fixtureData.voteTrackerERC20V1.getAddress(),
+                        token: ethers.ZeroAddress,
+                        newTokenIndex: 0,
+                        weightPerToken: ethers.parseEther('1'),
+                      },
+                    ],
+                    votingConfigERC721V1Params: [],
+                  },
+                };
+
+              const setupSafeParams = createSetupSafeParams({
+                votesERC20Params: [votesERC20V1Params1],
+                freezeGuardMultisigParams,
+                freezeVotingStandaloneParams,
+              });
+
+              await findAndVerifySafe({
+                ...(await deploySafeWithSetup({
+                  fixtureData,
+                  owners,
+                  threshold,
+                  setupSafeParams,
+                })),
+                fixtureData,
+                owners,
+                threshold,
+                votesERC20V1Datas: [votesERC20V1Params1],
+                freezeGuardMultisigV1Data: {
+                  guardParams: freezeGuardMultisigParams,
+                  votingStandaloneParams: {
+                    freezeVotingParams: freezeVotingStandaloneParams.freezeVotingStandaloneV1Params,
+                    votingConfigERC20V1Datas:
+                      freezeVotingStandaloneParams.votingConfigParams.votingConfigERC20V1Params.map(
+                        p => ({ params: p }),
+                      ),
+                    votingConfigERC721V1Datas:
+                      freezeVotingStandaloneParams.votingConfigParams.votingConfigERC721V1Params.map(
+                        p => ({ params: p }),
+                      ),
+                  },
+                },
+                numberOfNewContracts: 5, // Safe + Token + FreezeVotingStandalone + VotingWeight + VoteTracker + FreezeGuardMultisig = 6, but Safe is not counted as "new"
+              });
+            });
+
+            it('should revert when multiple freeze voting types are deployed', async () => {
+              // First, demonstrate that FreezeGuardMultisig works with FreezeVotingStandalone alone
+              const freezeVotingStandaloneParams: ISystemDeployerV1.FreezeVotingStandaloneParamsStruct =
+                {
+                  freezeVotingStandaloneV1Params: {
+                    implementation: await fixtureData.freezeVotingStandaloneV1.getAddress(),
+                    freezeVotesThreshold: 100,
+                    unfreezeVotesThreshold: 200,
+                    freezeProposalPeriod: 3600,
+                    unfreezeProposalPeriod: 1800,
+                    lightAccountFactory: ethers.ZeroAddress,
+                  },
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [],
+                    votingConfigERC721V1Params: [],
+                  },
+                };
+
+              const setupSafeParams = createSetupSafeParams({
+                freezeGuardMultisigParams,
+                freezeVotingStandaloneParams,
+              });
+
+              const data = {
+                fixtureData,
+                owners,
+                threshold,
+                setupSafeParams,
+              };
+
+              // Initial deployment should succeed
+              await deploySafeWithSetup(data);
+
+              // Now add FreezeVotingMultisig - the minimal change that triggers the error
+              data.setupSafeParams.freezeParams.freezeVotingParams.freezeVotingMultisigV1Params.implementation =
+                await fixtureData.freezeVotingMultisigV1.getAddress();
+
+              // Now deploying should fail
+              await expect(deploySafeWithSetup(data)).to.be.reverted;
+            });
           });
 
           describe('FreezeGuardAzorius configurations', () => {
@@ -3808,9 +4306,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3836,9 +4334,9 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
@@ -3846,7 +4344,7 @@ describe('SystemDeployerV1', () => {
                   guardParams: freezeGuardAzoriusParams,
                   votingMultisigParams: freezeVotingMultisigParams,
                 },
-                numberOfNewContracts: 6,
+                numberOfNewContracts: 7,
               });
             });
 
@@ -3859,9 +4357,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3887,9 +4385,9 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
@@ -3897,7 +4395,7 @@ describe('SystemDeployerV1', () => {
                   guardParams: freezeGuardAzoriusParams,
                   votingAzoriusParams: freezeVotingAzoriusParams,
                 },
-                numberOfNewContracts: 6,
+                numberOfNewContracts: 7,
               });
             });
 
@@ -3910,9 +4408,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3947,9 +4445,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -3974,6 +4472,46 @@ describe('SystemDeployerV1', () => {
               // now deploying should fail
               await expect(deploySafeWithSetup(data)).to.be.reverted;
             });
+
+            it('should revert when FreezeVotingStandalone is paired with FreezeGuardAzorius', async () => {
+              // First, demonstrate that FreezeGuardAzorius works with FreezeVotingAzorius
+              const setupSafeParams = createSetupSafeParams({
+                azoriusGovernanceParams: {
+                  proposerAdapterParams: {
+                    proposerAdapterERC20V1Params: [{ ...proposerAdapterERC20V1Params1 }],
+                    proposerAdapterERC721V1Params: [],
+                    proposerAdapterHatsV1Params: [],
+                  },
+                  strategyV1Params,
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
+                  },
+                  moduleAzoriusV1Params,
+                },
+                freezeGuardAzoriusParams,
+                freezeVotingAzoriusParams,
+              });
+
+              const data = {
+                fixtureData,
+                owners,
+                threshold,
+                setupSafeParams,
+              };
+
+              // Initial deployment should succeed
+              await deploySafeWithSetup(data);
+
+              // Now change to FreezeVotingStandalone - the minimal change that triggers the error
+              data.setupSafeParams.freezeParams.freezeVotingParams.freezeVotingAzoriusV1Params.implementation =
+                ethers.ZeroAddress;
+              data.setupSafeParams.freezeParams.freezeVotingParams.freezeVotingStandaloneParams.freezeVotingStandaloneV1Params.implementation =
+                await fixtureData.freezeVotingStandaloneV1.getAddress();
+
+              // Now deploying should fail
+              await expect(deploySafeWithSetup(data)).to.be.reverted;
+            });
           });
 
           describe('Both FreezeGuard contracts', () => {
@@ -3986,9 +4524,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -4015,9 +4553,9 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
@@ -4029,7 +4567,7 @@ describe('SystemDeployerV1', () => {
                   guardParams: freezeGuardAzoriusParams,
                   votingAzoriusParams: freezeVotingAzoriusParams,
                 },
-                numberOfNewContracts: 7,
+                numberOfNewContracts: 8,
               });
             });
 
@@ -4042,9 +4580,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -4071,9 +4609,9 @@ describe('SystemDeployerV1', () => {
                 ],
                 strategyV1Params,
                 moduleAzoriusV1Params,
-                votingAdapterERC20V1Datas: [
+                votingConfigERC20V1Datas: [
                   {
-                    params: votingAdapterERC20V1Params1,
+                    params: votingConfigERC20V1Params1,
                     token: randomVotesERC20Contract,
                   },
                 ],
@@ -4085,7 +4623,7 @@ describe('SystemDeployerV1', () => {
                   guardParams: freezeGuardAzoriusParams,
                   votingMultisigParams: freezeVotingMultisigParams,
                 },
-                numberOfNewContracts: 7,
+                numberOfNewContracts: 8,
               });
             });
 
@@ -4098,9 +4636,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },
@@ -4136,9 +4674,9 @@ describe('SystemDeployerV1', () => {
                     proposerAdapterHatsV1Params: [],
                   },
                   strategyV1Params,
-                  votingAdapterParams: {
-                    votingAdapterERC20V1Params: [{ ...votingAdapterERC20V1Params1 }],
-                    votingAdapterERC721V1Params: [],
+                  votingConfigParams: {
+                    votingConfigERC20V1Params: [{ ...votingConfigERC20V1Params1 }],
+                    votingConfigERC721V1Params: [],
                   },
                   moduleAzoriusV1Params,
                 },

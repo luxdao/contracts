@@ -11,8 +11,8 @@ import {
   IFreezeGuardBaseV1__factory,
   IGuard__factory,
   IVersion__factory,
-  MockFreezeVoting,
-  MockFreezeVoting__factory,
+  MockFreezable,
+  MockFreezable__factory,
 } from '../../../../typechain-types';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
@@ -54,7 +54,7 @@ describe('FreezeGuardAzoriusV1', () => {
   // contracts
   let masterCopy: string;
   let azoriusFreezeGuard: FreezeGuardAzoriusV1;
-  let mockFreezeVoting: MockFreezeVoting;
+  let mockFreezable: MockFreezable;
 
   beforeEach(async () => {
     // Get signers
@@ -65,7 +65,7 @@ describe('FreezeGuardAzoriusV1', () => {
     masterCopy = await implementation.getAddress();
 
     // Deploy mock contracts
-    mockFreezeVoting = await new MockFreezeVoting__factory(owner).deploy();
+    mockFreezable = await new MockFreezable__factory(owner).deploy();
   });
 
   describe('Initialization', () => {
@@ -74,11 +74,11 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
 
       expect(await azoriusFreezeGuard.owner()).to.equal(owner.address);
-      expect(await azoriusFreezeGuard.freezeVoting()).to.equal(await mockFreezeVoting.getAddress());
+      expect(await azoriusFreezeGuard.freezable()).to.equal(await mockFreezable.getAddress());
     });
 
     it('should not allow reinitialization', async () => {
@@ -86,7 +86,7 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
 
       await expect(
@@ -112,7 +112,7 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
     });
 
@@ -137,13 +137,13 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
     });
 
     it('should allow transactions when DAO is not frozen', async () => {
       // Set the mock to return false for isFrozen
-      await mockFreezeVoting.setIsFrozen(false);
+      await mockFreezable.setIsFrozen(false);
 
       // Should not revert when checking transaction
       await expect(
@@ -165,7 +165,7 @@ describe('FreezeGuardAzoriusV1', () => {
 
     it('should revert transactions when DAO is frozen', async () => {
       // Set the mock to return true for isFrozen
-      await mockFreezeVoting.setIsFrozen(true);
+      await mockFreezable.setIsFrozen(true);
 
       // Should revert with DAOFrozen
       await expect(
@@ -198,7 +198,7 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
     });
 
@@ -214,7 +214,7 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
     });
 
@@ -244,7 +244,7 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
     });
 
@@ -266,7 +266,7 @@ describe('FreezeGuardAzoriusV1', () => {
         proxyDeployer,
         masterCopy,
         owner,
-        await mockFreezeVoting.getAddress(),
+        await mockFreezable.getAddress(),
       );
     });
 
@@ -280,11 +280,11 @@ describe('FreezeGuardAzoriusV1', () => {
       contractFactory: FreezeGuardAzoriusV1__factory,
       masterCopy: () => masterCopy,
       deployer: () => proxyDeployer,
-      initializeParams: async () => [owner.address, await mockFreezeVoting.getAddress()],
+      initializeParams: async () => [owner.address, await mockFreezable.getAddress()],
       getExpectedInitData: async () =>
         ethers.AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
-          [owner.address, await mockFreezeVoting.getAddress()],
+          [owner.address, await mockFreezable.getAddress()],
         ),
     });
   });
