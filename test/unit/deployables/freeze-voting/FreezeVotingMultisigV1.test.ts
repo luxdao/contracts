@@ -150,7 +150,7 @@ describe('FreezeVotingMultisigV1', () => {
     it('should reject votes from users not in the parent Safe', async () => {
       await expect(
         freezeVoting.connect(nonSafeOwner).castFreezeVote(0n),
-      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotingWeight');
     });
 
     it('should create a freeze proposal when first user votes', async () => {
@@ -192,10 +192,10 @@ describe('FreezeVotingMultisigV1', () => {
       // First vote
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
 
-      // Attempting to vote again should fail with NoVotes as the internal logic will return 0 votes
+      // Attempting to vote again should fail with AlreadyVoted
       await expect(
         freezeVoting.connect(safeOwner1).castFreezeVote(0n),
-      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVoting, 'AlreadyVoted');
     });
 
     it('should create a new proposal after proposal period expiry', async () => {
@@ -225,7 +225,7 @@ describe('FreezeVotingMultisigV1', () => {
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(1);
     });
 
-    it('should prevent a removed owner from re-contributing to the same proposal (effectively NoVotes)', async () => {
+    it('should prevent a removed owner from re-contributing to the same proposal', async () => {
       // Initial owner: safeOwner1
       await mockSafe.setOwner(safeOwner1.address);
       await freezeVoting.connect(safeOwner1).castFreezeVote(0n);
@@ -239,7 +239,7 @@ describe('FreezeVotingMultisigV1', () => {
       // safeOwner1 (no longer an owner) tries to vote again on the same proposal
       await expect(
         freezeVoting.connect(safeOwner1).castFreezeVote(0n),
-      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVoting, 'NoVotingWeight');
       // Vote count should not change
       expect(await freezeVoting.freezeProposalVoteCount()).to.equal(initialVoteCount);
       // Proposal timestamp should not change as it's within the same proposal period
@@ -599,7 +599,7 @@ describe('FreezeVotingMultisigV1', () => {
         mockSmartAccount
           .connect(relayerSA)
           .executeFreezeVote(await freezeVotingSA.getAddress(), castVoteCalldata),
-      ).to.be.revertedWithCustomError(freezeVotingSA, 'NoVotes');
+      ).to.be.revertedWithCustomError(freezeVotingSA, 'NoVotingWeight');
     });
   });
 

@@ -5,6 +5,9 @@ import {
     IFunctionValidator
 } from "../../interfaces/decent/services/IFunctionValidator.sol";
 import {IStrategyV1} from "../../interfaces/decent/deployables/IStrategyV1.sol";
+import {
+    IVotingTypes
+} from "../../interfaces/decent/deployables/IVotingTypes.sol";
 import {IVersion} from "../../interfaces/decent/deployables/IVersion.sol";
 import {IDeploymentBlock} from "../../interfaces/decent/IDeploymentBlock.sol";
 import {
@@ -15,22 +18,24 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 /**
  * @title StrategyV1ValidatorV1
  * @author Decent Labs
- * @notice Implementation of function validator for StrategyV1 voting operations
- * @dev This contract implements IFunctionValidator, providing validation logic
- * for determining whether a paymaster should sponsor gasless voting operations.
+ * @notice Validator for gasless voting through ERC-4337 and Light Accounts
+ * @dev This contract implements IFunctionValidator, enabling gas-sponsored voting
+ * operations through the DecentPaymasterV1 and ERC-4337 infrastructure.
  *
- * Implementation details:
- * - Validates castVote operations for StrategyV1 contracts
- * - Checks voting power and proposal validity
- * - Stateless service contract deployed as singleton per chain
- * - Non-upgradeable deployment pattern
- * - Integrates with DecentPaymasterV1 for gas sponsorship
+ * Gasless voting flow:
+ * 1. User signs a vote operation off-chain (no gas needed)
+ * 2. ERC-4337 bundler submits the operation through user's Light Account
+ * 3. DecentPaymasterV1 receives the operation for validation
+ * 4. Paymaster calls this validator to check if gas should be sponsored
+ * 5. This validator calls StrategyV1.validStrategyVote for eligibility check
+ * 6. StrategyV1 uses getVotingWeightForPaymaster to avoid banned opcodes
+ * 7. If valid, paymaster sponsors the gas and vote is executed
  *
- * Validation process:
- * 1. Verify the function selector is castVote
- * 2. Decode vote parameters from calldata
- * 3. Delegate validation to StrategyV1's validStrategyVote
- * 4. Return sponsorship decision based on voting eligibility
+ * Key features:
+ * - Only validates castVote operations on StrategyV1 contracts
+ * - Ensures voters have sufficient voting weight before sponsoring gas
+ * - Works around ERC-4337 banned opcodes (block.timestamp, block.number)
+ * - Stateless singleton service contract per chain
  *
  * @custom:security-contact security@decentlabs.io
  */
@@ -48,9 +53,13 @@ contract StrategyV1ValidatorV1 is
 
     /**
      * @inheritdoc IFunctionValidator
-     * @dev Validates castVote operations by checking if the Light Account owner
-     * has sufficient voting power to participate in the proposal.
-     * Only validates castVote function calls - all other selectors return false.
+     * @dev Validates castVote operations for gas sponsorship eligibility.
+     * This function is called by DecentPaymasterV1 during the ERC-4337 validation phase
+     * to determine if a vote should receive free gas sponsorship.
+     *
+     * The validation delegates to StrategyV1.validStrategyVote which uses
+     * getVotingWeightForPaymaster() to calculate voting weight without triggering
+     * ERC-4337 banned opcodes (block.timestamp, block.number).
      */
     function validateOperation(
         address,
@@ -64,15 +73,15 @@ contract StrategyV1ValidatorV1 is
         }
 
         // Decode vote parameters from callData
-        // castVote(uint32 proposalId_, uint8 voteType_, (tuple(address,bytes))[] votingAdaptersData_, uint256 lightAccountIndex_)
+        // castVote(uint32 proposalId_, uint8 voteType_, (tuple(uint256,bytes))[] votingConfigsData_, uint256 lightAccountIndex_)
         (
             uint32 proposalId,
             uint8 voteType,
-            IStrategyV1.VotingAdapterVoteData[] memory votingAdaptersData,
+            IVotingTypes.VotingConfigVoteData[] memory votingConfigsData,
 
         ) = abi.decode(
                 callData_[4:], // skip selector
-                (uint32, uint8, IStrategyV1.VotingAdapterVoteData[], uint256)
+                (uint32, uint8, IVotingTypes.VotingConfigVoteData[], uint256)
             );
 
         return
@@ -80,7 +89,7 @@ contract StrategyV1ValidatorV1 is
                 lightAccountOwner_,
                 proposalId,
                 voteType,
-                votingAdaptersData
+                votingConfigsData
             );
     }
 
