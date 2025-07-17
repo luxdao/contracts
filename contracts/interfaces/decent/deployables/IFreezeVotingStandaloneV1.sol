@@ -10,8 +10,8 @@ import {IVotingTypes} from "./IVotingTypes.sol";
  * an Azorius module. Unlike parent/child freeze voting, this system:
  * - Allows the Safe's own token holders to freeze it
  * - Implements permanent freezing (no auto-unfreeze after time period)
- * - Requires explicit unfreeze voting tied to a specific replacement transaction
- * - Enables atomic unfreeze + transaction execution to prevent nonce conflicts
+ * - Automatically unfreezes when unfreeze votes reach the threshold
+ * - All pre-freeze transactions remain invalidated after unfreeze
  *
  * Key features:
  * - Manages its own list of VotingConfigs (no parent Azorius reference)
@@ -22,8 +22,8 @@ import {IVotingTypes} from "./IVotingTypes.sol";
  *
  * Security model:
  * - Voting configs are immutable after deployment
- * - Unfreeze votes are tied to specific transaction hashes
- * - Atomic execution prevents bad transactions from executing after unfreeze
+ * - Unfreeze happens automatically when threshold is reached
+ * - All pre-freeze transactions are permanently invalidated by the guard
  */
 interface IFreezeVotingStandaloneV1 {
     // --- Errors ---
@@ -175,6 +175,7 @@ interface IFreezeVotingStandaloneV1 {
      * @notice Cast a vote to unfreeze the DAO
      * @dev Votes accumulate towards unfreezing the DAO with a clean slate.
      * All transactions timelocked before the freeze are invalidated.
+     * Automatically unfreezes when threshold is reached.
      * @param votingConfigsToUse_ Array of voting configs and their vote data
      * @param lightAccountIndex_ Index of the light account if voting through one (0 if not)
      * @custom:throws NotFrozen if DAO is not frozen
@@ -182,19 +183,10 @@ interface IFreezeVotingStandaloneV1 {
      * @custom:throws InvalidVotingConfig if config not configured
      * @custom:emits UnfreezeProposalCreated if new proposal created
      * @custom:emits UnfreezeVoteCast with total weight
+     * @custom:emits DAOUnfrozen if threshold reached
      */
     function castUnfreezeVote(
         IVotingTypes.VotingConfigVoteData[] calldata votingConfigsToUse_,
         uint256 lightAccountIndex_
     ) external;
-
-    /**
-     * @notice Execute unfreeze after sufficient votes
-     * @dev Unfreezes the DAO, clearing the freeze state. All transactions
-     * timelocked before the freeze are permanently invalidated.
-     * @custom:throws NotFrozen if DAO is not frozen
-     * @custom:throws InsufficientVotes if unfreeze threshold not met
-     * @custom:emits DAOUnfrozen when successfully unfrozen
-     */
-    function unfreeze() external;
 }
