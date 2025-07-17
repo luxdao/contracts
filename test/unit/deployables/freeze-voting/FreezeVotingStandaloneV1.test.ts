@@ -346,12 +346,12 @@ describe('FreezeVotingStandaloneV1', () => {
     });
 
     it('should revert if not frozen', async () => {
-      // Vote to unfreeze
+      // Vote to unfreeze - this should automatically unfreeze when threshold is reached
       await mockVotingWeight1.setWeight(DEFAULT_UNFREEZE_VOTES_THRESHOLD);
       await standaloneFreezeVoting.connect(voter3).castUnfreezeVote(votingConfigData, 0n);
 
-      // Execute unfreeze
-      await standaloneFreezeVoting.unfreeze();
+      // Verify it's unfrozen
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.false;
 
       // Now try to vote again when not frozen
       await expect(
@@ -360,20 +360,29 @@ describe('FreezeVotingStandaloneV1', () => {
     });
 
     it('should accumulate votes from multiple voters', async () => {
+      // Set weight to 50 so two votes won't reach the 150 threshold
+      await mockVotingWeight1.setWeight(50n);
+
       await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
       const firstVotes = await standaloneFreezeVoting.getUnfreezeProposalVotes();
+      expect(firstVotes).to.equal(50n);
 
       await standaloneFreezeVoting.connect(voter3).castUnfreezeVote(votingConfigData, 0n);
       const totalVotes = await standaloneFreezeVoting.getUnfreezeProposalVotes();
+      expect(totalVotes).to.equal(100n); // 50 + 50, still below threshold
 
-      expect(totalVotes).to.equal(firstVotes + voteWeight);
+      // Verify still frozen
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
     });
 
     it('should allow voter to vote on new unfreeze proposal after previous one expires', async () => {
+      // Set weight to 50 so we don't reach threshold
+      await mockVotingWeight1.setWeight(50n);
+
       // First unfreeze proposal - voter2 votes
       await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
       const firstProposalVotes = await standaloneFreezeVoting.getUnfreezeProposalVotes();
-      expect(firstProposalVotes).to.equal(voteWeight);
+      expect(firstProposalVotes).to.equal(50n);
 
       // Try to vote again in same proposal - VoteTracker prevents reuse of same config
       await expect(
@@ -392,78 +401,89 @@ describe('FreezeVotingStandaloneV1', () => {
 
       // Verify votes reset and accumulated correctly
       const newProposalVotes = await standaloneFreezeVoting.getUnfreezeProposalVotes();
-      expect(newProposalVotes).to.equal(voteWeight * 2n); // Both voter2 and voter3
+      expect(newProposalVotes).to.equal(100n); // Both voter2 and voter3 at 50 each
+
+      // Verify still frozen since we haven't reached threshold
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
     });
 
     it('should handle multiple proposal cycles correctly', async () => {
+      // Set weight to 50 so we don't reach threshold
+      await mockVotingWeight1.setWeight(50n);
+
       // Cycle 1: voter2 votes
       await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
-      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(voteWeight);
+      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(50n);
 
       // Expire and start cycle 2
       await time.increase(DEFAULT_UNFREEZE_PROPOSAL_PERIOD + 1);
       await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
-      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(voteWeight);
+      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(50n);
 
       // Expire and start cycle 3
       await time.increase(DEFAULT_UNFREEZE_PROPOSAL_PERIOD + 1);
       await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
       await standaloneFreezeVoting.connect(voter3).castUnfreezeVote(votingConfigData, 0n);
-      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(voteWeight * 2n);
+      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(100n); // 50 + 50
+
+      // Still frozen since threshold not reached
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
     });
   });
 
-  describe('Unfreeze Execution', () => {
+  describe('Automatic Unfreeze', () => {
+    let votingConfigData: IVotingTypes.VotingConfigVoteDataStruct[];
+
     beforeEach(async () => {
       // Freeze the DAO first
       await mockVotingWeight1.setWeight(DEFAULT_FREEZE_VOTES_THRESHOLD);
       const voteDataBytes = ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['mockVoteData']);
-      const votingConfigData: IVotingTypes.VotingConfigVoteDataStruct[] = [
+      votingConfigData = [
         {
           configIndex: 0n,
           voteData: voteDataBytes,
         },
       ];
       await standaloneFreezeVoting.connect(voter1).castFreezeVote(votingConfigData, 0n);
-
-      // Vote to unfreeze
-      await mockVotingWeight1.setWeight(DEFAULT_UNFREEZE_VOTES_THRESHOLD);
-      await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
     });
 
-    it('should execute unfreeze with sufficient votes', async () => {
-      await expect(standaloneFreezeVoting.unfreeze())
+    it('should automatically unfreeze when threshold is reached', async () => {
+      // Vote to unfreeze with exactly the threshold weight
+      await mockVotingWeight1.setWeight(DEFAULT_UNFREEZE_VOTES_THRESHOLD);
+
+      await expect(standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n))
         .to.emit(standaloneFreezeVoting, 'DAOUnfrozen')
         .withArgs((await time.latest()) + 1);
 
       expect(await standaloneFreezeVoting.isFrozen()).to.be.false;
     });
 
-    it('should revert with insufficient votes', async () => {
-      // First, unfreeze to reset the state
-      await standaloneFreezeVoting.unfreeze();
-
-      // Re-freeze the DAO
-      const voteDataBytes = ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['mockVoteData']);
-      const votingConfigData: IVotingTypes.VotingConfigVoteDataStruct[] = [
-        {
-          configIndex: 0n,
-          voteData: voteDataBytes,
-        },
-      ];
-
-      await mockVotingWeight1.setWeight(DEFAULT_FREEZE_VOTES_THRESHOLD);
-      await standaloneFreezeVoting.connect(voter3).castFreezeVote(votingConfigData, 0n);
-
-      // Now vote with insufficient weight for unfreeze
+    it('should not unfreeze with insufficient votes', async () => {
+      // Vote with insufficient weight for unfreeze
       await mockVotingWeight1.setWeight(50n); // Less than the 150 threshold
       await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
 
-      // Try to unfreeze with insufficient votes
-      await expect(standaloneFreezeVoting.unfreeze()).to.be.revertedWithCustomError(
-        standaloneFreezeVoting,
-        'InsufficientVotes',
-      );
+      // Should still be frozen
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
+      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(50n);
+    });
+
+    it('should unfreeze when accumulated votes reach threshold', async () => {
+      // First voter votes with partial weight
+      await mockVotingWeight1.setWeight(100n);
+      await standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n);
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
+
+      // Second voter provides remaining weight to reach threshold
+      await mockVotingWeight1.setWeight(50n);
+      await expect(
+        standaloneFreezeVoting.connect(voter3).castUnfreezeVote(votingConfigData, 0n),
+      ).to.emit(standaloneFreezeVoting, 'DAOUnfrozen');
+
+      expect(await standaloneFreezeVoting.isFrozen()).to.be.false;
+      // Unfreeze proposal should be reset
+      expect(await standaloneFreezeVoting.getUnfreezeProposalVotes()).to.equal(0n);
     });
   });
 
@@ -490,7 +510,7 @@ describe('FreezeVotingStandaloneV1', () => {
       expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(freezeTime);
       expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
 
-      // Cast unfreeze votes - need to reach the threshold
+      // Cast unfreeze votes - reaching the threshold will automatically unfreeze
       await mockVotingWeight1.setWeight(DEFAULT_UNFREEZE_VOTES_THRESHOLD);
       await standaloneFreezeVoting.connect(voter1).castUnfreezeVote(
         [
@@ -502,10 +522,7 @@ describe('FreezeVotingStandaloneV1', () => {
         0n,
       );
 
-      // Execute unfreeze
-      await standaloneFreezeVoting.unfreeze();
-
-      // After unfreeze, lastKnownFreezeTime should NOT be cleared
+      // After automatic unfreeze, lastKnownFreezeTime should NOT be cleared
       expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(freezeTime);
       // But isFrozen should return false
       expect(await standaloneFreezeVoting.isFrozen()).to.be.false;
@@ -526,7 +543,7 @@ describe('FreezeVotingStandaloneV1', () => {
       const firstFreezeTime = await time.latest();
       expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(firstFreezeTime);
 
-      // Unfreeze
+      // Unfreeze - will happen automatically when threshold is reached
       await mockVotingWeight1.setWeight(DEFAULT_UNFREEZE_VOTES_THRESHOLD);
       await standaloneFreezeVoting.connect(voter1).castUnfreezeVote(
         [
@@ -537,7 +554,6 @@ describe('FreezeVotingStandaloneV1', () => {
         ],
         0n,
       );
-      await standaloneFreezeVoting.unfreeze();
 
       // Wait and freeze again
       await time.increase(100);

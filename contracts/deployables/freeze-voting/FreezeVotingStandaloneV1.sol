@@ -40,7 +40,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * - Uses EIP-7201 namespaced storage pattern for upgradeability safety
  * - Inherits base functionality from FreezeVotingBase but overrides key behavior
  * - Implements permanent freezing (no auto-unfreeze after time period)
- * - Requires explicit unfreeze voting tied to specific transactions
+ * - Automatically unfreezes when unfreeze votes reach the threshold
  * - Manages its own list of VotingConfigs (weightStrategy + voteTracker pairs)
  * - No longer needs to implement IStrategyV1 interface
  *
@@ -51,7 +51,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  *
  * Security model:
  * - VotingConfig changes require timelocked Safe transactions
- * - Unfreeze requires voting to reach threshold
+ * - Unfreeze happens automatically when voting reaches threshold
  * - Owner validation ensures only Safe can manage configs
  *
  * @custom:security-contact security@decentlabs.io
@@ -332,39 +332,8 @@ contract FreezeVotingStandaloneV1 is
             votingConfigsToUse_
         );
 
-        // Check for zero weight (happens when all configs were already used)
-        if (totalWeight == 0) revert NoVotes();
-
-        $.unfreezeProposalVoteCount += totalWeight;
-
-        emit UnfreezeVoteCast(voter, totalWeight);
-    }
-
-    /**
-     * @inheritdoc IFreezeVotingStandaloneV1
-     */
-    function unfreeze() public virtual override(IFreezeVotingStandaloneV1) {
-        FreezeVotingStandaloneStorage
-            storage $ = _getFreezeVotingStandaloneStorage();
-
-        // Check DAO is frozen
-        if (!isFrozen()) revert NotFrozen();
-
-        // Validate votes
-        if ($.unfreezeProposalVoteCount < $.unfreezeVotesThreshold) {
-            revert InsufficientVotes();
-        }
-
-        // Process the unfreeze
-        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
-        $base.isFrozen = false;
-        // CRITICAL: DO NOT clear lastFreezeTimestamp - this ensures the security invariant
-        // that all transactions timelocked before the most recent freeze remain invalid
-        // Reset unfreeze proposal for next time
-        $.unfreezeProposalCreated = 0;
-        $.unfreezeProposalVoteCount = 0;
-
-        emit DAOUnfrozen(uint48(block.timestamp));
+        // Record the vote and handle unfreeze activation if threshold is reached
+        _recordUnfreezeVote(voter, totalWeight);
     }
 
     // ======================================================================
@@ -515,5 +484,46 @@ contract FreezeVotingStandaloneV1 is
         }
 
         return totalWeight;
+    }
+
+    /**
+     * @notice Records an unfreeze vote and activates unfreeze if threshold is reached
+     * @dev Called internally after validating the vote.
+     * Automatically triggers unfreeze when threshold is reached.
+     * @param voter_ The address casting the vote
+     * @param weightCasted_ The voting weight to add
+     * @custom:throws NoVotes if weight is zero
+     */
+    function _recordUnfreezeVote(
+        address voter_,
+        uint256 weightCasted_
+    ) internal virtual {
+        // Validate non-zero voting weight
+        if (weightCasted_ == 0) revert NoVotes();
+
+        FreezeVotingStandaloneStorage
+            storage $ = _getFreezeVotingStandaloneStorage();
+
+        // Add votes to the current proposal
+        $.unfreezeProposalVoteCount += weightCasted_;
+
+        // Emit event for transparency
+        emit UnfreezeVoteCast(voter_, weightCasted_);
+
+        // Check if threshold is reached and activate unfreeze immediately
+        if ($.unfreezeProposalVoteCount >= $.unfreezeVotesThreshold) {
+            // Process the unfreeze
+            FreezeVotingBaseStorage
+                storage $base = _getFreezeVotingBaseStorage();
+            $base.isFrozen = false;
+            // CRITICAL: DO NOT clear lastFreezeTimestamp - this ensures the security invariant
+            // that all transactions timelocked before the most recent freeze remain invalid
+
+            // Reset unfreeze proposal for next time
+            $.unfreezeProposalCreated = 0;
+            $.unfreezeProposalVoteCount = 0;
+
+            emit DAOUnfrozen(uint48(block.timestamp));
+        }
     }
 }
