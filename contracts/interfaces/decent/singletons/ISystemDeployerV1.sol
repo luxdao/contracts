@@ -238,7 +238,6 @@ interface ISystemDeployerV1 {
      * @param owner The parent DAO that can update settings
      * @param freezeVotesThreshold Votes required to freeze
      * @param freezeProposalPeriod Duration for freeze voting
-     * @param freezePeriod How long the child DAO stays frozen
      * @param parentSafe The parent Safe whose owners can cast freeze votes
      * @param lightAccountFactory Address of the LightAccountFactory
      */
@@ -247,7 +246,6 @@ interface ISystemDeployerV1 {
         address owner;
         uint256 freezeVotesThreshold;
         uint32 freezeProposalPeriod;
-        uint32 freezePeriod;
         address parentSafe;
         address lightAccountFactory;
     }
@@ -258,7 +256,6 @@ interface ISystemDeployerV1 {
      * @param owner The parent DAO that can update settings
      * @param freezeVotesThreshold Votes required to freeze
      * @param freezeProposalPeriod Duration for freeze voting
-     * @param freezePeriod How long the child DAO stays frozen
      * @param parentAzorius The parent DAO's Azorius module
      * @param lightAccountFactory Address of the LightAccountFactory
      */
@@ -267,7 +264,6 @@ interface ISystemDeployerV1 {
         address owner;
         uint256 freezeVotesThreshold;
         uint32 freezeProposalPeriod;
-        uint32 freezePeriod;
         address parentAzorius;
         address lightAccountFactory;
     }

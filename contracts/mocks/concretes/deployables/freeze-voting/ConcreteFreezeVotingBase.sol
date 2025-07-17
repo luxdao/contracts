@@ -9,14 +9,12 @@ contract ConcreteFreezeVotingBase is FreezeVotingBase {
     function initialize(
         address owner_,
         uint256 freezeVotesThreshold_,
-        uint32 freezeProposalPeriod_,
-        uint32 freezePeriod_
+        uint32 freezeProposalPeriod_
     ) public initializer {
         __Ownable_init(owner_);
         FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
         $base.freezeVotesThreshold = freezeVotesThreshold_;
         $base.freezeProposalPeriod = freezeProposalPeriod_;
-        $base.freezePeriod = freezePeriod_;
     }
 
     function castFreezeVote() external {
