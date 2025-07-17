@@ -487,10 +487,10 @@ describe('FreezeVotingStandaloneV1', () => {
     });
   });
 
-  describe('Security Invariant - lastKnownFreezeTime', () => {
-    it('should set lastKnownFreezeTime on freeze and never clear it', async () => {
-      // Initially, lastKnownFreezeTime should be 0
-      expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(0);
+  describe('Security Invariant - lastFreezeTime', () => {
+    it('should set lastFreezeTime on freeze and never clear it', async () => {
+      // Initially, lastFreezeTime should be 0
+      expect(await standaloneFreezeVoting.lastFreezeTime()).to.equal(0);
 
       // Cast freeze vote to freeze the DAO
       await mockVotingWeight1.setWeight(DEFAULT_FREEZE_VOTES_THRESHOLD);
@@ -506,8 +506,8 @@ describe('FreezeVotingStandaloneV1', () => {
 
       const freezeTime = await time.latest();
 
-      // Check that lastKnownFreezeTime was set
-      expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(freezeTime);
+      // Check that lastFreezeTime was set
+      expect(await standaloneFreezeVoting.lastFreezeTime()).to.equal(freezeTime);
       expect(await standaloneFreezeVoting.isFrozen()).to.be.true;
 
       // Cast unfreeze votes - reaching the threshold will automatically unfreeze
@@ -522,13 +522,13 @@ describe('FreezeVotingStandaloneV1', () => {
         0n,
       );
 
-      // After automatic unfreeze, lastKnownFreezeTime should NOT be cleared
-      expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(freezeTime);
+      // After automatic unfreeze, lastFreezeTime should NOT be cleared
+      expect(await standaloneFreezeVoting.lastFreezeTime()).to.equal(freezeTime);
       // But isFrozen should return false
       expect(await standaloneFreezeVoting.isFrozen()).to.be.false;
     });
 
-    it('should update lastKnownFreezeTime on subsequent freezes', async () => {
+    it('should update lastFreezeTime on subsequent freezes', async () => {
       // First freeze
       await mockVotingWeight1.setWeight(DEFAULT_FREEZE_VOTES_THRESHOLD);
       await standaloneFreezeVoting.connect(voter1).castFreezeVote(
@@ -541,7 +541,7 @@ describe('FreezeVotingStandaloneV1', () => {
         0n,
       );
       const firstFreezeTime = await time.latest();
-      expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(firstFreezeTime);
+      expect(await standaloneFreezeVoting.lastFreezeTime()).to.equal(firstFreezeTime);
 
       // Unfreeze - will happen automatically when threshold is reached
       await mockVotingWeight1.setWeight(DEFAULT_UNFREEZE_VOTES_THRESHOLD);
@@ -572,8 +572,8 @@ describe('FreezeVotingStandaloneV1', () => {
       );
       const secondFreezeTime = await time.latest();
 
-      // lastKnownFreezeTime should be updated to the new freeze time
-      expect(await standaloneFreezeVoting.lastKnownFreezeTime()).to.equal(secondFreezeTime);
+      // lastFreezeTime should be updated to the new freeze time
+      expect(await standaloneFreezeVoting.lastFreezeTime()).to.equal(secondFreezeTime);
       expect(secondFreezeTime).to.be.gt(firstFreezeTime);
     });
   });
