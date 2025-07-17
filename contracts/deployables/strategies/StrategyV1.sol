@@ -75,7 +75,7 @@ contract StrategyV1 is
         /** @notice Mapping from proposal ID to voting details and tallies */
         mapping(uint32 proposalId => ProposalVotingDetails proposalVotingDetails) proposalVotingDetails;
         /** @notice Array of configured voting configurations */
-        VotingConfig[] votingConfigs;
+        IVotingTypes.VotingConfig[] votingConfigs;
         /** @notice Array of configured proposer adapter addresses */
         address[] proposerAdapters;
         /** @notice Quick lookup for valid proposer adapters */
@@ -196,7 +196,7 @@ contract StrategyV1 is
      */
     function initialize2(
         address strategyAdmin_,
-        VotingConfig[] calldata votingConfigs_
+        IVotingTypes.VotingConfig[] calldata votingConfigs_
     ) public virtual override reinitializer(2) {
         // Validate at least one voting config is provided
         if (votingConfigs_.length == 0) {
@@ -273,7 +273,7 @@ contract StrategyV1 is
         view
         virtual
         override
-        returns (VotingConfig[] memory)
+        returns (IVotingTypes.VotingConfig[] memory)
     {
         StrategyStorage storage $ = _getStrategyStorage();
         return $.votingConfigs;
@@ -284,7 +284,7 @@ contract StrategyV1 is
      */
     function votingConfig(
         uint256 configIndex_
-    ) public view virtual override returns (VotingConfig memory) {
+    ) public view virtual override returns (IVotingTypes.VotingConfig memory) {
         StrategyStorage storage $ = _getStrategyStorage();
         if (configIndex_ >= $.votingConfigs.length) {
             revert InvalidVotingConfig(configIndex_);
@@ -533,7 +533,7 @@ contract StrategyV1 is
                 return false;
             }
 
-            VotingConfig memory config = $.votingConfigs[
+            IVotingTypes.VotingConfig memory config = $.votingConfigs[
                 configData.configIndex
             ];
 
@@ -662,7 +662,7 @@ contract StrategyV1 is
                 revert InvalidVotingConfig(configData.configIndex);
             }
 
-            VotingConfig memory config = $.votingConfigs[
+            IVotingTypes.VotingConfig memory config = $.votingConfigs[
                 configData.configIndex
             ];
 

@@ -89,16 +89,6 @@ interface IStrategyV1 {
         uint256 abstainVotes;
     }
 
-    /**
-     * @notice Configuration for a voting mechanism combining weight calculation and vote tracking
-     * @param votingWeight Contract that calculates voting weight based on token holdings
-     * @param voteTracker Contract that tracks vote participation to prevent double voting
-     */
-    struct VotingConfig {
-        address votingWeight;
-        address voteTracker;
-    }
-
     // --- Enums ---
 
     /**
@@ -201,7 +191,7 @@ interface IStrategyV1 {
      */
     function initialize2(
         address strategyAdmin_,
-        VotingConfig[] calldata votingConfigs_
+        IVotingTypes.VotingConfig[] calldata votingConfigs_
     ) external;
 
     // --- View Functions ---
@@ -258,7 +248,7 @@ interface IStrategyV1 {
     function votingConfigs()
         external
         view
-        returns (VotingConfig[] memory votingConfigs);
+        returns (IVotingTypes.VotingConfig[] memory votingConfigs);
 
     /**
      * @notice Checks if an address is a configured proposer adapter
@@ -315,7 +305,7 @@ interface IStrategyV1 {
      */
     function votingConfig(
         uint256 configIndex_
-    ) external view returns (VotingConfig memory votingConfig);
+    ) external view returns (IVotingTypes.VotingConfig memory votingConfig);
 
     /**
      * @notice Returns all configured proposer adapter addresses

@@ -18,6 +18,7 @@ import {
     IProposerAdapterHatsV1
 } from "../interfaces/decent/deployables/IProposerAdapterHatsV1.sol";
 import {IStrategyV1} from "../interfaces/decent/deployables/IStrategyV1.sol";
+import {IVotingTypes} from "../interfaces/decent/deployables/IVotingTypes.sol";
 import {
     IVotingWeightERC20V1
 } from "../interfaces/decent/deployables/IVotingWeightERC20V1.sol";
@@ -337,7 +338,7 @@ contract SystemDeployerV1 is
             );
 
             // Step 3: Deploy voting configurations (weight strategies + vote trackers)
-            IStrategyV1.VotingConfig[]
+            IVotingTypes.VotingConfig[]
                 memory votingConfigs = _deployVotingConfigs(
                     salt_,
                     azoriusGovernanceParams_.votingConfigParams,
@@ -695,7 +696,7 @@ contract SystemDeployerV1 is
         VotingConfigParams memory votingConfigParams,
         address[] memory newVotesERC20V1Addresses,
         address strategyAddress
-    ) internal returns (IStrategyV1.VotingConfig[] memory) {
+    ) internal returns (IVotingTypes.VotingConfig[] memory) {
         VotingConfigERC20V1Params[]
             memory votingConfigERC20V1Params = votingConfigParams
                 .votingConfigERC20V1Params;
@@ -710,8 +711,8 @@ contract SystemDeployerV1 is
         uint256 votingConfigERC721V1ParamsLength = votingConfigERC721V1Params
             .length;
 
-        IStrategyV1.VotingConfig[]
-            memory votingConfigs = new IStrategyV1.VotingConfig[](
+        IVotingTypes.VotingConfig[]
+            memory votingConfigs = new IVotingTypes.VotingConfig[](
                 votingConfigERC20V1ParamsLength +
                     votingConfigERC721V1ParamsLength
             );
@@ -752,7 +753,7 @@ contract SystemDeployerV1 is
         uint256 votingConfigERC20V1ParamsLength,
         VotingConfigERC20V1Params[] memory votingConfigERC20V1Params,
         address[] memory newVotesERC20V1Addresses,
-        IStrategyV1.VotingConfig[] memory votingConfigs,
+        IVotingTypes.VotingConfig[] memory votingConfigs,
         address strategyAddress
     ) internal {
         for (uint256 i = 0; i < votingConfigERC20V1ParamsLength; ) {
@@ -799,7 +800,7 @@ contract SystemDeployerV1 is
             );
 
             // Create voting config
-            votingConfigs[i] = IStrategyV1.VotingConfig({
+            votingConfigs[i] = IVotingTypes.VotingConfig({
                 votingWeight: votingWeight,
                 voteTracker: voteTracker
             });
@@ -826,7 +827,7 @@ contract SystemDeployerV1 is
         uint256 votingConfigERC721V1ParamsLength,
         uint256 votingConfigERC20V1ParamsLength,
         VotingConfigERC721V1Params[] memory votingConfigERC721V1Params,
-        IStrategyV1.VotingConfig[] memory votingConfigs,
+        IVotingTypes.VotingConfig[] memory votingConfigs,
         address strategyAddress
     ) internal {
         for (uint256 i = 0; i < votingConfigERC721V1ParamsLength; ) {
@@ -857,7 +858,7 @@ contract SystemDeployerV1 is
             );
 
             // Store at position after ERC20 configs
-            votingConfigs[votingConfigERC20V1ParamsLength + i] = IStrategyV1
+            votingConfigs[votingConfigERC20V1ParamsLength + i] = IVotingTypes
                 .VotingConfig({
                     votingWeight: votingWeight,
                     voteTracker: voteTracker
