@@ -143,13 +143,7 @@ abstract contract FreezeVotingBase is
      * This timestamp is NEVER cleared, even after unfreeze or auto-expiry.
      * Used by guards to permanently invalidate all transactions timelocked before this time.
      */
-    function lastKnownFreezeTime()
-        public
-        view
-        virtual
-        override
-        returns (uint48)
-    {
+    function lastFreezeTime() public view virtual override returns (uint48) {
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
         return $.lastFreezeTimestamp;
     }

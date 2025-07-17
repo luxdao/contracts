@@ -38,7 +38,7 @@ contract MockFreezable is IFreezable {
     /**
      * @inheritdoc IFreezable
      */
-    function lastKnownFreezeTime() external view override returns (uint48) {
+    function lastFreezeTime() external view override returns (uint48) {
         return _lastFreezeTimestamp;
     }
 }
