@@ -227,7 +227,7 @@ contract FreezeVotingAzoriusV1 is
         // and record the vote (potentially triggering freeze)
         _recordFreezeVote(
             resolvedVoter,
-            _getVotes(resolvedVoter, votingConfigsToUse_)
+            _aggregateFreezeVotes(resolvedVoter, votingConfigsToUse_)
         );
     }
 
@@ -295,7 +295,7 @@ contract FreezeVotingAzoriusV1 is
      * @custom:throws InvalidVotingConfig if config index is out of bounds
      * @custom:throws NoVotingWeight if any config returns zero voting weight (includes config index and user input)
      */
-    function _getVotes(
+    function _aggregateFreezeVotes(
         address voter_,
         IVotingTypes.VotingConfigVoteData[] calldata votingConfigsToUse_
     ) internal virtual returns (uint256) {
