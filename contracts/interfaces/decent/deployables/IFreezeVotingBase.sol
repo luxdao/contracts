@@ -95,13 +95,6 @@ interface IFreezeVotingBase {
      */
     function freezeActivated() external view returns (uint48 freezeActivated);
 
-    /**
-     * @notice Checks if the child DAO is currently frozen
-     * @dev Returns true if frozen and within the freeze period
-     * @return isFrozen True if the DAO is currently frozen
-     */
-    function isFrozen() external view returns (bool isFrozen);
-
     // --- State-Changing Functions ---
 
     /**

@@ -7,6 +7,7 @@ import {
 import {
     IFreezeVotingMultisigV1
 } from "../../interfaces/decent/deployables/IFreezeVotingMultisigV1.sol";
+import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {
     ILightAccountValidator
 } from "../../interfaces/decent/deployables/ILightAccountValidator.sol";
@@ -230,7 +231,7 @@ contract FreezeVotingMultisigV1 is
 
     /**
      * @inheritdoc ERC165
-     * @dev Supports IFreezeVotingMultisigV1, IFreezeVotingBase, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
+     * @dev Supports IFreezeVotingMultisigV1, IFreezeVotingBase, IFreezable, ILightAccountValidator, IVersion, IDeploymentBlock, and IERC165
      */
     function supportsInterface(
         bytes4 interfaceId_
@@ -238,6 +239,7 @@ contract FreezeVotingMultisigV1 is
         return
             interfaceId_ == type(IFreezeVotingMultisigV1).interfaceId ||
             interfaceId_ == type(IFreezeVotingBase).interfaceId ||
+            interfaceId_ == type(IFreezable).interfaceId ||
             interfaceId_ == type(ILightAccountValidator).interfaceId ||
             interfaceId_ == type(IVersion).interfaceId ||
             interfaceId_ == type(IDeploymentBlock).interfaceId ||
