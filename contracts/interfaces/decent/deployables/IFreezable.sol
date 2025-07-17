@@ -39,7 +39,7 @@ interface IFreezable {
      *
      * @return lastFreezeTimestamp Timestamp of the most recent freeze, or 0 if never frozen
      */
-    function lastKnownFreezeTime()
+    function lastFreezeTime()
         external
         view
         returns (uint48 lastFreezeTimestamp);

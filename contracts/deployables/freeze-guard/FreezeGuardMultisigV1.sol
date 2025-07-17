@@ -365,7 +365,7 @@ contract FreezeGuardMultisigV1 is
         // is permanently invalidated and can NEVER be executed, even after unfreeze.
         // This prevents malicious signers from queuing harmful transactions and waiting
         // for an unfreeze to execute them.
-        uint48 lastFreeze = $.freezable.lastKnownFreezeTime();
+        uint48 lastFreeze = $.freezable.lastFreezeTime();
         if (
             lastFreeze != 0 &&
             $.transactionTimelocked[signaturesHash] < lastFreeze
