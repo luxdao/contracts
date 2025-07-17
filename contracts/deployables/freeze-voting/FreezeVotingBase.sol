@@ -8,9 +8,6 @@ import {IFreezable} from "../../interfaces/decent/deployables/IFreezable.sol";
 import {
     LightAccountValidator
 } from "../account-abstraction/LightAccountValidator.sol";
-import {
-    Ownable2StepUpgradeable
-} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /**
  * @title FreezeVotingBase
@@ -30,16 +27,14 @@ import {
  * Freeze mechanics:
  * - Votes accumulate towards threshold within proposal period
  * - Freeze activates immediately when threshold reached
- * - Freeze automatically expires after freezePeriod
- * - Owner (parent DAO) can manually unfreeze anytime
+ * - Concrete implementations define unfreeze behavior
  *
  * @custom:security-contact security@decentlabs.io
  */
 abstract contract FreezeVotingBase is
     IFreezeVotingBase,
     IFreezable,
-    LightAccountValidator,
-    Ownable2StepUpgradeable
+    LightAccountValidator
 {
     // ======================================================================
     // STATE VARIABLES
@@ -99,21 +94,18 @@ abstract contract FreezeVotingBase is
     /**
      * @notice Internal initializer for base freeze voting functionality
      * @dev Called by concrete implementations during initialization.
-     * Sets up owner, light account support, and freeze parameters.
-     * @param owner_ The owner address (typically parent DAO)
+     * Sets up light account support and freeze parameters.
      * @param freezeProposalPeriod_ Duration freeze proposals remain active
      * @param freezeVotesThreshold_ Voting weight required to trigger freeze
      * @param lightAccountFactory_ Factory for gasless voting support
      */
     function __FreezeVotingBase_init(
         // solhint-disable-previous-line func-name-mixedcase
-        address owner_,
         uint32 freezeProposalPeriod_,
         uint256 freezeVotesThreshold_,
         address lightAccountFactory_
     ) internal onlyInitializing {
         // Initialize inherited contracts
-        __Ownable_init(owner_);
         __LightAccountValidator_init(lightAccountFactory_);
 
         // Set freeze voting parameters
@@ -208,21 +200,6 @@ abstract contract FreezeVotingBase is
     {
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
         return $.freezeVotesThreshold;
-    }
-
-    // --- State-Changing Functions ---
-
-    /**
-     * @inheritdoc IFreezeVotingBase
-     * @dev Resets all freeze-related state variables to allow new proposals
-     */
-    function unfreeze() public virtual override onlyOwner {
-        FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
-
-        // Reset all freeze state
-        $.isFrozen = false; // Clear frozen state
-        $.freezeProposalCreated = 0; // Clear proposal timestamp
-        $.freezeProposalVoteCount = 0; // Reset vote count
     }
 
     // ======================================================================

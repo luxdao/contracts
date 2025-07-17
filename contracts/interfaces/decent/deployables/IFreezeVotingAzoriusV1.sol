@@ -122,4 +122,12 @@ interface IFreezeVotingAzoriusV1 {
         IVotingTypes.VotingConfigVoteData[] calldata votingConfigsToUse_,
         uint256 lightAccountIndex_
     ) external;
+
+    /**
+     * @notice Allows the owner to manually unfreeze the child DAO
+     * @dev Only the parent DAO (owner) can call this function. Resets all freeze
+     * state including proposal counts, frozen status, and strategy snapshot.
+     * @custom:access Restricted to owner (parent DAO)
+     */
+    function unfreeze() external;
 }
