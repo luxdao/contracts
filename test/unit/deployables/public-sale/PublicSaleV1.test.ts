@@ -729,20 +729,16 @@ describe('PublicSaleV1', () => {
     it('should enforce same validation rules as ERC20', async () => {
       // Test minimum commitment
       await expect(
-        nativeSale
-          .connect(alice)
-          .increaseCommitmentNative(ethers.getBytes('0x'), {
-            value: BigInt(defaultParams.minimumCommitment) - 1n,
-          }),
+        nativeSale.connect(alice).increaseCommitmentNative(ethers.getBytes('0x'), {
+          value: BigInt(defaultParams.minimumCommitment) - 1n,
+        }),
       ).to.be.revertedWithCustomError(nativeSale, 'MinimumCommitment');
 
       // Test maximum commitment
       await expect(
-        nativeSale
-          .connect(alice)
-          .increaseCommitmentNative(ethers.getBytes('0x'), {
-            value: BigInt(defaultParams.maximumCommitment) + 1n,
-          }),
+        nativeSale.connect(alice).increaseCommitmentNative(ethers.getBytes('0x'), {
+          value: BigInt(defaultParams.maximumCommitment) + 1n,
+        }),
       ).to.be.revertedWithCustomError(nativeSale, 'MaximumCommitment');
     });
   });
