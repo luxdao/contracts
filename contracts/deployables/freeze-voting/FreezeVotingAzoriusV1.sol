@@ -31,6 +31,9 @@ import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
@@ -68,6 +71,7 @@ contract FreezeVotingAzoriusV1 is
     FreezeVotingBase,
     DeploymentBlockInitializable,
     InitializerEventEmitter,
+    Ownable2StepUpgradeable,
     ERC165
 {
     // ======================================================================
@@ -139,11 +143,11 @@ contract FreezeVotingAzoriusV1 is
             )
         );
         __FreezeVotingBase_init(
-            owner_,
             freezeProposalPeriod_,
             freezeVotesThreshold_,
             lightAccountFactory_
         );
+        __Ownable_init(owner_);
         __DeploymentBlockInitializable_init();
 
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
@@ -227,25 +231,20 @@ contract FreezeVotingAzoriusV1 is
         );
     }
 
-    // ======================================================================
-    // FreezeVotingBase
-    // ======================================================================
-
-    // --- State-Changing Functions ---
-
     /**
-     * @inheritdoc IFreezeVotingBase
-     * @dev Extends base unfreeze to also clear the freeze proposal strategy.
-     * This ensures a fresh strategy snapshot for the next freeze proposal.
+     * @inheritdoc IFreezeVotingAzoriusV1
      */
     function unfreeze() public virtual override onlyOwner {
+        FreezeVotingBaseStorage storage $base = _getFreezeVotingBaseStorage();
         FreezeVotingAzoriusStorage storage $ = _getFreezeVotingAzoriusStorage();
+
+        // Reset all freeze state
+        $base.isFrozen = false;
+        $base.freezeProposalCreated = 0;
+        $base.freezeProposalVoteCount = 0;
 
         // Clear the strategy snapshot to ensure fresh capture next time
         $.freezeProposalStrategy = address(0);
-
-        // Call parent implementation to reset freeze state
-        super.unfreeze();
     }
 
     // ======================================================================
