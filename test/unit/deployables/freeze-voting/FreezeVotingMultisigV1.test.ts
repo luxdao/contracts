@@ -31,7 +31,6 @@ async function deployMultisigFreezeVotingProxy(
   owner: SignerWithAddress,
   freezeVotesThreshold: number,
   freezeProposalPeriod: number,
-  freezePeriod: number,
   parentGnosisSafe: MockSafe,
   lightAccountFactoryAddress: string,
 ): Promise<FreezeVotingMultisigV1> {
@@ -42,7 +41,6 @@ async function deployMultisigFreezeVotingProxy(
       owner.address,
       freezeVotesThreshold,
       freezeProposalPeriod,
-      freezePeriod,
       await parentGnosisSafe.getAddress(),
       lightAccountFactoryAddress,
     ],
@@ -73,7 +71,6 @@ describe('FreezeVotingMultisigV1', () => {
   // constants
   const FREEZE_VOTES_THRESHOLD = 2;
   const FREEZE_PROPOSAL_PERIOD = 5;
-  const FREEZE_PERIOD = 10;
 
   beforeEach(async () => {
     // Get signers
@@ -99,7 +96,6 @@ describe('FreezeVotingMultisigV1', () => {
       owner,
       FREEZE_VOTES_THRESHOLD,
       FREEZE_PROPOSAL_PERIOD,
-      FREEZE_PERIOD,
       mockSafe,
       lightAccountFactoryMockAddress,
     );
@@ -110,7 +106,6 @@ describe('FreezeVotingMultisigV1', () => {
       expect(await freezeVoting.owner()).to.equal(owner.address);
       expect(await freezeVoting.freezeVotesThreshold()).to.equal(FREEZE_VOTES_THRESHOLD);
       expect(await freezeVoting.freezeProposalPeriod()).to.equal(FREEZE_PROPOSAL_PERIOD);
-      expect(await freezeVoting.freezePeriod()).to.equal(FREEZE_PERIOD);
       expect(await freezeVoting.parentSafe()).to.equal(await mockSafe.getAddress());
       expect(await freezeVoting.lightAccountFactory()).to.equal(lightAccountFactoryMockAddress);
     });
@@ -121,7 +116,6 @@ describe('FreezeVotingMultisigV1', () => {
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
-          FREEZE_PERIOD,
           await mockSafe.getAddress(),
           lightAccountFactoryMockAddress,
         ),
@@ -139,7 +133,6 @@ describe('FreezeVotingMultisigV1', () => {
           owner.address,
           FREEZE_VOTES_THRESHOLD,
           FREEZE_PROPOSAL_PERIOD,
-          FREEZE_PERIOD,
           await mockSafe.getAddress(),
           lightAccountFactoryMockAddress,
         ),
@@ -325,7 +318,7 @@ describe('FreezeVotingMultisigV1', () => {
       expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
-    it('should automatically unfreeze after freeze period', async () => {
+    it('should remain frozen until explicitly unfrozen', async () => {
       // Set first Safe owner
       await mockSafe.setOwner(safeOwner1.address);
 
@@ -341,11 +334,11 @@ describe('FreezeVotingMultisigV1', () => {
       // Should be frozen initially
       expect(await freezeVoting.isFrozen()).to.be.true;
 
-      // Increase time to pass the freeze period
-      await time.increase(FREEZE_PERIOD + 1);
+      // Increase time significantly
+      await time.increase(60 * 60 * 24 * 30); // 30 days
 
-      // Should no longer be frozen
-      expect(await freezeVoting.isFrozen()).to.be.false;
+      // Should still be frozen (permanent freeze)
+      expect(await freezeVoting.isFrozen()).to.be.true;
     });
 
     it('should allow owner to unfreeze manually', async () => {
@@ -564,7 +557,6 @@ describe('FreezeVotingMultisigV1', () => {
         owner,
         FREEZE_VOTES_THRESHOLD,
         FREEZE_PROPOSAL_PERIOD,
-        FREEZE_PERIOD,
         mockSafeSA,
         lightAccountFactorySA.target as string,
       );
@@ -631,18 +623,16 @@ describe('FreezeVotingMultisigV1', () => {
         testOwner.address,
         FREEZE_VOTES_THRESHOLD,
         FREEZE_PROPOSAL_PERIOD,
-        FREEZE_PERIOD,
         testMockSafeAddress,
         lightAccountFactoryAddress,
       ],
       getExpectedInitData: () =>
         ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'uint256', 'uint32', 'uint32', 'address', 'address'],
+          ['address', 'uint256', 'uint32', 'address', 'address'],
           [
             testOwner.address,
             FREEZE_VOTES_THRESHOLD,
             FREEZE_PROPOSAL_PERIOD,
-            FREEZE_PERIOD,
             testMockSafeAddress,
             lightAccountFactoryAddress,
           ],

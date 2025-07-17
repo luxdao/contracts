@@ -57,12 +57,10 @@ abstract contract FreezeVotingBase is
         uint256 freezeProposalVoteCount;
         /** @notice Duration freeze proposals remain active */
         uint32 freezeProposalPeriod;
-        /** @notice Duration a freeze remains active once triggered */
-        uint32 freezePeriod;
+        /** @notice Whether the DAO is currently frozen */
+        bool isFrozen;
         /** @notice Voting weight required to trigger a freeze */
         uint256 freezeVotesThreshold;
-        /** @notice Timestamp when freeze was activated (0 if not frozen) */
-        uint48 freezeActivated;
     }
 
     /**
@@ -102,7 +100,6 @@ abstract contract FreezeVotingBase is
      * Sets up owner, light account support, and freeze parameters.
      * @param owner_ The owner address (typically parent DAO)
      * @param freezeProposalPeriod_ Duration freeze proposals remain active
-     * @param freezePeriod_ Duration freezes remain active once triggered
      * @param freezeVotesThreshold_ Voting weight required to trigger freeze
      * @param lightAccountFactory_ Factory for gasless voting support
      */
@@ -110,7 +107,6 @@ abstract contract FreezeVotingBase is
         // solhint-disable-previous-line func-name-mixedcase
         address owner_,
         uint32 freezeProposalPeriod_,
-        uint32 freezePeriod_,
         uint256 freezeVotesThreshold_,
         address lightAccountFactory_
     ) internal onlyInitializing {
@@ -122,7 +118,6 @@ abstract contract FreezeVotingBase is
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
         $.freezeVotesThreshold = freezeVotesThreshold_;
         $.freezeProposalPeriod = freezeProposalPeriod_;
-        $.freezePeriod = freezePeriod_;
     }
 
     // ======================================================================
@@ -133,17 +128,11 @@ abstract contract FreezeVotingBase is
 
     /**
      * @inheritdoc IFreezable
-     * @dev Returns true only if:
-     * 1. Vote count has reached threshold
-     * 2. Current time is within the freeze period
+     * @dev Returns true if the DAO has been frozen (permanent until explicitly unfrozen)
      */
     function isFrozen() public view virtual override returns (bool) {
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
-
-        // Check both conditions for freeze to be active
-        return
-            $.freezeProposalVoteCount >= $.freezeVotesThreshold && // Threshold reached
-            block.timestamp < $.freezeActivated + $.freezePeriod; // Within freeze period
+        return $.isFrozen;
     }
 
     // ======================================================================
@@ -197,14 +186,6 @@ abstract contract FreezeVotingBase is
     /**
      * @inheritdoc IFreezeVotingBase
      */
-    function freezePeriod() public view virtual override returns (uint32) {
-        FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
-        return $.freezePeriod;
-    }
-
-    /**
-     * @inheritdoc IFreezeVotingBase
-     */
     function freezeVotesThreshold()
         public
         view
@@ -214,14 +195,6 @@ abstract contract FreezeVotingBase is
     {
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
         return $.freezeVotesThreshold;
-    }
-
-    /**
-     * @inheritdoc IFreezeVotingBase
-     */
-    function freezeActivated() public view virtual override returns (uint48) {
-        FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
-        return $.freezeActivated;
     }
 
     // --- State-Changing Functions ---
@@ -234,9 +207,9 @@ abstract contract FreezeVotingBase is
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
 
         // Reset all freeze state
+        $.isFrozen = false; // Clear frozen state
         $.freezeProposalCreated = 0; // Clear proposal timestamp
         $.freezeProposalVoteCount = 0; // Reset vote count
-        $.freezeActivated = 0; // Clear freeze activation
     }
 
     // ======================================================================
@@ -246,7 +219,7 @@ abstract contract FreezeVotingBase is
     /**
      * @notice Creates a new freeze proposal or resets an expired one
      * @dev Called internally when the first vote is cast on a new proposal.
-     * Resets vote count and freeze activation status.
+     * Resets vote count for the new proposal.
      */
     function _initializeFreezeVote() internal virtual {
         FreezeVotingBaseStorage storage $ = _getFreezeVotingBaseStorage();
@@ -255,7 +228,7 @@ abstract contract FreezeVotingBase is
         // Use previous timestamp to ensure ERC5805 getPastVotes works
         $.freezeProposalCreated = uint48(block.timestamp - 1); // Mark creation time
         $.freezeProposalVoteCount = 0; // Reset vote count
-        $.freezeActivated = 0; // Clear any previous freeze
+        $.isFrozen = false; // Ensure not frozen at start
     }
 
     /**
@@ -279,8 +252,11 @@ abstract contract FreezeVotingBase is
         $.freezeProposalVoteCount += weightCasted_;
 
         // Check if threshold is reached and activate freeze immediately
-        if ($.freezeProposalVoteCount >= $.freezeVotesThreshold) {
-            $.freezeActivated = uint48(block.timestamp);
+        if (
+            $.freezeProposalVoteCount >= $.freezeVotesThreshold && !$.isFrozen
+        ) {
+            $.isFrozen = true;
+            emit DAOFrozen(block.timestamp);
         }
 
         // Emit event for transparency

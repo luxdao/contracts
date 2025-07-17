@@ -49,7 +49,6 @@ interface IFreezeVotingMultisigV1 {
      * @param owner_ The parent Safe that will have unfreeze powers
      * @param freezeVotesThreshold_ Number of signer votes required to freeze
      * @param freezeProposalPeriod_ Duration in seconds that freeze proposals remain active
-     * @param freezePeriod_ Duration in seconds that a freeze remains active
      * @param parentSafe_ The parent multisig Safe contract address
      * @param lightAccountFactory Factory for Light Account support (ERC-4337)
      */
@@ -57,7 +56,6 @@ interface IFreezeVotingMultisigV1 {
         address owner_,
         uint256 freezeVotesThreshold_,
         uint32 freezeProposalPeriod_,
-        uint32 freezePeriod_,
         address parentSafe_,
         address lightAccountFactory
     ) external;
