@@ -348,7 +348,7 @@ contract CountersignV1 is
                 verifyingSignature_
             )
         ) {
-            revert InvalidKYCSignature();
+            revert KYCVerificationFailed();
         }
 
         // Record signature

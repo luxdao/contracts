@@ -585,7 +585,7 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(false);
       await expect(
         countersign.connect(investorAlice).sign(ethers.getBytes('0x')),
-      ).to.be.revertedWithCustomError(countersign, 'InvalidKYCSignature');
+      ).to.be.revertedWithCustomError(countersign, 'KYCVerificationFailed');
     });
   });
 
