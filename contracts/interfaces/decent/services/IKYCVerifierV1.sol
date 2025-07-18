@@ -10,7 +10,7 @@ pragma solidity ^0.8.30;
  *
  * Key features:
  * - Simple boolean verification for addresses
- * - Stateless view function for gas-efficient checks
+ * - View function for gas-efficient checks
  *
  * Usage:
  * - CountersignV1 and PublicSaleV1 use this to verify signers before accepting signatures
