@@ -47,7 +47,7 @@ interface ICountersignV1 {
     error RequiredSignerNotSigned(address signer);
 
     /** @notice Thrown when KYC verification fails for a signer */
-    error InvalidKYCSignature();
+    error KYCVerificationFailed();
 
     /** @notice Thrown when a required signer's transaction bundle fails during execution */
     error RequiredSignerTxFailed(address signer);
@@ -256,7 +256,7 @@ interface ICountersignV1 {
      * @custom:throws InvalidSigner if caller is not a valid signer
      * @custom:throws SigningDeadlineElapsed if past the signing deadline
      * @custom:throws SignerAlreadySigned if caller has already signed
-     * @custom:throws InvalidKYCSignature if KYC verification fails
+     * @custom:throws KYCVerificationFailed if KYC verification fails
      * @custom:emits Signed when signature is recorded
      */
     function sign(bytes calldata verifyingSignature_) external;
