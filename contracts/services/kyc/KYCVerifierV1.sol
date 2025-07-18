@@ -45,7 +45,7 @@ contract KYCVerifierV1 is
     // STATE VARIABLES
     // ======================================================================
 
-    address private immutable _verifier;
+    address private immutable VERIFIER;
 
     bytes32 internal constant TYPEHASH =
         keccak256(
@@ -57,7 +57,7 @@ contract KYCVerifierV1 is
     // ======================================================================
 
     constructor(address verifier_) EIP712("KYCVerifier", "1") {
-        _verifier = verifier_;
+        VERIFIER = verifier_;
     }
 
     // ======================================================================
@@ -84,14 +84,14 @@ contract KYCVerifierV1 is
                     )
                 ),
                 signature_
-            ) == _verifier;
+            ) == VERIFIER;
     }
 
     /**
      * @inheritdoc IKYCVerifierV1
      */
     function verifier() public view virtual override returns (address) {
-        return _verifier;
+        return VERIFIER;
     }
 
     // ======================================================================
