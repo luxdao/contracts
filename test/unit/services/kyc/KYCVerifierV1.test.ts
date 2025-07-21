@@ -19,16 +19,34 @@ describe('KYCVerifierV1', () => {
   let verifier: SignerWithAddress;
   let deployer: SignerWithAddress;
   let mockOperatingContract: SignerWithAddress;
+  let owner: SignerWithAddress;
 
   // contracts
   let kycVerifier: KYCVerifierV1;
 
   beforeEach(async () => {
     // Get signers
-    [alice, verifier, deployer, mockOperatingContract] = await ethers.getSigners();
+    [alice, verifier, deployer, mockOperatingContract, owner] = await ethers.getSigners();
 
     // deploy KYC verifier
-    kycVerifier = await new KYCVerifierV1__factory(deployer).deploy(verifier.address);
+    kycVerifier = await new KYCVerifierV1__factory(deployer).deploy(
+      owner.address,
+      verifier.address,
+    );
+  });
+
+  describe('Ownership', function () {
+    it('should allow owner to update verifier', async function () {
+      expect(await kycVerifier.verifier()).to.equal(verifier.address);
+      await kycVerifier.connect(owner).updateVerifier(alice.address);
+      expect(await kycVerifier.verifier()).to.equal(alice.address);
+    });
+
+    it('should prevent non-owners from calling owner-only functions', async function () {
+      await expect(
+        kycVerifier.connect(alice).updateVerifier(alice.address),
+      ).to.be.revertedWithCustomError(kycVerifier, 'OwnableUnauthorizedAccount');
+    });
   });
 
   describe('Verifications', () => {

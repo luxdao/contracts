@@ -43,6 +43,12 @@ interface IKYCVerifierV1 {
         uint256 nonce
     );
 
+    /**
+     * @notice Emitted when the verifier address is updated
+     * @param verifier The address of the verifier
+     */
+    event VerifierUpdated(address indexed verifier);
+
     // --- View Functions ---
 
     /**
@@ -89,4 +95,10 @@ interface IKYCVerifierV1 {
         uint48 signatureExpiration_,
         bytes calldata signature_
     ) external;
+
+    /**
+     * @notice Updates the verifier address
+     * @param verifier_ The address of the new verifier
+     */
+    function updateVerifier(address verifier_) external;
 }
