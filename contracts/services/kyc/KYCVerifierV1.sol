@@ -166,6 +166,7 @@ contract KYCVerifierV1 is
                 accountNonce
             );
         } else {
+            // KYC signature is invalid
             revert InvalidSignature();
         }
     }
