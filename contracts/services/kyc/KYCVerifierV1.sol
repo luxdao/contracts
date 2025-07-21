@@ -12,6 +12,10 @@ import {
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {
+    Ownable2Step,
+    Ownable
+} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /**
  * @title KYCVerifierV1
@@ -39,13 +43,14 @@ contract KYCVerifierV1 is
     IVersion,
     DeploymentBlockNonInitializable,
     ERC165,
-    EIP712
+    EIP712,
+    Ownable2Step
 {
     // ======================================================================
     // STATE VARIABLES
     // ======================================================================
 
-    address private immutable VERIFIER;
+    address private _verifier;
 
     mapping(address account => uint256 nonce) private _nonces;
 
@@ -58,8 +63,11 @@ contract KYCVerifierV1 is
     // CONSTRUCTOR & INITIALIZERS
     // ======================================================================
 
-    constructor(address verifier_) EIP712("KYCVerifier", "1") {
-        VERIFIER = verifier_;
+    constructor(
+        address owner_,
+        address verifier_
+    ) EIP712("KYCVerifier", "1") Ownable(owner_) {
+        _verifier = verifier_;
     }
 
     // ======================================================================
@@ -72,7 +80,7 @@ contract KYCVerifierV1 is
      * @inheritdoc IKYCVerifierV1
      */
     function verifier() public view virtual override returns (address) {
-        return VERIFIER;
+        return _verifier;
     }
 
     /**
@@ -111,7 +119,7 @@ contract KYCVerifierV1 is
                     )
                 ),
                 signature_
-            ) == VERIFIER;
+            ) == _verifier;
     }
 
     // --- State-Changing Functions ---
@@ -146,7 +154,7 @@ contract KYCVerifierV1 is
                     )
                 ),
                 signature_
-            ) == VERIFIER
+            ) == _verifier
         ) {
             // KYC signature is valid
             _nonces[account_]++;
@@ -160,6 +168,17 @@ contract KYCVerifierV1 is
         } else {
             revert InvalidSignature();
         }
+    }
+
+    /**
+     * @inheritdoc IKYCVerifierV1
+     */
+    function updateVerifier(
+        address verifier_
+    ) public virtual override onlyOwner {
+        _verifier = verifier_;
+
+        emit VerifierUpdated(verifier_);
     }
 
     // ======================================================================
