@@ -59,6 +59,21 @@ interface IKYCVerifierV1 {
      */
     function nonce(address account_) external view returns (uint256 nonce);
 
+    /**
+     * @notice Checks if a signature is valid
+     * @param operator_ The address of the operator that is verifying KYC status
+     * @param account_ The address to verify KYC status for
+     * @param signatureExpiration_ The expiration timestamp of the signature
+     * @param signature_ The verifier signature attesting to KYC status
+     * @return isValid Whether the signature is valid
+     */
+    function checkVerify(
+        address operator_,
+        address account_,
+        uint48 signatureExpiration_,
+        bytes calldata signature_
+    ) external view returns (bool);
+
     // --- State-Changing Functions ---
 
     /**
