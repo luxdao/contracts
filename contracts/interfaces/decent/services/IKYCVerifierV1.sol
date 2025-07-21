@@ -9,8 +9,8 @@ pragma solidity ^0.8.30;
  * per chain and referenced by multiple contracts that need KYC verification.
  *
  * Key features:
- * - Simple boolean verification for addresses
- * - View function for gas-efficient checks
+ * - verify function that reverts if the signature is invalid or expired
+ * - checkVerify view function that returns a boolean indicating if a signature is valid
  *
  * Usage:
  * - CountersignV1 and PublicSaleV1 use this to verify signers before accepting signatures
