@@ -18,16 +18,16 @@ contract MockKYCVerifier is IKYCVerifierV1, IVersion, ERC165 {
         _verify = verify_;
     }
 
-    function verify(
-        address,
-        address,
-        bytes calldata
-    ) public view virtual override returns (bool) {
-        return _verify;
+    function verify(address, uint48, bytes calldata) public virtual override {
+        if (!_verify) revert InvalidSignature();
     }
 
     function verifier() public view virtual override returns (address) {
         return address(0);
+    }
+
+    function nonce(address) public view virtual override returns (uint256) {
+        return 0;
     }
 
     function version() public pure virtual override returns (uint16) {

@@ -19,23 +19,31 @@ pragma solidity ^0.8.30;
  * - Verification logic is critical for compliance
  */
 interface IKYCVerifierV1 {
-    // --- View Functions ---
+    // --- Errors ---
+
+    /** @notice Thrown when the signature has expired */
+    error SignatureExpired();
+
+    /** @notice Thrown when the signature is invalid */
+    error InvalidSignature();
+
+    // --- Events ---
 
     /**
-     * @notice Verifies if an address is KYC verified
-     * @dev Returns true if the address is KYC verified, false otherwise.
-     * Implementation can check on-chain records, merkle proofs, or oracle data.
-     * Should be gas-efficient as it may be called frequently.
-     * @param operatingContract_ The address of the contract that is verifying KYC status
-     * @param account_ The address to verify KYC status for
-     * @param signature_ The verifier signature attesting to KYC status
-     * @return verified True if the address is KYC verified, false otherwise
+     * @notice Emitted when a signature is verified
+     * @param operator The address of the operator that is verifying KYC status
+     * @param account The address to verify KYC status for
+     * @param signatureExpiration The expiration timestamp of the signature
+     * @param nonce The nonce used for the signature
      */
-    function verify(
-        address operatingContract_,
-        address account_,
-        bytes calldata signature_
-    ) external view returns (bool verified);
+    event SignatureVerified(
+        address indexed operator,
+        address indexed account,
+        uint48 signatureExpiration,
+        uint256 nonce
+    );
+
+    // --- View Functions ---
 
     /**
      * @notice Returns the address of the verifier
@@ -43,4 +51,27 @@ interface IKYCVerifierV1 {
      * @return verifierAddress The address of the verifier
      */
     function verifier() external view returns (address verifierAddress);
+
+    /**
+     * @notice Returns the nonce for an account
+     * @param account_ The address to get the nonce for
+     * @return nonce The nonce for the account
+     */
+    function nonce(address account_) external view returns (uint256 nonce);
+
+    // --- State-Changing Functions ---
+
+    /**
+     * @notice Verifies if an address is KYC verified
+     * @dev Reverts if the signature is invalid or expired.
+     * If signature is valid, the account's nonce is incremented.
+     * @param account_ The address to verify KYC status for
+     * @param signatureExpiration_ The expiration timestamp of the signature
+     * @param signature_ The verifier signature attesting to KYC status
+     */
+    function verify(
+        address account_,
+        uint48 signatureExpiration_,
+        bytes calldata signature_
+    ) external;
 }
