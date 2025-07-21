@@ -525,7 +525,7 @@ describe('CountersignV1', () => {
       );
       expect(aliceBeforeSigned).to.be.false;
       expect(aliceBeforeSignedTimestamp).to.equal(0n);
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
       const [, , aliceAfterSigned, , aliceAfterSignedTimestamp, ,] = await countersign.signerData(
         investorAlice.address,
       );
@@ -537,7 +537,7 @@ describe('CountersignV1', () => {
       );
       expect(bobBeforeSigned).to.be.false;
       expect(bobBeforeSignedTimestamp).to.equal(0n);
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
       const [, , bobAfterSigned, , bobAfterSignedTimestamp, ,] = await countersign.signerData(
         investorBob.address,
       );
@@ -549,7 +549,7 @@ describe('CountersignV1', () => {
       );
       expect(carolBeforeSigned).to.be.false;
       expect(carolBeforeSignedTimestamp).to.equal(0n);
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
       const [, , carolAfterSigned, , carolAfterSignedTimestamp, ,] = await countersign.signerData(
         investorCarol.address,
       );
@@ -562,30 +562,30 @@ describe('CountersignV1', () => {
 
       await time.increaseTo(signingDeadline + 1n);
       await expect(
-        countersign.connect(investorAlice).sign(ethers.getBytes('0x')),
+        countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n),
       ).to.be.revertedWithCustomError(countersign, 'SigningDeadlineElapsed');
     });
 
     it('should not allow signers to sign if they are not a signer', async () => {
       await mockKYCVerifier.setVerify(true);
       await expect(
-        countersign.connect(anon).sign(ethers.getBytes('0x')),
+        countersign.connect(anon).sign(ethers.getBytes('0x'), 0n),
       ).to.be.revertedWithCustomError(countersign, 'InvalidSigner');
     });
 
     it('should not allow signers to sign if they have already signed', async () => {
       await mockKYCVerifier.setVerify(true);
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
       await expect(
-        countersign.connect(investorAlice).sign(ethers.getBytes('0x')),
+        countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n),
       ).to.be.revertedWithCustomError(countersign, 'SignerAlreadySigned');
     });
 
     it('should not allow signers to sign if the KYCVerifier does not verify', async () => {
       await mockKYCVerifier.setVerify(false);
       await expect(
-        countersign.connect(investorAlice).sign(ethers.getBytes('0x')),
-      ).to.be.revertedWithCustomError(countersign, 'KYCVerificationFailed');
+        countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n),
+      ).to.be.revertedWithCustomError(mockKYCVerifier, 'InvalidSignature');
     });
   });
 
@@ -595,10 +595,10 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // all signers sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
 
       // move time to before signing deadline
       await time.increaseTo(signingDeadline - 2n);
@@ -614,10 +614,10 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // all signers sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
 
       // move time to before signing deadline
       await time.increaseTo(executionDeadline + 1n);
@@ -666,10 +666,10 @@ describe('CountersignV1', () => {
         signerTransactions,
       );
 
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -685,9 +685,9 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // Alice is required, but not signed
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -702,9 +702,9 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // All signers except for Carol sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -721,10 +721,10 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // All signers sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -754,10 +754,10 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // All signers sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -777,8 +777,8 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // Bob and Carol don't sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -793,10 +793,10 @@ describe('CountersignV1', () => {
       // set mock KYC verifier to verify all signatures
       await mockKYCVerifier.setVerify(true);
 
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorCarol).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -855,9 +855,9 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // all signers but Carol sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);
@@ -916,9 +916,9 @@ describe('CountersignV1', () => {
       await mockKYCVerifier.setVerify(true);
 
       // all signers but Carol sign
-      await countersign.connect(founder).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'));
-      await countersign.connect(investorBob).sign(ethers.getBytes('0x'));
+      await countersign.connect(founder).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorAlice).sign(ethers.getBytes('0x'), 0n);
+      await countersign.connect(investorBob).sign(ethers.getBytes('0x'), 0n);
 
       // move time to after signing deadline
       await time.increaseTo(signingDeadline + 1n);

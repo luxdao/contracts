@@ -81,11 +81,6 @@ interface IPublicSaleV1 {
     error ZeroAmount();
 
     /**
-     * @notice Thrown when KYC verification fails for a user
-     */
-    error KYCVerificationFailed();
-
-    /**
      * @notice Thrown when decrease commitment fee exceeds 100% (PRECISION)
      */
     error InvalidDecreaseCommitmentFee();
@@ -367,21 +362,25 @@ interface IPublicSaleV1 {
     /**
      * @notice Increases commitment using native asset (ETH)
      * @param verifyingSignature_ The verifier signature attesting to KYC status
+     * @param signatureExpiration_ The expiration timestamp of the signature
      * @dev Reverts if commitment token is not NATIVE_ASSET
      */
     function increaseCommitmentNative(
-        bytes calldata verifyingSignature_
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
     ) external payable;
 
     /**
      * @notice Increases commitment using ERC20 tokens
      * @param increaseAmount_ Amount to increase commitment by
      * @param verifyingSignature_ The verifier signature attesting to KYC status
+     * @param signatureExpiration_ The expiration timestamp of the signature
      * @dev Reverts if commitment token is NATIVE_ASSET
      */
     function increaseCommitmentERC20(
         uint256 increaseAmount_,
-        bytes calldata verifyingSignature_
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
     ) external;
 
     /**

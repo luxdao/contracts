@@ -47,9 +47,11 @@ contract KYCVerifierV1 is
 
     address private immutable VERIFIER;
 
+    mapping(address account => uint256 nonce) private _nonces;
+
     bytes32 internal constant TYPEHASH =
         keccak256(
-            "VerificationData(address operatingContract,address account)"
+            "VerificationData(address operator,address account,uint48 signatureExpiration,uint256 nonce)"
         );
 
     // ======================================================================
@@ -68,30 +70,66 @@ contract KYCVerifierV1 is
 
     /**
      * @inheritdoc IKYCVerifierV1
-     * @dev Verifies KYC status using EIP-712 signature verification. The signature
-     * must be provided by the authorized verifier address to confirm KYC compliance.
      */
-    function verify(
-        address operatingContract_,
-        address account_,
-        bytes calldata signature_
-    ) public view virtual override returns (bool) {
-        return
-            ECDSA.recover(
-                _hashTypedDataV4(
-                    keccak256(
-                        abi.encode(TYPEHASH, operatingContract_, account_)
-                    )
-                ),
-                signature_
-            ) == VERIFIER;
+    function verifier() public view virtual override returns (address) {
+        return VERIFIER;
     }
 
     /**
      * @inheritdoc IKYCVerifierV1
      */
-    function verifier() public view virtual override returns (address) {
-        return VERIFIER;
+    function nonce(
+        address account_
+    ) public view virtual override returns (uint256) {
+        return _nonces[account_];
+    }
+
+    // --- State-Changing Functions ---
+
+    /**
+     * @inheritdoc IKYCVerifierV1
+     * @dev Verifies KYC status using EIP-712 signature verification. The signature
+     * must be provided by the authorized verifier address to confirm KYC compliance.
+     */
+    function verify(
+        address account_,
+        uint48 signatureExpiration_,
+        bytes calldata signature_
+    ) public virtual override {
+        if (block.timestamp > signatureExpiration_) {
+            revert SignatureExpired();
+        }
+
+        uint256 accountNonce = _nonces[account_];
+
+        if (
+            ECDSA.recover(
+                _hashTypedDataV4(
+                    keccak256(
+                        abi.encode(
+                            TYPEHASH,
+                            msg.sender,
+                            account_,
+                            signatureExpiration_,
+                            accountNonce
+                        )
+                    )
+                ),
+                signature_
+            ) == VERIFIER
+        ) {
+            // KYC signature is valid
+            _nonces[account_]++;
+
+            emit SignatureVerified(
+                msg.sender,
+                account_,
+                signatureExpiration_,
+                accountNonce
+            );
+        } else {
+            revert InvalidSignature();
+        }
     }
 
     // ======================================================================

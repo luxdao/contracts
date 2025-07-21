@@ -107,16 +107,18 @@ contract PublicSaleV1 is
      * @notice Ensures the caller has passed KYC verification
      * @dev Calls the KYC verifier contract to check verification status
      * @param verifyingSignature_ The verifier signature attesting to KYC status
+     * @param signatureExpiration_ The expiration timestamp of the signature
      */
-    modifier isKYCVerified(bytes calldata verifyingSignature_) {
+    modifier isKYCVerified(
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
+    ) {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
-        if (
-            !IKYCVerifierV1($.kycVerifier).verify(
-                address(this),
-                msg.sender,
-                verifyingSignature_
-            )
-        ) revert KYCVerificationFailed();
+        IKYCVerifierV1($.kycVerifier).verify(
+            msg.sender,
+            signatureExpiration_,
+            verifyingSignature_
+        );
         _;
     }
 
@@ -449,8 +451,15 @@ contract PublicSaleV1 is
      * @inheritdoc IPublicSaleV1
      */
     function increaseCommitmentNative(
-        bytes calldata verifyingSignature_
-    ) public payable virtual override isKYCVerified(verifyingSignature_) {
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
+    )
+        public
+        payable
+        virtual
+        override
+        isKYCVerified(verifyingSignature_, signatureExpiration_)
+    {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.commitmentToken != NATIVE_ASSET) revert InvalidCommitmentToken();
@@ -463,8 +472,14 @@ contract PublicSaleV1 is
      */
     function increaseCommitmentERC20(
         uint256 increaseAmount_,
-        bytes calldata verifyingSignature_
-    ) public virtual override isKYCVerified(verifyingSignature_) {
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
+    )
+        public
+        virtual
+        override
+        isKYCVerified(verifyingSignature_, signatureExpiration_)
+    {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.commitmentToken == NATIVE_ASSET) revert InvalidCommitmentToken();
