@@ -72,6 +72,84 @@ describe('KYCVerifierV1', () => {
       expect(await kycVerifier.nonce(alice.address)).to.equal(1n);
     });
 
+    it('should return true from checkVerify when the signature is valid', async () => {
+      const domain = {
+        name: 'KYCVerifier',
+        version: '1',
+        chainId: await ethers.provider.getNetwork().then(n => n.chainId),
+        verifyingContract: await kycVerifier.getAddress(),
+      };
+
+      const types = {
+        VerificationData: [
+          { name: 'operator', type: 'address' },
+          { name: 'account', type: 'address' },
+          { name: 'signatureExpiration', type: 'uint48' },
+          { name: 'nonce', type: 'uint256' },
+        ],
+      };
+
+      const currentNonce = await kycVerifier.nonce(alice.address);
+      const signatureExpiration = (await time.latest()) + 3600;
+
+      const verificationMessage = {
+        operator: mockOperatingContract.address,
+        account: alice.address,
+        signatureExpiration: signatureExpiration,
+        nonce: currentNonce,
+      };
+
+      const verifyingSignature = await verifier.signTypedData(domain, types, verificationMessage);
+
+      expect(
+        await kycVerifier.checkVerify(
+          mockOperatingContract.address,
+          alice.address,
+          signatureExpiration,
+          verifyingSignature,
+        ),
+      ).to.be.true;
+    });
+
+    it('should return false from checkVerify when the signature is invalid', async () => {
+      const domain = {
+        name: 'KYCVerifier',
+        version: '1',
+        chainId: await ethers.provider.getNetwork().then(n => n.chainId),
+        verifyingContract: await kycVerifier.getAddress(),
+      };
+
+      const types = {
+        VerificationData: [
+          { name: 'operator', type: 'address' },
+          { name: 'account', type: 'address' },
+          { name: 'signatureExpiration', type: 'uint48' },
+          { name: 'nonce', type: 'uint256' },
+        ],
+      };
+
+      const currentNonce = await kycVerifier.nonce(alice.address);
+      const signatureExpiration = (await time.latest()) - 3600;
+
+      const verificationMessage = {
+        operator: mockOperatingContract.address,
+        account: alice.address,
+        signatureExpiration: signatureExpiration,
+        nonce: currentNonce,
+      };
+
+      const verifyingSignature = await verifier.signTypedData(domain, types, verificationMessage);
+
+      expect(
+        await kycVerifier.checkVerify(
+          mockOperatingContract.address,
+          alice.address,
+          signatureExpiration,
+          verifyingSignature,
+        ),
+      ).to.be.false;
+    });
+
     it('should revert when the signature is invalid', async () => {
       const domain = {
         name: 'KYCVerifier',

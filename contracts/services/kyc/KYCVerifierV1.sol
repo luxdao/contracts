@@ -84,6 +84,36 @@ contract KYCVerifierV1 is
         return _nonces[account_];
     }
 
+    /**
+     * @inheritdoc IKYCVerifierV1
+     */
+    function checkVerify(
+        address operator_,
+        address account_,
+        uint48 signatureExpiration_,
+        bytes calldata signature_
+    ) public view virtual override returns (bool) {
+        if (block.timestamp > signatureExpiration_) {
+            return false;
+        }
+
+        return
+            ECDSA.recover(
+                _hashTypedDataV4(
+                    keccak256(
+                        abi.encode(
+                            TYPEHASH,
+                            operator_,
+                            account_,
+                            signatureExpiration_,
+                            _nonces[account_]
+                        )
+                    )
+                ),
+                signature_
+            ) == VERIFIER;
+    }
+
     // --- State-Changing Functions ---
 
     /**
