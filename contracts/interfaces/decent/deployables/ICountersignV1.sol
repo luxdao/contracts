@@ -46,9 +46,6 @@ interface ICountersignV1 {
     /** @notice Thrown when executing without all required signers having signed */
     error RequiredSignerNotSigned(address signer);
 
-    /** @notice Thrown when KYC verification fails for a signer */
-    error InvalidKYCSignature();
-
     /** @notice Thrown when a required signer's transaction bundle fails during execution */
     error RequiredSignerTxFailed(address signer);
 
@@ -252,13 +249,18 @@ interface ICountersignV1 {
      * @dev Caller must be in the signers list and pass KYC verification.
      * Can only be called during the signing period (before signingDeadline).
      * Each signer can only sign once.
+     * @param verifyingSignature_ The verifier signature attesting to KYC status
+     * @param signatureExpiration_ The expiration timestamp of the signature
      * @custom:throws InvalidSigner if caller is not a valid signer
      * @custom:throws SigningDeadlineElapsed if past the signing deadline
      * @custom:throws SignerAlreadySigned if caller has already signed
-     * @custom:throws InvalidKYCSignature if KYC verification fails
+     * @custom:throws KYCVerificationFailed if KYC verification fails
      * @custom:emits Signed when signature is recorded
      */
-    function sign() external;
+    function sign(
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
+    ) external;
 
     /**
      * @notice Executes the agreement after signing period ends
