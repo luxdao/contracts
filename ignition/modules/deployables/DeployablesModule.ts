@@ -80,6 +80,6 @@ export default buildModule('Deployables', m => {
 
     warrantHedgeyV1,
 
-    publicSaleV1
+    publicSaleV1,
   };
 });
