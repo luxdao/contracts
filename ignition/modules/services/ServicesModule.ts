@@ -1,5 +1,4 @@
 import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
-// eslint-disable-next-line import/no-extraneous-dependencies
 import { vars } from 'hardhat/config';
 
 export default buildModule('Services', m => {
