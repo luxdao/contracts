@@ -111,7 +111,7 @@ The codebase is organized into four distinct contract categories based on deploy
 ### 4. Services (`contracts/services/`)
 
 - **Deployment**: One instance per chain
-- **Characteristics**: Stateless, referenced by multiple DAO deployable contracts
+- **Characteristics**: Referenced by multiple DAO deployable contracts
 - **Examples**:
   - StrategyV1ValidatorV1: Validates strategy voting for account abstraction
   - KYCVerifierV1: Provides KYC verification services

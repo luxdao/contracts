@@ -106,11 +106,19 @@ contract PublicSaleV1 is
     /**
      * @notice Ensures the caller has passed KYC verification
      * @dev Calls the KYC verifier contract to check verification status
+     * @param verifyingSignature_ The verifier signature attesting to KYC status
+     * @param signatureExpiration_ The expiration timestamp of the signature
      */
-    modifier isKYCVerified() {
+    modifier isKYCVerified(
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
+    ) {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
-        if (!IKYCVerifierV1($.kycVerifier).verify(msg.sender))
-            revert KYCVerificationFailed();
+        IKYCVerifierV1($.kycVerifier).verify(
+            msg.sender,
+            signatureExpiration_,
+            verifyingSignature_
+        );
         _;
     }
 
@@ -442,12 +450,15 @@ contract PublicSaleV1 is
     /**
      * @inheritdoc IPublicSaleV1
      */
-    function increaseCommitmentNative()
+    function increaseCommitmentNative(
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
+    )
         public
         payable
         virtual
         override
-        isKYCVerified
+        isKYCVerified(verifyingSignature_, signatureExpiration_)
     {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
@@ -460,8 +471,15 @@ contract PublicSaleV1 is
      * @inheritdoc IPublicSaleV1
      */
     function increaseCommitmentERC20(
-        uint256 increaseAmount_
-    ) public virtual override isKYCVerified {
+        uint256 increaseAmount_,
+        bytes calldata verifyingSignature_,
+        uint48 signatureExpiration_
+    )
+        public
+        virtual
+        override
+        isKYCVerified(verifyingSignature_, signatureExpiration_)
+    {
         PublicSaleStorage storage $ = _getPublicSaleStorage();
 
         if ($.commitmentToken == NATIVE_ASSET) revert InvalidCommitmentToken();
@@ -500,15 +518,15 @@ contract PublicSaleV1 is
             revert MinimumCommitment();
         }
 
-        uint256 decreaseCommitmentFee = (decreaseAmount_ *
+        uint256 _decreaseCommitmentFee = (decreaseAmount_ *
             $.decreaseCommitmentFee) / PRECISION;
 
         // update state
         $.commitments[msg.sender] -= decreaseAmount_;
         $.totalCommitments -= decreaseAmount_;
-        $.collectedDecreaseCommitmentFees += decreaseCommitmentFee;
+        $.collectedDecreaseCommitmentFees += _decreaseCommitmentFee;
 
-        uint256 receivedAmount = decreaseAmount_ - decreaseCommitmentFee;
+        uint256 receivedAmount = decreaseAmount_ - _decreaseCommitmentFee;
 
         // transfer commitment token to msg.sender
         _transferTokenOrNative($.commitmentToken, recipient_, receivedAmount);
@@ -579,9 +597,9 @@ contract PublicSaleV1 is
                 );
             }
 
-            uint256 protocolFee = (commitmentTokenAmount * $.protocolFee) /
+            uint256 _protocolFee = (commitmentTokenAmount * $.protocolFee) /
                 PRECISION;
-            uint256 saleProceeds = commitmentTokenAmount - protocolFee;
+            uint256 saleProceeds = commitmentTokenAmount - _protocolFee;
 
             // send (commitments + decrease commitment fees - protocol fee) to saleProceedsReceiver
             _transferTokenOrNative(
@@ -594,13 +612,13 @@ contract PublicSaleV1 is
             _transferTokenOrNative(
                 $.commitmentToken,
                 $.protocolFeeReceiver,
-                protocolFee
+                _protocolFee
             );
 
             emit SuccessfulSaleOwnerSettled(
                 msg.sender,
                 saleProceeds,
-                protocolFee
+                _protocolFee
             );
         } else if (state == SaleState.FAILED) {
             // transfer entire balance of sale tokens to saleProceedsReceiver
@@ -614,19 +632,19 @@ contract PublicSaleV1 is
             );
 
             // transfer collected decrease commitment fees to saleProceedsReceiver
-            uint256 collectedDecreaseCommitmentFees = $
+            uint256 _collectedDecreaseCommitmentFees = $
                 .collectedDecreaseCommitmentFees;
 
             _transferTokenOrNative(
                 $.commitmentToken,
                 $.saleProceedsReceiver,
-                collectedDecreaseCommitmentFees
+                _collectedDecreaseCommitmentFees
             );
 
             emit FailedSaleOwnerSettled(
                 msg.sender,
                 saleTokenAmount,
-                collectedDecreaseCommitmentFees
+                _collectedDecreaseCommitmentFees
             );
         } else {
             revert SaleNotEnded();
