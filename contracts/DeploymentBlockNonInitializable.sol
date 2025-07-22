@@ -34,7 +34,7 @@ abstract contract DeploymentBlockNonInitializable is IDeploymentBlock {
     // STATE VARIABLES
     // ======================================================================
 
-    uint256 private _deploymentBlock;
+    uint256 private immutable _deploymentBlock;
 
     // ======================================================================
     // CONSTRUCTOR
