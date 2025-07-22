@@ -34,40 +34,7 @@ abstract contract DeploymentBlockNonInitializable is IDeploymentBlock {
     // STATE VARIABLES
     // ======================================================================
 
-    /**
-     * @notice Main storage struct for DeploymentBlockNonInitializable following EIP-7201
-     * @dev Stores the block number when the contract was deployed
-     * @custom:storage-location erc7201:Decent.DeploymentBlockNonInitializable.main
-     */
-    struct DeploymentBlockNonInitializableStorage {
-        /** @notice The block number when this contract was deployed */
-        uint256 deploymentBlock;
-    }
-
-    /**
-     * @dev Storage slot for DeploymentBlockNonInitializableStorage calculated using EIP-7201 formula:
-     * keccak256(abi.encode(uint256(keccak256("Decent.DeploymentBlockNonInitializable.main")) - 1)) & ~bytes32(uint256(0xff))
-     */
-    bytes32
-        internal
-        constant DEPLOYMENT_BLOCK_NON_INITIALIZABLE_STORAGE_LOCATION =
-            0xc876427e52b318a712159f977ed7a1e39aae5351664dbef5e7bad41bfb337800;
-
-    /**
-     * @dev Returns the storage struct for DeploymentBlockNonInitializable
-     * Following the EIP-7201 namespaced storage pattern to avoid storage collisions
-     * @return $ The storage struct for DeploymentBlockNonInitializable
-     */
-    function _getDeploymentBlockNonInitializableStorage()
-        internal
-        pure
-        returns (DeploymentBlockNonInitializableStorage storage $)
-    {
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            $.slot := DEPLOYMENT_BLOCK_NON_INITIALIZABLE_STORAGE_LOCATION
-        }
-    }
+    uint256 private immutable _deploymentBlock;
 
     // ======================================================================
     // CONSTRUCTOR
@@ -79,9 +46,7 @@ abstract contract DeploymentBlockNonInitializable is IDeploymentBlock {
      * is deployed. This happens once and the value is immutable.
      */
     constructor() {
-        DeploymentBlockNonInitializableStorage
-            storage $ = _getDeploymentBlockNonInitializableStorage();
-        $.deploymentBlock = block.number;
+        _deploymentBlock = block.number;
     }
 
     // ======================================================================
@@ -94,8 +59,6 @@ abstract contract DeploymentBlockNonInitializable is IDeploymentBlock {
      * @inheritdoc IDeploymentBlock
      */
     function deploymentBlock() public view virtual override returns (uint256) {
-        DeploymentBlockNonInitializableStorage
-            storage $ = _getDeploymentBlockNonInitializableStorage();
-        return $.deploymentBlock;
+        return _deploymentBlock;
     }
 }
