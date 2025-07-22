@@ -50,7 +50,7 @@
       }
     },
     {
-      "files": ["hardhat.config.ts", "*.config.ts", "scripts/**/*.ts"],
+      "files": ["hardhat.config.ts", "*.config.ts", "scripts/**/*.ts", "ignition/**/*.ts"],
       "rules": {
         "import/no-extraneous-dependencies": ["error", { "devDependencies": true }]
       }
