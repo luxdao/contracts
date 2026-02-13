@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-01-29T18:14:56.063Z",
+  "chainId": 1337,
+  "daos": [
+    {
+      "name": "Lux Treasury (Multisig)",
+      "type": "multisig",
+      "safeAddress": "0xd4997b4eab86f59234695fcdc8b91f6cd960fb99"
+    },
+    {
+      "name": "Lux Governance (ERC20 Governor)",
+      "type": "governor_erc20",
+      "safeAddress": "0x6aabdd35d2d0b1ba26e08417a92c0794f4763eeb",
+      "tokenAddress": "0x720472c8ce72c2a2d711333e064abd3e6bbeadd3"
+    },
+    {
+      "name": "Lux Council (ERC721 Governor)",
+      "type": "governor_erc721",
+      "safeAddress": "0x006d24aa9342477242a0f273f69e0abf2aeda615",
+      "tokenAddress": "0xc0f115a19107322cfbf1cdbc7ea011c19ebdb4f8"
+    }
+  ],
+  "accounts": {
+    "deployer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    "signers": [
+      "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+      "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
+    ],
+    "tokenHolders": [
+      "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
+    ]
+  }
+}
