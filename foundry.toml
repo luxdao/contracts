@@ -1,0 +1,39 @@
+[profile.default]
+src = "src"
+test = "foundry-test"
+script = "foundry-script"
+out = "out-foundry"
+libs = ["lib", "../../standard/lib", "../../standard/contracts"]
+allow_paths = ["../../standard"]
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+solc_version = "0.8.31"
+auto_detect_solc = true
+evm_version = "cancun"
+
+# Consume Safe + DAO + Quasar signers directly from luxfi/standard.
+# Single source of truth. No local copies of safe/dao contracts in this repo.
+remappings = [
+    "@luxfi/standard/=../../standard/contracts/",
+    "@luxfi/contracts/=../../standard/contracts/",
+    "@safe-global/safe-smart-account/=../../standard/lib/safe-smart-account/contracts/",
+    "@gnosis.pm/safe-contracts/=../../standard/lib/safe-smart-account/contracts/",
+    "safe-smart-account/=../../standard/lib/safe-smart-account/contracts/",
+    "@openzeppelin/contracts/=../../standard/lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=../../standard/lib/openzeppelin-contracts-upgradeable/contracts/",
+    "forge-std/=../../standard/lib/forge-std/src/",
+]
+
+ignored_warnings_from = ["../../standard/lib/**"]
+
+[profile.default.fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+
+[rpc_endpoints]
+lux = "https://api.lux.network/ext/bc/C/rpc"
+lux_testnet = "https://api.lux-test.network/ext/bc/C/rpc"
+lux_devnet = "${DEVNET_RPC}"
+lux_local = "http://127.0.0.1:9650/ext/bc/C/rpc"
