@@ -193,7 +193,7 @@ async function main() {
   const outputDir = path.join(__dirname, '../deployments');
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const outputPath = path.join(outputDir, `localhost-${parseInt(chainId as string, 16)}.json`);
+  const outputPath = path.join(outputDir, `${connection.networkName}.json`);
   fs.writeFileSync(outputPath, JSON.stringify(deploymentInfo, null, 2));
 
   console.log('\n=== Deployment Complete ===');

@@ -79,7 +79,7 @@ const config: HardhatUserConfig = {
       },
       type: 'http',
     },
-    lux_mainnet: {
+    'lux-mainnet': {
       chainId: 96369,
       url: process.env.LUX_MAINNET_PROVIDER || 'https://api.lux.network',
       accounts: {
@@ -87,7 +87,7 @@ const config: HardhatUserConfig = {
       },
       type: 'http',
     },
-    lux_testnet: {
+    'lux-testnet': {
       chainId: 96368,
       url: process.env.LUX_TESTNET_PROVIDER || 'https://testnet.api.lux.network',
       accounts: {
@@ -106,7 +106,7 @@ const config: HardhatUserConfig = {
     localhost: {
       chainId: 1337, // Anvil default chain ID
       url: process.env.RPC_URL || 'http://127.0.0.1:8545',
-      accounts: process.env.PRIVATE_KEY 
+      accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
         : [
           // Anvil default accounts
@@ -114,6 +114,25 @@ const config: HardhatUserConfig = {
           '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
           '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
         ],
+      type: 'http',
+    },
+    'lux-local': {
+      chainId: 31337,
+      url: process.env.LUX_LOCAL_PROVIDER || 'http://127.0.0.1:9630/ext/bc/C/rpc',
+      accounts: {
+        mnemonic: process.env.MNEMONIC || 'light light light light light light light light light light light energy',
+      },
+      gasPrice: 30_000_000_000,
+      gas: 'auto',
+      timeout: 600_000,
+      type: 'http',
+    },
+    'lux-devnet': {
+      chainId: 96370,
+      url: process.env.LUX_DEVNET_PROVIDER || 'https://devnet.api.lux.network',
+      accounts: {
+        mnemonic: process.env.MNEMONIC || 'light light light light light light light light light light light energy',
+      },
       type: 'http',
     },
   },
