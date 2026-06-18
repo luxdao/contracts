@@ -25,7 +25,6 @@ contract MinimalUpgradeableContract is UUPSUpgradeable, OwnableUpgradeable {
      * Empty initializer that sets only minimal state
      */
     function initializeEmpty() public initializer {
-        __UUPSUpgradeable_init();
         __Ownable_init(msg.sender);
         isInitialized = true;
     }
@@ -37,7 +36,6 @@ contract MinimalUpgradeableContract is UUPSUpgradeable, OwnableUpgradeable {
     function initializeWithLargeData(
         string calldata _largeData
     ) public initializer {
-        __UUPSUpgradeable_init();
         __Ownable_init(msg.sender);
         isInitialized = true;
         largeData = _largeData;

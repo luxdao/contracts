@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   FreezeVotingStandaloneV1,
@@ -20,6 +18,7 @@ import {
   MockVotingWeight__factory,
 } from '../../../../typechain-types';
 import { IVotingTypes } from '../../../../typechain-types/contracts/interfaces/dao/deployables/IFreezeVotingStandaloneV1';
+import { ethers, loadFixture, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -397,7 +396,7 @@ describe('FreezeVotingStandaloneV1', () => {
 
       // Now voter2 should be able to vote on the new proposal
       await expect(standaloneFreezeVoting.connect(voter2).castUnfreezeVote(votingConfigData, 0n))
-        .not.to.be.reverted;
+        .not.to.be.revert(ethers);
 
       // Verify votes reset and accumulated correctly
       const newProposalVotes = await standaloneFreezeVoting.getUnfreezeProposalVotes();

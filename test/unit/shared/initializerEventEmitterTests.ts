@@ -1,4 +1,4 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import type { BaseContract, Interface, TransactionReceipt } from 'ethers';
 import { ERC1967Proxy__factory } from '../../../typechain-types';

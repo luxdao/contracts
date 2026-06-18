@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IDeploymentBlock__factory,
@@ -23,6 +21,7 @@ import {
   IStrategyV1,
   IVotingTypes,
 } from '../../../../typechain-types/contracts/interfaces/dao/deployables/IStrategyV1';
+import { ethers, time } from '../../../helpers/network';
 import {
   deployMockERC20VotingConfig,
   deployMockERC721VotingConfig,

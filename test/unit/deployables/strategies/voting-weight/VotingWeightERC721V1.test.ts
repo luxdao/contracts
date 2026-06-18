@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   VotingWeightERC721V1,
   VotingWeightERC721V1__factory,
@@ -14,6 +12,7 @@ import {
   IVersion__factory,
   IDeploymentBlock__factory,
 } from '../../../../../typechain-types';
+import { ethers, loadFixture } from '../../../../helpers/network';
 import { runSupportsInterfaceTests } from '../../../shared/supportsInterfaceTests';
 
 describe('VotingWeightERC721V1', () => {
@@ -158,7 +157,7 @@ describe('VotingWeightERC721V1', () => {
       const voteData = '0x1234';
 
       await expect(votingWeight.calculateWeight(voter1.address, timestamp, voteData)).to.be
-        .reverted;
+        .revert(ethers);
     });
 
     it('should handle large number of NFTs', async () => {

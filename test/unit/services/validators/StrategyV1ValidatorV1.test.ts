@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   IDeploymentBlock__factory,
   IERC165__factory,
@@ -12,6 +11,7 @@ import {
   StrategyV1ValidatorV1__factory,
 } from '../../../../typechain-types';
 import { IVotingTypes } from '../../../../typechain-types/contracts/interfaces/dao/deployables/IStrategyV1';
+import { ethers } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
@@ -123,7 +123,7 @@ describe('StrategyV1ValidatorV1', function () {
           await mockStrategy.getAddress(),
           calldata,
         ),
-      ).to.not.be.reverted;
+      ).to.not.be.revert(ethers);
 
       const isValid = await validator.validateOperation(
         ethers.ZeroAddress,

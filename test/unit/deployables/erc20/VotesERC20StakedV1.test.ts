@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IDeploymentBlock__factory,
@@ -15,6 +13,7 @@ import {
   VotesERC20StakedV1,
   VotesERC20StakedV1__factory,
 } from '../../../../typechain-types';
+import { ethers, mine, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -1171,7 +1170,7 @@ describe('VotesERC20StakedV1', () => {
       let aliceLastStakeTimestamp = await time.latest();
 
       await votesERC20Staked.connect(bob).stake(ethers.parseEther('30'));
-      let bobLastStakeTimestamp = await time.latest();
+      const bobLastStakeTimestamp = await time.latest();
 
       // Staked amounts
       // Staker  |  Staked amount  |  Staked percentage

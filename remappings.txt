@@ -1,8 +1,0 @@
-@luxfi/standard/=../../standard/contracts/
-@luxfi/contracts/=../../standard/contracts/
-@safe-global/safe-smart-account/=../../standard/lib/safe-smart-account/contracts/
-@gnosis.pm/safe-contracts/=../../standard/lib/safe-smart-account/contracts/
-safe-smart-account/=../../standard/lib/safe-smart-account/contracts/
-@openzeppelin/contracts/=../../standard/lib/openzeppelin-contracts/contracts/
-@openzeppelin/contracts-upgradeable/=../../standard/lib/openzeppelin-contracts-upgradeable/contracts/
-forge-std/=../../standard/lib/forge-std/src/

@@ -1,6 +1,4 @@
-import { loadFixture, mine, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ClockModeLibTester,
   ClockModeLibTester__factory,
@@ -13,6 +11,7 @@ import {
   MockTimestampToken,
   MockTimestampToken__factory,
 } from '../../../typechain-types';
+import { ethers, loadFixture, mine, time } from '../../helpers/network';
 
 // Define ClockMode enum to match Solidity for convenience
 enum ClockMode {

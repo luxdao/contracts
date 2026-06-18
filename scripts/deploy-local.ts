@@ -1,16 +1,17 @@
-import { ethers } from "hardhat";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
+import hre from "hardhat";
 
 async function main() {
   console.log("🚀 Starting contract deployment to local network...");
-  
+
   // Support both local and Docker environments
   const network = process.env.NETWORK || "localhost";
   const rpcUrl = process.env.RPC_URL || "http://localhost:8545";
   console.log("🌐 Network:", network);
   console.log("🌐 RPC URL:", rpcUrl);
-  
+
+  const { ethers } = await hre.network.connect();
   const [deployer] = await ethers.getSigners();
   console.log("📍 Deploying contracts with account:", deployer.address);
   

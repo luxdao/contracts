@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   PublicSaleV1,
   PublicSaleV1__factory,
@@ -16,6 +14,7 @@ import {
   IDeploymentBlock__factory,
   IERC165__factory,
 } from '../../../../typechain-types';
+import { ethers, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -1311,7 +1310,7 @@ describe('PublicSaleV1', () => {
         publicSale
           .connect(alice)
           .increaseCommitmentERC20(ethers.parseEther('100'), ethers.getBytes('0x'), 0n),
-      ).to.not.be.reverted;
+      ).to.not.be.revert(ethers);
     });
 
     it('should block commitment increases when KYC fails', async () => {
@@ -1336,11 +1335,11 @@ describe('PublicSaleV1', () => {
       // Decrease should work
       await expect(
         publicSale.connect(alice).decreaseCommitment(ethers.parseEther('50'), alice.address),
-      ).to.not.be.reverted;
+      ).to.not.be.revert(ethers);
 
       // Move to end and settle should work
       await time.increaseTo(Number(defaultParams.saleEndTimestamp) + 1);
-      await expect(publicSale.connect(alice).settle(alice.address)).to.not.be.reverted;
+      await expect(publicSale.connect(alice).settle(alice.address)).to.not.be.revert(ethers);
     });
   });
 
@@ -1356,7 +1355,7 @@ describe('PublicSaleV1', () => {
         'OwnableUnauthorizedAccount',
       );
 
-      await expect(publicSale.connect(owner).ownerSettle()).to.not.be.reverted;
+      await expect(publicSale.connect(owner).ownerSettle()).to.not.be.revert(ethers);
     });
 
     it('should allow ownership transfer using Ownable2Step pattern', async () => {

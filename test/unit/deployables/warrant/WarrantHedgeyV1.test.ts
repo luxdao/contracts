@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   WarrantHedgeyV1,
   WarrantHedgeyV1__factory,
@@ -18,6 +16,7 @@ import {
   IVersion__factory,
 } from '../../../../typechain-types';
 import { IWarrantHedgeyV1 } from '../../../../typechain-types/contracts/interfaces/dao/deployables/IWarrantHedgeyV1';
+import { ethers, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';

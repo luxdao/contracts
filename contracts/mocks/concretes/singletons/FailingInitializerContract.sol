@@ -25,7 +25,6 @@ contract FailingInitializerContract is UUPSUpgradeable, OwnableUpgradeable {
     function initialize(bool shouldFail) public initializer {
         require(!shouldFail, "Initialization failed as requested");
 
-        __UUPSUpgradeable_init();
         __Ownable_init(msg.sender);
         isInitialized = true;
     }

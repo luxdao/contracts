@@ -1,5 +1,4 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { ethers } from 'hardhat';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import {
   MockERC20Votes,
   MockERC20Votes__factory,
@@ -10,6 +9,7 @@ import {
   MockVotingWeight,
   MockVotingWeight__factory,
 } from '../../typechain-types';
+import { ethers } from './network';
 
 // ======================================================================
 // INTERFACES

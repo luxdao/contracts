@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   ModuleGovernorV1,
@@ -19,6 +17,7 @@ import {
   MockAvatar,
   MockAvatar__factory,
 } from '../../typechain-types';
+import { ethers, time } from '../helpers/network';
 
 /**
  * E2E Integration Tests for Lux DAO Governance
@@ -117,9 +116,10 @@ describe('Governance E2E Integration', () => {
 
       console.log('VotesToken deployed:', await votesToken.getAddress());
 
-      // Deploy VotingWeight proxy
+      // Deploy VotingWeight proxy (1:1 weight so voting power equals token balance)
       const votingWeightInitData = VotingWeightERC20V1__factory.createInterface().encodeFunctionData('initialize', [
         await votesToken.getAddress(),
+        1n, // weightPerToken
       ]);
 
       const votingWeightProxy = await new ERC1967Proxy__factory(deployer).deploy(
@@ -127,20 +127,6 @@ describe('Governance E2E Integration', () => {
         votingWeightInitData
       );
       votingWeight = VotingWeightERC20V1__factory.connect(await votingWeightProxy.getAddress(), deployer);
-
-      // Deploy VoteTracker proxy
-      const voteTrackerInitData = VoteTrackerERC20V1__factory.createInterface().encodeFunctionData('initialize', [
-        await votesToken.getAddress(),
-        VOTING_PERIOD,
-        QUORUM_NUMERATOR,
-        BASIS_NUMERATOR,
-      ]);
-
-      const voteTrackerProxy = await new ERC1967Proxy__factory(deployer).deploy(
-        await voteTrackerImpl.getAddress(),
-        voteTrackerInitData
-      );
-      voteTracker = VoteTrackerERC20V1__factory.connect(await voteTrackerProxy.getAddress(), deployer);
 
       // Deploy ProposerAdapter proxy
       const proposerAdapterInitData = ProposerAdapterERC20V1__factory.createInterface().encodeFunctionData('initialize', [
@@ -154,12 +140,14 @@ describe('Governance E2E Integration', () => {
       );
       proposerAdapter = ProposerAdapterERC20V1__factory.connect(await proposerAdapterProxy.getAddress(), deployer);
 
-      // Deploy Strategy proxy
+      // Deploy Strategy proxy. The strategy owns the voting period / quorum /
+      // basis configuration and the set of proposer adapters.
       const strategyInitData = StrategyV1__factory.createInterface().encodeFunctionData('initialize', [
-        ethers.ZeroAddress, // governor (set later)
-        await votingWeight.getAddress(),
-        await voteTracker.getAddress(),
-        await proposerAdapter.getAddress(),
+        VOTING_PERIOD,
+        QUORUM_NUMERATOR,
+        BASIS_NUMERATOR,
+        [await proposerAdapter.getAddress()],
+        ethers.ZeroAddress, // lightAccountFactory (not used in this flow)
       ]);
 
       const strategyProxy = await new ERC1967Proxy__factory(deployer).deploy(
@@ -167,6 +155,17 @@ describe('Governance E2E Integration', () => {
         strategyInitData
       );
       strategy = StrategyV1__factory.connect(await strategyProxy.getAddress(), deployer);
+
+      // Deploy VoteTracker proxy, authorizing the strategy to record votes.
+      const voteTrackerInitData = VoteTrackerERC20V1__factory.createInterface().encodeFunctionData('initialize', [
+        [await strategy.getAddress()],
+      ]);
+
+      const voteTrackerProxy = await new ERC1967Proxy__factory(deployer).deploy(
+        await voteTrackerImpl.getAddress(),
+        voteTrackerInitData
+      );
+      voteTracker = VoteTrackerERC20V1__factory.connect(await voteTrackerProxy.getAddress(), deployer);
 
       // Deploy Governor proxy
       const governorInitData = ModuleGovernorV1__factory.createInterface().encodeFunctionData('initialize', [
@@ -186,8 +185,14 @@ describe('Governance E2E Integration', () => {
 
       console.log('Governor deployed:', await governor.getAddress());
 
-      // Set governor on strategy
-      await strategy.setGovernor(await governor.getAddress());
+      // Finalize strategy: set the Governor as the strategy admin and register
+      // the (votingWeight, voteTracker) voting configuration.
+      await strategy.initialize2(await governor.getAddress(), [
+        {
+          votingWeight: await votingWeight.getAddress(),
+          voteTracker: await voteTracker.getAddress(),
+        },
+      ]);
 
       // Enable governor module on Safe
       await safe.enableModule(await governor.getAddress());
@@ -218,9 +223,9 @@ describe('Governance E2E Integration', () => {
     });
 
     it('should allow creating a proposal', async () => {
-      // Verify proposer has enough tokens
-      const proposerBalance = await votesToken.balanceOf(proposer.address);
-      expect(proposerBalance).to.be.gte(PROPOSER_THRESHOLD);
+      // Verify proposer has enough voting power (delegated) to meet the threshold
+      const proposerVotes = await votesToken.getVotes(proposer.address);
+      expect(proposerVotes).to.be.gte(PROPOSER_THRESHOLD);
 
       // Create a simple transfer proposal
       const transferAmount = ethers.parseEther('1000');
@@ -229,7 +234,7 @@ describe('Governance E2E Integration', () => {
         transferAmount,
       ]);
 
-      // Build proposal transactions
+      // Build proposal transactions (Transaction = { to, value, data, operation })
       const transactions = [{
         to: await votesToken.getAddress(),
         value: 0n,
@@ -237,33 +242,34 @@ describe('Governance E2E Integration', () => {
         operation: 0, // Call
       }];
 
-      // Submit proposal
+      // Submit proposal through the ERC20 proposer adapter (empty adapter data)
       const tx = await governor.connect(proposer).submitProposal(
         transactions,
         'Proposal 1: Transfer tokens to voter1',
-        'ipfs://QmTest123', // metadata URI
+        await proposerAdapter.getAddress(),
+        '0x',
       );
 
       const receipt = await tx.wait();
       console.log('Proposal created, tx hash:', receipt?.hash);
 
-      // Get proposal ID
-      const proposalCount = await governor.proposalCount();
-      expect(proposalCount).to.equal(1);
+      // One proposal now exists
+      expect(await governor.totalProposalCount()).to.equal(1);
     });
 
     it('should allow voting on proposal', async () => {
-      const proposalId = 0; // First proposal
+      const proposalId = 0; // First proposal (0-indexed)
 
       // Move time forward to start voting period
       await time.increase(1); // Small increase to ensure proposal is active
 
-      // Vote FOR
-      await governor.connect(voter1).vote(proposalId, 1); // 1 = FOR
-      await governor.connect(voter2).vote(proposalId, 1); // 1 = FOR
+      // ERC20 votes carry no per-config vote data; a single config at index 0.
+      const voteData = [{ configIndex: 0, voteData: '0x' }];
 
-      // Vote AGAINST
-      await governor.connect(voter3).vote(proposalId, 0); // 0 = AGAINST
+      // Cast votes through the strategy (1 = YES, 0 = NO)
+      await strategy.connect(voter1).castVote(proposalId, 1, voteData, 0);
+      await strategy.connect(voter2).castVote(proposalId, 1, voteData, 0);
+      await strategy.connect(voter3).castVote(proposalId, 0, voteData, 0);
 
       // Check vote counts
       const proposal = await governor.getProposal(proposalId);

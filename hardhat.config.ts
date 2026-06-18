@@ -1,12 +1,26 @@
-import '@nomicfoundation/hardhat-ignition-ethers';
-import '@nomicfoundation/hardhat-verify';
-import '@nomicfoundation/hardhat-ethers';
-import { HardhatUserConfig } from 'hardhat/config';
+import path from 'node:path';
+import hardhatEthers from '@nomicfoundation/hardhat-ethers';
+import hardhatEthersChaiMatchers from '@nomicfoundation/hardhat-ethers-chai-matchers';
+import hardhatIgnitionEthers from '@nomicfoundation/hardhat-ignition-ethers';
+import hardhatMocha from '@nomicfoundation/hardhat-mocha';
+import hardhatNetworkHelpers from '@nomicfoundation/hardhat-network-helpers';
+import hardhatTypechain from '@nomicfoundation/hardhat-typechain';
+import hardhatVerify from '@nomicfoundation/hardhat-verify';
 import dotenv from 'dotenv';
+import { HardhatUserConfig } from 'hardhat/config';
 
 dotenv.config();
 
 const config: HardhatUserConfig = {
+  plugins: [
+    hardhatEthers,
+    hardhatEthersChaiMatchers,
+    hardhatIgnitionEthers,
+    hardhatNetworkHelpers,
+    hardhatTypechain,
+    hardhatVerify,
+    hardhatMocha,
+  ],
   solidity: {
     compilers: [
       {
@@ -39,6 +53,21 @@ const config: HardhatUserConfig = {
     ],
   },
   networks: {
+    // Default in-memory EDR network used by the Mocha test-suite.
+    // - gasMultiplier gives `eth_estimateGas` headroom for the nested low-level
+    //   delegatecalls in the deployer/roles flows; with the default of 1 the
+    //   inner call hits the EIP-150 63/64 rule and reverts.
+    // - blockGasLimit is raised to 30M (vs the 16.7M default).
+    // - transactionGasCap: false disables the EIP-7825 (Osaka) 16,777,216
+    //   per-transaction cap so the large-initialization-data and Safe
+    //   `execTransaction` deployment paths fit under the block gas limit.
+    default: {
+      type: 'edr-simulated',
+      chainId: 31337,
+      gasMultiplier: 1.5,
+      blockGasLimit: 30_000_000,
+      transactionGasCap: false,
+    },
     sepolia: {
       chainId: 11155111,
       url: process.env.SEPOLIA_PROVIDER || 'https://ethereum-sepolia-rpc.publicnode.com',
@@ -150,6 +179,9 @@ const config: HardhatUserConfig = {
           '0x0000000000000000000000000000000000000000000000000000000000000000',
       },
     },
+  },
+  typechain: {
+    outDir: path.join(import.meta.dirname, 'typechain-types'),
   },
 };
 

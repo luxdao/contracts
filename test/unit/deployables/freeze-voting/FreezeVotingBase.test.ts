@@ -1,12 +1,11 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ConcreteFreezeVotingBase,
   ConcreteFreezeVotingBase__factory,
   ERC1967Proxy__factory,
 } from '../../../../typechain-types';
+import { ethers, time } from '../../../helpers/network';
 
 // Helper function for deploying ConcreteBaseFreezeVoting instances using ERC1967Proxy
 async function deployConcreteBaseFreezeVotingProxy(

@@ -20,3 +20,4 @@ index.ts
 /.claude
 *.local.*
 out-foundry/
+typechain-types/

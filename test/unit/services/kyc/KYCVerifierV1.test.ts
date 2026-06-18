@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   IDeploymentBlock__factory,
   IERC165__factory,
@@ -10,6 +8,7 @@ import {
   KYCVerifierV1,
   KYCVerifierV1__factory,
 } from '../../../../typechain-types';
+import { ethers, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
 
@@ -84,7 +83,7 @@ describe('KYCVerifierV1', () => {
         kycVerifier
           .connect(mockOperatingContract)
           .verify(alice.address, signatureExpiration, verifyingSignature),
-      ).to.not.be.reverted;
+      ).to.not.be.revert(ethers);
 
       // Alice nonce should be incremented
       expect(await kycVerifier.nonce(alice.address)).to.equal(1n);

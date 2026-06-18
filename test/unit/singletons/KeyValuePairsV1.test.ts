@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   IDeploymentBlock__factory,
   IKeyValuePairsV1__factory,
@@ -8,6 +7,7 @@ import {
   KeyValuePairsV1,
   KeyValuePairsV1__factory,
 } from '../../../typechain-types';
+import { ethers } from '../../helpers/network';
 import { runDeploymentBlockTests } from '../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
 
@@ -49,7 +49,7 @@ describe('KeyValuePairsV1', function () {
     it('should work with empty arrays', async function () {
       const keyValuePairsData: { key: string; value: string }[] = [];
 
-      await expect(keyValuePairs.connect(user).updateValues(keyValuePairsData)).to.not.be.reverted;
+      await expect(keyValuePairs.connect(user).updateValues(keyValuePairsData)).to.not.be.revert(ethers);
     });
   });
 

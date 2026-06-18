@@ -1,12 +1,12 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import type { ContractTransactionReceipt } from 'ethers';
-import { ethers } from 'hardhat';
 import {
   ConcreteInitializerEventEmitter,
   ConcreteInitializerEventEmitter__factory,
   ERC1967Proxy__factory,
 } from '../../typechain-types';
+import { ethers } from '../helpers/network';
 
 describe('InitializerEventEmitter', () => {
   let deployer: SignerWithAddress;

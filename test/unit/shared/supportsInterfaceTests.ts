@@ -14,7 +14,7 @@ function calculateInterfaceId(
   interfaceObj: Interface,
   inheritedInterfacesArray?: Interface[],
 ): string {
-  let inheritedSelectors = new Set<string>();
+  const inheritedSelectors = new Set<string>();
 
   if (inheritedInterfacesArray && inheritedInterfacesArray.length > 0) {
     for (const inheritedInterface of inheritedInterfacesArray) {

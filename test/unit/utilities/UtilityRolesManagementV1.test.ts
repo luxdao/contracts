@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC165__factory,
   IDeploymentBlock__factory,
@@ -26,6 +25,7 @@ import {
   UtilityRolesManagementV1,
   UtilityRolesManagementV1__factory,
 } from '../../../typechain-types';
+import { ethers } from '../../helpers/network';
 import { runDeploymentBlockTests } from '../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
 
@@ -510,7 +510,7 @@ describe('UtilityRolesManagementV1', () => {
         ]);
 
         // Verify the transaction succeeded (no revert)
-        await expect(tx).to.not.be.reverted;
+        await expect(tx).to.not.be.revert(ethers);
 
         // Verify the withdrawable amount is now 0 (observable state change)
         expect(await mockSablier.withdrawableAmountOf(streamId)).to.equal(0);
@@ -527,7 +527,7 @@ describe('UtilityRolesManagementV1', () => {
             streamId,
             recipient.address,
           ]),
-        ).to.not.be.reverted;
+        ).to.not.be.revert(ethers);
       });
 
       it('should handle multiple stream withdrawals', async () => {
@@ -544,7 +544,7 @@ describe('UtilityRolesManagementV1', () => {
           ]);
 
           // Verify transaction succeeded
-          await expect(tx).to.not.be.reverted;
+          await expect(tx).to.not.be.revert(ethers);
 
           // Verify the stream was withdrawn
           expect(await mockSablier.withdrawableAmountOf(i)).to.equal(0);
@@ -570,7 +570,7 @@ describe('UtilityRolesManagementV1', () => {
         ]);
 
         // Verify transaction succeeded
-        await expect(tx).to.not.be.reverted;
+        await expect(tx).to.not.be.revert(ethers);
 
         // For cancellable statuses, verify the stream status is now CANCELED
         if (shouldCancel) {
@@ -648,7 +648,7 @@ describe('UtilityRolesManagementV1', () => {
             ]),
             1,
           ),
-        ).to.be.reverted;
+        ).to.be.revert(ethers);
       });
     });
   });

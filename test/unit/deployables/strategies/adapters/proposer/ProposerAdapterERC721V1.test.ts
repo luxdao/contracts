@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IDeploymentBlock__factory,
@@ -13,6 +12,7 @@ import {
   ProposerAdapterERC721V1,
   ProposerAdapterERC721V1__factory,
 } from '../../../../../../typechain-types';
+import { ethers } from '../../../../../helpers/network';
 import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';

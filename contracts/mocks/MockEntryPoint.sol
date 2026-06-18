@@ -19,6 +19,10 @@ contract MockEntryPoint is IEntryPoint, ERC165 {
         return balances[account];
     }
 
+    function senderCreator() external pure returns (ISenderCreator) {
+        return ISenderCreator(address(0));
+    }
+
     function addStake(uint32 unstakeDelaySec) external payable {
         stakes[msg.sender] = msg.value;
         unstakeDelaySecs[msg.sender] = unstakeDelaySec;

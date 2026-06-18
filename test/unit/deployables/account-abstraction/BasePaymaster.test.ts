@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ConcreteBasePaymaster,
   ConcreteBasePaymaster__factory,
@@ -10,6 +9,7 @@ import {
   MockValidator,
   MockValidator__factory,
 } from '../../../../typechain-types';
+import { ethers } from '../../../helpers/network';
 
 interface PackedUserOperation {
   sender: string;
@@ -156,7 +156,7 @@ describe('BasePaymaster', function () {
     it('Should allow deposits', async function () {
       const depositAmount = ethers.parseEther('1');
 
-      await expect(concretePaymaster.deposit({ value: depositAmount })).to.not.be.reverted;
+      await expect(concretePaymaster.deposit({ value: depositAmount })).to.not.be.revert(ethers);
 
       expect(await concretePaymaster.getDeposit()).to.equal(depositAmount);
     });
@@ -186,11 +186,11 @@ describe('BasePaymaster', function () {
       const unstakeDelaySec = 86400; // 1 day
 
       await expect(concretePaymaster.addStake(unstakeDelaySec, { value: stakeAmount })).to.not.be
-        .reverted;
+        .revert(ethers);
     });
 
     it('Should allow owner to unlock stake', async function () {
-      await expect(concretePaymaster.unlockStake()).to.not.be.reverted;
+      await expect(concretePaymaster.unlockStake()).to.not.be.revert(ethers);
     });
 
     it('Should allow owner to withdraw stake', async function () {
@@ -202,7 +202,7 @@ describe('BasePaymaster', function () {
       await concretePaymaster.unlockStake();
 
       // Now we can withdraw (note: in a real scenario, we'd need to wait for unstake delay)
-      await expect(concretePaymaster.withdrawStake(owner.address)).to.not.be.reverted;
+      await expect(concretePaymaster.withdrawStake(owner.address)).to.not.be.revert(ethers);
     });
 
     it('Should revert when non-owner tries to add stake', async function () {
@@ -276,7 +276,7 @@ describe('BasePaymaster', function () {
           100000n,
           1000n,
         ),
-      ).to.not.be.reverted;
+      ).to.not.be.revert(ethers);
 
       await ethers.provider.send('hardhat_stopImpersonatingAccount', [
         await entryPoint.getAddress(),
@@ -365,14 +365,14 @@ describe('BasePaymaster', function () {
     });
 
     it('Should handle zero-value deposits', async function () {
-      await expect(concretePaymaster.deposit({ value: 0 })).to.not.be.reverted;
+      await expect(concretePaymaster.deposit({ value: 0 })).to.not.be.revert(ethers);
       expect(await concretePaymaster.getDeposit()).to.equal(0);
     });
 
     it('Should allow anyone to deposit', async function () {
       const depositAmount = ethers.parseEther('1');
       await expect(concretePaymaster.connect(nonOwner).deposit({ value: depositAmount })).to.not.be
-        .reverted;
+        .revert(ethers);
       expect(await concretePaymaster.getDeposit()).to.equal(depositAmount);
     });
 
@@ -406,7 +406,7 @@ describe('BasePaymaster', function () {
 
       // This will revert at the EntryPoint level
       await expect(concretePaymaster.withdrawTo(nonOwner.address, ethers.parseEther('2'))).to.be
-        .reverted;
+        .revert(ethers);
     });
   });
 });

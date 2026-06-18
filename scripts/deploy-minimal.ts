@@ -1,12 +1,13 @@
+import { writeFileSync } from "node:fs";
 import hre from "hardhat";
-const { ethers } = hre;
 
 async function main() {
   console.log("🚀 Minimal contract deployment for testing...");
-  
+
+  const { ethers } = await hre.network.connect();
   const [deployer] = await ethers.getSigners();
   console.log("📍 Deploying with account:", deployer.address);
-  
+
   try {
     // Deploy a simple test contract
     console.log("\n📦 Deploying KeyValuePairs...");
@@ -17,14 +18,13 @@ async function main() {
     console.log("   ✅ KeyValuePairs deployed to:", kvAddress);
 
     // Save minimal deployment info
-    const fs = require("fs");
     const deploymentInfo = {
       KeyValuePairs: { address: kvAddress },
       network: "localhost",
       timestamp: new Date().toISOString()
     };
     
-    fs.writeFileSync(
+    writeFileSync(
       "./deployments/localhost.json",
       JSON.stringify(deploymentInfo, null, 2)
     );

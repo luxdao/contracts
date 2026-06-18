@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   VotingWeightERC20V1,
   VotingWeightERC20V1__factory,
@@ -14,6 +12,7 @@ import {
   IVersion__factory,
   IDeploymentBlock__factory,
 } from '../../../../../typechain-types';
+import { ethers, loadFixture, time } from '../../../../helpers/network';
 import { runSupportsInterfaceTests } from '../../../shared/supportsInterfaceTests';
 
 describe('VotingWeightERC20V1', () => {
