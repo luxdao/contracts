@@ -29,7 +29,6 @@ contract UpgradeContractV1 is UUPSUpgradeable, OwnableUpgradeable {
         string calldata _name,
         address _owner
     ) public virtual initializer {
-        __UUPSUpgradeable_init();
         __Ownable_init(_owner);
         name = _name;
     }

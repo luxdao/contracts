@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IDeploymentBlock,
@@ -16,6 +15,7 @@ import {
   ModuleFractalV1__factory,
   UUPSUpgradeable,
 } from '../../../../typechain-types';
+import { ethers } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import {
   ContractFactory,

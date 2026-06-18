@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ConcreteLightAccountValidator,
   ConcreteLightAccountValidator__factory,
@@ -14,6 +13,7 @@ import {
   MockLightAccountFactory,
   MockLightAccountFactory__factory,
 } from '../../../../typechain-types';
+import { ethers } from '../../../helpers/network';
 
 interface PackedUserOperation {
   sender: string;

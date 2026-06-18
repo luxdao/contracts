@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IDeploymentBlock,
@@ -19,6 +17,7 @@ import {
   ModuleGovernorV1__factory,
   UUPSUpgradeable,
 } from '../../../../typechain-types';
+import { ethers, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import {
   ContractFactory,
@@ -556,7 +555,7 @@ describe('ModuleGovernorV1', () => {
           .submitProposal([proposalTx], 'Test proposal', ethers.ZeroAddress, ethers.ZeroHash);
 
         // Try to access an invalid tx index
-        await expect(governor.getProposalTxHash(0, 999)).to.be.reverted; // Will revert with array out of bounds
+        await expect(governor.getProposalTxHash(0, 999)).to.be.revert(ethers); // Will revert with array out of bounds
       });
 
       it('should return correct hashes for multiple transactions', async () => {

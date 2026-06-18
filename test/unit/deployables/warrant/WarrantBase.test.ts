@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ConcreteWarrantBase,
   ConcreteWarrantBase__factory,
@@ -10,6 +9,7 @@ import {
   MockERC20Votes__factory,
   ERC1967Proxy__factory,
 } from '../../../../typechain-types';
+import { ethers } from '../../../helpers/network';
 
 // Time utilities
 const time = {

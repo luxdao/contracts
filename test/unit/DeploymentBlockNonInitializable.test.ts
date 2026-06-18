@@ -1,11 +1,10 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ConcreteDeploymentBlockNonInitializable,
   ConcreteDeploymentBlockNonInitializable__factory,
 } from '../../typechain-types';
+import { ethers, mine } from '../helpers/network';
 
 describe('DeploymentBlockNonInitializable', () => {
   let deployer: SignerWithAddress;

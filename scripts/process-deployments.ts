@@ -118,7 +118,7 @@ function processLegacyDeployments(): { abis: ABIs; addresses: LegacyAddresses } 
     try {
       chainId = fs.readFileSync(chainIdPath, 'utf8').trim();
     } catch (error) {
-      throw new Error(`Missing .chainId file for network ${network}.`);
+      throw new Error(`Missing .chainId file for network ${network}.`, { cause: error });
     }
 
     const files = fs
@@ -147,6 +147,7 @@ function processLegacyDeployments(): { abis: ABIs; addresses: LegacyAddresses } 
       } catch (error) {
         throw new Error(
           `Failed to process legacy deployment file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
         );
       }
     }
@@ -244,6 +245,7 @@ function processIgnitionDeployments(): {
           } catch (error) {
             throw new Error(
               `Failed to read artifact file ${artifactPath}: ${error instanceof Error ? error.message : String(error)}`,
+              { cause: error },
             );
           }
         }

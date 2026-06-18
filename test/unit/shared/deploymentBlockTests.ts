@@ -1,7 +1,6 @@
-import { mine } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import { IDeploymentBlock } from '../../../typechain-types';
+import { ethers, mine } from '../../helpers/network';
 
 /**
  * Shared test utilities for testing the DeploymentBlock functionality

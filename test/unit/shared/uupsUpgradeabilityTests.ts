@@ -1,6 +1,7 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import { UUPSUpgradeable, UUPSUpgradeable__factory } from '../../../typechain-types';
+import { ethers } from '../../helpers/network';
 
 /**
  * Shared test utilities for testing the UUPS upgradeability functionality
@@ -56,7 +57,7 @@ export function runUUPSUpgradeabilityTests(params: UUPSUpgradeabilityTestParams)
     // Call with empty bytes for the second parameter
     // We don't check for a specific event since some implementations might emit different events,
     // but we do check that it doesn't revert
-    await expect(upgradeableContract.upgradeToAndCall(newImplAddress, '0x')).to.not.be.reverted;
+    await expect(upgradeableContract.upgradeToAndCall(newImplAddress, '0x')).to.not.be.revert(ethers);
   });
 
   it('should not allow non-owners to authorize an upgrade', async () => {
@@ -73,6 +74,6 @@ export function runUUPSUpgradeabilityTests(params: UUPSUpgradeabilityTestParams)
     );
 
     // Call upgradeToAndCall as a non-owner - should be reverted
-    await expect(upgradeableContract.upgradeToAndCall(newImplAddress, '0x')).to.be.reverted;
+    await expect(upgradeableContract.upgradeToAndCall(newImplAddress, '0x')).to.be.revert(ethers);
   });
 }

@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   FreezeVotingMultisigV1,
@@ -20,6 +18,7 @@ import {
   MockSafe,
   MockSafe__factory,
 } from '../../../../typechain-types';
+import { ethers, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';

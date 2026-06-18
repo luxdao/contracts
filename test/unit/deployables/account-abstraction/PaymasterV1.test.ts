@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   PaymasterV1,
   PaymasterV1__factory,
@@ -23,6 +22,7 @@ import {
   MockValidator,
   MockValidator__factory,
 } from '../../../../typechain-types';
+import { ethers } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -314,7 +314,7 @@ describe('PaymasterV1', function () {
     it('Should accept deposits through deposit function', async function () {
       const depositAmount = ethers.parseEther('1');
 
-      await expect(daoPaymaster.deposit({ value: depositAmount })).to.changeEtherBalance(
+      await expect(daoPaymaster.deposit({ value: depositAmount })).to.changeEtherBalance(ethers, 
         entryPoint,
         depositAmount,
       );
@@ -328,13 +328,13 @@ describe('PaymasterV1', function () {
           to: await daoPaymaster.getAddress(),
           value: depositAmount,
         }),
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
 
     it('Should handle zero value deposits', async function () {
       const depositAmount = 0n;
 
-      await expect(daoPaymaster.deposit({ value: depositAmount })).to.changeEtherBalance(
+      await expect(daoPaymaster.deposit({ value: depositAmount })).to.changeEtherBalance(ethers, 
         entryPoint,
         depositAmount,
       );
@@ -343,7 +343,7 @@ describe('PaymasterV1', function () {
     it('Should handle large value deposits', async function () {
       const depositAmount = ethers.parseEther('1000');
 
-      await expect(daoPaymaster.deposit({ value: depositAmount })).to.changeEtherBalance(
+      await expect(daoPaymaster.deposit({ value: depositAmount })).to.changeEtherBalance(ethers, 
         entryPoint,
         depositAmount,
       );

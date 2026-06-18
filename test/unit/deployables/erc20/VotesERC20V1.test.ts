@@ -1,8 +1,6 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { mine, time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import type { ContractTransactionResponse } from 'ethers';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IAccessControl__factory,
@@ -16,6 +14,7 @@ import {
   VotesERC20V1,
   VotesERC20V1__factory,
 } from '../../../../typechain-types';
+import { ethers, mine, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -293,7 +292,7 @@ describe('VotesERC20V1', () => {
 
       describe('Trying to lock (despite being locked) should succeed', () => {
         it('should succeed', async () => {
-          await expect(proxy.connect(owner).lock(true)).to.not.be.reverted;
+          await expect(proxy.connect(owner).lock(true)).to.not.be.revert(ethers);
         });
       });
     });
@@ -335,7 +334,7 @@ describe('VotesERC20V1', () => {
 
       describe('Trying to unlock (despite being unlocked) should succeed', () => {
         it('should succeed', async () => {
-          await expect(proxy.connect(owner).lock(false)).to.not.be.reverted;
+          await expect(proxy.connect(owner).lock(false)).to.not.be.revert(ethers);
         });
       });
     });

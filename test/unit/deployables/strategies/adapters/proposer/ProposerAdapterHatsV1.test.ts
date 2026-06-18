@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   IDeploymentBlock__factory,
@@ -13,6 +12,7 @@ import {
   ProposerAdapterHatsV1,
   ProposerAdapterHatsV1__factory,
 } from '../../../../../../typechain-types';
+import { ethers } from '../../../../../helpers/network';
 import { runDeploymentBlockTests } from '../../../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../../../shared/supportsInterfaceTests';
@@ -159,10 +159,10 @@ describe('ProposerAdapterHatsV1', () => {
 
     it('should revert if data is not a valid abi-encoded uint256', async () => {
       // Empty data
-      await expect(adapter.isProposer(user1.address, '0x')).to.be.reverted;
+      await expect(adapter.isProposer(user1.address, '0x')).to.be.revert(ethers);
 
       // Data too short
-      await expect(adapter.isProposer(user1.address, '0x1234')).to.be.reverted;
+      await expect(adapter.isProposer(user1.address, '0x1234')).to.be.revert(ethers);
     });
   });
 

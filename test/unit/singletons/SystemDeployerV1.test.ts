@@ -1,8 +1,6 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { loadFixture } from '@nomicfoundation/hardhat-toolbox/network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import type { AddressLike, BigNumberish, ContractTransactionReceipt, Log } from 'ethers';
-import { ethers } from 'hardhat';
 import {
   ERC165__factory,
   FailingInitializerContract__factory,
@@ -51,6 +49,7 @@ import {
   VotingWeightERC721V1,
   VotingWeightERC721V1__factory,
 } from '../../../typechain-types';
+import { ethers, loadFixture } from '../../helpers/network';
 import { runDeploymentBlockTests } from '../shared/deploymentBlockTests';
 import { runSupportsInterfaceTests } from '../shared/supportsInterfaceTests';
 
@@ -581,7 +580,7 @@ async function findProxiesDeployed(params: {
   });
 
   // Find the proxy (matching the implementation address)
-  let proxyAddresses: string[] = [];
+  const proxyAddresses: string[] = [];
   for (const event of proxyDeployedEvents || []) {
     const parsedProxyEvent = fixtureData.systemDeployer.interface.parseLog({
       topics: event.topics,
@@ -2399,7 +2398,7 @@ describe('SystemDeployerV1', () => {
             freezeGuardGovernorParams;
 
           // now deploying should fail
-          await expect(deploySafeWithSetup(data)).to.be.reverted;
+          await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
         });
 
         it('reverts with FreezeGuardMultisig but no FreezeVoting contract', async () => {
@@ -2420,7 +2419,7 @@ describe('SystemDeployerV1', () => {
             freezeGuardMultisigParams;
 
           // now deploying should fail
-          await expect(deploySafeWithSetup(data)).to.be.reverted;
+          await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
         });
 
         it('succeeds with FreezeGuardMultisig and FreezeVotingMultisig contracts', async () => {
@@ -3157,7 +3156,7 @@ describe('SystemDeployerV1', () => {
                 data.setupSafeParams.governorGovernanceParams.votingConfigParams.votingConfigERC20V1Params[0].token =
                   ethers.ZeroAddress;
 
-                await expect(deploySafeWithSetup(data)).to.be.reverted;
+                await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
               });
             });
 
@@ -3645,7 +3644,7 @@ describe('SystemDeployerV1', () => {
                 data.setupSafeParams.governorGovernanceParams.proposerAdapterParams.proposerAdapterERC20V1Params[0].token =
                   ethers.ZeroAddress;
 
-                await expect(deploySafeWithSetup(data)).to.be.reverted;
+                await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
               });
             });
 
@@ -4152,7 +4151,7 @@ describe('SystemDeployerV1', () => {
                 ethers.ZeroAddress;
 
               // now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
 
             it('reverts if we deploy a FreezeGuardMultisig and BOTH FreezeVoting contracts', async () => {
@@ -4189,7 +4188,7 @@ describe('SystemDeployerV1', () => {
                 freezeVotingMultisigParams;
 
               // now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
 
             it('deploys with a FreezeGuardMultisig with FreezeVotingStandalone', async () => {
@@ -4292,7 +4291,7 @@ describe('SystemDeployerV1', () => {
                 await fixtureData.freezeVotingMultisigV1.getAddress();
 
               // Now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
           });
 
@@ -4433,7 +4432,7 @@ describe('SystemDeployerV1', () => {
                 ethers.ZeroAddress;
 
               // now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
 
             it('reverts if we deploy a FreezeGuardGovernor and BOTH FreezeVoting contracts', async () => {
@@ -4470,7 +4469,7 @@ describe('SystemDeployerV1', () => {
                 freezeVotingMultisigParams;
 
               // now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
 
             it('should revert when FreezeVotingStandalone is paired with FreezeGuardGovernor', async () => {
@@ -4510,7 +4509,7 @@ describe('SystemDeployerV1', () => {
                 await fixtureData.freezeVotingStandaloneV1.getAddress();
 
               // Now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
           });
 
@@ -4662,7 +4661,7 @@ describe('SystemDeployerV1', () => {
                 ethers.ZeroAddress;
 
               // now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
 
             it('reverts if we deploy both FreezeGuards and BOTH FreezeVoting contracts', async () => {
@@ -4700,7 +4699,7 @@ describe('SystemDeployerV1', () => {
                 freezeVotingMultisigParams;
 
               // now deploying should fail
-              await expect(deploySafeWithSetup(data)).to.be.reverted;
+              await expect(deploySafeWithSetup(data)).to.be.revert(ethers);
             });
           });
         });
@@ -4818,22 +4817,27 @@ describe('SystemDeployerV1', () => {
           expect(await proxy.owner()).to.equal(fixtureData.upgradeableContractOwner.address);
         });
 
-        it('should emit ProxyDeployed event even with empty initialization data', async () => {
+        it('should emit ProxyDeployed event with minimal initialization data', async () => {
           const salt = randomSalt();
-          const emptyInitData = '0x';
+          // OpenZeppelin 5.x ERC1967Proxy reverts with ERC1967ProxyUninitialized
+          // when constructed with empty data, so use the minimal valid initializer.
+          const minimalInitData =
+            MinimalUpgradeableContract__factory.createInterface().encodeFunctionData(
+              'initializeEmpty',
+            );
 
           const { tx } = await deployProxyViaSafe({
             systemDeployer: fixtureData.systemDeployer,
             safe: fixtureData.testSafe,
             owner: fixtureData.deployer,
             implementation: fixtureData.minimalImplementation,
-            initData: emptyInitData,
+            initData: minimalInitData,
             salt,
           });
 
           const predictedProxyAddress = await fixtureData.systemDeployer.predictProxyAddress(
             fixtureData.minimalImplementation,
-            emptyInitData,
+            minimalInitData,
             ethers.toBeHex(salt, 32),
             await fixtureData.testSafe.getAddress(),
           );
@@ -5088,7 +5092,7 @@ describe('SystemDeployerV1', () => {
 
           // Attempt to upgrade to a non-contract address
           await expect(fixtureData.upgradeableContract.upgradeToAndCall(nonContractAddress, '0x'))
-            .to.be.reverted;
+            .to.be.revert(ethers);
         });
       });
 
@@ -5374,8 +5378,12 @@ describe('SystemDeployerV1', () => {
 
       describe('Error Cases', () => {
         it('should revert when trying to deploy to zero address', async () => {
-          // Zero address has no code, so it should fail the code length check
-          const initData = '0x'; // Empty init data
+          // Minimal valid init data: OpenZeppelin 5.x ERC1967Proxy reverts with
+          // ERC1967ProxyUninitialized when constructed with empty data.
+          const initData =
+            MinimalUpgradeableContract__factory.createInterface().encodeFunctionData(
+              'initializeEmpty',
+            );
           const salt = randomSalt();
 
           const successParams = {

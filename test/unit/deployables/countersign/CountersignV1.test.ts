@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   CountersignV1,
   CountersignV1__factory,
@@ -17,6 +15,7 @@ import {
   MultiSendCallOnly,
   MultiSendCallOnly__factory,
 } from '../../../../typechain-types';
+import { ethers, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -736,10 +735,10 @@ describe('CountersignV1', () => {
 
       await countersign.connect(founder).execute();
 
-      let [, , , founderExecuted, , ,] = await countersign.signerData(founder.address);
-      let [, , , aliceExecuted, , ,] = await countersign.signerData(investorAlice.address);
-      let [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
-      let [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
+      const [, , , founderExecuted, , ,] = await countersign.signerData(founder.address);
+      const [, , , aliceExecuted, , ,] = await countersign.signerData(investorAlice.address);
+      const [, , , bobExecuted, , ,] = await countersign.signerData(investorBob.address);
+      const [, , , carolExecuted, , ,] = await countersign.signerData(investorCarol.address);
 
       expect(founderExecuted).to.be.false;
       expect(aliceExecuted).to.be.true;

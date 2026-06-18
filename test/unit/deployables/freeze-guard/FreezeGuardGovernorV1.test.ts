@@ -1,6 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   FreezeGuardGovernorV1,
@@ -14,6 +13,7 @@ import {
   MockFreezable,
   MockFreezable__factory,
 } from '../../../../typechain-types';
+import { ethers } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -160,7 +160,7 @@ describe('FreezeGuardGovernorV1', () => {
           '0x', // signatures
           ethers.ZeroAddress, // msgSender
         ),
-      ).not.to.be.reverted;
+      ).not.to.be.revert(ethers);
     });
 
     it('should revert transactions when DAO is frozen', async () => {
@@ -188,7 +188,7 @@ describe('FreezeGuardGovernorV1', () => {
     it('should not perform any checks after execution', async () => {
       // checkAfterExecution should not revert or do anything
       await expect(governorFreezeGuard.checkAfterExecution(ethers.randomBytes(32), true)).not.to.be
-        .reverted;
+        .revert(ethers);
     });
   });
 

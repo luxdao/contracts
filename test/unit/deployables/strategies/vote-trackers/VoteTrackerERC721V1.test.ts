@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   VoteTrackerERC721V1,
   VoteTrackerERC721V1__factory,
@@ -11,6 +9,7 @@ import {
   IVersion__factory,
   IDeploymentBlock__factory,
 } from '../../../../../typechain-types';
+import { ethers, loadFixture } from '../../../../helpers/network';
 import { runSupportsInterfaceTests } from '../../../shared/supportsInterfaceTests';
 
 describe('VoteTrackerERC721V1', () => {
@@ -72,7 +71,7 @@ describe('VoteTrackerERC721V1', () => {
       // This should not revert
       await expect(
         voteTracker.connect(authorizedCaller).recordVote(contextId, voter1.address, voteData),
-      ).to.not.be.reverted;
+      ).to.not.be.revert(ethers);
 
       // This should revert
       await expect(

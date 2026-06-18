@@ -1,7 +1,5 @@
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import type { HardhatEthersSigner as SignerWithAddress } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
 import {
   ERC1967Proxy__factory,
   FreezeGuardMultisigV1,
@@ -17,6 +15,7 @@ import {
   MockSafe,
   MockSafe__factory,
 } from '../../../../typechain-types';
+import { ethers, time } from '../../../helpers/network';
 import { runDeploymentBlockTests } from '../../shared/deploymentBlockTests';
 import { runInitializerEventEmitterTests } from '../../shared/initializerEventEmitterTests';
 import { runSupportsInterfaceTests } from '../../shared/supportsInterfaceTests';
@@ -267,7 +266,7 @@ describe('FreezeGuardMultisigV1', () => {
           invalidSignatures,
           nonce,
         ),
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
 
     it('should revert if trying to timelock when DAO is frozen', async () => {
@@ -426,7 +425,7 @@ describe('FreezeGuardMultisigV1', () => {
           mockSignatures,
           ethers.ZeroAddress,
         ),
-      ).not.to.be.reverted;
+      ).not.to.be.revert(ethers);
     });
 
     it('should revert if transaction was timelocked before the most recent freeze', async () => {
@@ -494,7 +493,7 @@ describe('FreezeGuardMultisigV1', () => {
           mockSignatures,
           ethers.ZeroAddress,
         ),
-      ).not.to.be.reverted;
+      ).not.to.be.revert(ethers);
     });
 
     it('should allow transaction if lastKnownFreezeTime returns 0 (never frozen)', async () => {
@@ -519,7 +518,7 @@ describe('FreezeGuardMultisigV1', () => {
           mockSignatures,
           ethers.ZeroAddress,
         ),
-      ).not.to.be.reverted;
+      ).not.to.be.revert(ethers);
     });
 
     it('should enforce security invariant across multiple freeze/unfreeze cycles', async () => {
@@ -616,7 +615,7 @@ describe('FreezeGuardMultisigV1', () => {
     it('should not perform any checks after execution', async () => {
       // This function in the contract doesn't do anything, so it should never revert
       await expect(multisigFreezeGuard.checkAfterExecution(ethers.randomBytes(32), true)).not.to.be
-        .reverted;
+        .revert(ethers);
     });
   });
 
