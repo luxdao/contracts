@@ -1,0 +1,19 @@
+@luxfi/contracts — NOTICE
+
+This repository is a derivative of DecentDAO's `decent-contracts`
+(https://github.com/decentdao/decent-contracts), which is licensed under the
+GNU Affero General Public License v3.0 (AGPL-3.0). As a derivative work, this
+repository and its Lux-authored governance additions are likewise licensed
+AGPL-3.0 — see LICENSE.
+
+The per-file `SPDX-License-Identifier` header is authoritative for each file.
+Some files are vendored from or derived from third-party projects and retain
+their original, separate licenses:
+
+  - OpenZeppelin Contracts             — MIT       (@openzeppelin/contracts)
+  - Gnosis Safe / Zodiac module base   — LGPL-3.0  (Safe singleton + guard patterns)
+  - eth-infinitism account-abstraction — GPL-3.0   (BasePaymaster and EntryPoint interfaces)
+  - Hedgey token vesting               — MIT       (lockup-plan test mocks)
+
+These third-party licenses are NOT changed. Where a file carries an SPDX header
+other than AGPL-3.0, that header governs that file.
