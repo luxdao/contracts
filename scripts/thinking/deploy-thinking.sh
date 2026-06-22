@@ -34,16 +34,23 @@ REG=$(create "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry")
 GOV=$(create "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
 OBS=$(create "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG")
 BRIDGE=$(create "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
+REP=$(create "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
 
 echo "== deployed =="
 echo "  registry    = $REG"
 echo "  governor    = $GOV"
 echo "  observatory = $OBS"
 echo "  bridge      = $BRIDGE"
+echo "  reputation  = $REP"
 
 # verify the stack is live: read overview() back from the chain
 echo "== verify (overview read back on-chain) =="
 cast call "$OBS" "overview()((uint256,uint256,uint256,uint256,uint256,uint256,uint256,address))" --rpc-url "$RPC"
 
+# record the deployment (gitignored dir is fine; this is a public address record)
+OUT="$CONTRACTS/deployments/thinking-${CHAINID}.json"
+mkdir -p "$CONTRACTS/deployments"
+python3 -c "import json,sys;json.dump({'chainId':int('$CHAINID'),'deployer':'$DEPLOYER','contracts':{'ProofOfThoughtRegistry':'$REG','ThinkingGovernor':'$GOV','ThinkingChainObservatory':'$OBS','GovernancePoTBridge':'$BRIDGE','ThinkingReputation':'$REP'}},open('$OUT','w'),indent=2)" && echo "recorded -> $OUT"
+
 echo "== DONE on chainId $CHAINID =="
-echo "DEPLOY_RESULT chainId=$CHAINID registry=$REG governor=$GOV observatory=$OBS bridge=$BRIDGE"
+echo "DEPLOY_RESULT chainId=$CHAINID registry=$REG governor=$GOV observatory=$OBS bridge=$BRIDGE reputation=$REP"
