@@ -115,6 +115,11 @@ const VERDICT = tup(
 const GOV_ABI = [
   { type:'function', name:'getVerdicts', stateMutability:'view', inputs:[u('uint256')], outputs:[{type:'tuple[]',components:VERDICT.components}] },
 ];
+// Proof-of-AI reputation (no slashing): earned weight, read from ThinkingReputation
+const REP = q.get('reputation') || '';
+const REP_ABI = [
+  { type:'function', name:'weightOf', stateMutability:'view', inputs:[u('address')], outputs:[u('uint32')] },
+];
 
 const client = createPublicClient({ transport: http(RPC) });
 const read = (fn,args=[]) => client.readContract({ address:OBS, abi:ABI, functionName:fn, args });
@@ -143,17 +148,26 @@ async function tick(){
         <td class="mono">${t.agreeCount}/${t.n} (≥${t.threshold})</td></tr>`;
     }).join('') : '<tr><td colspan="6" class="empty">no thoughts yet — run beluga-think-local.sh</td></tr>';
 
-    // each thinking-validator's own verdict on the latest thought — see the consensus form
+    // each thinking-validator's own verdict + earned Proof-of-AI reputation on the latest thought
     if (thoughts.length){
       if (!GOV_ADDR) GOV_ADDR = await read('governor');
       const latest = thoughts[0];
       const vs = await client.readContract({ address:GOV_ADDR, abi:GOV_ABI, functionName:'getVerdicts', args:[latest.taskId] });
       el('vhead').textContent = `Thinking validators — verdicts on thought #${latest.taskId} (${latest.knobKey})`;
-      el('verdicts').innerHTML = vs.length ? vs.map((v,i)=>{
-        const vt=VOTE[v.vote];
-        return `<div class="vcard"><div class="vi">validator ${i+1}</div><div class="mono">${short(v.operator)}</div>
-          <div class="vv v-${vt}">${vt}</div><div class="mono">${Number(v.confidenceBucket)/100}% confidence</div></div>`;
-      }).join('') : '<div class="empty">no verdicts submitted yet</div>';
+      if (!vs.length) { el('verdicts').innerHTML='<div class="empty">no verdicts submitted yet</div>'; }
+      else {
+        const cards = await Promise.all(vs.map(async (v,i)=>{
+          const vt=VOTE[v.vote];
+          let rep = '';
+          if (REP) { try {
+            const w = await client.readContract({address:REP, abi:REP_ABI, functionName:'weightOf', args:[v.operator]});
+            rep = `<div class="mono" style="color:var(--acc)">reputation ${Number(w)/100}%</div>`;
+          } catch(_){} }
+          return `<div class="vcard"><div class="vi">validator ${i+1}</div><div class="mono">${short(v.operator)}</div>
+            <div class="vv v-${vt}">${vt}</div><div class="mono">${Number(v.confidenceBucket)/100}% confidence</div>${rep}</div>`;
+        }));
+        el('verdicts').innerHTML = cards.join('');
+      }
     } else { el('verdicts').innerHTML='<div class="empty">—</div>'; }
 
     el('receipts').innerHTML = receipts.length ? receipts.map(r=>

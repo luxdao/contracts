@@ -63,7 +63,8 @@ REG=$(dep "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry")
 GOV=$(dep "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
 OBS=$(dep "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG")
 BRIDGE=$(dep "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
-echo "  registry=$REG"; echo "  governor=$GOV"; echo "  observatory=$OBS"; echo "  bridge=$BRIDGE"
+REP=$(dep "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")  # alpha=0.2 EMA
+echo "  registry=$REG"; echo "  governor=$GOV"; echo "  observatory=$OBS"; echo "  bridge=$BRIDGE"; echo "  reputation=$REP"
 
 # ---- register 5 thinking-validators (operators) ------------------------------
 say "registering 5 thinking-validators (1 LUX bond each)"
@@ -116,6 +117,19 @@ else
   echo "  (Safety property: no quorum -> no action.)"
 fi
 
+# ---- update Proof-of-AI reputation (no slashing: agree -> weight up) ----------
+say "updating thinking-validator reputation (Proof-of-AI; no slashing)"
+if cast send "$REP" "recordSettled(uint256)" "$TID" --private-key "$K0" --rpc-url "$RPC" >/dev/null 2>&1; then
+  for i in 0 1 2 3 4; do
+    OPADDR=$(cast wallet address --private-key "${OPS[$i]}")
+    W=$(cast call "$REP" "weightOf(address)(uint32)" "$OPADDR" --rpc-url "$RPC" 2>/dev/null | awk '{print $1}')
+    echo "  validator $((i+1))  $OPADDR  reputation=$(( ${W:-0} / 100 ))%"
+  done
+  echo "  (agree with the canonical decision -> weight rises toward 100%; diverge -> decays. Earned, never granted; bad nodes are routed around, not slashed.)"
+else
+  echo "  skipped — reputation updates only after a settled (quorum) decision."
+fi
+
 # ---- READ IT ALL BACK FROM THE CHAIN (the lux/dao visibility surface) --------
 say "ON-CHAIN RESULT (read via ThinkingChainObservatory)"
 TH=$(cast call "$GOV" "getThought(uint256)((bytes32,bytes32,bytes32,uint8,uint8,uint64,uint64,address,uint8,uint8,string,uint8,uint16,uint8,bytes32))" "$TID" --rpc-url "$RPC")
@@ -158,7 +172,7 @@ DASH_PORT="${BELUGA_DASH_PORT:-8750}"
 echo "visibility dashboard: scripts/thinking/observatory.html  (?rpc=$RPC&observatory=$OBS)"
 if [ "${BELUGA_KEEP:-0}" = "1" ]; then
   ( cd "$HERE" && python3 -m http.server "$DASH_PORT" >/tmp/beluga-dash.log 2>&1 & )
-  DASH_URL="http://127.0.0.1:${DASH_PORT}/observatory.html?rpc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$RPC")&observatory=$OBS"
+  DASH_URL="http://127.0.0.1:${DASH_PORT}/observatory.html?rpc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$RPC")&observatory=$OBS&reputation=$REP"
   echo "anvil kept alive at $RPC (pid $ANVIL_PID); Thinking Chain Observatory dashboard:"
   echo "  $DASH_URL"
   echo "(ctrl-C to stop both)"
