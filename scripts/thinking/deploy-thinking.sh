@@ -35,6 +35,12 @@ GOV=$(create "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 5
 OBS=$(create "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG")
 BRIDGE=$(create "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
 REP=$(create "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
+# Native coin: 1B cap, halving every 4y, burn tail (core paper Tokenomics).
+# admin = TREASURY (the DAO seat); minter = 0 here — governance wires it to the
+# settlement contract via setMinter() once the on-chain mint policy is ratified.
+AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$RPC" --mnemonic "$MN_FILE" --broadcast --json \
+         --constructor-args "AI" "AI" "$TREASURY" "0x0000000000000000000000000000000000000000" 2>/dev/null \
+         | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])')
 
 echo "== deployed =="
 echo "  registry    = $REG"
@@ -42,6 +48,7 @@ echo "  governor    = $GOV"
 echo "  observatory = $OBS"
 echo "  bridge      = $BRIDGE"
 echo "  reputation  = $REP"
+echo "  aicoin      = $AICOIN"
 
 # verify the stack is live: read overview() back from the chain
 echo "== verify (overview read back on-chain) =="
@@ -50,7 +57,7 @@ cast call "$OBS" "overview()((uint256,uint256,uint256,uint256,uint256,uint256,ui
 # record the deployment (gitignored dir is fine; this is a public address record)
 OUT="$CONTRACTS/deployments/thinking-${CHAINID}.json"
 mkdir -p "$CONTRACTS/deployments"
-python3 -c "import json,sys;json.dump({'chainId':int('$CHAINID'),'deployer':'$DEPLOYER','contracts':{'ProofOfThoughtRegistry':'$REG','ThinkingGovernor':'$GOV','ThinkingChainObservatory':'$OBS','GovernancePoTBridge':'$BRIDGE','ThinkingReputation':'$REP'}},open('$OUT','w'),indent=2)" && echo "recorded -> $OUT"
+python3 -c "import json,sys;json.dump({'chainId':int('$CHAINID'),'deployer':'$DEPLOYER','contracts':{'ProofOfThoughtRegistry':'$REG','ThinkingGovernor':'$GOV','ThinkingChainObservatory':'$OBS','GovernancePoTBridge':'$BRIDGE','ThinkingReputation':'$REP','AICoin':'$AICOIN'}},open('$OUT','w'),indent=2)" && echo "recorded -> $OUT"
 
 echo "== DONE on chainId $CHAINID =="
-echo "DEPLOY_RESULT chainId=$CHAINID registry=$REG governor=$GOV observatory=$OBS bridge=$BRIDGE reputation=$REP"
+echo "DEPLOY_RESULT chainId=$CHAINID registry=$REG governor=$GOV observatory=$OBS bridge=$BRIDGE reputation=$REP aicoin=$AICOIN"
