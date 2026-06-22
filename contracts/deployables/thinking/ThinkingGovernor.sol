@@ -73,11 +73,12 @@ contract ThinkingGovernor is
     /// keep the per-task array storage cheap.
     uint8 public constant MAX_COMMITTEE = 64;
 
-    /// @notice Voting-window bounds. A task cannot settle before its deadline unless
-    /// all n verdicts are in; the window must be sane (neither instant nor absurd) so
-    /// a griefer cannot force an empty/early settlement and an opener cannot lock a
-    /// task open forever.
-    uint64 public constant MIN_VOTING_WINDOW = 1 minutes;
+    /// @notice Voting-window bounds. A task ALWAYS settles only after its deadline
+    /// (no full-committee shortcut — that would let sybils saturate the committee and
+    /// settle before honest operators in other timezones can vote). The floor is set
+    /// high enough that a real global committee can run inference, sign, broadcast and
+    /// be included; an opener cannot pick a window too short to starve the quorum.
+    uint64 public constant MIN_VOTING_WINDOW = 1 hours;
     uint64 public constant MAX_VOTING_WINDOW = 30 days;
 
     /// @notice Domain tag for the verdict signature. Mirrors the Go operator's reveal
@@ -166,6 +167,12 @@ contract ThinkingGovernor is
         address keyValuePairs_
     ) {
         require(treasury_ != address(0) || openFee_ == 0, "openFee needs treasury");
+        require(treasury_ != address(this), "treasury cannot be self");
+        // A non-zero bond is what makes registration meaningful: it is the floor that
+        // distinguishes a registered operator from any unbonded address. With
+        // minBond == 0 the registry would be a no-op and unregistered addresses could
+        // vote. Forbid that config outright.
+        require(minBond_ > 0, "minBond must be > 0");
         _minBond = minBond_;
         deregisterCooldown = deregisterCooldown_;
         rewardPerThought = rewardPerThought_;
@@ -253,6 +260,9 @@ contract ThinkingGovernor is
             revert BadVotingWindow(votingWindow);
         }
         if (bytes(knobKey).length == 0) revert EmptyKnobKey();
+        // The treasury must not open thoughts: the fee would accrue to its own
+        // claimable balance, refunding the opener and nullifying the anti-sybil cost.
+        if (msg.sender == _treasury) revert OpenerIsTreasury(msg.sender);
         // Opener pays the refundable reward escrow PLUS the non-refundable open fee.
         if (msg.value != rewardPerThought + _openFee) {
             revert WrongOpenPayment(msg.value, rewardPerThought + _openFee);
@@ -354,16 +364,23 @@ contract ThinkingGovernor is
         address[] storage subs = _submitters[taskId];
         uint256 count = subs.length;
 
-        // Liveness gate: a task may only settle once its voting window has CLOSED, or
-        // earlier once ALL n committee slots are filled (nothing more can change the
-        // outcome). This blocks (a) settling an empty task to Failed, and (b) front-
-        // running the threshold-th honest vote to suppress a forming quorum.
-        if (count < t.n && block.timestamp < t.deadline) revert SettleTooEarly(taskId, t.deadline);
+        // Liveness gate: a task settles ONLY after its voting window has closed. There
+        // is NO full-committee shortcut: because any bonded operator may grab a slot
+        // first-come (no per-task allowlist), a "count == n" shortcut would let an
+        // attacker saturate the committee with sybils and settle before honest
+        // operators in other timezones can vote. Requiring the deadline always gives
+        // the whole committee the full window. (Settling an empty/under-quorum task
+        // after the deadline simply yields Failed — a legitimate "no decision".)
+        if (block.timestamp < t.deadline) revert SettleTooEarly(taskId, t.deadline);
 
-        // Tally by consensus key, counting ONLY verdicts from operators still
-        // eligible at settle time. A verdict from an operator that exited (bond < min
-        // or deregistering) after submitting is DROPPED — a zero-skin address cannot
-        // tip the canonical quorum. count <= n <= MAX_COMMITTEE bounds the O(n^2).
+        // Tally by consensus key, counting ONLY verdicts from operators that still
+        // have skin at settle time (bond >= minBond). A verdict from an operator that
+        // WITHDREW its bond after submitting is DROPPED — a zero-skin address cannot
+        // tip the canonical quorum. We key the drop on the BOND, not the deregister
+        // flag: a deregistered-but-still-bonded operator keeps capital at risk through
+        // settlement, so its vote legitimately counts and it cannot retroactively
+        // censor a decision it voted for merely by starting a withdrawal cooldown.
+        // count <= n <= MAX_COMMITTEE bounds the O(n^2).
         bytes32[] memory keys = new bytes32[](count);
         uint8[] memory tallies = new uint8[](count);
         uint256 distinct;
@@ -372,7 +389,7 @@ contract ThinkingGovernor is
         uint8 bestCount;
 
         for (uint256 i; i < count; ) {
-            if (!_eligible(subs[i])) {
+            if (!_bonded(subs[i])) {
                 unchecked {
                     ++i;
                 }
@@ -444,7 +461,7 @@ contract ThinkingGovernor is
         // Quorum reached. Decode the winning consensus key.
         (Vote winVote, uint16 winBucket) = _decodeKey(keys[bestIdx]);
 
-        // Collect the agreeing operators (eligibility re-checked, identical to the
+        // Collect the agreeing operators (bond re-checked, identical predicate to the
         // tally pass so agreeing.length == bestCount exactly) + fold their evidence
         // hashes into a root in submission order.
         address[] memory agreeing = new address[](bestCount);
@@ -452,7 +469,7 @@ contract ThinkingGovernor is
         uint256 a;
         for (uint256 i; i < count; ) {
             address opAddr = subs[i];
-            if (_eligible(opAddr)) {
+            if (_bonded(opAddr)) {
                 Verdict storage v = _verdicts[taskId][opAddr];
                 if (_consensusKey(v.vote, v.confidenceBucket) == keys[bestIdx]) {
                     agreeing[a] = opAddr;
@@ -696,12 +713,25 @@ contract ThinkingGovernor is
         return _thoughts[taskId];
     }
 
-    /// @dev Eligibility: bonded at/above minBond AND not deregistering. An operator
-    /// in cooldown (deregisterAt != 0) is excluded from new verdicts even though
-    /// its bond is still locked.
-    function _eligible(address who) private view returns (bool) {
+    /// @dev Skin-in-the-game at SETTLE time: a NON-ZERO bond at/above minBond. The
+    /// `bond != 0` floor is load-bearing independent of minBond — it distinguishes a
+    /// registered operator from the zero Operator struct of an address that never
+    /// bonded, so an unregistered address is never counted even under a minBond == 0
+    /// config. Deliberately does NOT consider the deregister flag: a deregistered-but-
+    /// bonded operator still has capital at risk through settlement, so its already-
+    /// cast verdict counts. Only a fully-WITHDRAWN operator (bond -> 0) is dropped.
+    /// This stops a quorum member from censoring a decision it voted for by merely
+    /// starting a withdrawal cooldown, while preserving the zero-skin-drop protection.
+    function _bonded(address who) private view returns (bool) {
         Operator storage op = _operators[who];
-        return op.bond >= _minBond && op.bond != 0 && op.deregisterAt == 0;
+        return op.bond != 0 && op.bond >= _minBond;
+    }
+
+    /// @dev Eligibility to SUBMIT a new verdict: bonded (see {_bonded}) AND not in a
+    /// withdrawal cooldown. Composed on _bonded so the non-zero floor can never be
+    /// forgotten in one predicate but not the other.
+    function _eligible(address who) private view returns (bool) {
+        return _bonded(who) && _operators[who].deregisterAt == 0;
     }
 
     function _consensusHash(
