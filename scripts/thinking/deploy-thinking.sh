@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# deploy-thinking.sh — deploy the Thinking Chains AI-mining + governance stack to
+# a Lux C-Chain (devnet -> testnet -> mainnet). Reads the deployer mnemonic from a
+# 600-perm file (NEVER from argv/stdout); pays gas in the chain's native LUX.
+#
+#   Usage:  RPC=<c-chain-rpc> [MN_FILE=/tmp/.luxmn] [TREASURY=0x..] deploy-thinking.sh
+#
+# Deploys: ProofOfThoughtRegistry, ThinkingGovernor, ThinkingChainObservatory,
+# GovernancePoTBridge — the same stack proven locally (105 tests) + verified on
+# anvil + the native hanzo-engine governance round.
+set -euo pipefail
+export PATH="$HOME/.foundry/bin:$PATH" FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+HERE="$(cd "$(dirname "$0")" && pwd)"; CONTRACTS="$(cd "$HERE/../.." && pwd)"; cd "$CONTRACTS"
+T="contracts/deployables/thinking"
+
+: "${RPC:?set RPC to the target C-Chain rpc url}"
+MN_FILE="${MN_FILE:-/tmp/.luxmn}"
+[ -r "$MN_FILE" ] || { echo "mnemonic file $MN_FILE not readable — see handoff instructions"; exit 1; }
+# foundry --mnemonic accepts a FILE PATH; the seed never enters argv/env/stdout.
+
+# deployer address (no secret printed) + preflight: chain id + balance for gas
+DEPLOYER="$(cast wallet address --mnemonic "$MN_FILE")"
+CHAINID="$(cast chain-id --rpc-url "$RPC")"
+BAL="$(cast balance "$DEPLOYER" --rpc-url "$RPC")"
+echo "network chainId=$CHAINID  deployer=$DEPLOYER  balance=${BAL} wei"
+[ "$BAL" = "0" ] && { echo "ABORT: deployer has 0 balance on $RPC (needs native LUX for gas)"; exit 1; }
+
+TREASURY="${TREASURY:-$DEPLOYER}"
+create(){ forge create "$1" --rpc-url "$RPC" --mnemonic "$MN_FILE" --broadcast --json ${2:+--constructor-args $2} 2>/dev/null \
+          | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])'; }
+
+echo "== deploying Thinking Chains AI-mining + governance stack =="
+REG=$(create "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry")
+GOV=$(create "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
+OBS=$(create "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG")
+BRIDGE=$(create "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
+
+echo "== deployed =="
+echo "  registry    = $REG"
+echo "  governor    = $GOV"
+echo "  observatory = $OBS"
+echo "  bridge      = $BRIDGE"
+
+# verify the stack is live: read overview() back from the chain
+echo "== verify (overview read back on-chain) =="
+cast call "$OBS" "overview()((uint256,uint256,uint256,uint256,uint256,uint256,uint256,address))" --rpc-url "$RPC"
+
+echo "== DONE on chainId $CHAINID =="
+echo "DEPLOY_RESULT chainId=$CHAINID registry=$REG governor=$GOV observatory=$OBS bridge=$BRIDGE"
