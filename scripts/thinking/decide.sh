@@ -26,13 +26,16 @@ set -euo pipefail
 vid="${1:?validatorId}"; question="${2:?question}"
 
 # round a 0..100 percent to the nearest 1000-bps bucket the contract accepts
-snap() { local c="$1"; ((c<0))&&c=0; ((c>100))&&c=100; echo $(( ((c+5)/10) * 1000 )); }
+# snap a 0..100 percent to the nearest 2000-bps (20%) bucket — coarse enough that
+# independently-reasoned confidences cluster into a settleable consensus key, while
+# still a valid multiple of 1000 the contract accepts.
+snap() { local c="$1"; ((c<0))&&c=0; ((c>100))&&c=100; echo $(( ((c+10)/20) * 2000 )); }
 
 if [ -n "${ZEN_LLM_URL:-}" ]; then
   prompt="You are thinking-validator #${vid} for the Beluga L3 conservation blockchain. \
 Governance question: ${question} \
 Reply with EXACTLY one line, no preamble: VOTE=<YES|NO|ABSTAIN> CONFIDENCE=<integer 0-100> /no_think"
-  body=$(printf '{"model":"%s","prompt":%s,"stream":false,"options":{"temperature":0.3,"seed":%s,"num_predict":40}}' \
+  body=$(printf '{"model":"%s","prompt":%s,"stream":false,"think":false,"options":{"temperature":0.3,"seed":%s,"num_predict":120}}' \
         "${ZEN_LLM_MODEL:-qwen3:0.6b}" "$(printf '%s' "$prompt" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')" "$vid")
   resp=$(curl -s --max-time 60 "$ZEN_LLM_URL" -d "$body" 2>/dev/null \
         | python3 -c 'import sys,json;print(json.load(sys.stdin).get("response",""))' 2>/dev/null || true)

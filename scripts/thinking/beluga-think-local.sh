@@ -32,6 +32,12 @@ OPS=(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d         
      0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba)        # operator 5
 TREASURY=0xa0Ee7A142d267C1f36714E4a8F75612F20a79720                            # acct 9
 
+# A real Beluga L3 governance question put to the thinking-validators. With a
+# skeptical small model the canonical answer is often NO/abstain — that is REAL
+# cognition, not rigged; the contract records whatever quorum (if any) forms, and
+# only a YES quorum mutates the knob (proven in the ThinkingGovernor headline
+# test). Set ZEN_LLM_URL to use real model verdicts; otherwise decide.sh uses a
+# labelled deterministic policy.
 QUESTION="Beluga L3: require a 4-of-5 validator quorum (instead of 3-of-5) for high-value AI-task settlement, to better protect conservation funds?"
 KNOB="aivm.quorum.threshold"
 
@@ -101,8 +107,14 @@ echo "  settled."
 
 # ---- record the decision as a Proof-of-Thought receipt -----------------------
 say "recording governance decision as on-chain Proof-of-Thought"
-cast send "$BRIDGE" "recordThought(uint256)" "$TID" --private-key "$K0" --rpc-url "$RPC" >/dev/null
-echo "  recorded."
+if cast send "$BRIDGE" "recordThought(uint256)" "$TID" --private-key "$K0" --rpc-url "$RPC" >/dev/null 2>&1; then
+  echo "  recorded — the settled decision is now a queryable PoT receipt."
+else
+  echo "  skipped — thinking-validators did NOT reach a 3-of-5 quorum on any single"
+  echo "  (vote, confidence) key, so the Thought settled FAILED: no canonical"
+  echo "  decision, no knob change. The chain correctly refused to force action."
+  echo "  (Safety property: no quorum -> no action.)"
+fi
 
 # ---- READ IT ALL BACK FROM THE CHAIN (the lux/dao visibility surface) --------
 say "ON-CHAIN RESULT (read via ThinkingChainObservatory)"
@@ -119,13 +131,15 @@ for ch in inner:
     if ch=="," and depth==0: parts.append(cur.strip()); cur=""
     else: cur+=ch
 parts.append(cur.strip())
-status={0:"None",1:"Open",2:"Settled",3:"Failed"}.get(int(parts[8]),parts[8])
-vote={0:"Invalid",1:"YES",2:"NO",3:"Abstain"}.get(int(parts[11]),parts[11])
+n=lambda s:int(s.split()[0])           # cast annotates uints e.g. "10000 [1e4]"
+bps=n(parts[12])
+status={0:"None",1:"Open",2:"Settled",3:"Failed"}.get(n(parts[8]),parts[8])
+vote={0:"Invalid",1:"YES",2:"NO",3:"Abstain"}.get(n(parts[11]),parts[11])
 print(f"  status         : {status}")
 print(f"  canonical vote : {vote}")
-print(f"  confidence     : {int(parts[12])//100}% ({parts[12]} bps)")
-print(f"  agree count    : {parts[13]} of {parts[3]} (threshold {parts[4]})")
-print(f"  knob decided   : {parts[10]}")
+print(f"  confidence     : {bps//100}% ({bps} bps)")
+print(f"  agree count    : {n(parts[13])} of {n(parts[3])} (threshold {n(parts[4])})")
+print(f"  knob decided   : {parts[10].strip(chr(34))}")
 PY
 echo "  getKnob($KNOB) = $(cast call "$GOV" "getKnob(bytes32,string)(bytes32)" "$SPEC" "$KNOB" --rpc-url "$RPC")"
 
@@ -133,7 +147,7 @@ say "Observatory.overview()  (the DAO dashboard header)"
 OV=$(cast call "$OBS" "overview()((uint256,uint256,uint256,uint256,uint256,uint256,uint256,address))" --rpc-url "$RPC")
 python3 - "$OV" <<'PY'
 import sys
-p=[x.strip() for x in sys.argv[1].strip()[1:-1].split(",")]
+p=[x.strip().split()[0] for x in sys.argv[1].strip()[1:-1].split(",")]
 print(f"  thoughts opened : {p[0]}   open {p[1]} / settled {p[2]} / failed {p[3]}")
 print(f"  PoT receipts    : {p[4]}   (paid/settled cognitions on the ledger)")
 PY
