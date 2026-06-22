@@ -4,8 +4,10 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {ThinkingChainObservatory} from "../contracts/deployables/thinking/ThinkingChainObservatory.sol";
 import {ProofOfThoughtRegistry} from "../contracts/deployables/thinking/ProofOfThoughtRegistry.sol";
+import {AICoin} from "../contracts/deployables/thinking/AICoin.sol";
 import {IProofOfThoughtRegistry} from "../contracts/deployables/thinking/interfaces/IProofOfThoughtRegistry.sol";
 import {IThinkingGovernor} from "../contracts/deployables/thinking/interfaces/IThinkingGovernor.sol";
+import {IAICoin} from "../contracts/deployables/thinking/interfaces/IAICoin.sol";
 
 /// @dev Minimal governor stand-in exposing only the views the observatory reads
 /// (taskCount, getThought, getKnob, minBond, openFee, treasury). The governor's
@@ -47,15 +49,19 @@ contract ThinkingChainObservatoryTest is Test {
     ProofOfThoughtRegistry reg;
     MockGovernor gov;
     ThinkingChainObservatory obs;
+    AICoin coin;
 
     bytes32 constant SPEC = keccak256("zen/thinking-governor/model-spec/v1");
     address constant PAYER = address(0xA11CE);
     address constant OPERATOR = address(0x09E7A7);
 
     function setUp() public {
+        vm.warp(1_700_000_000);
         reg = new ProofOfThoughtRegistry();
         gov = new MockGovernor();
-        obs = new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg);
+        // the test contract is the coin's minter, so it can mine in test_Economics
+        coin = new AICoin("AI", "AI", address(this), address(this));
+        obs = new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(coin)));
     }
 
     function _thought(IThinkingGovernor.Status s, string memory knobKey, IThinkingGovernor.Vote v, uint16 bucket)
@@ -106,6 +112,47 @@ contract ThinkingChainObservatoryTest is Test {
         assertEq(o.taskCount, 0);
         assertEq(o.settledCount, 0);
         assertEq(o.thoughtReceipts, 0);
+    }
+
+    /// @notice The observatory makes the chain's Bitcoin-shaped economics visible:
+    /// 1B cap, halving epoch, schedule-vested unlock, mined, burned, supply.
+    function test_Economics_SeesIssuanceBehavior() public {
+        uint256 MAX = coin.MAX_SUBSIDY();
+        uint256 PERIOD = coin.HALVING_PERIOD();
+
+        ThinkingChainObservatory.Economics memory e0 = obs.economics();
+        assertEq(e0.coin, address(coin), "coin address visible");
+        assertEq(e0.hardCap, MAX, "1B cap visible");
+        assertEq(e0.epoch, 0);
+        assertEq(e0.minted, 0);
+        assertEq(e0.circulating, 0);
+        assertEq(e0.burned, 0);
+        assertEq(e0.remaining, MAX);
+
+        // halfway into epoch 0 -> MAX/4 unlocked; mine 1000 AI, burn 250 AI
+        vm.warp(coin.GENESIS() + PERIOD / 2);
+        coin.mintSubsidy(OPERATOR, 1000 ether);
+        vm.prank(OPERATOR);
+        coin.burn(250 ether);
+
+        ThinkingChainObservatory.Economics memory e = obs.economics();
+        assertEq(e.epoch, 0, "still epoch 0");
+        assertEq(e.epochSubsidy, MAX / 2, "E_0 = MAX/2");
+        assertEq(e.unlocked, MAX / 4, "mid-epoch-0 unlocked = MAX/4");
+        assertEq(e.minted, 1000 ether, "mined");
+        assertEq(e.circulating, 750 ether, "supply after burn");
+        assertEq(e.burned, 250 ether, "burned = minted - circulating");
+        assertEq(e.remaining, MAX - 1000 ether, "remaining subsidy");
+    }
+
+    function test_Economics_CoinlessChainDegradesToZero() public {
+        ThinkingChainObservatory obs2 =
+            new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(0)));
+        ThinkingChainObservatory.Economics memory e = obs2.economics();
+        assertEq(e.coin, address(0), "no coin");
+        assertEq(e.hardCap, 0);
+        assertEq(e.minted, 0);
+        assertEq(e.remaining, 0);
     }
 
     function test_RecentThoughts_NewestFirstAndTruncates() public {

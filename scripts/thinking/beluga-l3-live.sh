@@ -39,7 +39,9 @@ say "starting Zoo L2 (chainId $ZOO_CID) + Beluga L3 (chainId $BLG_CID)"
 pkill -f 'anvil' 2>/dev/null || true; sleep 1
 anvil --silent --chain-id $ZOO_CID --port 8545 >/tmp/anvil-zoo.log 2>&1 &
 anvil --silent --chain-id $BLG_CID --port 8546 >/tmp/anvil-blg.log 2>&1 &
-trap 'pkill -f "anvil" 2>/dev/null || true' EXIT
+# KEEP=1 leaves both anvils running after the proof so the observatory dashboard
+# can be opened against them (visibility check / human inspection).
+trap '[ -n "${KEEP:-}" ] || pkill -f "anvil" 2>/dev/null || true' EXIT
 for u in "$ZOO_RPC" "$BLG_RPC"; do for i in $(seq 1 40); do cast chain-id --rpc-url "$u" >/dev/null 2>&1 && break; sleep 0.25; done; done
 echo "  Zoo L2 up (chainId $(cast chain-id --rpc-url $ZOO_RPC)); Beluga L3 up (chainId $(cast chain-id --rpc-url $BLG_RPC))"
 forge build >/dev/null 2>&1 || { echo "forge build failed"; exit 1; }
@@ -54,15 +56,16 @@ echo "  Zoo L2 L3Registry = $HUB"
 say "deploying Beluga L3 thinking-governance stack"
 REG=$(dep "$BLG_RPC" "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry")
 GOV=$(dep "$BLG_RPC" "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
-OBS=$(dep "$BLG_RPC" "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG")
-BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
-REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
 # the native coin: Bitcoin-shaped issuance (1B cap, halving every 4y, burn tail).
 # admin = deployer (the DAO seat for the demo); minter = deployer acting as the
-# settlement that mines the subsidy for accepted cognition.
+# settlement that mines the subsidy for accepted cognition. Deployed before the
+# observatory so the observatory's economics() can SEE the chain's issuance.
 AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$BLG_RPC" --private-key "$K0" --broadcast --json \
          --constructor-args "AI" "AI" "$A0" "$A0" 2>/dev/null \
          | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])')
+OBS=$(dep "$BLG_RPC" "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN")
+BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
+REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
 echo "  governor=$GOV  observatory=$OBS  reputation=$REP  aicoin=$AICOIN"
 
 # ---- register Beluga L3 in the Zoo L2 hub -----------------------------------
@@ -126,26 +129,33 @@ print(f"  canonical vote = {['Invalid','YES','NO','Abstain'][n(parts[11])]} @ {n
 print(f"  quorum         = {n(parts[13])} of {n(parts[3])} (threshold {n(parts[4])})")
 PY
 for i in 0 1 2 3 4; do OPADDR=$(cast wallet address --private-key "${OPS[$i]}"); W=$(cast call "$REP" "weightOf(address)(uint32)" "$OPADDR" --rpc-url "$BLG_RPC" 2>/dev/null|awk '{print $1}'); echo "  validator $((i+1)) reputation = $(( ${W:-0}/100 ))%"; done
-echo "Beluga L3 — AI coin (Bitcoin-shaped issuance):"
-EPOCH=$(cast call "$AICOIN" "epoch()(uint256)" --rpc-url "$BLG_RPC"|awk '{print $1}')
-MAXS=$(cast call "$AICOIN" "MAX_SUBSIDY()(uint256)" --rpc-url "$BLG_RPC"|awk '{print $1}')
-CUM=$(cast call "$AICOIN" "cumulativeAllowance()(uint256)" --rpc-url "$BLG_RPC"|awk '{print $1}')
-MINTED=$(cast call "$AICOIN" "mintedSubsidy()(uint256)" --rpc-url "$BLG_RPC"|awk '{print $1}')
-SUPPLY=$(cast call "$AICOIN" "totalSupply()(uint256)" --rpc-url "$BLG_RPC"|awk '{print $1}')
-REMAIN=$(cast call "$AICOIN" "remainingSubsidy()(uint256)" --rpc-url "$BLG_RPC"|awk '{print $1}')
-python3 - "$EPOCH" "$MAXS" "$CUM" "$MINTED" "$SUPPLY" "$REMAIN" <<'PY'
+echo "Beluga L3 — AI coin economics (read via the on-chain Observatory's economics()):"
+ECO=$(cast call "$OBS" "economics()((address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))" --rpc-url "$BLG_RPC")
+python3 - "$ECO" <<'PY'
 import sys
-e,mx,cu,mi,su,re=[int(x) for x in sys.argv[1:7]]
+inner=sys.argv[1].strip()[1:-1]; parts=[];d=0;c=""
+for ch in inner:
+    if ch in "([": d+=1
+    if ch in ")]": d-=1
+    if ch=="," and d==0: parts.append(c.strip()); c=""
+    else: c+=ch
+parts.append(c.strip()); num=lambda s:int(s.split()[0].replace(',',''))
+coin=parts[0].split()[0]; cap,ep,esub,unlocked,minted,burned,circ,remain=[num(parts[i]) for i in range(1,9)]
 ai=lambda w: f"{w/10**18:,.0f} AI"
-print(f"  epoch             = {e} (subsidy halves every 4 years)")
-print(f"  hard cap          = {ai(mx)}")
-print(f"  unlocked so far   = {ai(cu)}  ({100*cu/mx:.2f}% of cap)")
-print(f"  mined (minted)    = {ai(mi)}")
-print(f"  burned            = {ai(mi-su)}  (deflationary sink)")
-print(f"  total supply      = {ai(su)}")
-print(f"  remaining subsidy = {ai(re)}")
+print(f"  coin              = {coin}")
+print(f"  epoch             = {ep} (subsidy halves every 4 years)")
+print(f"  hard cap          = {ai(cap)}")
+print(f"  unlocked so far   = {ai(unlocked)}  ({100*unlocked/cap:.2f}% of cap)")
+print(f"  mined (minted)    = {ai(minted)}")
+print(f"  burned            = {ai(burned)}  (deflationary sink)")
+print(f"  circulating       = {ai(circ)}")
+print(f"  remaining subsidy = {ai(remain)}")
 PY
 for i in 0 1 2 3 4; do OPADDR=$(cast wallet address --private-key "${OPS[$i]}"); B=$(cast call "$AICOIN" "balanceOf(address)(uint256)" "$OPADDR" --rpc-url "$BLG_RPC"|awk '{print $1}'); python3 -c "import sys;print(f'  validator $((i+1)) balance   = {int(sys.argv[1])/10**18:,.0f} AI')" "$B"; done
 
 say "DONE — Zoo L2 hub lists Beluga L3; Beluga L3 governance settled + AI mined on-chain. Architecture proven locally."
 echo "Zoo L2 hub=$HUB  Beluga L3 governor=$GOV  aicoin=$AICOIN"
+if [ -n "${KEEP:-}" ]; then
+  echo "DASHBOARD file://$HERE/observatory.html?rpc=$BLG_RPC&observatory=$OBS&reputation=$REP"
+  echo "(anvils left running — pkill -f anvil when done)"
+fi
