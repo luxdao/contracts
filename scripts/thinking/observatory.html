@@ -61,6 +61,8 @@
 <div id="err"></div>
 <div class="wrap">
   <div class="cards" id="cards"></div>
+  <h2>AI Economics — Bitcoin-shaped issuance (1B cap · halves every 4y · burn tail)</h2>
+  <div class="cards" id="econ"><div class="empty">loading…</div></div>
   <h2>Governance Thoughts — what the thinking-validators decided</h2>
   <table><thead><tr>
     <th>#</th><th>knob</th><th>status</th><th>canonical decision</th><th>confidence</th><th>quorum</th>
@@ -102,8 +104,13 @@ const OVERVIEW = tup(
   {name:'taskCount',type:'uint256'},{name:'openCount',type:'uint256'},{name:'settledCount',type:'uint256'},
   {name:'failedCount',type:'uint256'},{name:'thoughtReceipts',type:'uint256'},{name:'minBond',type:'uint256'},
   {name:'openFee',type:'uint256'},{name:'treasury',type:'address'});
+const ECONOMICS = tup(
+  {name:'coin',type:'address'},{name:'hardCap',type:'uint256'},{name:'epoch',type:'uint256'},
+  {name:'epochSubsidy',type:'uint256'},{name:'unlocked',type:'uint256'},{name:'minted',type:'uint256'},
+  {name:'burned',type:'uint256'},{name:'circulating',type:'uint256'},{name:'remaining',type:'uint256'});
 const ABI = [
   { type:'function', name:'overview', stateMutability:'view', inputs:[], outputs:[OVERVIEW] },
+  { type:'function', name:'economics', stateMutability:'view', inputs:[], outputs:[ECONOMICS] },
   { type:'function', name:'recentThoughts', stateMutability:'view', inputs:[u('uint256')], outputs:[{type:'tuple[]',components:THOUGHT.components}] },
   { type:'function', name:'recentReceipts', stateMutability:'view', inputs:[u('uint256')], outputs:[{type:'tuple[]',components:RECEIPT.components}] },
   { type:'function', name:'governor', stateMutability:'view', inputs:[], outputs:[u('address')] },
@@ -131,13 +138,27 @@ function card(n,l){ return `<div class="card"><div class="n">${n}</div><div clas
 
 async function tick(){
   try{
-    const [ov,thoughts,receipts] = await Promise.all([read('overview'),read('recentThoughts',[10n]),read('recentReceipts',[10n])]);
+    const [ov,eco,thoughts,receipts] = await Promise.all([read('overview'),read('economics'),read('recentThoughts',[10n]),read('recentReceipts',[10n])]);
     el('conn').innerHTML = '<span class="dot"></span>live';
     el('cards').innerHTML =
       card(ov.taskCount,'thoughts')+card(ov.openCount,'open')+
       `<div class="card"><div class="n" style="color:var(--yes)">${ov.settledCount}</div><div class="l">settled</div></div>`+
       `<div class="card"><div class="n" style="color:var(--no)">${ov.failedCount}</div><div class="l">failed</div></div>`+
       card(ov.thoughtReceipts,'PoT receipts');
+
+    // AI economics — the chain's issuance behavior, straight from economics()
+    if (eco.coin === '0x0000000000000000000000000000000000000000') {
+      el('econ').innerHTML = '<div class="empty">no AI coin on this chain</div>';
+    } else {
+      const ai = w => Math.round(Number(formatEther(w))).toLocaleString();
+      const pct = eco.hardCap>0n ? (Number(eco.unlocked*10000n/eco.hardCap)/100).toFixed(2) : '0';
+      el('econ').innerHTML =
+        card(ai(eco.minted)+' AI','mined')+
+        `<div class="card"><div class="n" style="color:var(--no)">${ai(eco.burned)} AI</div><div class="l">burned (deflationary)</div></div>`+
+        card(ai(eco.circulating)+' AI','circulating')+
+        `<div class="card"><div class="n">${pct}%</div><div class="l">of 1B cap unlocked (epoch ${eco.epoch})</div></div>`+
+        card(ai(eco.remaining)+' AI','remaining subsidy');
+    }
 
     el('thoughts').innerHTML = thoughts.length ? thoughts.map(t=>{
       const st=STATUS[t.status], vt=VOTE[t.canonicalVote], conf=Number(t.canonicalBucket)/100;

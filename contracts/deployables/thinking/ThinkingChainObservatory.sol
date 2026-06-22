@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IThinkingGovernor} from "./interfaces/IThinkingGovernor.sol";
 import {IProofOfThoughtRegistry} from "./interfaces/IProofOfThoughtRegistry.sol";
+import {IAICoin} from "./interfaces/IAICoin.sol";
 
 /**
  * @title ThinkingChainObservatory
@@ -30,6 +31,7 @@ import {IProofOfThoughtRegistry} from "./interfaces/IProofOfThoughtRegistry.sol"
 contract ThinkingChainObservatory {
     IThinkingGovernor public immutable governor;
     IProofOfThoughtRegistry public immutable registry;
+    IAICoin public immutable coin; // the AI value organ (may be 0 on a coin-less chain)
 
     /// @notice Whole-network thinking summary — the dashboard header.
     struct Overview {
@@ -60,9 +62,41 @@ contract ThinkingChainObservatory {
         uint64 deadline;
     }
 
-    constructor(IThinkingGovernor governor_, IProofOfThoughtRegistry registry_) {
+    /// @notice Economics summary — the thinking chain's Bitcoin-shaped issuance
+    /// behavior, derived entirely from {AICoin}'s public schedule + supply views.
+    struct Economics {
+        address coin; //         the AI coin (0 if the chain has none)
+        uint256 hardCap; //      MAX_SUBSIDY: the 1B fair-mine ceiling
+        uint256 epoch; //        current halving epoch (slope halves every 4 years)
+        uint256 epochSubsidy; // E_k emittable this epoch
+        uint256 unlocked; //     cumulativeAllowance: schedule-vested so far
+        uint256 minted; //       mintedSubsidy: actually mined into existence
+        uint256 burned; //       minted - totalSupply: the deflationary sink
+        uint256 circulating; //  totalSupply now
+        uint256 remaining; //    remainingSubsidy: cap - minted (future mineable)
+    }
+
+    constructor(IThinkingGovernor governor_, IProofOfThoughtRegistry registry_, IAICoin coin_) {
         governor = governor_;
         registry = registry_;
+        coin = coin_;
+    }
+
+    /// @notice The chain's economic behavior in one read. All zeros (with a zero
+    /// coin address) on a chain that mints no AI, so the dashboard degrades
+    /// cleanly. burned is derived on-chain as minted - circulating (AICoin mints
+    /// only via the schedule, so circulating <= minted always).
+    function economics() external view returns (Economics memory e) {
+        if (address(coin) == address(0)) return e;
+        e.coin = address(coin);
+        e.hardCap = coin.MAX_SUBSIDY();
+        e.epoch = coin.epoch();
+        e.epochSubsidy = coin.epochSubsidy();
+        e.unlocked = coin.cumulativeAllowance();
+        e.minted = coin.mintedSubsidy();
+        e.circulating = coin.totalSupply();
+        e.burned = e.minted - e.circulating;
+        e.remaining = coin.remainingSubsidy();
     }
 
     /// @notice Whole-network thinking summary. Iterates all tasks to tally
