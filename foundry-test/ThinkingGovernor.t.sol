@@ -474,6 +474,7 @@ contract ThinkingGovernorTest is Test {
         // All 5 slots filled (count==n) so settle is permitted immediately.
         assertEq(gov.getKnob(MODEL_SPEC, KNOB_KEY), bytes32(0), "knob unset pre-settle");
 
+        _closeWindow(taskId);
         vm.recordLogs();
         gov.settle(taskId);
 
@@ -528,6 +529,7 @@ contract ThinkingGovernorTest is Test {
         uint256 taskId = _openThought(5, 3);
         for (uint256 i; i < 4; ++i) _submit(taskId, i, 1, 8000);
         _submit(taskId, 4, 2, 2000);
+        _closeWindow(taskId);
         gov.settle(taskId);
 
         uint256 share = REWARD / 4;
@@ -547,6 +549,7 @@ contract ThinkingGovernorTest is Test {
         uint256 taskId = _openThought(5, 3);
         for (uint256 i; i < 3; ++i) _submit(taskId, i, 1, 8000); // odd split
         for (uint256 i = 3; i < 5; ++i) _submit(taskId, i, 2, 2000);
+        _closeWindow(taskId);
         gov.settle(taskId);
 
         // Sum of agreeing rewards == full reward escrow (fee is separate, to treasury).
@@ -580,6 +583,7 @@ contract ThinkingGovernorTest is Test {
         _submit(taskId, 4, 3, 0);
 
         uint256 openerBalBefore = opener.balance;
+        _closeWindow(taskId);
         gov.settle(taskId);
 
         (bool settled,,, uint8 agree) = gov.getCanonicalVerdict(taskId);
@@ -628,6 +632,7 @@ contract ThinkingGovernorTest is Test {
         _submit(taskId, 3, 1, 7000);
         _submit(taskId, 4, 2, 2000);
 
+        _closeWindow(taskId);
         gov.settle(taskId);
         assertEq(uint8(gov.getThought(taskId).status), uint8(IThinkingGovernor.Status.Failed), "split -> no quorum");
         assertEq(gov.getKnob(MODEL_SPEC, KNOB_KEY), bytes32(0), "knob unchanged");
@@ -638,6 +643,7 @@ contract ThinkingGovernorTest is Test {
         uint256 taskId = _openThought(5, 3);
         for (uint256 i; i < 4; ++i) _submit(taskId, i, 2, 4000);
         _submit(taskId, 4, 1, 8000);
+        _closeWindow(taskId);
         gov.settle(taskId);
 
         (bool settled, IThinkingGovernor.Vote vote, uint16 bucket, uint8 agree) = gov.getCanonicalVerdict(taskId);
@@ -689,14 +695,22 @@ contract ThinkingGovernorTest is Test {
         assertEq(gov.getKnob(MODEL_SPEC, KNOB_KEY), bytes32((uint256(3) << 24) | (uint256(8000) << 8) | uint256(1)));
     }
 
-    /// @notice A full committee (count==n) settles immediately, no window wait needed.
-    function test_Settle_FullCommittee_SettlesImmediately() public {
+    /// @notice Even a FULL committee must wait for the deadline (RED E1/E4 fix). The
+    /// former count==n shortcut is gone: with no per-task allowlist it let sybils
+    /// saturate the committee and settle before honest operators could vote.
+    function test_Settle_FullCommittee_StillWaitsForDeadline() public {
         uint256 taskId = _openThought(3, 2);
         for (uint256 i; i < 3; ++i) _submit(taskId, i, 1, 8000);
-        // No warp: count==n short-circuits the deadline gate.
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IThinkingGovernor.SettleTooEarly.selector, taskId, gov.getThought(taskId).deadline)
+        );
+        gov.settle(taskId);
+
+        _closeWindow(taskId);
         gov.settle(taskId);
         (bool settled,,,) = gov.getCanonicalVerdict(taskId);
-        assertTrue(settled, "full committee settles before deadline");
+        assertTrue(settled, "full committee settles after deadline");
     }
 
     // ======================================================================
@@ -935,7 +949,8 @@ contract ThinkingGovernorTest is Test {
         // The decided knob value self-describes {vote, bucket, agreeCount} in 32 bytes.
         bytes32 decidedValue = bytes32((uint256(agreeCount) << 24) | (uint256(bucket) << 8) | uint256(yesVote));
 
-        // --- 3. settle() — expect the on-chain KnobSet + ThoughtSettled events ---
+        // --- 3. settle() after the voting window closes ---
+        _closeWindow(taskId);
         // Emission order in settle(): KnobSet (the governed parameter is set) THEN
         // ThoughtSettled (the canonical decision record). expectEmit queues them in
         // that order; the interleaved RewardAccrued/ValueUpdated are skipped by the
