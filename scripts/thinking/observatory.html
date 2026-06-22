@@ -43,6 +43,10 @@
   .bar { height:6px; border-radius:3px; background:var(--line); overflow:hidden; width:90px; display:inline-block; vertical-align:middle; }
   .bar > i { display:block; height:100%; background:var(--acc); }
   .empty { color:var(--dim); padding:18px 10px; }
+  .vgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:8px; }
+  .vcard { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .vcard .vi { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+  .vcard .vv { font-size:18px; font-weight:700; margin:3px 0; }
   #err { color:var(--no); padding:10px 28px; }
   .dot { width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--yes);margin-right:6px; }
   footer { color:var(--dim); font-size:11px; padding:14px 28px; border-top:1px solid var(--line); }
@@ -61,6 +65,9 @@
   <table><thead><tr>
     <th>#</th><th>knob</th><th>status</th><th>canonical decision</th><th>confidence</th><th>quorum</th>
   </tr></thead><tbody id="thoughts"><tr><td colspan="6" class="empty">loading…</td></tr></tbody></table>
+
+  <h2 id="vhead">Thinking validators — individual verdicts</h2>
+  <div id="verdicts" class="vgrid"><div class="empty">loading…</div></div>
 
   <h2>Proof-of-Thought receipts — the cognition ledger</h2>
   <table><thead><tr>
@@ -99,10 +106,19 @@ const ABI = [
   { type:'function', name:'overview', stateMutability:'view', inputs:[], outputs:[OVERVIEW] },
   { type:'function', name:'recentThoughts', stateMutability:'view', inputs:[u('uint256')], outputs:[{type:'tuple[]',components:THOUGHT.components}] },
   { type:'function', name:'recentReceipts', stateMutability:'view', inputs:[u('uint256')], outputs:[{type:'tuple[]',components:RECEIPT.components}] },
+  { type:'function', name:'governor', stateMutability:'view', inputs:[], outputs:[u('address')] },
+];
+// each thinking-validator's own signed verdict, read straight from the governor
+const VERDICT = tup(
+  {name:'operator',type:'address'},{name:'vote',type:'uint8'},{name:'confidenceBucket',type:'uint16'},
+  {name:'evidenceHash',type:'bytes32'},{name:'submittedAt',type:'uint64'});
+const GOV_ABI = [
+  { type:'function', name:'getVerdicts', stateMutability:'view', inputs:[u('uint256')], outputs:[{type:'tuple[]',components:VERDICT.components}] },
 ];
 
 const client = createPublicClient({ transport: http(RPC) });
 const read = (fn,args=[]) => client.readContract({ address:OBS, abi:ABI, functionName:fn, args });
+let GOV_ADDR = null;
 const el = id => document.getElementById(id);
 const short = h => h.slice(0,8)+'…';
 
@@ -126,6 +142,19 @@ async function tick(){
         <td><span class="pill s-${st}">${st}</span></td><td>${decided}</td><td>${cbar}</td>
         <td class="mono">${t.agreeCount}/${t.n} (≥${t.threshold})</td></tr>`;
     }).join('') : '<tr><td colspan="6" class="empty">no thoughts yet — run beluga-think-local.sh</td></tr>';
+
+    // each thinking-validator's own verdict on the latest thought — see the consensus form
+    if (thoughts.length){
+      if (!GOV_ADDR) GOV_ADDR = await read('governor');
+      const latest = thoughts[0];
+      const vs = await client.readContract({ address:GOV_ADDR, abi:GOV_ABI, functionName:'getVerdicts', args:[latest.taskId] });
+      el('vhead').textContent = `Thinking validators — verdicts on thought #${latest.taskId} (${latest.knobKey})`;
+      el('verdicts').innerHTML = vs.length ? vs.map((v,i)=>{
+        const vt=VOTE[v.vote];
+        return `<div class="vcard"><div class="vi">validator ${i+1}</div><div class="mono">${short(v.operator)}</div>
+          <div class="vv v-${vt}">${vt}</div><div class="mono">${Number(v.confidenceBucket)/100}% confidence</div></div>`;
+      }).join('') : '<div class="empty">no verdicts submitted yet</div>';
+    } else { el('verdicts').innerHTML='<div class="empty">—</div>'; }
 
     el('receipts').innerHTML = receipts.length ? receipts.map(r=>
       `<tr><td class="mono">${short(r.modelId)}</td><td class="mono">${short(r.promptHash)}</td>
