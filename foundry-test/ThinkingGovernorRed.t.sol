@@ -456,7 +456,8 @@ contract ThinkingGovernorRedTest is Test {
             vm.prank(ops[i].addr);
             gov.submitVerdict(task, votes[i], buckets[i], ev, sig);
         }
-        gov.settle(task); // count==n short-circuits the deadline gate; must not revert
+        _closeWindow(task);
+        gov.settle(task); // settle after the window; must not revert
         // Opener escrow refunded (no quorum among 5 distinct keys).
         assertEq(gov.rewardOf(address(0xA11CE)), REWARD, "escrow reclaimable on Failed");
     }
@@ -476,7 +477,8 @@ contract ThinkingGovernorRedTest is Test {
         _submit(task, 2, 2, 2000);
         _submit(task, 3, 2, 2000);
 
-        gov.settle(task); // count==n, immediate
+        _closeWindow(task);
+        gov.settle(task);
         IThinkingGovernor.Thought memory t = gov.getThought(task);
         assertEq(uint8(t.status), uint8(IThinkingGovernor.Status.Failed), "tie below threshold -> Failed");
         assertEq(gov.getKnob(MODEL_SPEC, KNOB_KEY), bytes32(0), "no knob change on tie");
@@ -517,7 +519,8 @@ contract ThinkingGovernorRedTest is Test {
         }
 
         evil.setTarget(task);
-        g2.settle(task); // count==n, immediate
+        _closeWindowOn(g2, task);
+        g2.settle(task); // settle after window; reentrant settle in KVP callback reverts
 
         // Each agreeing op got exactly REWARD/3 (+remainder to first). Sum == REWARD.
         uint256 total;
@@ -576,8 +579,9 @@ contract ThinkingGovernorRedTest is Test {
         }
         assertEq(placed, 64, "filled committee");
 
+        _closeWindow(task);
         uint256 g0 = gasleft();
-        gov.settle(task); // count==n, immediate
+        gov.settle(task);
         uint256 used = g0 - gasleft();
         emit log_named_uint("settle gas (n=64, 55 distinct)", used);
         // Sanity: must be well under a 30M block gas limit to not be a DoS.
@@ -590,8 +594,9 @@ contract ThinkingGovernorRedTest is Test {
     function test_Settle_GAS_MaxCommittee64Unanimous() public {
         uint256 task = _open(address(0xA11CE), MODEL_SPEC, 64, 33, KNOB_KEY);
         for (uint256 i; i < 64; ++i) _submit(task, i, 1, 8000);
+        _closeWindow(task);
         uint256 g0 = gasleft();
-        gov.settle(task); // count==n, immediate
+        gov.settle(task);
         uint256 used = g0 - gasleft();
         emit log_named_uint("settle gas (n=64, unanimous YES)", used);
         assertLt(used, 30_000_000, "settle must fit comfortably in a block");

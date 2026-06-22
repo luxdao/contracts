@@ -173,6 +173,7 @@ interface IThinkingGovernor {
     error BadConfidenceBucket(uint16 bucket);
     error AlreadySettled(uint256 taskId);
     error OpenerCannotVote(uint256 taskId, address opener);
+    error OpenerIsTreasury(address opener);
     error SettleTooEarly(uint256 taskId, uint64 deadline);
 
     // ======================================================================
