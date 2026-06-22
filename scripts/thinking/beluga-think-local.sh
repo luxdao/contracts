@@ -154,8 +154,14 @@ PY
 
 say "DONE — Beluga L3 thought locally; the decision is on-chain and visible."
 echo "governor=$GOV  observatory=$OBS"
+DASH_PORT="${BELUGA_DASH_PORT:-8750}"
+echo "visibility dashboard: scripts/thinking/observatory.html  (?rpc=$RPC&observatory=$OBS)"
 if [ "${BELUGA_KEEP:-0}" = "1" ]; then
-  echo "anvil kept alive at $RPC (pid $ANVIL_PID) for DAO queries; ctrl-C to stop."
-  trap - EXIT
+  ( cd "$HERE" && python3 -m http.server "$DASH_PORT" >/tmp/beluga-dash.log 2>&1 & )
+  DASH_URL="http://127.0.0.1:${DASH_PORT}/observatory.html?rpc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$RPC")&observatory=$OBS"
+  echo "anvil kept alive at $RPC (pid $ANVIL_PID); Thinking Chain Observatory dashboard:"
+  echo "  $DASH_URL"
+  echo "(ctrl-C to stop both)"
+  trap 'kill $ANVIL_PID 2>/dev/null; pkill -f "http.server $DASH_PORT" 2>/dev/null' EXIT
   wait $ANVIL_PID
 fi
