@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {IThinkingGovernor} from "./interfaces/IThinkingGovernor.sol";
 import {IProofOfThoughtRegistry} from "./interfaces/IProofOfThoughtRegistry.sol";
 import {IAICoin} from "./interfaces/IAICoin.sol";
+import {IThinkingParameters} from "./interfaces/IThinkingParameters.sol";
 
 /**
  * @title ThinkingChainObservatory
@@ -32,6 +33,7 @@ contract ThinkingChainObservatory {
     IThinkingGovernor public immutable governor;
     IProofOfThoughtRegistry public immutable registry;
     IAICoin public immutable coin; // the AI value organ (may be 0 on a coin-less chain)
+    IThinkingParameters public immutable parameters; // value-deciding governance (may be 0)
 
     /// @notice Whole-network thinking summary — the dashboard header.
     struct Overview {
@@ -76,10 +78,72 @@ contract ThinkingChainObservatory {
         uint256 remaining; //    remainingSubsidy: cap - minted (future mineable)
     }
 
-    constructor(IThinkingGovernor governor_, IProofOfThoughtRegistry registry_, IAICoin coin_) {
+    /// @notice Compact dashboard row for one value-deciding parameter round (the
+    /// "knobs/params based on the LLM of the node operator" mechanism): operators'
+    /// models propose a number, the sortition committee's MEDIAN is settled.
+    struct ParameterRoundView {
+        uint256 roundId;
+        bytes32 modelSpecHash;
+        string knobKey; //        the parameter being decided
+        uint256 lo; //            proposal range
+        uint256 hi;
+        IThinkingParameters.Status status;
+        uint8 n; //               committee size
+        uint8 threshold; //       quorum to settle
+        uint8 submissionCount; // proposals in
+        uint256 canonicalValue; // the decided median (set on settle)
+        uint64 openedAt;
+        uint64 deadline;
+    }
+
+    constructor(
+        IThinkingGovernor governor_,
+        IProofOfThoughtRegistry registry_,
+        IAICoin coin_,
+        IThinkingParameters parameters_
+    ) {
         governor = governor_;
         registry = registry_;
         coin = coin_;
+        parameters = parameters_;
+    }
+
+    /// @notice The most recent `limit` value-deciding rounds, newest first. Empty on
+    /// a chain with no ThinkingParameters (degrades cleanly). This is what makes the
+    /// value decisions visible from the single on-chain surface.
+    function recentParameterRounds(uint256 limit) external view returns (ParameterRoundView[] memory out) {
+        if (address(parameters) == address(0)) return out;
+        uint256 rc = parameters.roundCount();
+        uint256 k = limit < rc ? limit : rc;
+        out = new ParameterRoundView[](k);
+        for (uint256 i = 0; i < k; ++i) {
+            IThinkingParameters.Round memory r = parameters.getRound(rc - 1 - i); // newest first
+            out[i] = ParameterRoundView({
+                roundId: rc - 1 - i,
+                modelSpecHash: r.modelSpecHash,
+                knobKey: r.knobKey,
+                lo: r.lo,
+                hi: r.hi,
+                status: r.status,
+                n: r.n,
+                threshold: r.threshold,
+                submissionCount: r.submissionCount,
+                canonicalValue: r.canonicalValue,
+                openedAt: r.openedAt,
+                deadline: r.deadline
+            });
+        }
+    }
+
+    /// @notice The live decided value of a knob (the loop-closing read of the
+    /// value-deciding governance), and whether it has been decided.
+    function parameterValue(bytes32 modelSpecHash, string calldata knobKey)
+        external
+        view
+        returns (uint256 value, bool decided)
+    {
+        if (address(parameters) == address(0)) return (0, false);
+        return parameters.valueOf(modelSpecHash, knobKey);
     }
 
     /// @notice The chain's economic behavior in one read. All zeros (with a zero

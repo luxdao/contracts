@@ -8,6 +8,37 @@ import {AICoin} from "../contracts/deployables/thinking/AICoin.sol";
 import {IProofOfThoughtRegistry} from "../contracts/deployables/thinking/interfaces/IProofOfThoughtRegistry.sol";
 import {IThinkingGovernor} from "../contracts/deployables/thinking/interfaces/IThinkingGovernor.sol";
 import {IAICoin} from "../contracts/deployables/thinking/interfaces/IAICoin.sol";
+import {IThinkingParameters} from "../contracts/deployables/thinking/interfaces/IThinkingParameters.sol";
+
+/// @dev Minimal ThinkingParameters stand-in: a controllable round list so the
+/// observatory's recentParameterRounds can be tested without the full sortition
+/// machinery (that is covered by ThinkingParameters' own 16 tests).
+contract MockParameters {
+    IThinkingParameters.Round[] internal _rounds;
+    mapping(bytes32 => mapping(bytes32 => uint256)) internal _val;
+    mapping(bytes32 => mapping(bytes32 => bool)) internal _set;
+
+    function push(IThinkingParameters.Round memory r) external {
+        _rounds.push(r);
+    }
+
+    function setValue(bytes32 spec, string calldata key, uint256 v) external {
+        _val[spec][keccak256(bytes(key))] = v;
+        _set[spec][keccak256(bytes(key))] = true;
+    }
+
+    function roundCount() external view returns (uint256) {
+        return _rounds.length;
+    }
+
+    function getRound(uint256 id) external view returns (IThinkingParameters.Round memory) {
+        return _rounds[id];
+    }
+
+    function valueOf(bytes32 spec, string calldata key) external view returns (uint256, bool) {
+        return (_val[spec][keccak256(bytes(key))], _set[spec][keccak256(bytes(key))]);
+    }
+}
 
 /// @dev Minimal governor stand-in exposing only the views the observatory reads
 /// (taskCount, getThought, getKnob, minBond, openFee, treasury). The governor's
@@ -50,6 +81,7 @@ contract ThinkingChainObservatoryTest is Test {
     MockGovernor gov;
     ThinkingChainObservatory obs;
     AICoin coin;
+    MockParameters params;
 
     bytes32 constant SPEC = keccak256("zen/thinking-governor/model-spec/v1");
     address constant PAYER = address(0xA11CE);
@@ -62,7 +94,52 @@ contract ThinkingChainObservatoryTest is Test {
         gov = new MockGovernor();
         // the test contract is the coin's minter, so it can mine in test_Economics
         coin = new AICoin("AI", "AI", address(this), address(this));
-        obs = new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(coin)));
+        params = new MockParameters();
+        obs = new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(coin)), IThinkingParameters(address(params)));
+    }
+
+    // ---- value-deciding governance is visible from the single surface ----------
+
+    function test_RecentParameterRounds_NewestFirst() public {
+        params.push(_round("beluga.tithe.bps", 0, 2000, IThinkingParameters.Status.Settled, 1500));
+        params.push(_round("aivm.fee.floor", 1, 1000, IThinkingParameters.Status.Open, 0));
+        ThinkingChainObservatory.ParameterRoundView[] memory v = obs.recentParameterRounds(10);
+        assertEq(v.length, 2, "both rounds");
+        assertEq(v[0].roundId, 1, "newest first");
+        assertEq(v[0].knobKey, "aivm.fee.floor");
+        assertEq(uint8(v[0].status), uint8(IThinkingParameters.Status.Open));
+        assertEq(v[1].knobKey, "beluga.tithe.bps");
+        assertEq(uint8(v[1].status), uint8(IThinkingParameters.Status.Settled));
+        assertEq(v[1].canonicalValue, 1500, "decided median visible on-chain");
+        // and the live decided value passthrough
+        params.setValue(SPEC, "beluga.tithe.bps", 1500);
+        (uint256 val, bool decided) = obs.parameterValue(SPEC, "beluga.tithe.bps");
+        assertEq(val, 1500);
+        assertTrue(decided);
+    }
+
+    function test_RecentParameterRounds_EmptyWhenNoParameters() public {
+        ThinkingChainObservatory o2 = new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(coin)), IThinkingParameters(address(0)));
+        assertEq(o2.recentParameterRounds(10).length, 0, "no parameters -> empty (degrades cleanly)");
+        (uint256 val, bool decided) = o2.parameterValue(SPEC, "x");
+        assertEq(val, 0);
+        assertFalse(decided);
+    }
+
+    function _round(string memory knob, uint256 lo, uint256 hi, IThinkingParameters.Status status, uint256 canonical)
+        internal
+        pure
+        returns (IThinkingParameters.Round memory r)
+    {
+        r.modelSpecHash = SPEC;
+        r.knobKey = knob;
+        r.lo = lo;
+        r.hi = hi;
+        r.n = 5;
+        r.threshold = 3;
+        r.status = status;
+        r.submissionCount = status == IThinkingParameters.Status.Settled ? 5 : 2;
+        r.canonicalValue = canonical;
     }
 
     function _thought(IThinkingGovernor.Status s, string memory knobKey, IThinkingGovernor.Vote v, uint16 bucket)
@@ -148,7 +225,7 @@ contract ThinkingChainObservatoryTest is Test {
 
     function test_Economics_CoinlessChainDegradesToZero() public {
         ThinkingChainObservatory obs2 =
-            new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(0)));
+            new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(0)), IThinkingParameters(address(0)));
         ThinkingChainObservatory.Economics memory e = obs2.economics();
         assertEq(e.coin, address(0), "no coin");
         assertEq(e.hardCap, 0);

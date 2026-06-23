@@ -40,14 +40,15 @@ GOV=$(create "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 5
 AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$RPC" --mnemonic "$MN_FILE" --broadcast --json \
          --constructor-args "AI" "AI" "$TREASURY" "0x0000000000000000000000000000000000000000" 2>/dev/null \
          | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])')
-OBS=$(create "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN")
-BRIDGE=$(create "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
-REP=$(create "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
 # Value-deciding governance: operators' LLMs PROPOSE a knob value; the chain settles
 # the sortition-sampled committee's MEDIAN. Composes the governor's bonded operator
 # set (one operator set, two decision types). Fees 0 here (a governance knob to set
-# via setMinter-style later); treasury sinks any fees.
+# via setMinter-style later); treasury sinks any fees. Deployed BEFORE the observatory
+# so the observatory's recentParameterRounds() can SEE the value decisions.
 PARAMS=$(create "$T/ThinkingParameters.sol:ThinkingParameters" "$GOV $TREASURY 0 0")
+OBS=$(create "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN $PARAMS")
+BRIDGE=$(create "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
+REP=$(create "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
 # Authorize the bridge as the registry's PoT recorder (register() is gated to
 # authorized recorders). Governance may add the settlement contract / transferAdmin
 # to the DAO later; here the deployer (registry admin) wires the bridge.

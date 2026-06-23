@@ -63,15 +63,14 @@ GOV=$(dep "$BLG_RPC" "$T/ThinkingGovernor.sol:ThinkingGovernor" "100000000000000
 AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$BLG_RPC" --private-key "$K0" --broadcast --json \
          --constructor-args "AI" "AI" "$A0" "$A0" 2>/dev/null \
          | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])')
-OBS=$(dep "$BLG_RPC" "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN")
-BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
-REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
-# value-deciding governance: operators' LLMs PROPOSE a knob value; the chain settles
-# to the Byzantine-robust median (composes the governor's bonded operator set).
 # value-deciding committee is sortition-sampled from the governor's bonded operator
 # set (permissionless: capture needs a population majority, not slot-racing). Demo
-# fees 0 (the sunk-fee path is unit-tested); treasury sinks any fees.
+# fees 0 (the sunk-fee path is unit-tested); treasury sinks any fees. Deployed BEFORE
+# the observatory so observatory.recentParameterRounds() SEES the value decisions.
 PARAMS=$(dep "$BLG_RPC" "$T/ThinkingParameters.sol:ThinkingParameters" "$GOV $TREASURY 0 0")
+OBS=$(dep "$BLG_RPC" "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN $PARAMS")
+BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
+REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
 # authorize the bridge as the registry's recorder (register() is now gated — only
 # authorized recorders may write PoT receipts; closes the front-run/forgery vector)
 cast send "$REG" "setRecorder(address,bool)" "$BRIDGE" true --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
