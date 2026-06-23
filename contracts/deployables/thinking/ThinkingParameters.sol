@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IThinkingGovernor} from "./interfaces/IThinkingGovernor.sol";
+import {Sortition} from "./Sortition.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
@@ -37,7 +38,15 @@ contract ThinkingParameters {
     /// @notice Domain tag separating this signature purpose from all others.
     bytes32 public constant PROPOSAL_DOMAIN = keccak256("hanzo/thinking-parameters/proposal/v1");
 
+    /// @notice Minimum voting window so a round cannot be opened-and-settled in a
+    /// flash, locking honest sampled operators out (permissionless liveness).
+    uint64 public constant MIN_WINDOW = 1 hours;
+
     IThinkingGovernor public immutable governor; // the canonical bonded-operator set
+    address public immutable treasury; //         sink for the non-refundable (sunk) fees
+    uint256 public immutable openFee; //          non-refundable, charged at open() (anti-spam)
+    uint256 public immutable proposalFee; //      non-refundable per proposal (sunk Sybil cost)
+    uint256 public treasuryFees; //               accrued sunk fees, withdrawable to treasury
 
     enum Status {
         None, //    0
@@ -75,6 +84,10 @@ contract ThinkingParameters {
     mapping(uint256 => mapping(address => bool)) private _proposed; // one per operator per round
     mapping(bytes32 => mapping(bytes32 => uint256)) private _value; // spec => key => live value
     mapping(bytes32 => mapping(bytes32 => bool)) private _valueSet; // spec => key => decided?
+    // sortition metadata, kept OUT of the Round struct so its ABI (dashboard/scripts) is stable
+    mapping(uint256 => uint64) private _openBlock; //  round => block it opened in
+    mapping(uint256 => uint256) private _population; // round => operator count at open (sortition population)
+    mapping(uint256 => bytes32) private _seed; //      round => committee seed (blockhash(openBlock), cached)
 
     event RoundOpened(
         uint256 indexed roundId, bytes32 indexed modelSpecHash, string knobKey, uint256 lo, uint256 hi, uint8 n, uint8 threshold, address opener
@@ -82,6 +95,8 @@ contract ThinkingParameters {
     event ProposalSubmitted(uint256 indexed roundId, address indexed operator, uint256 value, uint16 confidenceBucket, bytes32 evidenceHash);
     event ParameterDecided(uint256 indexed roundId, bytes32 indexed modelSpecHash, string knobKey, uint256 value, uint8 proposals);
     event RoundFailed(uint256 indexed roundId, uint8 submissionCount, uint8 threshold);
+
+    event FeesWithdrawn(address indexed treasury, uint256 amount);
 
     error NotEligibleOperator(address who);
     error RoundNotOpen(uint256 roundId);
@@ -92,9 +107,19 @@ contract ThinkingParameters {
     error SignerMismatch(address recovered, address sender);
     error VotingOpen(uint256 roundId); // settle attempted before deadline and not full
     error UnknownRound(uint256 roundId);
+    error WindowTooShort(uint64 window); //       below MIN_WINDOW
+    error WrongFee(uint256 sent, uint256 want); // open/proposal fee mismatch
+    error SeedNotReady(uint256 roundId); //       must submit in a block after open (seed = blockhash(openBlock))
+    error NotSampled(address who); //             not in the sortition-sampled committee for this round
+    error NotRegisteredBeforeOpen(address who); // registered after the round opened (cannot join its committee)
+    error CommitteeFull(uint256 roundId); //      already n proposals
 
-    constructor(IThinkingGovernor governor_) {
+    constructor(IThinkingGovernor governor_, address treasury_, uint256 openFee_, uint256 proposalFee_) {
+        require(treasury_ != address(0) || (openFee_ == 0 && proposalFee_ == 0), "fees need treasury");
         governor = governor_;
+        treasury = treasury_;
+        openFee = openFee_;
+        proposalFee = proposalFee_;
     }
 
     // ----------------------------------------------------------------------
@@ -115,10 +140,18 @@ contract ThinkingParameters {
         uint8 n,
         uint8 threshold,
         uint64 window
-    ) external returns (uint256 roundId) {
+    ) external payable returns (uint256 roundId) {
         if (lo > hi) revert BadRange(lo, hi);
         if (n == 0 || threshold == 0 || threshold > n || threshold < n / 2 + 1) revert BadCommittee(n, threshold);
+        if (window < MIN_WINDOW) revert WindowTooShort(window); // no flash open-and-settle lockout
+        if (msg.value != openFee) revert WrongFee(msg.value, openFee); // non-refundable anti-spam
+        if (openFee != 0) treasuryFees += openFee;
         roundId = _rounds.length;
+        // Snapshot the sortition population (operators bonded as of now) and the open
+        // block; the committee seed is blockhash(openBlock), unknown until the next
+        // block, so neither the opener nor operators can grind their selection.
+        _openBlock[roundId] = uint64(block.number);
+        _population[roundId] = governor.operatorCount();
         _rounds.push(
             Round({
                 modelSpecHash: modelSpecHash,
@@ -137,6 +170,17 @@ contract ThinkingParameters {
             })
         );
         emit RoundOpened(roundId, modelSpecHash, knobKey, lo, hi, n, threshold, msg.sender);
+    }
+
+    /// @notice Send accrued non-refundable fees to the treasury (pull-payment).
+    function withdrawFees() external {
+        uint256 amount = treasuryFees;
+        treasuryFees = 0;
+        if (amount != 0) {
+            (bool ok,) = payable(treasury).call{value: amount}("");
+            require(ok, "fee transfer failed");
+            emit FeesWithdrawn(treasury, amount);
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -171,18 +215,42 @@ contract ThinkingParameters {
         uint16 confidenceBucket,
         bytes32 evidenceHash,
         bytes calldata signature
-    ) external {
+    ) external payable {
         Round storage r = _rounds[roundId];
         if (r.status != Status.Open) revert RoundNotOpen(roundId);
         if (block.timestamp > r.deadline) revert RoundNotOpen(roundId);
+        if (r.submissionCount >= r.n) revert CommitteeFull(roundId); // bound the committee to n
+        if (msg.value != proposalFee) revert WrongFee(msg.value, proposalFee); // non-refundable sunk Sybil cost
         if (!_eligible(msg.sender)) revert NotEligibleOperator(msg.sender);
         if (_proposed[roundId][msg.sender]) revert AlreadyProposed(roundId, msg.sender);
         if (value < r.lo || value > r.hi) revert ValueOutOfRange(value, r.lo, r.hi);
 
+        // The proposal is a SIGNED judgment: the signature over the domain-separated
+        // digest must recover to the caller (no relay of another operator's value).
         bytes32 digest = proposalDigest(roundId, msg.sender, r.modelSpecHash, value, confidenceBucket, evidenceHash);
         address recovered = digest.recover(signature);
         if (recovered != msg.sender) revert SignerMismatch(recovered, msg.sender);
 
+        // PERMISSIONLESS COMMITTEE: the proposer must be (a) registered BEFORE this
+        // round opened and (b) sampled by sortition for this round. Sortition makes
+        // committee share track population share, so capturing the median requires a
+        // MAJORITY OF THE WHOLE OPERATOR POPULATION (not just spamming proposals);
+        // the sunk proposalFee + the governor's bond make that majority costly.
+        uint64 ob = _openBlock[roundId];
+        uint64 since = governor.operatorSince(msg.sender);
+        if (since == 0 || since > ob) revert NotRegisteredBeforeOpen(msg.sender);
+        bytes32 seed = _seed[roundId];
+        if (seed == bytes32(0)) {
+            // cache the seed = blockhash(openBlock); available only from openBlock+1
+            // .. openBlock+256, so the first proposal must land in that window.
+            if (block.number <= ob) revert SeedNotReady(roundId);
+            seed = blockhash(ob);
+            if (seed == bytes32(0)) revert SeedNotReady(roundId); // window elapsed (>256 blocks)
+            _seed[roundId] = seed;
+        }
+        if (!Sortition.isSelected(seed, msg.sender, _population[roundId], r.n)) revert NotSampled(msg.sender);
+
+        if (proposalFee != 0) treasuryFees += proposalFee;
         _proposed[roundId][msg.sender] = true;
         _proposals[roundId].push(
             Proposal({operator: msg.sender, value: value, confidenceBucket: confidenceBucket, evidenceHash: evidenceHash, submittedAt: uint64(block.timestamp)})
@@ -266,6 +334,24 @@ contract ThinkingParameters {
 
     function roundCount() external view returns (uint256) {
         return _rounds.length;
+    }
+
+    /// @notice The sortition context of a round: the block it opened in, the
+    /// operator population sampled from, and the committee seed (0 until the first
+    /// proposal caches blockhash(openBlock)). Lets the dashboard show how the
+    /// committee was drawn.
+    function committee(uint256 roundId) external view returns (uint64 openBlock, uint256 population, bytes32 seed) {
+        return (_openBlock[roundId], _population[roundId], _seed[roundId]);
+    }
+
+    /// @notice Whether `who` is in the sampled committee for `roundId` (once seeded).
+    /// An operator self-checks this to know if it should propose.
+    function isSampled(uint256 roundId, address who) external view returns (bool) {
+        bytes32 seed = _seed[roundId];
+        if (seed == bytes32(0)) return false;
+        uint64 since = governor.operatorSince(who);
+        if (since == 0 || since > _openBlock[roundId]) return false;
+        return Sortition.isSelected(seed, who, _population[roundId], _rounds[roundId].n);
     }
 
     function _eligible(address who) internal view returns (bool) {
