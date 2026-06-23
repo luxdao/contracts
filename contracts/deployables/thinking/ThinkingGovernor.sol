@@ -123,7 +123,12 @@ contract ThinkingGovernor is
     struct Operator {
         uint256 bond;
         uint64 deregisterAt; // 0 = active; else the timestamp deregister() was called
+        uint64 registeredAt; // block number the operator first bonded (for sortition eligibility)
     }
+
+    /// @notice Count of currently-bonded operators (the sortition population). Used
+    /// by value/vote committee sampling so committee share tracks population share.
+    uint256 private _operatorCount;
 
     mapping(address => Operator) private _operators;
 
@@ -187,6 +192,8 @@ contract ThinkingGovernor is
         if (msg.value < _minBond) revert BondTooLow(msg.value, _minBond);
         op.bond = msg.value;
         op.deregisterAt = 0;
+        op.registeredAt = uint64(block.number);
+        _operatorCount += 1;
         emit OperatorRegistered(msg.sender, msg.value);
     }
 
@@ -215,6 +222,7 @@ contract ThinkingGovernor is
         // EFFECTS
         op.bond = 0;
         op.deregisterAt = 0;
+        if (_operatorCount != 0) _operatorCount -= 1;
 
         // INTERACTION
         (bool ok, ) = payable(msg.sender).call{value: amount}("");
@@ -621,6 +629,16 @@ contract ThinkingGovernor is
     /// @inheritdoc IThinkingGovernor
     function bondOf(address who) external view override returns (uint256) {
         return _operators[who].bond;
+    }
+
+    /// @inheritdoc IThinkingGovernor
+    function operatorCount() external view override returns (uint256) {
+        return _operatorCount;
+    }
+
+    /// @inheritdoc IThinkingGovernor
+    function operatorSince(address who) external view override returns (uint64) {
+        return _operators[who].registeredAt;
     }
 
     /// @inheritdoc IThinkingGovernor

@@ -278,6 +278,13 @@ interface IThinkingGovernor {
 
     function bondOf(address who) external view returns (uint256);
 
+    /// @notice Count of currently-bonded operators — the sortition population.
+    function operatorCount() external view returns (uint256);
+
+    /// @notice Block number an operator first bonded (0 if never) — sortition
+    /// eligibility uses it to require registration BEFORE a round opened.
+    function operatorSince(address who) external view returns (uint64);
+
     function rewardOf(address who) external view returns (uint256);
 
     function taskCount() external view returns (uint256);
