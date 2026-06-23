@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import hardhatEthers from '@nomicfoundation/hardhat-ethers';
 import hardhatEthersChaiMatchers from '@nomicfoundation/hardhat-ethers-chai-matchers';
@@ -10,6 +11,27 @@ import dotenv from 'dotenv';
 import { HardhatUserConfig } from 'hardhat/config';
 
 dotenv.config();
+
+// The `thinking/` deployables hit "Stack too deep" and only compile with the IR
+// pipeline; the vendored Safe mock, conversely, cannot compile with viaIR. So the
+// default profile stays non-IR (Safe + DAO masters + work-market all build) and we
+// override ONLY the thinking sources to viaIR. Discovered from disk so any new
+// thinking contract is covered automatically — one rule, no per-file drift.
+const thinkingDir = path.join(import.meta.dirname, 'contracts/deployables/thinking');
+function listSol(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return listSol(full);
+    return entry.name.endsWith('.sol') ? [path.relative(import.meta.dirname, full)] : [];
+  });
+}
+const viaIROverrides = Object.fromEntries(
+  listSol(thinkingDir).map((src) => [
+    src,
+    { version: '0.8.30', settings: { viaIR: true, optimizer: { enabled: true, runs: 200 } } },
+  ]),
+);
 
 const config: HardhatUserConfig = {
   plugins: [
@@ -51,6 +73,7 @@ const config: HardhatUserConfig = {
         },
       },
     ],
+    overrides: viaIROverrides,
   },
   networks: {
     // Default in-memory EDR network used by the Mocha test-suite.
@@ -127,9 +150,14 @@ const config: HardhatUserConfig = {
     pars: {
       chainId: 7070,
       url: process.env.PARS_PROVIDER || 'https://rpc.pars.network',
-      accounts: {
-        mnemonic: process.env.MNEMONIC || 'light light light light light light light light light light light energy',
-      },
+      // The Pars treasury deployer is a single KMS-held private key (it does not
+      // derive from the `light...energy` mnemonic). Prefer PRIVATE_KEY (array
+      // form) when set; otherwise fall back to the shared mnemonic.
+      accounts: process.env.PRIVATE_KEY
+        ? [process.env.PRIVATE_KEY]
+        : {
+            mnemonic: process.env.MNEMONIC || 'light light light light light light light light light light light energy',
+          },
       type: 'http',
     },
     localhost: {

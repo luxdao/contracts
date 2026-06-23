@@ -63,6 +63,13 @@ interface DeployedAddresses {
 
     // Key-value pairs
     keyValuePairs: string;
+
+    // Work-market (Bounty/Escrow/Reputation) master copies.
+    // Implementations only — a user wires an instance (Escrow.controller =
+    // Reputation.writer = the Bounty proxy) at create time via moduleProxyFactory.
+    bountyV1MasterCopy: string;
+    escrowV1MasterCopy: string;
+    reputationV1MasterCopy: string;
   };
 }
 
@@ -180,6 +187,18 @@ async function main() {
 
   // Deploy Claim contract
   addresses.claimErc20MasterCopy = await deploy('PublicSaleV1 (Claim)', 'PublicSaleV1');
+
+  // Deploy Work-Market master copies (Bounty/Escrow/Reputation).
+  // These are implementation contracts (each disables initializers in its
+  // constructor); instances are created by the app at runtime via the
+  // moduleProxyFactory, where the Escrow.controller / Reputation.writer cycle
+  // against the Bounty proxy is resolved by CREATE-nonce prediction. There is
+  // no cycle here — we deploy three independent implementations.
+  console.log('\n=== Deploying Work-Market Contracts ===');
+
+  addresses.bountyV1MasterCopy = await deploy('BountyV1', 'BountyV1');
+  addresses.escrowV1MasterCopy = await deploy('EscrowV1', 'EscrowV1');
+  addresses.reputationV1MasterCopy = await deploy('ReputationV1', 'ReputationV1');
 
   // Save deployed addresses
   const deploymentInfo: DeployedAddresses = {
