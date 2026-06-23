@@ -1,0 +1,12 @@
+{
+  "chainId": 96368,
+  "deployer": "0x9011E888251AB053B7bD1cdB598Db4f9DEd94714",
+  "contracts": {
+    "ProofOfThoughtRegistry": "0x0570b2c59976E87D37d3a9915750BFf131d295D6",
+    "ThinkingGovernor": "0xa24318F24739d92a2e1c2997C18F5103d0fD708e",
+    "ThinkingChainObservatory": "0xFd57A578A0Ff600B5420D1964aC7A80f0E08B1ad",
+    "GovernancePoTBridge": "0x905b1907d4b8262B220A7aF7ad0a375F3A2F05cb",
+    "ThinkingReputation": "0x7803f099cdA82732e98C9f82815e7Acf18CA02C8",
+    "AICoin": "0xB6BdC625f4B2877418D7A9773F8A5763c93EfbaC"
+  }
+}
