@@ -30,7 +30,7 @@ create(){ forge create "$1" --rpc-url "$RPC" --mnemonic "$MN_FILE" --broadcast -
           | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])'; }
 
 echo "== deploying Thinking Chains AI-mining + governance stack =="
-REG=$(create "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry")
+REG=$(create "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry" "$DEPLOYER")  # admin=deployer; wires recorder below
 GOV=$(create "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
 # Native coin: 1B cap, halving every 4y, burn tail (core paper Tokenomics).
 # admin = TREASURY (the DAO seat); minter = 0 here — governance wires it to the
@@ -42,6 +42,10 @@ AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$RPC" --mnemonic "$MN_FI
 OBS=$(create "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN")
 BRIDGE=$(create "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
 REP=$(create "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
+# Authorize the bridge as the registry's PoT recorder (register() is gated to
+# authorized recorders). Governance may add the settlement contract / transferAdmin
+# to the DAO later; here the deployer (registry admin) wires the bridge.
+cast send "$REG" "setRecorder(address,bool)" "$BRIDGE" true --rpc-url "$RPC" --mnemonic "$MN_FILE" >/dev/null
 
 echo "== deployed =="
 echo "  registry    = $REG"
