@@ -63,6 +63,9 @@
   <div class="cards" id="cards"></div>
   <h2>AI Economics — Bitcoin-shaped issuance (1B cap · halves every 4y · burn tail)</h2>
   <div class="cards" id="econ"><div class="empty">loading…</div></div>
+  <h2 id="phead">Parameter Decisions — values the validators' LLMs chose (median settles)</h2>
+  <div class="cards" id="paramcards"><div class="empty">—</div></div>
+  <div id="paramprops" class="vgrid"></div>
   <h2>Governance Thoughts — what the thinking-validators decided</h2>
   <table><thead><tr>
     <th>#</th><th>knob</th><th>status</th><th>canonical decision</th><th>confidence</th><th>quorum</th>
@@ -126,6 +129,23 @@ const GOV_ABI = [
 const REP = q.get('reputation') || '';
 const REP_ABI = [
   { type:'function', name:'weightOf', stateMutability:'view', inputs:[u('address')], outputs:[u('uint32')] },
+];
+// Value-deciding governance: the validators' LLMs PROPOSE a knob value; the chain
+// settles the median. Read rounds + proposals from ThinkingParameters.
+const PARAMS = q.get('parameters') || '';
+const PSTATUS = ['None','Open','Settled','Failed'];
+const ROUND = tup(
+  {name:'modelSpecHash',type:'bytes32'},{name:'promptHash',type:'bytes32'},{name:'knobKey',type:'string'},
+  {name:'lo',type:'uint256'},{name:'hi',type:'uint256'},{name:'n',type:'uint8'},{name:'threshold',type:'uint8'},
+  {name:'openedAt',type:'uint64'},{name:'deadline',type:'uint64'},{name:'opener',type:'address'},
+  {name:'status',type:'uint8'},{name:'submissionCount',type:'uint8'},{name:'canonicalValue',type:'uint256'});
+const PROPOSAL = tup(
+  {name:'operator',type:'address'},{name:'value',type:'uint256'},{name:'confidenceBucket',type:'uint16'},
+  {name:'evidenceHash',type:'bytes32'},{name:'submittedAt',type:'uint64'});
+const PARAMS_ABI = [
+  { type:'function', name:'roundCount', stateMutability:'view', inputs:[], outputs:[u('uint256')] },
+  { type:'function', name:'getRound', stateMutability:'view', inputs:[u('uint256')], outputs:[ROUND] },
+  { type:'function', name:'getProposals', stateMutability:'view', inputs:[u('uint256')], outputs:[{type:'tuple[]',components:PROPOSAL.components}] },
 ];
 
 const client = createPublicClient({ transport: http(RPC) });
@@ -195,6 +215,29 @@ async function tick(){
         el('verdicts').innerHTML = cards.join('');
       }
     } else { el('verdicts').innerHTML='<div class="empty">—</div>'; }
+
+    // Parameter decisions — the values the validators' LLMs proposed + the median
+    if (PARAMS) {
+      try {
+        const rc = await client.readContract({address:PARAMS, abi:PARAMS_ABI, functionName:'roundCount'});
+        if (rc > 0n) {
+          const rid = rc - 1n;
+          const rd = await client.readContract({address:PARAMS, abi:PARAMS_ABI, functionName:'getRound', args:[rid]});
+          const props = await client.readContract({address:PARAMS, abi:PARAMS_ABI, functionName:'getProposals', args:[rid]});
+          const decided = rd.status===2;
+          el('phead').textContent = `Parameter Decisions — round #${rid} · ${esc(rd.knobKey)} (range ${rd.lo}–${rd.hi})`;
+          el('paramcards').innerHTML =
+            `<div class="card"><div class="n" style="color:${decided?'var(--yes)':'var(--fg)'}">${decided?rd.canonicalValue.toString():'—'}</div><div class="l">decided value (median)</div></div>`+
+            card(props.length+'/'+rd.n,'proposals')+
+            `<div class="card"><div class="n">${PSTATUS[rd.status]}</div><div class="l">status (≥${rd.threshold} to settle)</div></div>`;
+          el('paramprops').innerHTML = props.length ? props.map((p,i)=>
+            `<div class="vcard"><div class="vi">validator ${i+1}</div><div class="mono">${short(p.operator)}</div>
+             <div class="vv" style="color:var(--acc);font-size:1.3em">${p.value.toString()}</div>
+             <div class="mono">${Number(p.confidenceBucket)/100}% confidence</div></div>`).join('')
+            : '<div class="empty">no proposals yet</div>';
+        } else { el('paramcards').innerHTML='<div class="empty">no parameter rounds yet</div>'; }
+      } catch(_){ el('paramcards').innerHTML='<div class="empty">—</div>'; }
+    } else { el('paramcards').innerHTML='<div class="empty">pass ?parameters=0x… to view</div>'; }
 
     el('receipts').innerHTML = receipts.length ? receipts.map(r=>
       `<tr><td class="mono">${short(r.modelId)}</td><td class="mono">${short(r.promptHash)}</td>
