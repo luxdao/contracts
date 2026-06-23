@@ -66,10 +66,13 @@ AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$BLG_RPC" --private-key 
 OBS=$(dep "$BLG_RPC" "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN")
 BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
 REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
+# value-deciding governance: operators' LLMs PROPOSE a knob value; the chain settles
+# to the Byzantine-robust median (composes the governor's bonded operator set).
+PARAMS=$(dep "$BLG_RPC" "$T/ThinkingParameters.sol:ThinkingParameters" "$GOV")
 # authorize the bridge as the registry's recorder (register() is now gated — only
 # authorized recorders may write PoT receipts; closes the front-run/forgery vector)
 cast send "$REG" "setRecorder(address,bool)" "$BRIDGE" true --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
-echo "  governor=$GOV  observatory=$OBS  reputation=$REP  aicoin=$AICOIN  (bridge authorized as PoT recorder)"
+echo "  governor=$GOV  observatory=$OBS  reputation=$REP  aicoin=$AICOIN  parameters=$PARAMS  (bridge authorized as PoT recorder)"
 
 # ---- register Beluga L3 in the Zoo L2 hub -----------------------------------
 say "registering Beluga L3 in the Zoo L2 hub"
@@ -117,6 +120,28 @@ done
 # EIP-1559-style fee burn: validator 1 burns a slice of its reward (deflationary sink)
 cast send "$AICOIN" "burn(uint256)" 250000000000000000000 --private-key "${OPS[0]}" --rpc-url "$BLG_RPC" >/dev/null
 echo "  burned 250 AI (fee sink) -> supply now deflationary against the subsidy"
+
+# ---- value-deciding governance: the LLM DECIDES the knob value, chain takes median --
+say "Beluga L3: thinking-validators PROPOSE the conservation tithe (bps); chain settles the MEDIAN"
+PQ="Propose the conservation tithe in basis points routed from every settled AI-task fee to ocean and beluga-whale conservation, balancing the mission against fee competitiveness."
+PKNOB="beluga.conservation.tithe.bps"; PLO=0; PHI=2000
+PPH=$(cast keccak "$PQ")
+RID=$(cast call "$PARAMS" "roundCount()(uint256)" --rpc-url "$BLG_RPC" | awk '{print $1}')
+cast send "$PARAMS" "open(bytes32,bytes32,string,uint256,uint256,uint8,uint8,uint64)" "$SPEC" "$PPH" "$PKNOB" "$PLO" "$PHI" 5 3 3600 --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
+for i in 0 1 2 3 4; do
+  vid=$((i+1)); OPADDR=$(cast wallet address --private-key "${OPS[$i]}")
+  read -r VAL VBUCKET < <(bash "$HERE/decide-value.sh" "$vid" "$PQ" "$PLO" "$PHI" 2>>/tmp/beluga-cognition.log)
+  PEV=$(cast keccak "tithe-rationale-$vid")
+  PDIG=$(cast call "$PARAMS" "proposalDigest(uint256,address,bytes32,uint256,uint16,bytes32)(bytes32)" "$RID" "$OPADDR" "$SPEC" "$VAL" "$VBUCKET" "$PEV" --rpc-url "$BLG_RPC")
+  PSIG=$(cast wallet sign --no-hash "$PDIG" --private-key "${OPS[$i]}")
+  cast send "$PARAMS" "submitProposal(uint256,uint256,uint16,bytes32,bytes)" "$RID" "$VAL" "$VBUCKET" "$PEV" "$PSIG" --private-key "${OPS[$i]}" --rpc-url "$BLG_RPC" >/dev/null
+  echo "  validator $vid -> proposes tithe $VAL bps @ $((VBUCKET/100))%"
+done
+cast rpc evm_increaseTime 4000 --rpc-url "$BLG_RPC" >/dev/null; cast rpc evm_mine --rpc-url "$BLG_RPC" >/dev/null
+cast send "$PARAMS" "settle(uint256)" "$RID" --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
+VOUT=$(cast call "$PARAMS" "valueOf(bytes32,string)(uint256,bool)" "$SPEC" "$PKNOB" --rpc-url "$BLG_RPC")
+TITHE=$(printf '%s\n' "$VOUT" | sed -n '1p' | awk '{print $1}'); TSET=$(printf '%s\n' "$VOUT" | sed -n '2p' | tr -d ' ')
+echo "  -> chain DECIDED tithe = $TITHE bps (median of validator proposals), now LIVE on-chain"
 
 # ---- read it ALL back from both chains --------------------------------------
 say "PROOF — read back from both chains"
@@ -199,11 +224,21 @@ p.append(c.strip()); print(p[6].split()[0])')  # burned (index 6)
 chk "Observatory economics.burned (wei)" "$EBURN" "250000000000000000000"
 V1=$(cast call "$AICOIN" "balanceOf(address)(uint256)" "$(cast wallet address --private-key "${OPS[0]}")" --rpc-url "$BLG_RPC"|awk '{print $1}')
 chk "validator-1 balance (1000 mined - 250 burned, wei)" "$V1" "750000000000000000000"
+# value-deciding governance: the LLM-proposed parameter was settled to a live value
+chk "tithe parameter decided (valueOf set)" "$TSET" "true"
+if [ "${TITHE:-99999}" -ge "$PLO" ] && [ "${TITHE:-99999}" -le "$PHI" ]; then printf '  \033[1;32mPASS\033[0m decided tithe %s bps within [%s,%s]\n' "$TITHE" "$PLO" "$PHI"; else printf '  \033[1;31mFAIL\033[0m decided tithe %s out of [%s,%s]\n' "$TITHE" "$PLO" "$PHI"; FAILS=$((FAILS+1)); fi
+chk "parameter round status (2=Settled)" "$(cast call "$PARAMS" "getRound(uint256)((bytes32,bytes32,string,uint256,uint256,uint8,uint8,uint64,uint64,address,uint8,uint8,uint256))" "$RID" --rpc-url "$BLG_RPC" | python3 -c '
+import sys; inner=sys.stdin.read().strip()[1:-1]; p=[];d=0;c=""
+for ch in inner:
+    d+=ch in "([" ; d-=ch in ")]"
+    if ch=="," and d==0: p.append(c.strip()); c=""
+    else: c+=ch
+p.append(c.strip()); print(p[10].split()[0])')" "2"
 if [ "$FAILS" -ne 0 ]; then printf '\n\033[1;31mPROOF FAILED — %s assertion(s) wrong; this is NOT a passing proof.\033[0m\n' "$FAILS"; exit 1; fi
 
-say "DONE — Zoo L2 hub lists Beluga L3; Beluga L3 governance settled + AI mined on-chain, ALL ASSERTIONS PASS. Architecture proven locally."
-echo "Zoo L2 hub=$HUB  Beluga L3 governor=$GOV  aicoin=$AICOIN"
+say "DONE — Zoo L2 hub lists Beluga L3; governance settled + AI mined + a knob VALUE decided by validator LLMs (median), ALL ASSERTIONS PASS. Architecture proven locally."
+echo "Zoo L2 hub=$HUB  Beluga L3 governor=$GOV  aicoin=$AICOIN  parameters=$PARAMS"
 if [ -n "${KEEP:-}" ]; then
-  echo "DASHBOARD file://$HERE/observatory.html?rpc=$BLG_RPC&observatory=$OBS&reputation=$REP"
+  echo "DASHBOARD file://$HERE/observatory.html?rpc=$BLG_RPC&observatory=$OBS&reputation=$REP&parameters=$PARAMS"
   echo "(anvils left running — pkill -f anvil when done)"
 fi
