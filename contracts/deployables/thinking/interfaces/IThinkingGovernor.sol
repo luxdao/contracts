@@ -82,6 +82,10 @@ interface IThinkingGovernor {
         uint16 canonicalBucket; // the winning confidence bucket (bps)
         uint8 agreeCount; // size of the winning group
         bytes32 evidenceRoot; // keccak of concatenated agreeing evidence hashes
+        // --- commit-reveal (zero/false for the cleartext-submit path) ---
+        bool commitReveal; // true ⇒ verdicts MUST go through commit→reveal, cleartext submit barred
+        uint64 commitDeadline; // last block timestamp a commit is accepted (commit window close)
+        uint64 revealDeadline; // last block timestamp a reveal is accepted (== deadline for CR tasks)
     }
 
     /// @notice One operator's verdict on a task.
@@ -146,6 +150,11 @@ interface IThinkingGovernor {
     /// @notice Reward credited to an agreeing operator (pull-payment).
     event RewardAccrued(address indexed operator, uint256 amount, uint256 indexed taskId);
 
+    /// @notice An operator sealed a commit on a commit-reveal task. The commit is the only datum
+    /// public during the commit window — and it is operator-bound, so a peer copying these bytes
+    /// cannot reveal them (the reveal recomputes against the revealer's own address).
+    event VerdictCommitted(uint256 indexed taskId, address indexed operator, bytes32 commit);
+
     // ======================================================================
     // ERRORS
     // ======================================================================
@@ -176,6 +185,18 @@ interface IThinkingGovernor {
     error OpenerIsTreasury(address opener);
     error SettleTooEarly(uint256 taskId, uint64 deadline);
 
+    // ---- commit-reveal ----
+    error NotCommitReveal(uint256 taskId); // commit/reveal called on a cleartext task
+    error UseCommitReveal(uint256 taskId); // cleartext submitVerdict called on a CR task
+    error BadCommitRevealWindow(uint64 commitWindow, uint64 revealWindow);
+    error EmptyCommit();
+    error CommitClosed(uint256 taskId); // commit after the commit window closed
+    error AlreadyCommitted(uint256 taskId, address operator);
+    error RevealNotOpen(uint256 taskId); // reveal before the commit window closed (the anti-copy gate)
+    error RevealClosed(uint256 taskId); // reveal after the reveal window closed
+    error NotCommitted(uint256 taskId, address operator); // reveal with no prior commit
+    error CommitMismatch(uint256 taskId, address operator); // reveal does not recompute to the commit
+
     // ======================================================================
     // OPERATOR REGISTRY
     // ======================================================================
@@ -205,6 +226,52 @@ interface IThinkingGovernor {
         bytes32 evidenceHash,
         bytes calldata sig
     ) external;
+
+    /// @notice Open a COMMIT-REVEAL thought: operators must seal a commit during the commit
+    /// window, then reveal strictly after it closes. Prevents the value-copy attack the
+    /// cleartext {submitVerdict} path is open to (an operator reading a peer's cleartext verdict
+    /// and copying it). Mirrors the A-Chain two-phase commit (chains/aivm/commit_reveal.go):
+    /// reveal opens only after commit closes, and the commit binds the operator so a copied
+    /// commit cannot be revealed by anyone else. `deadline` is set to the reveal close, so
+    /// {settle} waits for the full commit+reveal duration.
+    function openThoughtCommitReveal(
+        bytes32 modelSpecHash,
+        bytes32 promptHash,
+        bytes32 evidenceHash,
+        uint8 n,
+        uint8 threshold,
+        uint64 commitWindow,
+        uint64 revealWindow,
+        string calldata knobKey
+    ) external payable returns (uint256 taskId);
+
+    /// @notice Seal a commit for a commit-reveal task during the commit window. `commit` MUST be
+    /// {commitDigest}(taskId, msg.sender, vote, bucket, evidenceHash, nonce). One per operator.
+    function commitVerdict(uint256 taskId, bytes32 commit) external;
+
+    /// @notice Reveal a previously-committed verdict, strictly after the commit window closes.
+    /// The contract recomputes the operator-bound commit and rejects a mismatch; no signature is
+    /// needed because the operator-bound commit IS the authentication. Records the verdict for the
+    /// tally exactly as {submitVerdict} would.
+    function revealVerdict(
+        uint256 taskId,
+        uint8 vote,
+        uint16 confidenceBucket,
+        bytes32 evidenceHash,
+        bytes32 nonce
+    ) external;
+
+    /// @notice The operator-bound commit an operator seals (and the contract recomputes at
+    /// reveal). Domain-separated and bound to this deployment + task + operator, so a commit is
+    /// non-transferable across operators, tasks, instances, or chains.
+    function commitDigest(
+        uint256 taskId,
+        address operator,
+        uint8 vote,
+        uint16 confidenceBucket,
+        bytes32 evidenceHash,
+        bytes32 nonce
+    ) external view returns (bytes32);
 
     function settle(uint256 taskId) external;
 
