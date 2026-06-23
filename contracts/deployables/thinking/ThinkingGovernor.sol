@@ -86,6 +86,10 @@ contract ThinkingGovernor is
     /// replayed as any other secp256k1-signed message (or vice-versa).
     bytes32 public constant VERDICT_DOMAIN = keccak256("hanzo/thinking-governor/verdict/v1");
 
+    /// @notice Domain tag for the commit-reveal commit digest. Distinct from {VERDICT_DOMAIN} so
+    /// a sealed commit can never be confused with (or replayed as) a cleartext-submit signature.
+    bytes32 public constant COMMIT_DOMAIN = keccak256("hanzo/thinking-governor/commit/v1");
+
     // ======================================================================
     // IMMUTABLE CONFIG
     // ======================================================================
@@ -140,6 +144,9 @@ contract ThinkingGovernor is
     mapping(uint256 => mapping(address => bool)) private _voted;
     // taskId => list of submitters (bounded by n <= MAX_COMMITTEE)
     mapping(uint256 => address[]) private _submitters;
+
+    // commit-reveal: taskId => operator => sealed commit (zero = not committed)
+    mapping(uint256 => mapping(address => bytes32)) private _commit;
 
     // operator => withdrawable reward (pull-payment)
     mapping(address => uint256) private _rewards;
@@ -294,7 +301,10 @@ contract ThinkingGovernor is
                 canonicalVote: Vote.Invalid,
                 canonicalBucket: 0,
                 agreeCount: 0,
-                evidenceRoot: bytes32(0)
+                evidenceRoot: bytes32(0),
+                commitReveal: false,
+                commitDeadline: 0,
+                revealDeadline: 0
             })
         );
 
@@ -310,16 +320,15 @@ contract ThinkingGovernor is
         bytes calldata sig
     ) external override {
         Thought storage t = _thoughtAt(taskId);
+        // A commit-reveal task admits NO cleartext verdict: a plaintext vote is exactly the
+        // value-copyable datum commit-reveal exists to hide. Force the commit→reveal path.
+        if (t.commitReveal) revert UseCommitReveal(taskId);
         if (t.status != Status.Open) revert TaskNotOpen(taskId);
         if (t.submissionCount >= t.n) revert TaskFull(taskId);
         if (_voted[taskId][msg.sender]) revert AlreadyVoted(taskId, msg.sender);
         // The opener cannot also be a committee member on its own task — removes the
         // most direct self-deal (opener voting to mint its own decision).
         if (msg.sender == t.opener) revert OpenerCannotVote(taskId, msg.sender);
-
-        // Structural validity of the consensus fields (mirrors the Go schema).
-        if (!_isValidVote(vote)) revert InvalidVote(vote);
-        if (!_isValidBucket(confidenceBucket)) revert BadConfidenceBucket(confidenceBucket);
 
         // Recover over the domain-separated VERDICT digest, which binds taskId,
         // operator, the consensus fields, AND evidenceHash. OZ ECDSA enforces low-S
@@ -333,26 +342,176 @@ contract ThinkingGovernor is
         // signature belonging to a different operator.
         if (signer != msg.sender) revert SignerMismatch(signer, msg.sender);
 
+        _recordVerdict(taskId, t, msg.sender, vote, confidenceBucket, evidenceHash);
+    }
+
+    /// @dev Shared verdict-recording effects for BOTH the cleartext ({submitVerdict}) and the
+    /// commit-reveal ({revealVerdict}) paths — extracted so the tally sees an identical record
+    /// regardless of which authentication envelope (signature vs operator-bound commit) admitted
+    /// it. Validates structure + eligibility, then writes the verdict, appends the submitter, and
+    /// emits {VerdictSubmitted}. The caller has already authenticated the operator.
+    function _recordVerdict(
+        uint256 taskId,
+        Thought storage t,
+        address operator,
+        uint8 vote,
+        uint16 confidenceBucket,
+        bytes32 evidenceHash
+    ) private {
+        // Structural validity of the consensus fields (mirrors the Go schema).
+        if (!_isValidVote(vote)) revert InvalidVote(vote);
+        if (!_isValidBucket(confidenceBucket)) revert BadConfidenceBucket(confidenceBucket);
+
         // Eligibility: bonded >= minBond AND not in deregister cooldown.
-        if (!_eligible(signer)) revert NotBonded(signer);
+        if (!_eligible(operator)) revert NotBonded(operator);
 
         // EFFECTS
-        _voted[taskId][msg.sender] = true;
-        _verdicts[taskId][msg.sender] = Verdict({
-            operator: msg.sender,
+        _voted[taskId][operator] = true;
+        _verdicts[taskId][operator] = Verdict({
+            operator: operator,
             vote: Vote(vote),
             confidenceBucket: confidenceBucket,
             evidenceHash: evidenceHash,
             submittedAt: uint64(block.timestamp)
         });
-        _submitters[taskId].push(msg.sender);
+        _submitters[taskId].push(operator);
         unchecked {
             t.submissionCount += 1; // bounded by n <= MAX_COMMITTEE
         }
 
         // The consensus hash (Go-parity quorum key) for visibility/indexing.
         bytes32 chash = _consensusHash(t.modelSpecHash, vote, confidenceBucket);
-        emit VerdictSubmitted(taskId, msg.sender, vote, confidenceBucket, evidenceHash, chash);
+        emit VerdictSubmitted(taskId, operator, vote, confidenceBucket, evidenceHash, chash);
+    }
+
+    // ======================================================================
+    // COMMIT-REVEAL (anti value-copy; mirrors chains/aivm/commit_reveal.go)
+    // ======================================================================
+
+    /// @inheritdoc IThinkingGovernor
+    function openThoughtCommitReveal(
+        bytes32 modelSpecHash,
+        bytes32 promptHash,
+        bytes32 evidenceHash,
+        uint8 n,
+        uint8 threshold,
+        uint64 commitWindow,
+        uint64 revealWindow,
+        string calldata knobKey
+    ) external payable override returns (uint256 taskId) {
+        if (modelSpecHash == bytes32(0)) revert ZeroModelSpec();
+        if (n == 0 || n > MAX_COMMITTEE) revert BadCommitteeSize(n);
+        uint8 majority = n / 2 + 1;
+        if (threshold < majority || threshold > n) revert BadThreshold(n, threshold);
+        // Each window must independently be sane (same bounds as the single voting window): a
+        // griefer can neither force an instant commit/reveal nor lock the task open forever.
+        if (
+            commitWindow < MIN_VOTING_WINDOW ||
+            commitWindow > MAX_VOTING_WINDOW ||
+            revealWindow < MIN_VOTING_WINDOW ||
+            revealWindow > MAX_VOTING_WINDOW
+        ) {
+            revert BadCommitRevealWindow(commitWindow, revealWindow);
+        }
+        if (bytes(knobKey).length == 0) revert EmptyKnobKey();
+        if (msg.sender == _treasury) revert OpenerIsTreasury(msg.sender);
+        if (msg.value != rewardPerThought + _openFee) {
+            revert WrongOpenPayment(msg.value, rewardPerThought + _openFee);
+        }
+        if (_openFee != 0) {
+            _rewards[_treasury] += _openFee;
+        }
+
+        uint64 commitDeadline = uint64(block.timestamp) + commitWindow;
+        uint64 revealDeadline = commitDeadline + revealWindow;
+
+        taskId = _thoughts.length;
+        _thoughts.push(
+            Thought({
+                modelSpecHash: modelSpecHash,
+                promptHash: promptHash,
+                evidenceHash: evidenceHash,
+                n: n,
+                threshold: threshold,
+                openedAt: uint64(block.timestamp),
+                // settle() is gated on `block.timestamp < deadline`; setting it to the reveal
+                // close makes settle wait for the WHOLE commit+reveal duration.
+                deadline: revealDeadline,
+                opener: msg.sender,
+                status: Status.Open,
+                submissionCount: 0,
+                knobKey: knobKey,
+                canonicalVote: Vote.Invalid,
+                canonicalBucket: 0,
+                agreeCount: 0,
+                evidenceRoot: bytes32(0),
+                commitReveal: true,
+                commitDeadline: commitDeadline,
+                revealDeadline: revealDeadline
+            })
+        );
+
+        emit ThoughtOpened(taskId, modelSpecHash, promptHash, evidenceHash, n, threshold, knobKey, msg.sender);
+    }
+
+    /// @inheritdoc IThinkingGovernor
+    function commitVerdict(uint256 taskId, bytes32 commit) external override {
+        Thought storage t = _thoughtAt(taskId);
+        if (!t.commitReveal) revert NotCommitReveal(taskId);
+        if (t.status != Status.Open) revert TaskNotOpen(taskId);
+        if (commit == bytes32(0)) revert EmptyCommit();
+        // Commit window: open up to and including commitDeadline.
+        if (block.timestamp > t.commitDeadline) revert CommitClosed(taskId);
+        if (t.submissionCount >= t.n) revert TaskFull(taskId);
+        if (msg.sender == t.opener) revert OpenerCannotVote(taskId, msg.sender);
+        // Eligibility is checked at commit AND re-checked at reveal (and again at settle), so an
+        // operator that exits between phases cannot tip the quorum.
+        if (!_eligible(msg.sender)) revert NotBonded(msg.sender);
+        if (_commit[taskId][msg.sender] != bytes32(0)) revert AlreadyCommitted(taskId, msg.sender);
+
+        _commit[taskId][msg.sender] = commit;
+        emit VerdictCommitted(taskId, msg.sender, commit);
+    }
+
+    /// @inheritdoc IThinkingGovernor
+    function revealVerdict(
+        uint256 taskId,
+        uint8 vote,
+        uint16 confidenceBucket,
+        bytes32 evidenceHash,
+        bytes32 nonce
+    ) external override {
+        Thought storage t = _thoughtAt(taskId);
+        if (!t.commitReveal) revert NotCommitReveal(taskId);
+        if (t.status != Status.Open) revert TaskNotOpen(taskId);
+        // THE ANTI-COPY GATE: reveal opens STRICTLY AFTER the commit window closes, so no
+        // operator can have observed a peer's revealed fields before its own commit was sealed.
+        if (block.timestamp <= t.commitDeadline) revert RevealNotOpen(taskId);
+        if (block.timestamp > t.revealDeadline) revert RevealClosed(taskId);
+
+        bytes32 stored = _commit[taskId][msg.sender];
+        if (stored == bytes32(0)) revert NotCommitted(taskId, msg.sender);
+        // _voted is set by _recordVerdict; a second reveal is rejected here (operator-bound).
+        if (_voted[taskId][msg.sender]) revert AlreadyVoted(taskId, msg.sender);
+
+        // Recompute the operator-bound commit; a copied commit value reveals to a DIFFERENT
+        // digest under the copier's address, so only the original committer can reveal it.
+        bytes32 recomputed = _commitDigest(taskId, msg.sender, vote, confidenceBucket, evidenceHash, nonce);
+        if (recomputed != stored) revert CommitMismatch(taskId, msg.sender);
+
+        _recordVerdict(taskId, t, msg.sender, vote, confidenceBucket, evidenceHash);
+    }
+
+    /// @inheritdoc IThinkingGovernor
+    function commitDigest(
+        uint256 taskId,
+        address operator,
+        uint8 vote,
+        uint16 confidenceBucket,
+        bytes32 evidenceHash,
+        bytes32 nonce
+    ) external view override returns (bytes32) {
+        return _commitDigest(taskId, operator, vote, confidenceBucket, evidenceHash, nonce);
     }
 
     /// @inheritdoc IThinkingGovernor
@@ -781,6 +940,39 @@ contract ThinkingGovernor is
                     confidenceBucket,
                     evidenceHash,
                     operator
+                )
+            );
+    }
+
+    /// @dev The operator-bound commit digest. Domain-separated and bound to this deployment
+    /// (block.chainid + address(this)), the task, the operator, the revealed consensus fields,
+    /// the evidence, and a secret nonce. Mirrors the A-Chain ComputeCommit
+    /// (chains/aivm/selection.go) discipline: the operator binding means a copied commit cannot
+    /// be revealed by anyone else; the nonce keeps the commit hiding (an observer cannot brute-
+    /// force the small {vote, bucket} space without it); the deployment binding stops cross-
+    /// instance/chain replay. This is the on-chain analogue of the task's
+    /// keccak(operator‖vote‖bucket‖evidenceHash‖nonce), hardened with the domain + chain +
+    /// instance + task separators the cleartext digest already carries.
+    function _commitDigest(
+        uint256 taskId,
+        address operator,
+        uint8 vote,
+        uint16 confidenceBucket,
+        bytes32 evidenceHash,
+        bytes32 nonce
+    ) private view returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    COMMIT_DOMAIN,
+                    block.chainid,
+                    address(this),
+                    taskId,
+                    operator,
+                    vote,
+                    confidenceBucket,
+                    evidenceHash,
+                    nonce
                 )
             );
     }
