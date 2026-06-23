@@ -133,6 +133,11 @@ const read = (fn,args=[]) => client.readContract({ address:OBS, abi:ABI, functio
 let GOV_ADDR = null;
 const el = id => document.getElementById(id);
 const short = h => h.slice(0,8)+'…';
+// escape on-chain strings before they enter an innerHTML sink. knobKey is an
+// attacker-controlled free-text field (openThought only checks it's non-empty),
+// so without this a knob like `<img src=x onerror=...>` is stored XSS executing
+// in every DAO member's browser. All other rendered fields are numeric/hash/enum.
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function card(n,l){ return `<div class="card"><div class="n">${n}</div><div class="l">${l}</div></div>`; }
 
@@ -164,7 +169,7 @@ async function tick(){
       const st=STATUS[t.status], vt=VOTE[t.canonicalVote], conf=Number(t.canonicalBucket)/100;
       const decided = t.status===2 ? `<span class="v-${vt}">${vt}</span>` : '<span class="mono">—</span>';
       const cbar = t.status===2 ? `<span class="bar"><i style="width:${conf}%"></i></span> ${conf}%` : '<span class="mono">—</span>';
-      return `<tr><td>${t.taskId}</td><td>${t.knobKey}</td>
+      return `<tr><td>${t.taskId}</td><td>${esc(t.knobKey)}</td>
         <td><span class="pill s-${st}">${st}</span></td><td>${decided}</td><td>${cbar}</td>
         <td class="mono">${t.agreeCount}/${t.n} (≥${t.threshold})</td></tr>`;
     }).join('') : '<tr><td colspan="6" class="empty">no thoughts yet — run beluga-think-local.sh</td></tr>';

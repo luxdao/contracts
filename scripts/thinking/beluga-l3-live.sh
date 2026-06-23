@@ -54,7 +54,7 @@ echo "  Zoo L2 L3Registry = $HUB"
 
 # ---- Beluga L3 thinking-governance stack -----------------------------------
 say "deploying Beluga L3 thinking-governance stack"
-REG=$(dep "$BLG_RPC" "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry")
+REG=$(dep "$BLG_RPC" "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry" "$A0")  # admin=deployer
 GOV=$(dep "$BLG_RPC" "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
 # the native coin: Bitcoin-shaped issuance (1B cap, halving every 4y, burn tail).
 # admin = deployer (the DAO seat for the demo); minter = deployer acting as the
@@ -66,7 +66,10 @@ AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$BLG_RPC" --private-key 
 OBS=$(dep "$BLG_RPC" "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN")
 BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
 REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
-echo "  governor=$GOV  observatory=$OBS  reputation=$REP  aicoin=$AICOIN"
+# authorize the bridge as the registry's recorder (register() is now gated — only
+# authorized recorders may write PoT receipts; closes the front-run/forgery vector)
+cast send "$REG" "setRecorder(address,bool)" "$BRIDGE" true --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
+echo "  governor=$GOV  observatory=$OBS  reputation=$REP  aicoin=$AICOIN  (bridge authorized as PoT recorder)"
 
 # ---- register Beluga L3 in the Zoo L2 hub -----------------------------------
 say "registering Beluga L3 in the Zoo L2 hub"
@@ -78,13 +81,21 @@ say "Beluga L3: 5 thinking-validators bond, decide a knob, settle a quorum"
 for i in 0 1 2 3 4; do cast send "$GOV" "registerOperator()" --value 1ether --private-key "${OPS[$i]}" --rpc-url "$BLG_RPC" >/dev/null; done
 QH=$(cast keccak "$QUESTION"); EH=$(cast keccak "beluga-evidence")
 cast send "$GOV" "openThought(bytes32,bytes32,bytes32,uint8,uint8,uint64,string)" "$SPEC" "$QH" "$EH" 5 3 3600 "$KNOB" --value 0.6ether --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
+# COGNITION SOURCE banner — never hide whether verdicts came from the LLM or the
+# labelled deterministic stand-in (red-team R5 MED: do not pass scripted votes off
+# as model output). decide.sh writes its provenance to stderr; surface it.
+if curl -s -m 2 "${HANZO_ENGINE:-http://127.0.0.1:36900}/health" >/dev/null 2>&1; then
+  echo "  COGNITION SOURCE: hanzo-engine @ ${HANZO_ENGINE:-http://127.0.0.1:36900} (real LLM verdicts)"
+else
+  echo "  COGNITION SOURCE: deterministic policy stand-in (hanzo-engine unreachable — verdicts are SCRIPTED, not model output)"
+fi
 for i in 0 1 2 3 4; do
   vid=$((i+1)); OPADDR=$(cast wallet address --private-key "${OPS[$i]}")
-  read -r VOTE BUCKET < <(bash "$HERE/decide.sh" "$vid" "$QUESTION" 2>/dev/null)
+  read -r VOTE BUCKET < <(bash "$HERE/decide.sh" "$vid" "$QUESTION" 2>>/tmp/beluga-cognition.log)
   EV=$(cast keccak "validator-$vid"); DIG=$(cast call "$GOV" "verdictDigest(uint256,address,bytes32,uint8,uint16,bytes32)(bytes32)" 0 "$OPADDR" "$SPEC" "$VOTE" "$BUCKET" "$EV" --rpc-url "$BLG_RPC")
   SIG=$(cast wallet sign --no-hash "$DIG" --private-key "${OPS[$i]}")
   cast send "$GOV" "submitVerdict(uint256,uint8,uint16,bytes32,bytes)" 0 "$VOTE" "$BUCKET" "$EV" "$SIG" --private-key "${OPS[$i]}" --rpc-url "$BLG_RPC" >/dev/null
-  vn=YES; [ "$VOTE" = 2 ] && vn=NO; [ "$VOTE" = 3 ] && vn=ABSTAIN; echo "  validator $vid -> $vn @ $((BUCKET/100))%"
+  vn=YES; [ "$VOTE" = 2 ] && vn=NO; [ "$VOTE" = 3 ] && vn=ABSTAIN; echo "  validator $vid -> $vn @ $((BUCKET/100))% (provenance -> /tmp/beluga-cognition.log)"
 done
 cast rpc evm_increaseTime 4000 --rpc-url "$BLG_RPC" >/dev/null; cast rpc evm_mine --rpc-url "$BLG_RPC" >/dev/null
 cast send "$GOV" "settle(uint256)" 0 --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
@@ -153,7 +164,44 @@ print(f"  remaining subsidy = {ai(remain)}")
 PY
 for i in 0 1 2 3 4; do OPADDR=$(cast wallet address --private-key "${OPS[$i]}"); B=$(cast call "$AICOIN" "balanceOf(address)(uint256)" "$OPADDR" --rpc-url "$BLG_RPC"|awk '{print $1}'); python3 -c "import sys;print(f'  validator $((i+1)) balance   = {int(sys.argv[1])/10**18:,.0f} AI')" "$B"; done
 
-say "DONE — Zoo L2 hub lists Beluga L3; Beluga L3 governance settled + AI mined on-chain. Architecture proven locally."
+# ---- ASSERT — a real proof FAILS HARD on wrong on-chain state ----------------
+# (displaying numbers is not proof; these checks exit non-zero on any mismatch so
+#  the script cannot print DONE on a broken chain — red-team R5 HIGH.)
+say "ASSERT — verifying on-chain state (proof fails hard on mismatch)"
+FAILS=0
+chk(){ if [ "$2" = "$3" ]; then printf '  \033[1;32mPASS\033[0m %s = %s\n' "$1" "$2"; else printf '  \033[1;31mFAIL\033[0m %s: got=%s want=%s\n' "$1" "$2" "$3"; FAILS=$((FAILS+1)); fi; }
+u(){ cast call "$1" "$2" --rpc-url "$3" | awk '{print $1}'; }  # uint as decimal string
+
+chk "Zoo L2 hub L3 count" "$(u "$HUB" 'count()(uint256)' "$ZOO_RPC")" "1"
+# governance settled with a REAL quorum (the vote itself is the LLM's call, not asserted)
+read -r S A TH N < <(cast call "$GOV" "getThought(uint256)((bytes32,bytes32,bytes32,uint8,uint8,uint64,uint64,address,uint8,uint8,string,uint8,uint16,uint8,bytes32))" 0 --rpc-url "$BLG_RPC" | python3 -c '
+import sys; inner=sys.stdin.read().strip()[1:-1]; p=[];d=0;c=""
+for ch in inner:
+    d+=ch in "([" ; d-=ch in ")]"
+    if ch=="," and d==0: p.append(c.strip()); c=""
+    else: c+=ch
+p.append(c.strip()); n=lambda s:s.split()[0]
+print(n(p[8]), n(p[13]), n(p[4]), n(p[3]))')
+chk "Beluga thought status (2=Settled)" "$S" "2"
+chk "committee size n" "$N" "5"
+if [ "${A:-0}" -ge "${TH:-99}" ]; then printf '  \033[1;32mPASS\033[0m quorum %s >= threshold %s\n' "$A" "$TH"; else printf '  \033[1;31mFAIL\033[0m quorum %s < threshold %s\n' "$A" "$TH"; FAILS=$((FAILS+1)); fi
+# economics: exact wei, read directly AND via the Observatory (visibility-surface parity)
+chk "AICoin hard cap (wei)" "$(u "$AICOIN" 'MAX_SUBSIDY()(uint256)' "$BLG_RPC")" "1000000000000000000000000000"
+chk "AICoin minted (wei)" "$(u "$AICOIN" 'mintedSubsidy()(uint256)' "$BLG_RPC")" "5000000000000000000000"
+chk "AICoin totalSupply after burn (wei)" "$(u "$AICOIN" 'totalSupply()(uint256)' "$BLG_RPC")" "4750000000000000000000"
+EBURN=$(cast call "$OBS" "economics()((address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))" --rpc-url "$BLG_RPC" | python3 -c '
+import sys; inner=sys.stdin.read().strip()[1:-1]; p=[];d=0;c=""
+for ch in inner:
+    d+=ch in "([" ; d-=ch in ")]"
+    if ch=="," and d==0: p.append(c.strip()); c=""
+    else: c+=ch
+p.append(c.strip()); print(p[6].split()[0])')  # burned (index 6)
+chk "Observatory economics.burned (wei)" "$EBURN" "250000000000000000000"
+V1=$(cast call "$AICOIN" "balanceOf(address)(uint256)" "$(cast wallet address --private-key "${OPS[0]}")" --rpc-url "$BLG_RPC"|awk '{print $1}')
+chk "validator-1 balance (1000 mined - 250 burned, wei)" "$V1" "750000000000000000000"
+if [ "$FAILS" -ne 0 ]; then printf '\n\033[1;31mPROOF FAILED — %s assertion(s) wrong; this is NOT a passing proof.\033[0m\n' "$FAILS"; exit 1; fi
+
+say "DONE — Zoo L2 hub lists Beluga L3; Beluga L3 governance settled + AI mined on-chain, ALL ASSERTIONS PASS. Architecture proven locally."
 echo "Zoo L2 hub=$HUB  Beluga L3 governor=$GOV  aicoin=$AICOIN"
 if [ -n "${KEEP:-}" ]; then
   echo "DASHBOARD file://$HERE/observatory.html?rpc=$BLG_RPC&observatory=$OBS&reputation=$REP"
