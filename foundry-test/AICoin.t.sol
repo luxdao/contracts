@@ -20,10 +20,22 @@ contract AICoinTest is Test {
     function setUp() public {
         // warp off zero so GENESIS is a realistic timestamp
         vm.warp(1_700_000_000);
-        coin = new AICoin("AI", "AI", DAO, SETTLEMENT);
+        coin = new AICoin("AI", "AI", DAO, SETTLEMENT, 0);
         g0 = coin.GENESIS();
         PERIOD = coin.HALVING_PERIOD();
         MAX = coin.MAX_SUBSIDY();
+    }
+
+    /// @notice A unified GENESIS may sit AHEAD of a chain's clock; before it, the coin must
+    /// read 0 vested (not underflow). Keeps the same coin safe on every EVM.
+    function test_PreGenesis_ZeroAllowance_NoUnderflow() public {
+        uint256 future = block.timestamp + 30 days;
+        AICoin pre = new AICoin("AI", "AI", DAO, SETTLEMENT, future); // genesis ahead of this chain's clock
+        assertEq(pre.epoch(), 0, "epoch 0 pre-genesis");
+        assertEq(pre.cumulativeAllowance(), 0, "nothing vested pre-genesis");
+        assertEq(pre.emissionAllowance(), 0, "nothing claimable pre-genesis");
+        vm.warp(future + 1); // once the chain reaches genesis, vesting begins
+        assertGt(pre.emissionAllowance(), 0, "vesting starts at genesis");
     }
 
     // ---- no pre-mine; starts at zero -----------------------------------------
@@ -151,24 +163,33 @@ contract AICoinTest is Test {
         coin.mintSubsidy(NODE, burnAmt);
     }
 
-    // ---- governance can rotate the settlement seam ---------------------------
-    function test_AdminRotatesMinter() public {
+    // ---- governance manages the verified-cognition mint seams ----------------
+    function test_AdminManagesMinters() public {
         address newSettlement = address(0xBEEF);
         vm.expectRevert(AICoin.NotAdmin.selector);
-        coin.setMinter(newSettlement); // not the DAO
+        coin.setMinter(newSettlement, true); // not the DAO
 
+        // ADD a second minter (multiple cognition paths mint the same coin)
         vm.prank(DAO);
-        coin.setMinter(newSettlement);
-        assertEq(coin.minter(), newSettlement);
+        coin.setMinter(newSettlement, true);
+        assertTrue(coin.isMinter(newSettlement));
+        assertTrue(coin.isMinter(SETTLEMENT), "original minter still authorized");
 
         vm.warp(g0 + PERIOD / 2);
-        vm.prank(SETTLEMENT); // old minter no longer authorized
-        vm.expectRevert(AICoin.NotMinter.selector);
-        coin.mintSubsidy(NODE, 1 ether);
-
+        // both minters can mint the shared, jointly-capped subsidy
         vm.prank(newSettlement);
         coin.mintSubsidy(NODE, 1 ether);
-        assertEq(coin.balanceOf(NODE), 1 ether);
+        vm.prank(SETTLEMENT);
+        coin.mintSubsidy(NODE, 1 ether);
+        assertEq(coin.balanceOf(NODE), 2 ether);
+
+        // REMOVE a minter -> it can no longer mint
+        vm.prank(DAO);
+        coin.setMinter(SETTLEMENT, false);
+        assertFalse(coin.isMinter(SETTLEMENT));
+        vm.prank(SETTLEMENT);
+        vm.expectRevert(AICoin.NotMinter.selector);
+        coin.mintSubsidy(NODE, 1 ether);
     }
 
     function test_TransferAdmin() public {
@@ -183,10 +204,10 @@ contract AICoinTest is Test {
         // new admin now controls the minter seam; old admin cannot
         vm.prank(DAO);
         vm.expectRevert(AICoin.NotAdmin.selector);
-        coin.setMinter(address(0xBEEF));
+        coin.setMinter(address(0xBEEF), true);
 
         vm.prank(newAdmin);
-        coin.setMinter(address(0xBEEF));
-        assertEq(coin.minter(), address(0xBEEF));
+        coin.setMinter(address(0xBEEF), true);
+        assertTrue(coin.isMinter(address(0xBEEF)));
     }
 }

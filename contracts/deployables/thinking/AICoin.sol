@@ -52,14 +52,18 @@ contract AICoin is ERC20, ERC20Burnable {
     /// @notice Cumulative coin minted by subsidy so far (monotone, <= MAX_SUBSIDY).
     uint256 public mintedSubsidy;
 
-    /// @notice The settlement contract permitted to mint the subsidy.
-    address public minter;
+    /// @notice Contracts permitted to mint the subsidy. MULTIPLE verified-cognition
+    /// paths mint the SAME coin: the attestation miner (A-Chain inference receipts) AND
+    /// the governance miner (on-chain thinking-validator consensus) are each a distinct
+    /// proof of useful cognition. The halving schedule bounds them JOINTLY (mintedSubsidy
+    /// is shared), so adding a minter never inflates past the cap.
+    mapping(address => bool) public isMinter;
 
-    /// @notice The governance authority that may rotate the minter.
+    /// @notice The governance authority that may add/remove minters.
     address public admin;
 
     event SubsidyMinted(address indexed to, uint256 amount, uint256 epoch, uint256 mintedTotal);
-    event MinterSet(address indexed from, address indexed to);
+    event MinterSet(address indexed minter, bool allowed);
     event AdminTransferred(address indexed from, address indexed to);
 
     error NotMinter();
@@ -71,17 +75,23 @@ contract AICoin is ERC20, ERC20Burnable {
         string memory name_,
         string memory symbol_,
         address admin_,
-        address minter_
+        address minter_,
+        uint256 genesis_
     ) ERC20(name_, symbol_) {
         admin = admin_ == address(0) ? msg.sender : admin_;
-        minter = minter_; // may be zero at deploy; set once the settlement is live
-        GENESIS = block.timestamp;
+        if (minter_ != address(0)) isMinter[minter_] = true; // may be zero at deploy; add more via setMinter
+        // GENESIS is a NETWORK-WIDE fair-launch epoch, not the local deploy time: every
+        // chain that mints this coin shares ONE halving schedule, so the unified subsidy
+        // emits on the SAME curve across EVMs (any EVM can mint the SAME coin under the
+        // SAME cap + halving). Pass 0 to anchor at deploy time (single-chain / testing).
+        GENESIS = genesis_ == 0 ? block.timestamp : genesis_;
     }
 
     // ---- issuance --------------------------------------------------------------
 
     /// @notice The current halving epoch (0 for the first four years).
     function epoch() public view returns (uint256) {
+        if (block.timestamp <= GENESIS) return 0; // pre-launch on this chain (clock behind the fair-launch epoch)
         return (block.timestamp - GENESIS) / HALVING_PERIOD;
     }
 
@@ -94,6 +104,10 @@ contract AICoin is ERC20, ERC20Burnable {
 
     /// @notice Cumulative subsidy the schedule has unlocked by now: allowed(t).
     function cumulativeAllowance() public view returns (uint256) {
+        // A unified GENESIS may sit AHEAD of a given chain's clock (chains keep
+        // independent time). Before genesis nothing has vested — return 0 rather than
+        // underflowing block.timestamp - GENESIS, so the same coin is safe on every EVM.
+        if (block.timestamp <= GENESIS) return 0;
         uint256 elapsed = block.timestamp - GENESIS;
         uint256 k = elapsed / HALVING_PERIOD;
         if (k >= 128) return MAX_SUBSIDY; // subsidy effectively complete
@@ -118,7 +132,7 @@ contract AICoin is ERC20, ERC20Burnable {
     /// @notice Mint the fair-launch subsidy to a cognitive node for accepted work.
     /// Only the settlement (minter) may call; bounded by the halving schedule.
     function mintSubsidy(address to, uint256 amount) external {
-        if (msg.sender != minter) revert NotMinter();
+        if (!isMinter[msg.sender]) revert NotMinter();
         if (to == address(0)) revert ZeroAddress();
         uint256 allowance_ = emissionAllowance();
         if (amount > allowance_) revert ExceedsEmissionAllowance(amount, allowance_);
@@ -127,16 +141,16 @@ contract AICoin is ERC20, ERC20Burnable {
         emit SubsidyMinted(to, amount, epoch(), mintedSubsidy);
     }
 
-    // ---- admin (governance rotates the settlement seam) ------------------------
+    // ---- admin (governance manages the verified-cognition mint seams) ----------
 
-    /// @notice Point the mint seam at the settlement contract. Setting it to the
-    /// zero address is intentional and allowed: it *freezes* issuance (every
-    /// mintSubsidy reverts NotMinter) and is fully recoverable by a later
-    /// setMinter, unlike transferAdmin which guards against a permanent zero-brick.
-    function setMinter(address minter_) external {
+    /// @notice Add or remove a minter (a verified-cognition mint path). Authorizing
+    /// several is intentional: the attestation miner and the governance miner mint the
+    /// same coin under the shared cap. Removing all freezes issuance (recoverable),
+    /// unlike transferAdmin which guards against a permanent zero-brick.
+    function setMinter(address minter_, bool allowed) external {
         if (msg.sender != admin) revert NotAdmin();
-        emit MinterSet(minter, minter_);
-        minter = minter_;
+        isMinter[minter_] = allowed;
+        emit MinterSet(minter_, allowed);
     }
 
     function transferAdmin(address admin_) external {
