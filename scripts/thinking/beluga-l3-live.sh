@@ -68,7 +68,10 @@ BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $
 REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
 # value-deciding governance: operators' LLMs PROPOSE a knob value; the chain settles
 # to the Byzantine-robust median (composes the governor's bonded operator set).
-PARAMS=$(dep "$BLG_RPC" "$T/ThinkingParameters.sol:ThinkingParameters" "$GOV")
+# value-deciding committee is sortition-sampled from the governor's bonded operator
+# set (permissionless: capture needs a population majority, not slot-racing). Demo
+# fees 0 (the sunk-fee path is unit-tested); treasury sinks any fees.
+PARAMS=$(dep "$BLG_RPC" "$T/ThinkingParameters.sol:ThinkingParameters" "$GOV $TREASURY 0 0")
 # authorize the bridge as the registry's recorder (register() is now gated — only
 # authorized recorders may write PoT receipts; closes the front-run/forgery vector)
 cast send "$REG" "setRecorder(address,bool)" "$BRIDGE" true --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
