@@ -54,7 +54,7 @@ contract ThinkingGovernorRed2Test is Test {
 
     function _sig(ThinkingGovernor g, uint256 taskId, Op memory o, bytes32 spec, uint8 vote, uint16 bucket, bytes32 ev)
         internal
-        pure
+        view
         returns (bytes memory)
     {
         bytes32 digest = g.verdictDigest(taskId, o.addr, spec, vote, bucket, ev);

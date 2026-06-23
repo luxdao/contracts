@@ -247,7 +247,7 @@ interface IThinkingGovernor {
         uint8 vote,
         uint16 confidenceBucket,
         bytes32 evidenceHash
-    ) external pure returns (bytes32);
+    ) external view returns (bytes32);
 
     // ======================================================================
     // VIEWS

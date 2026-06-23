@@ -20,7 +20,23 @@ contract ProofOfThoughtRegistryTest is Test {
     address constant OPERATOR = address(0x09E7A7);
 
     function setUp() public {
-        reg = new ProofOfThoughtRegistry();
+        reg = new ProofOfThoughtRegistry(address(this)); // test is admin
+        reg.setRecorder(address(this), true); // ...and an authorized recorder
+    }
+
+    // ---- access control ---------------------------------------------------
+
+    function test_Register_OnlyRecorder() public {
+        address stranger = address(0xBAD);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(ProofOfThoughtRegistry.NotRecorder.selector, stranger));
+        reg.register(MODEL, PROMPT, OUTPUT, PAYMENT, QUORUM, PAYER, OPERATOR, 1);
+    }
+
+    function test_SetRecorder_OnlyAdmin() public {
+        vm.prank(address(0xBAD));
+        vm.expectRevert(ProofOfThoughtRegistry.NotAdmin.selector);
+        reg.setRecorder(address(0xBAD), true);
     }
 
     // ---- determinism ------------------------------------------------------

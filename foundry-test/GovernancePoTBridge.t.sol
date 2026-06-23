@@ -42,9 +42,10 @@ contract GovernancePoTBridgeTest is Test {
     address constant OPENER = address(0xACE);
 
     function setUp() public {
-        reg = new ProofOfThoughtRegistry();
+        reg = new ProofOfThoughtRegistry(address(this)); // test is admin
         mock = new MockGovernor();
         bridge = new GovernancePoTBridge(IThinkingGovernor(address(mock)), reg);
+        reg.setRecorder(address(bridge), true); // the bridge is the authorized recorder
     }
 
     function _settledThought() internal pure returns (IThinkingGovernor.Thought memory t) {

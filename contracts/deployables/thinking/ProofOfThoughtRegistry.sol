@@ -34,6 +34,47 @@ contract ProofOfThoughtRegistry is IProofOfThoughtRegistry {
     mapping(bytes32 => bool) private _exists;
     bytes32[] private _ids;
 
+    /// @notice The authority that adds/removes recorders (the DAO).
+    address public admin;
+    /// @notice Addresses permitted to write receipts — the settlement / quorum /
+    /// facilitator contracts that have actually verified the payment and proof
+    /// upstream. WITHOUT this gate `register` is permissionless, so anyone can
+    /// forge receipts attributing paid cognition to arbitrary payer/operator and
+    /// poison the cognition-volume metric, and can front-run the deterministic
+    /// receiptId to permanently block (and forge the quorumProof of) a real
+    /// governance receipt. Gating to authorized recorders closes both.
+    mapping(address => bool) public isRecorder;
+
+    event RecorderSet(address indexed recorder, bool allowed);
+    event AdminTransferred(address indexed from, address indexed to);
+
+    error NotRecorder(address caller);
+    error NotAdmin();
+    error ZeroAddress();
+
+    /// @param admin_ the recorder authority (DAO); msg.sender if zero.
+    constructor(address admin_) {
+        admin = admin_ == address(0) ? msg.sender : admin_;
+    }
+
+    // ----------------------------------------------------------------------
+    // recorder authority
+    // ----------------------------------------------------------------------
+
+    function setRecorder(address recorder, bool allowed) external {
+        if (msg.sender != admin) revert NotAdmin();
+        if (recorder == address(0)) revert ZeroAddress();
+        isRecorder[recorder] = allowed;
+        emit RecorderSet(recorder, allowed);
+    }
+
+    function transferAdmin(address admin_) external {
+        if (msg.sender != admin) revert NotAdmin();
+        if (admin_ == address(0)) revert ZeroAddress();
+        emit AdminTransferred(admin, admin_);
+        admin = admin_;
+    }
+
     // ----------------------------------------------------------------------
     // register
     // ----------------------------------------------------------------------
@@ -49,6 +90,9 @@ contract ProofOfThoughtRegistry is IProofOfThoughtRegistry {
         address operator,
         uint96 cost
     ) external returns (bytes32 receiptId) {
+        // Only authorized recorders (settlement/quorum/facilitator) may write —
+        // the receipt is an accountable claim, not an open guestbook.
+        if (!isRecorder[msg.sender]) revert NotRecorder(msg.sender);
         // Required fields: a thought must name its model, be paid, and have a payer.
         // outputHash/quorumProof may legitimately be zero only for a pending
         // record; we require outputHash so a recorded receipt is always a
