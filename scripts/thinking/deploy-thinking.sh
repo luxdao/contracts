@@ -5,9 +5,10 @@
 #
 #   Usage:  RPC=<c-chain-rpc> [MN_FILE=/tmp/.luxmn] [TREASURY=0x..] deploy-thinking.sh
 #
-# Deploys: ProofOfThoughtRegistry, ThinkingGovernor, ThinkingChainObservatory,
-# GovernancePoTBridge — the same stack proven locally (105 tests) + verified on
-# anvil + the native hanzo-engine governance round.
+# Deploys the full stack: ProofOfThoughtRegistry, ThinkingGovernor, AICoin,
+# ThinkingChainObservatory, GovernancePoTBridge, ThinkingReputation, and
+# ThinkingParameters (value-deciding governance) — the same stack proven locally
+# (156 tests) + verified on anvil + the native hanzo-engine governance round.
 set -euo pipefail
 export PATH="$HOME/.foundry/bin:$PATH" FOUNDRY_DISABLE_NIGHTLY_WARNING=1
 HERE="$(cd "$(dirname "$0")" && pwd)"; CONTRACTS="$(cd "$HERE/../.." && pwd)"; cd "$CONTRACTS"
@@ -42,6 +43,11 @@ AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$RPC" --mnemonic "$MN_FI
 OBS=$(create "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN")
 BRIDGE=$(create "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
 REP=$(create "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
+# Value-deciding governance: operators' LLMs PROPOSE a knob value; the chain settles
+# the sortition-sampled committee's MEDIAN. Composes the governor's bonded operator
+# set (one operator set, two decision types). Fees 0 here (a governance knob to set
+# via setMinter-style later); treasury sinks any fees.
+PARAMS=$(create "$T/ThinkingParameters.sol:ThinkingParameters" "$GOV $TREASURY 0 0")
 # Authorize the bridge as the registry's PoT recorder (register() is gated to
 # authorized recorders). Governance may add the settlement contract / transferAdmin
 # to the DAO later; here the deployer (registry admin) wires the bridge.
@@ -54,6 +60,7 @@ echo "  observatory = $OBS"
 echo "  bridge      = $BRIDGE"
 echo "  reputation  = $REP"
 echo "  aicoin      = $AICOIN"
+echo "  parameters  = $PARAMS"
 
 # verify the stack is live: read overview() back from the chain
 echo "== verify (overview read back on-chain) =="
@@ -62,7 +69,7 @@ cast call "$OBS" "overview()((uint256,uint256,uint256,uint256,uint256,uint256,ui
 # record the deployment (gitignored dir is fine; this is a public address record)
 OUT="$CONTRACTS/deployments/thinking-${CHAINID}.json"
 mkdir -p "$CONTRACTS/deployments"
-python3 -c "import json,sys;json.dump({'chainId':int('$CHAINID'),'deployer':'$DEPLOYER','contracts':{'ProofOfThoughtRegistry':'$REG','ThinkingGovernor':'$GOV','ThinkingChainObservatory':'$OBS','GovernancePoTBridge':'$BRIDGE','ThinkingReputation':'$REP','AICoin':'$AICOIN'}},open('$OUT','w'),indent=2)" && echo "recorded -> $OUT"
+python3 -c "import json,sys;json.dump({'chainId':int('$CHAINID'),'deployer':'$DEPLOYER','contracts':{'ProofOfThoughtRegistry':'$REG','ThinkingGovernor':'$GOV','ThinkingChainObservatory':'$OBS','GovernancePoTBridge':'$BRIDGE','ThinkingReputation':'$REP','AICoin':'$AICOIN','ThinkingParameters':'$PARAMS'}},open('$OUT','w'),indent=2)" && echo "recorded -> $OUT"
 
 echo "== DONE on chainId $CHAINID =="
-echo "DEPLOY_RESULT chainId=$CHAINID registry=$REG governor=$GOV observatory=$OBS bridge=$BRIDGE reputation=$REP aicoin=$AICOIN"
+echo "DEPLOY_RESULT chainId=$CHAINID registry=$REG governor=$GOV observatory=$OBS bridge=$BRIDGE reputation=$REP aicoin=$AICOIN parameters=$PARAMS"
