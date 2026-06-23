@@ -93,7 +93,7 @@ contract ThinkingChainObservatoryTest is Test {
         reg.setRecorder(address(this), true); // ...and records receipts directly
         gov = new MockGovernor();
         // the test contract is the coin's minter, so it can mine in test_Economics
-        coin = new AICoin("AI", "AI", address(this), address(this));
+        coin = new AICoin("AI", "AI", address(this), address(this), 0);
         params = new MockParameters();
         obs = new ThinkingChainObservatory(IThinkingGovernor(address(gov)), reg, IAICoin(address(coin)), IThinkingParameters(address(params)));
     }
