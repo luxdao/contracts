@@ -190,8 +190,30 @@ contract ThinkingGovernorTest is Test {
             0x0c578d46b25c72738e526644e19909fc3e5561532154c246fb4876115bf47a8d,
             "VERDICT_DOMAIN golden"
         );
-        bytes32 vd = gov.verdictDigest(7, op, spec, 1, 8000, ev);
-        assertEq(vd, 0x2ddbb48e0b829a7f762fb1d23757a15404e4ab64a6f95d149518bd2c59935d59, "verdictDigest golden (Go parity)");
+
+        // (1) The contract binds chainId + verifyingContract (EIP-712-style domain
+        // separation) on LIVE values — a signature is no longer replayable across
+        // chains/instances. Prove the on-chain digest uses exactly that preimage.
+        bytes32 live = gov.verdictDigest(7, op, spec, 1, 8000, ev);
+        assertEq(
+            live,
+            keccak256(
+                abi.encodePacked(
+                    gov.VERDICT_DOMAIN(), block.chainid, address(gov), uint256(7), spec, uint8(1), uint16(8000), ev, op
+                )
+            ),
+            "verdictDigest must bind chainId + address(this)"
+        );
+
+        // (2) Cross-language golden on a FIXED vector (chainId=808080 Beluga L3,
+        // verifyingContract=0x..beEF), byte-parity with the Go operator mirror
+        // (canonical.TestThinkingGovernorVerdictDigestParity).
+        bytes32 golden = keccak256(
+            abi.encodePacked(
+                gov.VERDICT_DOMAIN(), uint256(808080), address(uint160(0xBEEF)), uint256(7), spec, uint8(1), uint16(8000), ev, op
+            )
+        );
+        assertEq(golden, 0x0f86ef50ae2dd86065e9b41ec5c9a604cc8e6a8a377055a844953a90c6af78c3, "verdictDigest golden (Go parity)");
     }
 
     // ======================================================================
@@ -1040,7 +1062,7 @@ contract ThinkingGovernorTest is Test {
         uint8 vote,
         uint16 bucket,
         bytes32 evidence
-    ) internal pure returns (bytes memory) {
+    ) internal view returns (bytes memory) {
         bytes32 digest = g.verdictDigest(taskId, operator, MODEL_SPEC, vote, bucket, evidence);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);

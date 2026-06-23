@@ -92,9 +92,46 @@ contract L3Registry {
         emit L3Endorsed(id, endorsed);
     }
 
-    /// @notice Hand the endorsement authority to the Zoo DAO contract.
+    /// @notice DAO-gated recovery from chainId squatting: registration is
+    /// permissionless and one-per-chainId, so a front-runner could squat a real
+    /// L3's chainId with junk pointers and block the legitimate team forever. The
+    /// Zoo DAO (the curation authority) can overwrite the record for a chainId to
+    /// the correct governor/observatory/metadata. Endorsement is reset to false
+    /// so a reassignment never silently inherits a prior endorsement.
+    function reassign(
+        uint256 chainId,
+        string calldata name,
+        address governor,
+        address observatory,
+        string calldata metadataURI
+    ) external returns (bytes32 id) {
+        if (msg.sender != zooDAO) revert NotZooDAO();
+        if (chainId == 0) revert ZeroChainId();
+        id = idOf(chainId);
+        bool existed = byChainId[chainId] != bytes32(0);
+        _l3[id] = L3({
+            name: name,
+            chainId: chainId,
+            governor: governor,
+            observatory: observatory,
+            registrar: msg.sender,
+            metadataURI: metadataURI,
+            registeredAt: uint64(block.timestamp),
+            endorsed: false
+        });
+        if (!existed) {
+            byChainId[chainId] = id;
+            _ids.push(id);
+        }
+        emit L3Registered(id, name, chainId, governor, msg.sender);
+    }
+
+    /// @notice Hand the endorsement authority to the Zoo DAO contract. Zero is
+    /// rejected: handing authority to address(0) would permanently brick endorse
+    /// and reassign (no one can ever be msg.sender == address(0)).
     function transferZooDAO(address to) external {
         if (msg.sender != zooDAO) revert NotZooDAO();
+        if (to == address(0)) revert NotZooDAO();
         emit ZooDAOTransferred(zooDAO, to);
         zooDAO = to;
     }

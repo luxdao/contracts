@@ -554,7 +554,7 @@ contract ThinkingGovernor is
         uint8 vote,
         uint16 confidenceBucket,
         bytes32 evidenceHash
-    ) external pure override returns (bytes32) {
+    ) external view override returns (bytes32) {
         return _verdictDigest(taskId, operator, modelSpecHash, vote, confidenceBucket, evidenceHash);
     }
 
@@ -679,12 +679,16 @@ contract ThinkingGovernor is
         // able to revert the settlement (the authoritative record is our own
         // storage + KnobSet event). The mirrored key is SPEC-QUALIFIED
         // ("<specHex>:<key>") so the subgraph namespace can't suffer the cross-spec
-        // collision the on-chain slot now prevents.
+        // collision the on-chain slot now prevents. The call is gas-capped: a
+        // singleton that BURNS gas (rather than reverting) would otherwise consume
+        // 63/64 of the remaining gas (EIP-150) and could brick settle on a
+        // low-block-limit chain or tax every settler — try/catch alone does not
+        // contain that. 200k is ample for a 1-entry updateValues.
         if (address(keyValuePairs) != address(0)) {
             IKeyValuePairsV1.KeyValuePair[] memory kv = new IKeyValuePairsV1.KeyValuePair[](1);
             string memory qualifiedKey = string(abi.encodePacked(_toHexString(modelSpecHash), ":", key));
             kv[0] = IKeyValuePairsV1.KeyValuePair({key: qualifiedKey, value: _toHexString(value)});
-            try keyValuePairs.updateValues(kv) {
+            try keyValuePairs.updateValues{gas: 200_000}(kv) {
                 // mirrored
             } catch {
                 // ignore: our own state + event is the source of truth
@@ -740,11 +744,19 @@ contract ThinkingGovernor is
         uint8 vote,
         uint16 confidenceBucket,
         bytes32 evidenceHash
-    ) private pure returns (bytes32) {
+    ) private view returns (bytes32) {
+        // Bind the signature to THIS governor instance and chain (block.chainid +
+        // address(this)), not just the purpose domain. Without it a verdict signed
+        // for one deployment is byte-identical on another instance or another
+        // chain (fork/L2/CREATE2 twin), so an operator's own re-submission could
+        // manufacture a quorum it never intended there. This is the EIP-712-style
+        // domain separation the prior digest was missing.
         return
             keccak256(
                 abi.encodePacked(
                     VERDICT_DOMAIN,
+                    block.chainid,
+                    address(this),
                     taskId,
                     modelSpecHash,
                     vote,

@@ -95,7 +95,10 @@ contract ThinkingChainObservatory {
         e.unlocked = coin.cumulativeAllowance();
         e.minted = coin.mintedSubsidy();
         e.circulating = coin.totalSupply();
-        e.burned = e.minted - e.circulating;
+        // `coin` is untrusted input at this boundary; a non-canonical IAICoin
+        // could report circulating > minted. Clamp (don't underflow-revert) so a
+        // bad coin can never DoS the whole dashboard. Canonical AICoin: burned>=0.
+        e.burned = e.minted > e.circulating ? e.minted - e.circulating : 0;
         e.remaining = coin.remainingSubsidy();
     }
 

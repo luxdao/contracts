@@ -57,7 +57,8 @@ contract ThinkingChainObservatoryTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        reg = new ProofOfThoughtRegistry();
+        reg = new ProofOfThoughtRegistry(address(this)); // test is admin
+        reg.setRecorder(address(this), true); // ...and records receipts directly
         gov = new MockGovernor();
         // the test contract is the coin's minter, so it can mine in test_Economics
         coin = new AICoin("AI", "AI", address(this), address(this));

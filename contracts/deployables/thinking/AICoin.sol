@@ -129,6 +129,10 @@ contract AICoin is ERC20, ERC20Burnable {
 
     // ---- admin (governance rotates the settlement seam) ------------------------
 
+    /// @notice Point the mint seam at the settlement contract. Setting it to the
+    /// zero address is intentional and allowed: it *freezes* issuance (every
+    /// mintSubsidy reverts NotMinter) and is fully recoverable by a later
+    /// setMinter, unlike transferAdmin which guards against a permanent zero-brick.
     function setMinter(address minter_) external {
         if (msg.sender != admin) revert NotAdmin();
         emit MinterSet(minter, minter_);
