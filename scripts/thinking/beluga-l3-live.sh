@@ -45,7 +45,7 @@ trap '[ -n "${KEEP:-}" ] || pkill -f "anvil" 2>/dev/null || true' EXIT
 for u in "$ZOO_RPC" "$BLG_RPC"; do for i in $(seq 1 40); do cast chain-id --rpc-url "$u" >/dev/null 2>&1 && break; sleep 0.25; done; done
 echo "  Zoo L2 up (chainId $(cast chain-id --rpc-url $ZOO_RPC)); Beluga L3 up (chainId $(cast chain-id --rpc-url $BLG_RPC))"
 forge build >/dev/null 2>&1 || { echo "forge build failed"; exit 1; }
-dep(){ forge create "$2" --rpc-url "$1" --private-key "$K0" --broadcast --json ${3:+--constructor-args $3} 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])'; }
+dep(){ forge create "$2" --rpc-url "$1" --private-key "$K0" --broadcast ${3:+--constructor-args $3} 2>/dev/null | grep -oE 'Deployed to: 0x[0-9a-fA-F]{40}' | grep -oE '0x[0-9a-fA-F]{40}' | head -1; }
 
 # ---- Zoo L2 hub -------------------------------------------------------------
 say "deploying the Zoo L2 hub (L3Registry)"
@@ -60,9 +60,7 @@ GOV=$(dep "$BLG_RPC" "$T/ThinkingGovernor.sol:ThinkingGovernor" "100000000000000
 # admin = deployer (the DAO seat for the demo); minter = deployer acting as the
 # settlement that mines the subsidy for accepted cognition. Deployed before the
 # observatory so the observatory's economics() can SEE the chain's issuance.
-AICOIN=$(forge create "$T/AICoin.sol:AICoin" --rpc-url "$BLG_RPC" --private-key "$K0" --broadcast --json \
-         --constructor-args "AI" "AI" "$A0" "$A0" 2>/dev/null \
-         | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])')
+AICOIN=$(dep "$BLG_RPC" "$T/AICoin.sol:AICoin" "AI AI $A0 $A0 0")  # name symbol admin minter genesis(0=deploy-time)
 # value-deciding committee is sortition-sampled from the governor's bonded operator
 # set (permissionless: capture needs a population majority, not slot-racing). Demo
 # fees 0 (the sunk-fee path is unit-tested); treasury sinks any fees. Deployed BEFORE
