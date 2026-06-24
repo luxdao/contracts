@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IEvidenceBackend} from "../interfaces/IComputeVerifier.sol";
+import {ComputeWitnessLib} from "../ComputeWitnessLib.sol";
 
 interface IAttestationRegistryView {
     function isAcceptedModelSpec(bytes32 modelSpec) external view returns (bool);
@@ -16,10 +17,12 @@ interface IAttestationRegistryView {
 ///     records the commitment, escrows a bond, opens a challenge window.
 ///   attests(reportData)  (the CONSUMER, via the verifier, view)
 ///     true iff a non-fraudulent commitment exists for reportData.
-///   challenge(reportData, response)  (ANY watcher, permissionless)
-///     a re-executor that found a discrepancy marks the commitment FRAUDULENT and TAKES the
-///     bond. Fraud flips attests() to false → the gated mint can no longer occur (or, if it
-///     already did under the optimistic assumption, the slashed bond is the compensation).
+///   challenge(reportData, index, A, B, C, merkleProof)  (ANY watcher, permissionless)
+///     a re-executor that found a fabricated matmul EXHIBITS it; the contract re-checks inclusion
+///     + Freivalds on-chain (ComputeWitnessLib) and, iff the proof holds, marks the commitment
+///     FRAUDULENT and TAKES the bond. Fraud flips attests() to false → the gated mint can no
+///     longer occur (or, if it already did under the optimistic assumption, the slashed bond is
+///     the compensation). No "trust the watcher": the EVM verifies the discrepancy itself.
 ///   reclaim(reportData)  (the PROVER, after the window, if un-challenged)
 ///     returns the bond.
 ///
@@ -63,6 +66,10 @@ contract OptimisticEvidence is IEvidenceBackend {
         uint256 bond; // escrowed wei (full width — no truncation footgun on the slashable amount)
         bytes32 activationTraceRoot; // root of the activation trace the off-chain checker re-runs
         bytes32 modelWeightsRoot; // claimed measured weights root (== the binding's modelSpecHash)
+        uint64 commitBlock; // block the commitment was mined in; blockhash(commitBlock) is the
+        //                     challenge beacon — fixed AFTER the prover signed, so unpredictable to
+        //                     it (a tx cannot contain its own block's hash) → no pre-fitting a C
+        //                     that dodges the on-chain Freivalds check.
     }
 
     /// @notice reportData => its commitment. One per reportData, ever.
@@ -88,7 +95,8 @@ contract OptimisticEvidence is IEvidenceBackend {
     error WindowClosed(bytes32 reportData);
     error WindowOpen(bytes32 reportData);
     error NotProver(address caller);
-    error EmptyResponse();
+    error NotFraudulent(bytes32 reportData);
+    error BeaconUnavailable();
     error TransferFailed();
 
     constructor(uint256 minBond_, uint64 challengeWindow_, address registry_) {
@@ -133,6 +141,7 @@ contract OptimisticEvidence is IEvidenceBackend {
         c.deadline = uint64(block.timestamp) + challengeWindow;
         c.activationTraceRoot = activationTraceRoot;
         c.modelWeightsRoot = modelWeightsRoot;
+        c.commitBlock = uint64(block.number);
 
         emit Committed(reportData, msg.sender, msg.value, c.deadline, activationTraceRoot, modelWeightsRoot);
     }
@@ -153,23 +162,42 @@ contract OptimisticEvidence is IEvidenceBackend {
         return c.state == State.Pending && block.timestamp > c.deadline;
     }
 
-    /// @notice Permissionless fraud proof: a watcher that re-executed the trace and found a
-    /// discrepancy challenges the commitment. Marks it FRAUDULENT (terminal) and pays the bond
-    /// to the challenger. `response` is the off-chain-verifiable discrepancy witness; on-chain
-    /// we require it be non-empty and emit it for the audit trail (the heavy Freivalds check is
-    /// off-chain — on-chain we run the ECONOMIC state machine the off-chain result drives).
-    /// Callable only while the window is open: after it closes the commitment finalizes and is
-    /// no longer slashable (the optimistic assumption has held).
-    function challenge(bytes32 reportData, bytes calldata response) external {
-        if (response.length == 0) revert EmptyResponse();
-        Commitment storage c = _commitments[reportData];
-        if (c.state != State.Pending) revert NotPending(reportData);
-        if (block.timestamp > c.deadline) revert WindowClosed(reportData);
+    /// @notice Permissionless fraud proof, VERIFIED ON-CHAIN. A watcher that re-executed the
+    /// committed trace and found a fabricated matmul exhibits it here: the opened matmul's exact
+    /// operands `(A,B,C)` at `index`, plus its Merkle proof under the committed
+    /// `activationTraceRoot`. {ComputeWitnessLib.provesFraud} accepts the challenge iff the matmul
+    /// was COMMITTED (inclusion) AND its output is FABRICATED (`C != A·B`, caught by Freivalds over
+    /// `F_p` under a challenge seeded by the commit-block hash — unpredictable to the prover, so it
+    /// cannot pre-fit a dodging `C`). On success the commitment is FRAUDULENT (terminal) and the
+    /// bond is paid to the challenger. This replaces the old "any non-empty bytes slashes" trust
+    /// hole: an honest prover has no fabricated matmul, so it can never be slashed, and a liar is
+    /// caught by the EVM itself — not by a watcher's say-so. Window-gated: after the window closes
+    /// the commitment finalizes and is no longer slashable.
+    function challenge(
+        bytes32 reportData,
+        uint256 index,
+        ComputeWitnessLib.Matrix calldata a,
+        ComputeWitnessLib.Matrix calldata b,
+        ComputeWitnessLib.Matrix calldata c,
+        bytes32[] calldata merkleProof
+    ) external {
+        Commitment storage cm = _commitments[reportData];
+        if (cm.state != State.Pending) revert NotPending(reportData);
+        if (block.timestamp > cm.deadline) revert WindowClosed(reportData);
+
+        // The beacon is the commit block's hash — set after the prover signed, so it could not
+        // have fit (A,B,C) to the challenge it seeds. Available for 256 blocks after commit.
+        bytes32 bh = blockhash(cm.commitBlock);
+        if (bh == bytes32(0)) revert BeaconUnavailable();
+        bytes memory beacon = abi.encodePacked(bh, reportData);
+        if (!ComputeWitnessLib.provesFraud(cm.activationTraceRoot, beacon, index, a, b, c, merkleProof)) {
+            revert NotFraudulent(reportData);
+        }
 
         // EFFECTS: flip to terminal-fraud and zero the bond BEFORE paying out.
-        uint256 bond = c.bond;
-        c.state = State.Fraudulent;
-        c.bond = 0;
+        uint256 bond = cm.bond;
+        cm.state = State.Fraudulent;
+        cm.bond = 0;
 
         // INTERACTION: pay the slashed bond to the challenger.
         emit Challenged(reportData, msg.sender, bond);
