@@ -2,13 +2,13 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AICoin} from "@luxfi/standard/ai/thinking/AICoin.sol";
-import {AIReceiptRoots} from "@luxfi/standard/ai/thinking/AIReceiptRoots.sol";
-import {AICoinMiner, IAICoinMintable, IAIReceiptRootsView, IComputeVerifierM} from "@luxfi/standard/ai/thinking/AICoinMiner.sol";
-import {AttestationRootRegistry} from "@luxfi/standard/ai/thinking/AttestationRootRegistry.sol";
-import {ComputeVerifier} from "@luxfi/standard/ai/thinking/ComputeVerifier.sol";
-import {OptimisticEvidence} from "@luxfi/standard/ai/thinking/evidence/OptimisticEvidence.sol";
-import {ComputeProof, ComputeProofLib} from "@luxfi/standard/ai/thinking/ComputeProofLib.sol";
+import {AICoin} from "@luxfi/standard/ai/token/AICoin.sol";
+import {AIReceiptRoots} from "@luxfi/standard/ai/relay/AIReceiptRoots.sol";
+import {AIMiner, IAICoinMintable, IAIReceiptRootsView, IComputeVerifierM} from "@luxfi/standard/ai/mining/AIMiner.sol";
+import {AttestationRootRegistry} from "@luxfi/standard/ai/relay/AttestationRootRegistry.sol";
+import {ComputeVerifier} from "@luxfi/standard/ai/compute/ComputeVerifier.sol";
+import {OptimisticEvidence} from "@luxfi/standard/ai/compute/evidence/OptimisticEvidence.sol";
+import {ComputeProof, ComputeProofLib} from "@luxfi/standard/ai/compute/ComputeProofLib.sol";
 
 /// @notice Deploy the AI-mining stack — NOW WITH THE COMPUTE-PROOF GATE — to ANY EVM and PROVE
 /// it live with a real on-chain mint. Same bytecode + same pure-Solidity attestation
@@ -39,7 +39,7 @@ contract DeployMining is Script {
         AttestationRootRegistry registry = new AttestationRootRegistry(dep);
         ComputeVerifier verifier = new ComputeVerifier(address(registry), dep);
         OptimisticEvidence optimistic = new OptimisticEvidence(MIN_BOND, CHALLENGE_WINDOW, address(registry));
-        AICoinMiner miner = new AICoinMiner(
+        AIMiner miner = new AIMiner(
             IAICoinMintable(address(coin)),
             IAIReceiptRootsView(address(roots)),
             dep,
@@ -102,7 +102,7 @@ contract DeployMining is Script {
         console.log("AttestationRootRegistry", address(registry));
         console.log("ComputeVerifier", address(verifier));
         console.log("OptimisticEvidence", address(optimistic));
-        console.log("AICoinMiner", address(miner));
+        console.log("AIMiner", address(miner));
         console.log("minted", amount);
         console.log("totalSupply", coin.totalSupply());
         console.log("balanceRequester", coin.balanceOf(dep));
