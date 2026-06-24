@@ -57,10 +57,11 @@ say "deploying Beluga L3 thinking-governance stack"
 REG=$(dep "$BLG_RPC" "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry" "$A0")  # admin=deployer
 GOV=$(dep "$BLG_RPC" "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
 # the native coin: Bitcoin-shaped issuance (1B cap, halving every 4y, burn tail).
-# admin = deployer (the DAO seat for the demo); minter = deployer acting as the
-# settlement that mines the subsidy for accepted cognition. Deployed before the
-# observatory so the observatory's economics() can SEE the chain's issuance.
-AICOIN=$(dep "$BLG_RPC" "$T/AICoin.sol:AICoin" "AI AI $A0 $A0 0")  # name symbol admin minter genesis(0=deploy-time)
+# admin = deployer (the DAO seat for the demo); minter = address(0) at genesis —
+# the mint seam is wired to the ThinkingMiner CONTRACT below, never an EOA (audit
+# G1: a minter is always a proof/quorum-enforcing contract, never a god-key EOA).
+# Deployed before the observatory so the observatory's economics() can SEE issuance.
+AICOIN=$(dep "$BLG_RPC" "$T/AICoin.sol:AICoin" "AI AI $A0 0x0000000000000000000000000000000000000000 0")  # name symbol admin minter(0) genesis
 # value-deciding committee is sortition-sampled from the governor's bonded operator
 # set (permissionless: capture needs a population majority, not slot-racing). Demo
 # fees 0 (the sunk-fee path is unit-tested); treasury sinks any fees. Deployed BEFORE
@@ -69,10 +70,20 @@ PARAMS=$(dep "$BLG_RPC" "$T/ThinkingParameters.sol:ThinkingParameters" "$GOV $TR
 OBS=$(dep "$BLG_RPC" "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG $AICOIN $PARAMS")
 BRIDGE=$(dep "$BLG_RPC" "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
 REP=$(dep "$BLG_RPC" "$T/ThinkingReputation.sol:ThinkingReputation" "$GOV 2000")
+# ThinkingMiner: the governance-consensus mint path. It mints the AI subsidy ON-CHAIN
+# to the thinking-validators that reached the canonical quorum on a settled thought —
+# rewardPerThought split among the agreeing winners. This is a CONTRACT minter (audit
+# G1), and the mint is gated on a real settled quorum (not an EOA's say-so). verifier=0
+# + profile=0 ⇒ the PERMISSIVE tier: this is a governance-PARTICIPATION reward, not a
+# proof-of-AI-compute mint (audit G6 distinction — compute-proof tiers are opt-in).
+# rewardPerThought = 5000 AI; with the demo's 5-of-5 agreeing validators that is 1000 each.
+ZERO=0x0000000000000000000000000000000000000000
+MINER=$(dep "$BLG_RPC" "$T/ThinkingMiner.sol:ThinkingMiner" "$GOV $AICOIN $A0 5000000000000000000000 $ZERO $ZERO")
+cast send "$AICOIN" "setMinter(address,bool)" "$MINER" true --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
 # authorize the bridge as the registry's recorder (register() is now gated — only
 # authorized recorders may write PoT receipts; closes the front-run/forgery vector)
 cast send "$REG" "setRecorder(address,bool)" "$BRIDGE" true --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
-echo "  governor=$GOV  observatory=$OBS  reputation=$REP  aicoin=$AICOIN  parameters=$PARAMS  (bridge authorized as PoT recorder)"
+echo "  governor=$GOV  observatory=$OBS  reputation=$REP  aicoin=$AICOIN  parameters=$PARAMS  miner=$MINER  (ThinkingMiner is the on-chain mint seam)"
 
 # ---- register Beluga L3 in the Zoo L2 hub -----------------------------------
 say "registering Beluga L3 in the Zoo L2 hub"
@@ -105,21 +116,27 @@ cast send "$GOV" "settle(uint256)" 0 --private-key "$K0" --rpc-url "$BLG_RPC" >/
 cast send "$BRIDGE" "recordThought(uint256)" 0 --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null 2>&1 || true
 cast send "$REP" "recordSettled(uint256)" 0 --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null 2>&1 || true
 
-# ---- mine AI: the fair-launch subsidy for the settled cognition --------------
-say "Beluga L3: mine the AI subsidy for the settled thought (halving schedule, on-chain)"
+# ---- mine AI: the on-chain governance-consensus reward for the settled thought --
+say "Beluga L3: mine the AI subsidy for the settled thought (ThinkingMiner, on-chain, halving-bounded)"
 # advance halfway into epoch 0 so the schedule has vested MAX/4 = 250M AI
 cast rpc evm_increaseTime 63072000 --rpc-url "$BLG_RPC" >/dev/null; cast rpc evm_mine --rpc-url "$BLG_RPC" >/dev/null
-SHARE_AI=1000                              # 1000 AI per agreeing validator (demo)
-SHARE=$(python3 -c "print($SHARE_AI*10**18)")  # wei (1e21 overflows bash 64-bit)
+# The mint goes THROUGH the ThinkingMiner contract: it reads the settled thought's
+# canonical quorum from the governor and mints rewardPerThought split among the agreeing
+# validators (no EOA can mint — audit G1). A coin-flip guesser earns nothing once a tier
+# opts into compute proofs; at this permissive tier it is a participation reward.
+cast send "$MINER" "mineSettledThought(uint256)" 0 --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
+MINTED=$(cast call "$AICOIN" "mintedSubsidy()(uint256)" --rpc-url "$BLG_RPC" | sed 's/ .*//')
+# winners = validators whose verdict matched the canonical vote (abstainers / off-quorum
+# validators correctly earn NOTHING — the honest consensus reward, no fake mint-to-all).
+WINNERS=0; BURNER=""
 for i in 0 1 2 3 4; do
-  vid=$((i+1)); OPADDR=$(cast wallet address --private-key "${OPS[$i]}")
-  # mine the subsidy to every validator that bonded and answered (the cognitive workers)
-  cast send "$AICOIN" "mintSubsidy(address,uint256)" "$OPADDR" "$SHARE" --private-key "$K0" --rpc-url "$BLG_RPC" >/dev/null
-  echo "  mined $SHARE_AI AI -> validator $vid (bounded by the halving schedule)"
+  bal=$(cast call "$AICOIN" "balanceOf(address)(uint256)" "$(cast wallet address --private-key ${OPS[$i]})" --rpc-url "$BLG_RPC" | sed 's/ .*//')
+  if [ "$bal" != "0" ]; then WINNERS=$((WINNERS+1)); [ -z "$BURNER" ] && BURNER=$i; fi
 done
-# EIP-1559-style fee burn: validator 1 burns a slice of its reward (deflationary sink)
-cast send "$AICOIN" "burn(uint256)" 250000000000000000000 --private-key "${OPS[0]}" --rpc-url "$BLG_RPC" >/dev/null
-echo "  burned 250 AI (fee sink) -> supply now deflationary against the subsidy"
+echo "  ThinkingMiner minted $(python3 -c "print(int('$MINTED')//10**18)") AI across $WINNERS consensus winners (on-chain; non-winners earned 0)"
+# EIP-1559-style fee burn: a winning validator burns a slice of its reward (deflationary sink)
+cast send "$AICOIN" "burn(uint256)" 250000000000000000000 --private-key "${OPS[$BURNER]}" --rpc-url "$BLG_RPC" >/dev/null
+echo "  burned 250 AI (fee sink) by validator $((BURNER+1)) -> supply now deflationary against the subsidy"
 
 # ---- value-deciding governance: the LLM DECIDES the knob value, chain takes median --
 say "Beluga L3: thinking-validators PROPOSE the conservation tithe (bps); chain settles the MEDIAN"
@@ -212,8 +229,12 @@ chk "committee size n" "$N" "5"
 if [ "${A:-0}" -ge "${TH:-99}" ]; then printf '  \033[1;32mPASS\033[0m quorum %s >= threshold %s\n' "$A" "$TH"; else printf '  \033[1;31mFAIL\033[0m quorum %s < threshold %s\n' "$A" "$TH"; FAILS=$((FAILS+1)); fi
 # economics: exact wei, read directly AND via the Observatory (visibility-surface parity)
 chk "AICoin hard cap (wei)" "$(u "$AICOIN" 'MAX_SUBSIDY()(uint256)' "$BLG_RPC")" "1000000000000000000000000000"
-chk "AICoin minted (wei)" "$(u "$AICOIN" 'mintedSubsidy()(uint256)' "$BLG_RPC")" "5000000000000000000000"
-chk "AICoin totalSupply after burn (wei)" "$(u "$AICOIN" 'totalSupply()(uint256)' "$BLG_RPC")" "4750000000000000000000"
+# minted = rewardPerThought (5000 AI) split among the WINNERS (consensus-matching validators);
+# share*winners is robust to how many the LLM-driven quorum produced (4 winners → 1250 each, etc.)
+SHARE=$(python3 -c "print(5000*10**18 // $WINNERS)")
+EXPMINT=$(python3 -c "print($SHARE * $WINNERS)")
+chk "AICoin minted (wei) = 5000 AI / $WINNERS winners * $WINNERS" "$(u "$AICOIN" 'mintedSubsidy()(uint256)' "$BLG_RPC")" "$EXPMINT"
+chk "AICoin totalSupply after burn (wei)" "$(u "$AICOIN" 'totalSupply()(uint256)' "$BLG_RPC")" "$(python3 -c "print($EXPMINT - 250*10**18)")"
 EBURN=$(cast call "$OBS" "economics()((address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))" --rpc-url "$BLG_RPC" | python3 -c '
 import sys; inner=sys.stdin.read().strip()[1:-1]; p=[];d=0;c=""
 for ch in inner:
@@ -222,8 +243,10 @@ for ch in inner:
     else: c+=ch
 p.append(c.strip()); print(p[6].split()[0])')  # burned (index 6)
 chk "Observatory economics.burned (wei)" "$EBURN" "250000000000000000000"
-V1=$(cast call "$AICOIN" "balanceOf(address)(uint256)" "$(cast wallet address --private-key "${OPS[0]}")" --rpc-url "$BLG_RPC"|awk '{print $1}')
-chk "validator-1 balance (1000 mined - 250 burned, wei)" "$V1" "750000000000000000000"
+# the validator that burned holds its consensus share minus the 250 AI burned; this proves
+# the reward reached a real winner (not a fake mint-to-all), and the honest sink works.
+VB=$(cast call "$AICOIN" "balanceOf(address)(uint256)" "$(cast wallet address --private-key "${OPS[$BURNER]}")" --rpc-url "$BLG_RPC"|awk '{print $1}')
+chk "burner validator balance (share - 250 burned, wei)" "$VB" "$(python3 -c "print($SHARE - 250*10**18)")"
 # value-deciding governance: the LLM-proposed parameter was settled to a live value
 chk "tithe parameter decided (valueOf set)" "$TSET" "true"
 if [ "${TITHE:-99999}" -ge "$PLO" ] && [ "${TITHE:-99999}" -le "$PHI" ]; then printf '  \033[1;32mPASS\033[0m decided tithe %s bps within [%s,%s]\n' "$TITHE" "$PLO" "$PHI"; else printf '  \033[1;31mFAIL\033[0m decided tithe %s out of [%s,%s]\n' "$TITHE" "$PLO" "$PHI"; FAILS=$((FAILS+1)); fi
