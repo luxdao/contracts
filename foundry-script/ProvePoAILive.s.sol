@@ -2,11 +2,11 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AIExecute, IConsensusApproval} from "@luxfi/standard/ai/thinking/AIExecute.sol";
-import {AIApproval} from "@luxfi/standard/ai/thinking/AIApproval.sol";
-import {ThinkingGovernor} from "@luxfi/standard/ai/thinking/ThinkingGovernor.sol";
-import {ThinkingParameters} from "@luxfi/standard/ai/thinking/ThinkingParameters.sol";
-import {IThinkingGovernor} from "@luxfi/standard/ai/thinking/interfaces/IThinkingGovernor.sol";
+import {AIExecute, IConsensusApproval} from "@luxfi/standard/ai/governance/AIExecute.sol";
+import {AIApproval} from "@luxfi/standard/ai/governance/AIApproval.sol";
+import {AIGovernor} from "@luxfi/standard/ai/governance/AIGovernor.sol";
+import {AIParams} from "@luxfi/standard/ai/governance/AIParams.sol";
+import {IAIGovernor} from "@luxfi/standard/ai/interfaces/IAIGovernor.sol";
 import {KeyValuePairsV1} from "@luxfi/standard/dao/singletons/KeyValuePairsV1.sol";
 
 /// The arbitrary target consensus governs: a multi-arg method callable only by AIExecute.
@@ -28,8 +28,8 @@ contract GovernedTarget {
 }
 
 /// Proves the REAL Proof-of-AI governance→execution stack on a live node, with GENUINE operator
-/// signatures and NO stand-in approval stub. Stage 1 (this script): deploy the real ThinkingGovernor +
-/// ThinkingParameters + AIExecute + AIApproval + target, register a real operator committee, open a
+/// signatures and NO stand-in approval stub. Stage 1 (this script): deploy the real AIGovernor +
+/// AIParams + AIExecute + AIApproval + target, register a real operator committee, open a
 /// Thought whose promptHash IS the AIExecute operation hash, and submit genuine signed YES verdicts.
 /// Stage 2 (driver, after the real voting window elapses on-chain): settle → confirm → execute.
 ///
@@ -56,9 +56,9 @@ contract ProvePoAILive is Script {
         // ---- deploy the real stack (deployer) ----
         vm.startBroadcast(d);
         KeyValuePairsV1 kvp = new KeyValuePairsV1();
-        ThinkingGovernor gov = new ThinkingGovernor(MIN_BOND, COOLDOWN, REWARD, OPEN_FEE, TREASURY, address(kvp));
-        ThinkingParameters params = new ThinkingParameters(IThinkingGovernor(address(gov)), TREASURY, 0, 0);
-        AIApproval approval = new AIApproval(IThinkingGovernor(address(gov)));
+        AIGovernor gov = new AIGovernor(MIN_BOND, COOLDOWN, REWARD, OPEN_FEE, TREASURY, address(kvp));
+        AIParams params = new AIParams(IAIGovernor(address(gov)), TREASURY, 0, 0);
+        AIApproval approval = new AIApproval(IAIGovernor(address(gov)));
         AIExecute exec = new AIExecute(address(params), address(approval), 0, vm.addr(d));
         GovernedTarget target = new GovernedTarget(address(exec));
         vm.stopBroadcast();

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AIExecute, IThinkingValue, IConsensusApproval} from "@luxfi/standard/ai/thinking/AIExecute.sol";
+import {AIExecute, IAIValue, IConsensusApproval} from "@luxfi/standard/ai/governance/AIExecute.sol";
 
-/// Live stand-in for the thinking-quorum's op-approval surface. In production the ThinkingGovernor
+/// Live stand-in for the thinking-quorum's op-approval surface. In production the AIGovernor
 /// writes an opHash here when validators settle YES; here the deployer approves so we can prove the
 /// arbitrary-execution path end-to-end on a real chain.
 contract LiveApprovals is IConsensusApproval {
@@ -26,7 +26,7 @@ contract LiveApprovals is IConsensusApproval {
 }
 
 /// Live stand-in for AIParams: a knob's decided value.
-contract LiveParams is IThinkingValue {
+contract LiveParams is IAIValue {
     mapping(bytes32 => mapping(bytes32 => uint256)) v;
     mapping(bytes32 => mapping(bytes32 => bool)) d;
 
