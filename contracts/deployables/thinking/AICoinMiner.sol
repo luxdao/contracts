@@ -19,6 +19,17 @@ interface IComputeVerifierM {
         returns (bool);
 }
 
+/// @notice The global compute-claim ledger (AIComputeRegistry) that reconciles minting across all
+/// Lux chains. A miner claims a computation here before minting; a second claim for the same
+/// `(model, prompt, output)` — any chain — reverts, so one unit of work mints once network-wide.
+interface IComputeRegistry {
+    function computationKey(bytes32 modelSpec, bytes32 promptHash, bytes32 outputHash)
+        external
+        pure
+        returns (bytes32);
+    function claim(bytes32 computationKey) external;
+}
+
 /// @title AICoinMiner — mine AICoin by proving verified A-Chain AI work, on ANY EVM.
 /// @notice Real AI mining with NO trusted minter key. The Lux A-Chain (aivm) settles an
 /// inference under its own consensus + provider quorum and commits a keccak merkle root
@@ -66,6 +77,12 @@ contract AICoinMiner {
     /// A-Chain itself binds one receipt per intent; this is the C-side replay guard).
     mapping(bytes32 => bool) public consumed;
 
+    /// @notice The global compute-claim ledger. address(0) ⇒ single-chain mode (no cross-chain
+    /// reconciliation). When set, every mint first claims the chain-independent computation key
+    /// here, so the same `(model, prompt, output)` mints once across ALL Lux chains. Set ONCE
+    /// (immutable after wiring) so the global guarantee cannot be rugged.
+    IComputeRegistry public registry;
+
     event Mined(bytes32 indexed intentID, address indexed requester, uint256 amount, bytes32 indexed root);
     event RewardSet(uint256 amount);
     event AdminTransferred(address indexed from, address indexed to);
@@ -81,6 +98,7 @@ contract AICoinMiner {
     error NothingToMint();
     error InvalidComputeProof();
     error ProofGateUnavailable();
+    error RegistryAlreadySet();
 
     constructor(
         IAICoinMintable coin_,
@@ -100,6 +118,14 @@ contract AICoinMiner {
         if (msg.sender != admin) revert NotAdmin();
         rewardPerReceipt = amount;
         emit RewardSet(amount);
+    }
+
+    /// @notice Wire the global compute-claim ledger ONCE. After this, every mint reconciles against
+    /// it network-wide. Set-once so the cross-chain no-double-mint guarantee cannot later be removed.
+    function setRegistry(IComputeRegistry registry_) external {
+        if (msg.sender != admin) revert NotAdmin();
+        if (address(registry) != address(0)) revert RegistryAlreadySet();
+        registry = registry_;
     }
 
     function transferAdmin(address admin_) external {
@@ -173,7 +199,18 @@ contract AICoinMiner {
             if (!verifier.verify(computeProof, expected, runtimeMeasurement)) revert InvalidComputeProof();
         }
 
-        // 4. mint (CEI: mark consumed before the external mint; a mint revert rolls it back)
+        // 4. GLOBAL RECONCILIATION: claim this computation on the cross-chain ledger so the same
+        //    (model, prompt, output) cannot mint on any other Lux chain. Chain-independent key from
+        //    the receipt's OWN merkle-proven fields, so a duplicate (any intent, any chain) collides.
+        if (address(registry) != address(0)) {
+            registry.claim(
+                registry.computationKey(
+                    _b32(receipt, OFF_MODELSPEC), _b32(receipt, OFF_PROMPT), _b32(receipt, OFF_OUTPUT)
+                )
+            );
+        }
+
+        // 5. mint (CEI: mark consumed before the external mint; a mint revert rolls it back)
         consumed[intentID] = true;
         amount = rewardPerReceipt;
         uint256 allowed = coin.emissionAllowance();
