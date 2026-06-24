@@ -54,12 +54,12 @@ echo "anvil up (pid $ANVIL_PID), chainId $(cast chain-id --rpc-url $RPC)"
 
 cd "$CONTRACTS"
 forge build >/dev/null 2>&1 || { echo "forge build failed"; exit 1; }
-dep(){ forge create "$1" --rpc-url "$RPC" --private-key "$K0" --broadcast --json ${2:+--constructor-args $2} 2>/dev/null \
-        | python3 -c 'import sys,json;print(json.load(sys.stdin)["deployedTo"])'; }
+dep(){ forge create "$1" --rpc-url "$RPC" --private-key "$K0" --broadcast ${2:+--constructor-args $2} 2>/dev/null \
+        | grep -oE 'Deployed to: 0x[0-9a-fA-F]{40}' | grep -oE '0x[0-9a-fA-F]{40}' | head -1; }
 
 # ---- deploy the stack --------------------------------------------------------
 say "deploying Thinking Chains governance stack"
-REG=$(dep "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry")
+REG=$(dep "$T/ProofOfThoughtRegistry.sol:ProofOfThoughtRegistry" "$A0")  # admin_ = deployer
 GOV=$(dep "$T/ThinkingGovernor.sol:ThinkingGovernor" "1000000000000000000 0 500000000000000000 100000000000000000 $TREASURY 0x0000000000000000000000000000000000000000")
 OBS=$(dep "$T/ThinkingChainObservatory.sol:ThinkingChainObservatory" "$GOV $REG")
 BRIDGE=$(dep "$T/GovernancePoTBridge.sol:GovernancePoTBridge" "$GOV $REG")
