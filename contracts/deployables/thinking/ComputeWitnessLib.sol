@@ -152,4 +152,28 @@ library ComputeWitnessLib {
         seed = abi.encodePacked(keccak256(seed));
         return freivalds(a, b, c, _deriveChallenge(seed, b.cols));
     }
+
+    /// @notice The on-chain FRAUD PROOF (the complement of {verifyOpening}). Returns true iff the
+    /// opened matmul was COMMITTED under `root` (Merkle inclusion) AND its output is FABRICATED
+    /// (`C != A·B`, caught by Freivalds under a beacon-bound challenge). A challenger exhibits any
+    /// one such matmul from a prover's committed forward pass; an honest pass has none, so an
+    /// honest prover can never be slashed. The `beacon` must be unpredictable to the prover at
+    /// commit time (e.g. the commit block's hash) so it cannot pre-fit a `C` that dodges the check.
+    function provesFraud(
+        bytes32 root,
+        bytes memory beacon,
+        uint256 index,
+        Matrix memory a,
+        Matrix memory b,
+        Matrix memory c,
+        bytes32[] memory merkleProof
+    ) internal pure returns (bool) {
+        // (1) the operands ARE the prover's committed ones — else this is not their matmul.
+        if (!_merkleVerify(matmulLeaf(a, b, c), root, index, merkleProof)) {
+            return false;
+        }
+        // (2) the output is fabricated: Freivalds FAILS for the beacon-bound challenge.
+        bytes memory seed = abi.encodePacked(keccak256(abi.encodePacked(beacon, root, uint64(index))));
+        return !freivalds(a, b, c, _deriveChallenge(seed, b.cols));
+    }
 }
