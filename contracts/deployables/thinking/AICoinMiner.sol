@@ -80,6 +80,7 @@ contract AICoinMiner {
     error AlreadyMined(bytes32 intentID);
     error NothingToMint();
     error InvalidComputeProof();
+    error ProofGateUnavailable();
 
     constructor(
         IAICoinMintable coin_,
@@ -154,7 +155,11 @@ contract AICoinMiner {
         //    the merkle-proven receipt), bound to the requester + caller-supplied chain context
         //    and runtime. A forged root over a fabricated receipt now ALSO needs a proof whose
         //    reportData reproduces THIS receipt's binding under a governance-accepted runtime.
-        if (address(verifier) != address(0)) {
+        // FAIL CLOSED (audit G3): no verifier wired ⇒ no mint. A receipt + merkle proof
+        // alone (a relayer-anchored root over a fabricated receipt) must NEVER mint; the
+        // compute proof binding real (model, prompt, output) is mandatory, not optional.
+        if (address(verifier) == address(0)) revert ProofGateUnavailable();
+        {
             bytes32 expected = ComputeProofLib.expectedReportData(
                 uint256(_b32(receipt, OFF_TASKID)),
                 intentID,
@@ -197,7 +202,8 @@ contract AICoinMiner {
         (bytes32 root, uint256 index, bytes32[] memory path) = _decodeProof(proof);
         if (!roots.isKnownRoot(root)) return false;
         if (!_verifyMerkle(leaf, root, index, path)) return false;
-        if (address(verifier) != address(0)) {
+        if (address(verifier) == address(0)) return false; // fail closed (audit G3): mirrors mine()
+        {
             bytes32 expected = ComputeProofLib.expectedReportData(
                 uint256(_b32(receipt, OFF_TASKID)),
                 _b32(receipt, OFF_INTENT),

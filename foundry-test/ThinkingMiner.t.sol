@@ -135,6 +135,7 @@ contract ThinkingMinerTest is Test {
     /// path: authorize a second minter and both succeed under the shared cap.
     function test_MultiMinter_BothPathsShareTheCap() public {
         address attestationMiner = address(0xBEEF); // stand-in for AICoinMiner
+        vm.etch(attestationMiner, hex"00"); // a CONTRACT minter (audit G1: never an EOA)
         vm.prank(ADMIN);
         coin.setMinter(attestationMiner, true);
         assertTrue(coin.isMinter(address(miner)) && coin.isMinter(attestationMiner), "both authorized");

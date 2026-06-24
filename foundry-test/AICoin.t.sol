@@ -20,6 +20,10 @@ contract AICoinTest is Test {
     function setUp() public {
         // warp off zero so GENESIS is a realistic timestamp
         vm.warp(1_700_000_000);
+        // A minter is always a proof-enforcing CONTRACT (audit G1 god-key defense): give
+        // the test's settlement seam code so it qualifies. In production this is the
+        // AICoinMiner / ThinkingMiner contract; here a stub stands in for the mint caller.
+        vm.etch(SETTLEMENT, hex"00");
         coin = new AICoin("AI", "AI", DAO, SETTLEMENT, 0);
         g0 = coin.GENESIS();
         PERIOD = coin.HALVING_PERIOD();
@@ -164,20 +168,31 @@ contract AICoinTest is Test {
     }
 
     // ---- governance manages the verified-cognition mint seams ----------------
+    // Audit G1 (god-key) acceptance: the admin can wire and unwire CONTRACT mint paths,
+    // but can NEVER authorize an EOA (least of all itself) to mint and bypass the
+    // proof-enforcing miner contracts. Combined with admin = governance Safe, this closes
+    // the "admin adds 0xBEEF, 0xBEEF mints with no proof" hole the audit flagged.
     function test_AdminManagesMinters() public {
-        address newSettlement = address(0xBEEF);
-        vm.expectRevert(AICoin.NotAdmin.selector);
-        coin.setMinter(newSettlement, true); // not the DAO
-
-        // ADD a second minter (multiple cognition paths mint the same coin)
+        address eoaAttacker = address(0xBEEF); // a plain EOA — no code
+        // G1: the admin CANNOT add an EOA as a minter (the direct god-key path)
         vm.prank(DAO);
-        coin.setMinter(newSettlement, true);
-        assertTrue(coin.isMinter(newSettlement));
+        vm.expectRevert(AICoin.MinterMustBeContract.selector);
+        coin.setMinter(eoaAttacker, true);
+
+        // a second CONTRACT minter is allowed (multiple cognition paths mint the same coin)
+        address secondMiner = address(0xC0DE);
+        vm.etch(secondMiner, hex"00"); // a contract
+        vm.expectRevert(AICoin.NotAdmin.selector);
+        coin.setMinter(secondMiner, true); // not the DAO
+
+        vm.prank(DAO);
+        coin.setMinter(secondMiner, true);
+        assertTrue(coin.isMinter(secondMiner));
         assertTrue(coin.isMinter(SETTLEMENT), "original minter still authorized");
 
         vm.warp(g0 + PERIOD / 2);
-        // both minters can mint the shared, jointly-capped subsidy
-        vm.prank(newSettlement);
+        // both contract minters can mint the shared, jointly-capped subsidy
+        vm.prank(secondMiner);
         coin.mintSubsidy(NODE, 1 ether);
         vm.prank(SETTLEMENT);
         coin.mintSubsidy(NODE, 1 ether);
@@ -202,12 +217,14 @@ contract AICoinTest is Test {
         assertEq(coin.admin(), newAdmin);
 
         // new admin now controls the minter seam; old admin cannot
+        address miner = address(0xBEEF);
+        vm.etch(miner, hex"00"); // a contract minter (G1: never an EOA)
         vm.prank(DAO);
         vm.expectRevert(AICoin.NotAdmin.selector);
-        coin.setMinter(address(0xBEEF), true);
+        coin.setMinter(miner, true);
 
         vm.prank(newAdmin);
-        coin.setMinter(address(0xBEEF), true);
-        assertTrue(coin.isMinter(address(0xBEEF)));
+        coin.setMinter(miner, true);
+        assertTrue(coin.isMinter(miner));
     }
 }

@@ -17,6 +17,7 @@ evm_version = "cancun"
 remappings = [
     "@luxfi/standard/=../../standard/contracts/",
     "@luxfi/contracts/=../../standard/contracts/",
+    "@account-abstraction/=../../standard/lib/account-abstraction/contracts/",
     "@safe-global/safe-smart-account/=../../standard/lib/safe-smart-account/contracts/",
     "@gnosis.pm/safe-contracts/=../../standard/lib/safe-smart-account/contracts/",
     "safe-smart-account/=../../standard/lib/safe-smart-account/contracts/",
