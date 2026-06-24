@@ -31,16 +31,18 @@ contract AICoinMinerTest is Test {
         // AICoin with no minter yet; then point the mint seam at the attestation miner.
         coin = new AICoin("AI Coin", "AI", ADMIN, address(0), 0);
         roots = new AIReceiptRoots(ADMIN);
-        // This suite proves the merkle/replay/clamp machinery in isolation: the compute-proof
-        // gate is left UNWIRED (verifier == address(0)) so these tests stay orthogonal to it.
-        // The gate's own enforcement (forged-root-without-proof, binding, registry) is proven in
-        // ComputeProofEnforcement.t.sol against a fully wired miner.
+        // This suite proves the merkle/replay/clamp machinery in isolation. The compute-proof
+        // gate is now MANDATORY (audit G3 fail-closed: verifier==0 reverts), so we wire an
+        // always-true mock verifier here to keep these tests orthogonal to the gate's internals.
+        // The gate's real enforcement (forged-root-without-proof, binding, registry) is proven in
+        // ComputeProofEnforcement.t.sol against a fully wired ComputeVerifier; the no-verifier
+        // fail-closed path is proven by test_Mine_NoVerifier_Reverts below.
         miner = new AICoinMiner(
             IAICoinMintable(address(coin)),
             IAIReceiptRootsView(address(roots)),
             ADMIN,
             REWARD,
-            IComputeVerifierM(address(0))
+            IComputeVerifierM(address(new MockVerifierTrue()))
         );
         vm.startPrank(ADMIN);
         coin.setMinter(address(miner), true); // authorize the attestation-mining path
@@ -93,12 +95,12 @@ contract AICoinMinerTest is Test {
         return keccak256(abi.encodePacked(l, r));
     }
 
-    /// @dev mine() with the compute-proof gate UNWIRED on this miner: the empty proof + zero
-    /// context are ignored (verifier == address(0)), so these tests exercise only the merkle/
-    /// replay/clamp path. Keeps the call sites readable while matching the gated signature.
+    /// @dev mine() against the always-true mock verifier wired in setUp: the proof is accepted
+    /// so these tests exercise only the merkle/replay/clamp path, orthogonal to the gate's
+    /// internals (which ComputeProofEnforcement.t.sol proves against a real ComputeVerifier).
     function _mine(bytes memory receipt, bytes memory proof) internal returns (uint256) {
-        ComputeProof memory empty = ComputeProof({proofType: 0, reportData: bytes32(0), evidence: ""});
-        return miner.mine(receipt, proof, empty, bytes32(0), bytes32(0));
+        ComputeProof memory ok = ComputeProof({proofType: 3, reportData: bytes32(0), evidence: ""});
+        return miner.mine(receipt, proof, ok, bytes32(0), bytes32(0));
     }
 
     /// @dev a bytes32 with every byte equal to `b` (matches the Go test helper h32).
@@ -263,5 +265,35 @@ contract AICoinMinerTest is Test {
         uint256 amount = _mine(receipt, _proof(root, 0, new bytes32[](0)));
         assertEq(amount, allowed, "minted exactly the vested allowance, not more");
         assertEq(coin.balanceOf(REQUESTER), allowed, "requester got the clamped amount");
+    }
+
+    /// Audit G3 (fail-closed) acceptance: a miner with NO compute verifier wired must NEVER
+    /// mint — a receipt + merkle proof alone (a relayer-anchored root over a fabricated
+    /// receipt) is not enough. This is the live C3/ungated-mint hole, closed.
+    function test_Mine_NoVerifier_Reverts() public {
+        AICoinMiner ungated = new AICoinMiner(
+            IAICoinMintable(address(coin)),
+            IAIReceiptRootsView(address(roots)),
+            ADMIN,
+            REWARD,
+            IComputeVerifierM(address(0)) // gate UNWIRED
+        );
+        vm.prank(ADMIN);
+        coin.setMinter(address(ungated), true);
+        bytes memory receipt = _receipt(keccak256("intent-x"), REQUESTER, 2, keccak256("o"));
+        bytes32 root = _leaf(receipt);
+        vm.prank(RELAYER);
+        roots.anchorRoot(root, 1);
+        ComputeProof memory empty = ComputeProof({proofType: 0, reportData: bytes32(0), evidence: ""});
+        vm.expectRevert(AICoinMiner.ProofGateUnavailable.selector);
+        ungated.mine(receipt, _proof(root, 0, new bytes32[](0)), empty, bytes32(0), bytes32(0));
+    }
+}
+
+/// @dev Test double: a compute verifier that accepts any proof. Lets the merkle/replay/clamp
+/// suite stay orthogonal to the gate internals while satisfying the now-mandatory G3 gate.
+contract MockVerifierTrue is IComputeVerifierM {
+    function verify(ComputeProof calldata, bytes32, bytes32) external pure returns (bool) {
+        return true;
     }
 }

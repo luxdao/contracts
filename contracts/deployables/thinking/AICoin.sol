@@ -70,6 +70,7 @@ contract AICoin is ERC20, ERC20Burnable {
     error NotAdmin();
     error ZeroAddress();
     error ExceedsEmissionAllowance(uint256 requested, uint256 allowed);
+    error MinterMustBeContract();
 
     constructor(
         string memory name_,
@@ -79,7 +80,13 @@ contract AICoin is ERC20, ERC20Burnable {
         uint256 genesis_
     ) ERC20(name_, symbol_) {
         admin = admin_ == address(0) ? msg.sender : admin_;
-        if (minter_ != address(0)) isMinter[minter_] = true; // may be zero at deploy; add more via setMinter
+        // A minter is always a proof-enforcing CONTRACT, never an EOA — the same god-key
+        // defense as setMinter, applied at genesis. Pass address(0) here and wire the
+        // miner contract via setMinter once it is deployed (the canonical flow).
+        if (minter_ != address(0)) {
+            if (minter_.code.length == 0) revert MinterMustBeContract();
+            isMinter[minter_] = true;
+        }
         // GENESIS is a NETWORK-WIDE fair-launch epoch, not the local deploy time: every
         // chain that mints this coin shares ONE halving schedule, so the unified subsidy
         // emits on the SAME curve across EVMs (any EVM can mint the SAME coin under the
@@ -147,8 +154,16 @@ contract AICoin is ERC20, ERC20Burnable {
     /// several is intentional: the attestation miner and the governance miner mint the
     /// same coin under the shared cap. Removing all freezes issuance (recoverable),
     /// unlike transferAdmin which guards against a permanent zero-brick.
+    /// @dev A minter MUST be a contract — never an EOA. This is the god-key defense:
+    /// even a compromised/EOA admin cannot authorize itself (or any externally-owned
+    /// account) to mint and thereby bypass the proof-enforcing miner contracts. The
+    /// only minters that can ever be added are contracts whose code gates the mint on a
+    /// receipt + merkle + compute proof (AICoinMiner) or thinking-validator quorum
+    /// (ThinkingMiner). Authority over `setMinter`/`transferAdmin` should itself be a
+    /// governance Safe/timelock, not an EOA (operational, enforced by deployment).
     function setMinter(address minter_, bool allowed) external {
         if (msg.sender != admin) revert NotAdmin();
+        if (allowed && minter_.code.length == 0) revert MinterMustBeContract();
         isMinter[minter_] = allowed;
         emit MinterSet(minter_, allowed);
     }
