@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AIExecute, IThinkingValue, IConsensusApproval} from "../contracts/deployables/thinking/AIExecute.sol";
+import {AIExecute, IThinkingValue, IConsensusApproval} from "@luxfi/standard/ai/thinking/AIExecute.sol";
 
 /// Live stand-in for the thinking-quorum's op-approval surface. In production the ThinkingGovernor
 /// writes an opHash here when validators settle YES; here the deployer approves so we can prove the
