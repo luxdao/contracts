@@ -2,13 +2,13 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AICoin} from "../contracts/deployables/thinking/AICoin.sol";
-import {AIReceiptRoots} from "../contracts/deployables/thinking/AIReceiptRoots.sol";
-import {AICoinMiner, IAICoinMintable, IAIReceiptRootsView, IComputeVerifierM} from "../contracts/deployables/thinking/AICoinMiner.sol";
-import {AttestationRootRegistry} from "../contracts/deployables/thinking/AttestationRootRegistry.sol";
-import {ComputeVerifier} from "../contracts/deployables/thinking/ComputeVerifier.sol";
-import {OptimisticEvidence} from "../contracts/deployables/thinking/evidence/OptimisticEvidence.sol";
-import {ComputeProof, ComputeProofLib} from "../contracts/deployables/thinking/ComputeProofLib.sol";
+import {AICoin} from "@luxfi/standard/ai/thinking/AICoin.sol";
+import {AIReceiptRoots} from "@luxfi/standard/ai/thinking/AIReceiptRoots.sol";
+import {AICoinMiner, IAICoinMintable, IAIReceiptRootsView, IComputeVerifierM} from "@luxfi/standard/ai/thinking/AICoinMiner.sol";
+import {AttestationRootRegistry} from "@luxfi/standard/ai/thinking/AttestationRootRegistry.sol";
+import {ComputeVerifier} from "@luxfi/standard/ai/thinking/ComputeVerifier.sol";
+import {OptimisticEvidence} from "@luxfi/standard/ai/thinking/evidence/OptimisticEvidence.sol";
+import {ComputeProof, ComputeProofLib} from "@luxfi/standard/ai/thinking/ComputeProofLib.sol";
 
 /// @notice Deploy the AI-mining stack — NOW WITH THE COMPUTE-PROOF GATE — to ANY EVM and PROVE
 /// it live with a real on-chain mint. Same bytecode + same pure-Solidity attestation

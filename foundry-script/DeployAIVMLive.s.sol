@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AIComputeRegistry} from "../contracts/deployables/thinking/AIComputeRegistry.sol";
+import {AIComputeRegistry} from "@luxfi/standard/ai/thinking/AIComputeRegistry.sol";
 
 /// A stand-in miner: a contract authorized to claim computations (claimers must be contracts).
 contract MinerStub {
