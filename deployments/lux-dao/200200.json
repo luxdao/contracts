@@ -1,0 +1,24 @@
+{
+  "brand": "zoo",
+  "chainId": 200200,
+  "deployer": "0x9011E888251AB053B7bD1cdB598Db4f9DEd94714",
+  "treasurySafe": "0x229599f227231d8C90fcF1a78589F5DC4b7A6962",
+  "script": "DeployDAO.s.sol (LP-040)",
+  "smokeGate": "passed",
+  "contracts": {
+    "safeSingleton": "0x9D4FC91e088B007015CF520755130aD126aD336f",
+    "safeFactory": "0x4B88AfbB33A42F917aA6aeD65136E40b4452f2fD",
+    "fallbackHandler": "0x68467Dcc9a3181e77Ce646A43D38062C9486aAa0",
+    "votesErc20Master": "0x7126daf151666e92F8B5D915F9fAf3CDaA7918Ce",
+    "moduleGovernor": "0xc23e396acA1CbB0D0cF1debc8371eDddbf52430e",
+    "moduleFractal": "0x8C241Bcc7735AA4f21B9e488AC93B22058257264",
+    "strategy": "0xb2eaA0b9F04184102AB92c443Ad8F4454798fC8b",
+    "votingWeight": "0x7c05e692995e14994a5482dE3F97F712B72838C9",
+    "voteTracker": "0xC23BEB821252D22835B60767C7eFBE06B2f62789",
+    "proposerAdapter": "0xeA65F4dDdF09D8CDb8a1E2bCbC77c01567a75326",
+    "systemDeployer": "0xEaFFaDf661D82df7871d2E4085C39defc792A1c7",
+    "bounty": "0x3EDb4a0104614b4aC12D5babCE984291aE8BE8E7",
+    "escrow": "0x095E68282aea751Cc70A2Be565270f1B6AB0229C",
+    "reputation": "0xed976852e8c2b1283e4F475845046B679224460D"
+  }
+}

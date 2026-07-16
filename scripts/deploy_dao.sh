@@ -38,17 +38,32 @@ declare -a PROD_CHAINS=(96369 200200 36963 494949)
 
 echo "== deploy_dao: brand=$BRAND chainId=$CHAINID secret=$KEY_NS/$KEY_SECRET =="
 
+# HARD STOP: Lux mainnet 96369 is frozen at the flag-day export tip. NEVER deploy here
+# (zero txs); the 96369 DAO deploy is a staged post-flag-day script only. Unconditional —
+# not even ALLOW_OWNER_KEY overrides this.
+if [ "$CHAINID" = "96369" ]; then
+  echo "FATAL: 96369 is frozen (flag-day) — refusing. Staged post-flag-day only."; exit 1
+fi
+
 # 1. Key from KMS-backed k8s secret (first data value; field name is not assumed).
-KEY=$(kubectl --context "$KEY_CTX" -n "$KEY_NS" get secret "$KEY_SECRET" \
-        -o jsonpath='{.data}' | jq -r 'to_entries[0].value' | base64 -d)
-[ -n "$KEY" ] || { echo "FATAL: no key in $KEY_NS/$KEY_SECRET"; exit 1; }
+KEY_FIELD="${KEY_FIELD:-LUX_PRIVATE_KEY}"
+KEY_B64=$(kubectl --context "$KEY_CTX" -n "$KEY_NS" get secret "$KEY_SECRET" -o jsonpath="{.data.$KEY_FIELD}")
+# Fall back to the first data entry only if the named field is absent (single-field secrets).
+[ -n "$KEY_B64" ] || KEY_B64=$(kubectl --context "$KEY_CTX" -n "$KEY_NS" get secret "$KEY_SECRET" \
+        -o jsonpath='{.data}' | jq -r 'to_entries[0].value')
+KEY=$(printf '%s' "$KEY_B64" | base64 -d)
+[ -n "$KEY" ] || { echo "FATAL: no key in $KEY_NS/$KEY_SECRET (field $KEY_FIELD)"; exit 1; }
 case "$KEY" in 0x*) ;; *) KEY="0x$KEY";; esac
 ADDR=$(cast wallet address --private-key "$KEY")
 
-# 2. Guardrail — automation must never be the 0x9011 owner key.
+# 2. Guardrail — never SILENTLY use the 0x9011 owner key. An explicit, owner-authorized
+#    deploy may override with ALLOW_OWNER_KEY=1 (e.g. the option-C org-mainnet/testnet
+#    deploys); the guard still blocks accidental owner-key use everywhere else.
 if [ "$ADDR" = "$OWNER_KEY_ADDR" ]; then
-  echo "FATAL: deployer resolves to the 0x9011 OWNER key. Refusing. Use a dedicated"
-  echo "       gov-deployer secret; owner-key actions are staged Safe proposals only."; exit 1
+  if [ "${ALLOW_OWNER_KEY:-0}" != "1" ]; then
+    echo "FATAL: deployer is the 0x9011 OWNER key. Refusing without explicit ALLOW_OWNER_KEY=1."; exit 1
+  fi
+  echo "WARNING: deploying with the 0x9011 OWNER key (ALLOW_OWNER_KEY=1, owner-authorized)."
 fi
 
 # 3. Verify chain + funding.
