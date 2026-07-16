@@ -23,7 +23,10 @@ pragma solidity ^0.8.30;
  *
  * `token == address(0)` denotes the chain's native coin throughout (one convention,
  * matching the rest of the stack). Native deposits require msg.value == amount;
- * ERC-20 deposits pull via transferFrom and credit the exact received amount.
+ * ERC-20 deposits pull via transferFrom and require the EXACT nominal amount to arrive
+ * — fee-on-transfer / rebasing / deflationary tokens (received != amount) are REJECTED
+ * at deposit (the whole tx reverts, no partial deposit recorded), so downstream nominal
+ * accounting stays exact and no reward or stake can be stranded.
  *
  * Payouts ride to an arbitrary address (EOA, Safe, or any contract), so a
  * post-quantum-signed Safe can be funder or payee without the escrow caring.
@@ -54,6 +57,13 @@ interface IEscrowV1 {
 
     /** @notice Thrown when releasing/refunding more than a deposit's remaining balance */
     error InsufficientDeposit(bytes32 depositId, uint256 remaining, uint256 requested);
+
+    /**
+     * @notice Thrown when the ERC-20 balance actually received != the nominal amount
+     * @dev Rejects fee-on-transfer / rebasing / deflationary tokens at deposit so the
+     * controller's nominal accounting can never strand funds.
+     */
+    error DepositAmountMismatch(uint256 expected, uint256 received);
 
     /** @notice Thrown when a recipient address is zero */
     error InvalidRecipient();
@@ -138,8 +148,9 @@ interface IEscrowV1 {
      * @dev Controller-only. For native coin (token == address(0)), msg.value must
      * equal amount. For ERC-20, msg.value must be 0 and the escrow pulls `amount`
      * from `funder` via transferFrom (funder must have approved the escrow). The
-     * credited amount is the exact balance delta observed, so fee-on-transfer tokens
-     * cannot inflate the deposit.
+     * balance delta actually received must equal `amount` exactly, otherwise the
+     * deposit reverts (DepositAmountMismatch) — fee-on-transfer / rebasing tokens are
+     * rejected rather than credited short, keeping the deposit's accounting nominal.
      * @param depositId Unique identifier chosen by the controller
      * @param token The asset to deposit; address(0) for native
      * @param funder The address funds originate from (refund target)

@@ -25,7 +25,8 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
  *
  * Lifecycle (illegal transitions revert — a state invariant, not a discretionary gate):
  *   Open -> Funded -> Claimed -> Submitted -> Accepted/Paid
- *                 \-> Cancelled              \-> Disputed -> resolve (Paid)
+ *                 \-> Cancelled          |   \-> Disputed -> resolve (Paid)
+ *                                        \-> finalize (review window elapsed) -> Paid
  *
  * PERMISSIONLESS by design: anyone may propose a bounty and anyone may claim a
  * funded one. There is no allowlist. Abuse is bounded by MECHANISM:
@@ -33,12 +34,19 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
  *    abandonment/timeout, making claim-squatting and grief-claiming costly.
  *  - Each claim carries a deadline; anyone may `reclaim` a bounty whose worker
  *    missed it, slashing the stuck stake and re-opening the bounty.
+ *  - Each submission carries a REVIEW deadline; anyone may `finalize` it to the
+ *    worker once that elapses. LIVENESS INVARIANT: from Submitted a delivered
+ *    worker's reward and stake can never be locked forever by counterparty inaction
+ *    — approver silence past the window is acceptance. A dispute is accepted only
+ *    BEFORE the window, so once it lapses the sole exit is the worker's payout.
  *
  * The approver (accepts work) and arbiter (resolves disputes) are configured per
  * bounty as plain addresses — a reviewer EOA for small bounties, or the owning
  * Safe/governance for large ones. Authorization is cryptographic (caller == the
  * configured address), so a post-quantum-signed Safe can be funder, approver, or
- * arbiter with no special-casing here.
+ * arbiter with no special-casing here. The funder is forbidden from also being the
+ * approver or arbiter of its own bounty (anti-self-dealing), so no single party can
+ * both deliver-review and slash a worker.
  *
  * Implementation details:
  * - EIP-7201 namespaced storage and UUPS, deployable as master-copy + proxy.
@@ -87,6 +95,15 @@ contract BountyV1 is
      */
     bytes32 internal constant BOUNTY_STORAGE_LOCATION =
         0xe9ca8f3ef60272e1cc45846d8d69cc936b7bc80b9d605ea0f76faf7b65936300;
+
+    /**
+     * @notice Upper bound on the claim and review windows (R1). Without it an untrusted
+     * funder could set a near-uint64.max window that overflows submit()'s checked
+     * `block.timestamp + reviewWindow` arithmetic, permanently bricking a staked worker's
+     * delivery and letting the funder slash the stake. 365 days exceeds any legitimate
+     * bounty window, so the bound costs honest use nothing.
+     */
+    uint64 internal constant MAX_WINDOW = 365 days;
 
     /**
      * @dev Returns the storage struct for BountyV1
@@ -227,10 +244,27 @@ contract BountyV1 is
         address approver_,
         address arbiter_,
         uint64 claimWindow_,
+        uint64 reviewWindow_,
         string calldata issueRef_
     ) public virtual override returns (uint256 bountyId) {
         if (reward_ == 0 || stake_ == 0) revert ZeroAmount();
         if (approver_ == address(0)) revert InvalidApprover();
+
+        // Anti-self-dealing (M2): the funder must not be the party that accepts or
+        // arbitrates its own bounty. Otherwise a funder=approver=arbiter could dispute
+        // its own bounty and resolve workerAmount=0 + slash the stake to itself, robbing
+        // a delivered worker. Authorization elsewhere is caller-is-the-address, so this
+        // is the one place the roles must be proven distinct.
+        if (approver_ == msg.sender) revert ApproverIsFunder();
+        address effectiveArbiter = arbiter_ == address(0) ? approver_ : arbiter_;
+        if (effectiveArbiter == msg.sender) revert ArbiterIsFunder();
+
+        // R1: bound both windows so submit()'s checked deadline arithmetic cannot overflow.
+        // An unbounded reviewWindow_/claimWindow_ (up to uint64.max) would make submit()
+        // revert forever after a worker has staked, then let reclaim() slash that stake —
+        // a permissionless work-market must not let a hostile funder brick a delivery.
+        if (claimWindow_ > MAX_WINDOW) revert WindowTooLong(claimWindow_, MAX_WINDOW);
+        if (reviewWindow_ > MAX_WINDOW) revert WindowTooLong(reviewWindow_, MAX_WINDOW);
 
         BountyStorage storage $ = _getBountyStorage();
         bountyId = $.bountyCount;
@@ -243,10 +277,11 @@ contract BountyV1 is
         b.token = token_;
         b.funder = msg.sender;
         b.approver = approver_;
-        b.arbiter = arbiter_ == address(0) ? approver_ : arbiter_;
+        b.arbiter = effectiveArbiter;
         b.reward = reward_;
         b.stake = stake_;
         b.claimWindow = claimWindow_;
+        b.reviewWindow = reviewWindow_;
 
         emit BountyProposed(bountyId, msg.sender, approver_, token_, reward_, stake_, issueRef_);
     }
@@ -306,7 +341,10 @@ contract BountyV1 is
         if (msg.sender != b.worker) revert OnlyWorker();
         if (block.timestamp > b.claimDeadline) revert DeadlinePassed(bountyId_, b.claimDeadline);
 
+        // Effects: enter review and start the review window. After reviewDeadline anyone
+        // may finalize the submission to the worker (the liveness escape).
         b.state = State.Submitted;
+        b.reviewDeadline = uint64(block.timestamp) + b.reviewWindow;
 
         emit WorkSubmitted(bountyId_, msg.sender, deliverableRef_);
     }
@@ -322,19 +360,36 @@ contract BountyV1 is
         _requireState(bountyId_, b.state, State.Submitted);
         if (msg.sender != b.approver) revert OnlyApprover();
 
-        // Effects.
+        // Effects before interactions (CEI); the shared settlement pays the worker.
         b.state = State.Paid;
         address worker = b.worker;
-        uint256 reward = b.reward;
-        uint256 stake = b.stake;
-
-        // Interactions: pay reward, return stake, record completion.
-        $.escrow.release(_rewardKey(bountyId_), worker, reward);
-        $.escrow.release(_stakeKey(bountyId_, b.claimNonce), worker, stake);
-        $.reputation.recordCompletion(worker, reward);
+        _releaseToWorker($, b, bountyId_);
 
         emit WorkAccepted(bountyId_, msg.sender, worker);
-        emit PaymentReleased(bountyId_, worker, reward, stake);
+    }
+
+    /**
+     * @inheritdoc IBountyV1
+     * @dev Submitted -> Paid. PERMISSIONLESS after the review deadline. The liveness
+     * escape: if the approver never accepted and no one disputed within the review
+     * window, anyone may finalize and the worker is paid the reward + stake. This is
+     * the standard bounty/dework norm (approver silence == acceptance) and guarantees
+     * a delivered worker's funds are never locked by counterparty inaction.
+     */
+    function finalize(uint256 bountyId_) public virtual override nonReentrant {
+        BountyStorage storage $ = _getBountyStorage();
+        Bounty storage b = _bounty($, bountyId_);
+        _requireState(bountyId_, b.state, State.Submitted);
+        if (block.timestamp <= b.reviewDeadline) {
+            revert ReviewWindowNotElapsed(bountyId_, b.reviewDeadline);
+        }
+
+        // Effects before interactions (CEI); the shared settlement pays the worker.
+        b.state = State.Paid;
+        address worker = b.worker;
+        _releaseToWorker($, b, bountyId_);
+
+        emit BountyFinalized(bountyId_, msg.sender, worker);
     }
 
     /**
@@ -346,6 +401,9 @@ contract BountyV1 is
         Bounty storage b = _bounty($, bountyId_);
         _requireState(bountyId_, b.state, State.Submitted);
         if (msg.sender != b.funder && msg.sender != b.approver) revert OnlyApprover();
+        // Dispute only within the review window. Once it elapses the worker's finalize
+        // escape is guaranteed and cannot be retroactively pulled into arbitration.
+        if (block.timestamp > b.reviewDeadline) revert ReviewWindowElapsed(bountyId_, b.reviewDeadline);
 
         b.state = State.Disputed;
 
@@ -396,9 +454,12 @@ contract BountyV1 is
             emit StakeSlashed(bountyId_, worker, to, stake);
         }
 
-        // Record the outcome for the worker.
+        // Record the outcome for the worker. A completion is credited only when the
+        // worker is not also the approver (self-review earns no reputation, L1).
         if (workerAmount_ > 0) {
-            $.reputation.recordCompletion(worker, workerAmount_);
+            if (worker != b.approver) {
+                $.reputation.recordCompletion(worker, workerAmount_);
+            }
         } else {
             $.reputation.recordDisputeLoss(worker);
         }
@@ -508,6 +569,27 @@ contract BountyV1 is
      */
     function _requireState(uint256 bountyId_, State current_, State required_) internal pure {
         if (current_ != required_) revert InvalidState(bountyId_, current_, required_);
+    }
+
+    /**
+     * @dev Settles a delivered bounty to its worker: releases the reward, returns the
+     * stake, and records a completion UNLESS the worker is also the approver (self-review
+     * earns no reputation, L1). The one place the accept and finalize payouts converge —
+     * both set state to Paid BEFORE calling this (checks-effects-interactions), so the
+     * external escrow/reputation calls here cannot re-enter a non-terminal bounty.
+     */
+    function _releaseToWorker(BountyStorage storage $, Bounty storage b, uint256 bountyId_) internal {
+        address worker = b.worker;
+        uint256 reward = b.reward;
+        uint256 stake = b.stake;
+
+        $.escrow.release(_rewardKey(bountyId_), worker, reward);
+        $.escrow.release(_stakeKey(bountyId_, b.claimNonce), worker, stake);
+        if (worker != b.approver) {
+            $.reputation.recordCompletion(worker, reward);
+        }
+
+        emit PaymentReleased(bountyId_, worker, reward, stake);
     }
 
     /**

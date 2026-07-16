@@ -2,40 +2,50 @@
 pragma solidity ^0.8.31;
 
 import { Test } from "forge-std/Test.sol";
-import { DeployPars } from "../foundry-script/DeployPars.s.sol";
+import { DeployDAO } from "../foundry-script/DeployDAO.s.sol";
 import { BountyV1 } from "../contracts/deployables/bounty/BountyV1.sol";
 import { EscrowV1 } from "../contracts/deployables/bounty/EscrowV1.sol";
 import { ReputationV1 } from "../contracts/deployables/bounty/ReputationV1.sol";
+import { WorkMarketDeployer } from "../contracts/deployables/bounty/WorkMarketDeployer.sol";
 import { IBountyV1 } from "../contracts/interfaces/dao/deployables/IBountyV1.sol";
 import { MockERC20 } from "../contracts/mocks/MockERC20.sol";
+import { SmokeApprover } from "../foundry-script/WorkMarketSmoke.s.sol";
 
 // DAO masters — to assert the factory masters are real, code-bearing implementations.
 import { VotesERC20V1 } from "@luxfi/standard/dao/deployables/erc20/VotesERC20V1.sol";
 import { ModuleGovernorV1 } from "@luxfi/standard/dao/deployables/modules/ModuleGovernorV1.sol";
 import { StrategyV1 } from "@luxfi/standard/dao/deployables/strategies/StrategyV1.sol";
+import { SystemDeployerV1 } from "@luxfi/standard/dao/singletons/SystemDeployerV1.sol";
 
 /**
- * @title DeployParsLive
- * @notice e2e proof for the Pars (494949) luxdao platform deployment. It runs the EXACT
- *         DeployPars deployment logic (by inheriting the script and calling _deploy), then
- *         drives the COMPLETE two-sided work-market lifecycle against the live, wired
- *         contracts — proving the on-chain truth the pars.vote board depends on:
- *         create-DAO masters live -> post task -> claim -> deliver -> PAID on acceptance,
- *         escrow released, reputation recorded, value conserved at every step.
+ * @title DeployDAOLive
+ * @notice e2e proof for the canonical, brand-neutral luxdao platform deployment (LP-040).
+ *         It runs the EXACT DeployDAO deployment logic (by inheriting the script and
+ *         calling _deploy), then drives the COMPLETE two-sided work-market lifecycle
+ *         against the live, wired contracts — proving the on-chain truth every brand's
+ *         vote board depends on: create-DAO masters live -> post task -> claim -> deliver
+ *         -> PAID on acceptance, escrow released, reputation recorded, value conserved.
+ *
+ *  This is the same deployment that ships to Lux (96368/96369), Zoo (200200), Hanzo
+ *  (36963) and every future brand — no brand in bytecode, only the chain it runs on.
  *
  *  Coverage:
- *   - test_DeploysFullStack_Wired           — every factory master + work-market piece
- *                                             deployed, code-bearing, and correctly wired.
+ *   - test_DeploysFullStack_Wired           — every factory master (incl. ModuleFractalV1
+ *                                             sub-DAO primitive + SystemDeployerV1 create
+ *                                             orchestrator) + work-market piece deployed,
+ *                                             code-bearing, and correctly wired.
  *   - test_WorkMarket_ERC20_Conserves       — full happy path with a real MockERC20.
  *   - test_WorkMarket_Native_Conserves      — full happy path with native value.
  *   - test_WorkMarket_DisputeSplit_Conserves— dispute -> arbiter split, conservation.
  *
- *  The test contract inherits DeployPars so _deploy() runs from THIS contract's account:
- *  the CREATE-nonce prediction inside _deployWorkMarket is therefore exercised exactly as
- *  it is under `forge script` (a wrong offset reverts the deploy with a require, failing
- *  the test loudly). This makes the test a genuine proof the script's prediction holds.
+ *  The test contract inherits DeployDAO so _deploy() runs the IDENTICAL logic the script
+ *  broadcasts. The work-market is stood up by WorkMarketDeployer, whose constructor deploys
+ *  the 3 impls + 3 proxies, wires escrow.controller = reputation.writer = the BountyV1
+ *  proxy, and VERIFIES that wiring on-chain — reverting the whole deploy if anything is
+ *  mis-wired. No EOA-nonce prediction is trusted (M1), so this test is a genuine proof the
+ *  atomic wiring holds. M1/M3/M4 fixes are exercised by their dedicated tests below.
  */
-contract DeployParsLive is Test, DeployPars {
+contract DeployDAOLive is Test, DeployDAO {
     Deployment internal dep;
 
     BountyV1 internal bounty;
@@ -53,20 +63,23 @@ contract DeployParsLive is Test, DeployPars {
     address internal constant NATIVE = address(0);
     uint256 internal constant REWARD = 10 ether;
     uint256 internal constant STAKE = 1 ether;
-    uint64 internal constant WINDOW = 3 days;
+    uint64 internal constant WINDOW = 3 days; // claim window
+    uint64 internal constant REVIEW = 3 days; // review window (liveness escape)
 
     function setUp() public {
-        // deployer = address(this): under a fork test the CREATEs originate from this
-        // contract, so the BountyV1 proxy prediction must be against THIS account's
-        // nonce (the script passes msg.sender, the broadcasting EOA, instead).
-        // owner = this test (upgrade authority); slash treasury = address(0) so slashes
-        // route to the funder (the canonical "no treasury Safe yet" Pars default).
-        dep = _deploy(address(this), address(this), address(0));
+        // owner = this test (UUPS upgrade authority); slash treasury = address(0) so
+        // slashes route to the funder (the canonical "no treasury Safe yet" default).
+        // The work-market wiring no longer depends on the deployer's EOA nonce: the
+        // WorkMarketDeployer constructor deploys + verifies escrow.controller ==
+        // reputation.writer == the BountyV1 proxy ON-CHAIN (reverting the deploy if
+        // wrong), so this test drives the same atomic, self-verifying path the script
+        // broadcasts.
+        dep = _deploy(address(this), address(0));
 
         bounty = BountyV1(dep.bounty);
         escrow = EscrowV1(payable(dep.escrow));
         rep = ReputationV1(dep.reputation);
-        token = new MockERC20("Pars Work Token", "PWORK", 18);
+        token = new MockERC20("Work Token", "WORK", 18);
     }
 
     // ==================================================================
@@ -82,10 +95,15 @@ contract DeployParsLive is Test, DeployPars {
         // (A) DAO module + voting masters exist and bear code (real master copies).
         assertTrue(dep.votesErc20Master.code.length > 0, "votes master has code");
         assertTrue(dep.moduleGovernorMaster.code.length > 0, "governor master has code");
+        assertTrue(dep.moduleFractalMaster.code.length > 0, "fractal (sub-DAO) master has code");
         assertTrue(dep.strategyMaster.code.length > 0, "strategy master has code");
         assertTrue(dep.votingWeightMaster.code.length > 0, "voting weight master has code");
         assertTrue(dep.voteTrackerMaster.code.length > 0, "vote tracker master has code");
         assertTrue(dep.proposerAdapterMaster.code.length > 0, "proposer adapter master has code");
+
+        // (A) Create-a-DAO orchestrator exists, bears code, and is the real impl.
+        assertTrue(dep.systemDeployer.code.length > 0, "system deployer has code");
+        assertEq(SystemDeployerV1(dep.systemDeployer).version(), 1, "system deployer version");
 
         // A master copy must report its version (proves it is the real impl, init-disabled).
         assertEq(VotesERC20V1(dep.votesErc20Master).version(), 1, "votes master version");
@@ -102,11 +120,12 @@ contract DeployParsLive is Test, DeployPars {
         assertEq(bounty.bountyCount(), 0, "fresh ledger");
         assertTrue(bounty.supportsInterface(type(IBountyV1).interfaceId), "IBountyV1");
 
-        // All twelve deployed addresses are distinct (no slot collision in the deploy).
-        address[12] memory all = [
+        // All fourteen deployed addresses are distinct (no slot collision in the deploy).
+        address[14] memory all = [
             dep.safeSingleton, dep.safeFactory, dep.fallbackHandler,
-            dep.votesErc20Master, dep.moduleGovernorMaster, dep.strategyMaster,
-            dep.votingWeightMaster, dep.voteTrackerMaster, dep.proposerAdapterMaster,
+            dep.votesErc20Master, dep.moduleGovernorMaster, dep.moduleFractalMaster,
+            dep.strategyMaster, dep.votingWeightMaster, dep.voteTrackerMaster,
+            dep.proposerAdapterMaster, dep.systemDeployer,
             dep.bounty, dep.escrow, dep.reputation
         ];
         for (uint256 i = 0; i < all.length; i++) {
@@ -129,7 +148,7 @@ contract DeployParsLive is Test, DeployPars {
 
         // 1. A DAO member proposes a bounty (reward R, stake S, approver = reviewer).
         vm.prank(daoMember);
-        uint256 id = bounty.propose(address(token), REWARD, STAKE, reviewer, arbiter, WINDOW, "ISSUE-1");
+        uint256 id = bounty.propose(address(token), REWARD, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
         assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Open), "Open");
 
         // 2. Member funds it: escrow holds R; member spent exactly R.
@@ -184,7 +203,7 @@ contract DeployParsLive is Test, DeployPars {
         uint256 total = _sumNative();
 
         vm.prank(daoMember);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, reviewer, arbiter, WINDOW, "ISSUE-1");
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
 
         // Fund: escrow += R, member -= R.
         vm.prank(daoMember);
@@ -225,7 +244,7 @@ contract DeployParsLive is Test, DeployPars {
 
         // Drive to Submitted.
         vm.prank(daoMember);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, reviewer, arbiter, WINDOW, "ISSUE-1");
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
         vm.prank(daoMember);
         bounty.fund{ value: REWARD }(id);
         vm.prank(worker);
@@ -250,6 +269,102 @@ contract DeployParsLive is Test, DeployPars {
 
         // CONSERVATION across the dispute split.
         assertEq(_sumNative(), total, "native conserved across dispute split");
+    }
+
+    // ==================================================================
+    // M1 -- WorkMarketDeployer stands up a wired market atomically on-chain
+    // ==================================================================
+
+    function test_M1_WorkMarketDeployer_WiresAtomically() public {
+        // A standalone WorkMarketDeployer produces a fully wired, code-bearing market and
+        // its on-chain require()s pass (a wrong prediction would have reverted the ctor).
+        WorkMarketDeployer wm = new WorkMarketDeployer(address(this), address(0));
+        assertTrue(wm.bounty().code.length > 0, "bounty proxy has code");
+        assertTrue(wm.escrow().code.length > 0, "escrow proxy has code");
+        assertTrue(wm.reputation().code.length > 0, "reputation proxy has code");
+
+        BountyV1 b = BountyV1(wm.bounty());
+        assertEq(b.escrow(), wm.escrow(), "bounty.escrow wired");
+        assertEq(b.reputation(), wm.reputation(), "bounty.reputation wired");
+        assertEq(EscrowV1(payable(wm.escrow())).controller(), wm.bounty(), "escrow controller == bounty");
+        assertEq(ReputationV1(wm.reputation()).writer(), wm.bounty(), "reputation writer == bounty");
+        assertEq(b.owner(), address(this), "owner set");
+
+        // Two independent markets get independent, non-colliding proxies.
+        WorkMarketDeployer wm2 = new WorkMarketDeployer(address(this), address(0));
+        assertTrue(wm2.bounty() != wm.bounty(), "distinct bounty proxies");
+        assertTrue(wm2.escrow() != wm.escrow(), "distinct escrow proxies");
+    }
+
+    // ==================================================================
+    // M3 -- production chains refuse an unset treasury Safe (no EOA rug)
+    // ==================================================================
+
+    /// @dev External wrapper so the internal pure guard can be probed with expectRevert.
+    function exposed_resolveOwner(
+        uint256 chainId_,
+        address safe_,
+        address deployer_
+    ) external pure returns (address, address) {
+        return _resolveOwnerAndTreasury(chainId_, safe_, deployer_);
+    }
+
+    function test_M3_ProductionChainsRequireTreasurySafe() public {
+        uint256[4] memory prod = [uint256(96369), uint256(200200), uint256(36963), uint256(494949)];
+        for (uint256 i = 0; i < prod.length; i++) {
+            vm.expectRevert(
+                bytes("DeployDAO: DAO_TREASURY_SAFE required on production chain (refusing EOA upgrade authority)")
+            );
+            this.exposed_resolveOwner(prod[i], address(0), address(0xBEEF));
+        }
+    }
+
+    function test_M3_TestnetAndLocalFallBackToDeployer() public {
+        // Lux testnet (96368) and localnet (1337) fall back to the deployer, slash-to-funder.
+        (address o1, address s1) = this.exposed_resolveOwner(96368, address(0), address(0xBEEF));
+        assertEq(o1, address(0xBEEF), "testnet: deployer owns");
+        assertEq(s1, address(0), "testnet: slash-to-funder");
+        (address o2, address s2) = this.exposed_resolveOwner(1337, address(0), address(0xBEEF));
+        assertEq(o2, address(0xBEEF), "localnet: deployer owns");
+        assertEq(s2, address(0), "localnet: slash-to-funder");
+    }
+
+    function test_M3_TreasurySafeOwnsWhenSet() public {
+        // With a Safe set, even a production chain is fine: the Safe owns + receives slashes.
+        address safe = address(0x5AFE);
+        (address o, address s) = this.exposed_resolveOwner(96369, safe, address(0xBEEF));
+        assertEq(o, safe, "prod + safe: safe owns");
+        assertEq(s, safe, "prod + safe: slash-to-safe");
+    }
+
+    // ==================================================================
+    // M4 -- launch-gate lifecycle (the on-chain TSTORE smoke, run locally)
+    // ==================================================================
+
+    /// @dev Exercises the SAME fund -> claim -> submit -> accept the on-chain launch gate
+    /// (WorkMarketSmoke) runs, using its SmokeApprover, and asserts the escrow drains and
+    /// the bounty reaches Paid. Locally this proves the gate's logic and that the
+    /// TSTORE-guarded payout path executes under Cancun; on --broadcast the same sequence
+    /// against a live node proves EIP-1153 transient storage works on that chain.
+    function test_M4_LaunchGate_NativeAcceptDrainsEscrow() public {
+        SmokeApprover appr = new SmokeApprover();
+        vm.deal(daoMember, REWARD);
+        vm.deal(worker, STAKE);
+
+        vm.prank(daoMember);
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, address(appr), address(appr), WINDOW, REVIEW, "gate");
+        uint256 escrowBaseline = address(escrow).balance;
+        vm.prank(daoMember);
+        bounty.fund{ value: REWARD }(id);
+        vm.prank(worker);
+        bounty.claim{ value: STAKE }(id);
+        vm.prank(worker);
+        bounty.submit(id, "gate");
+        appr.accept(bounty, id);
+
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "gate: Paid");
+        assertEq(address(escrow).balance, escrowBaseline, "gate: escrow drained to baseline");
+        assertEq(worker.balance, REWARD + STAKE, "gate: worker paid reward + stake");
     }
 
     // ==================================================================

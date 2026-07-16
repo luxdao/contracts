@@ -10,6 +10,7 @@ import {IBountyV1} from "../contracts/interfaces/dao/deployables/IBountyV1.sol";
 import {IEscrowV1} from "../contracts/interfaces/dao/deployables/IEscrowV1.sol";
 import {IReputationV1} from "../contracts/interfaces/dao/deployables/IReputationV1.sol";
 import {MockERC20} from "../contracts/mocks/MockERC20.sol";
+import {MockFeeOnTransferERC20} from "../contracts/mocks/MockFeeOnTransferERC20.sol";
 
 /// @dev A minimal contract "signer" standing in for a Safe (incl. a PQ-signed Safe):
 /// it can be a bounty's funder, approver, and arbiter, proving the market never
@@ -78,7 +79,8 @@ contract BountyV1Test is Test {
 
     uint256 internal constant REWARD = 10 ether;
     uint256 internal constant STAKE = 1 ether;
-    uint64 internal constant WINDOW = 3 days;
+    uint64 internal constant WINDOW = 3 days; // claim window
+    uint64 internal constant REVIEW = 3 days; // review window (liveness escape)
 
     function setUp() public {
         token = new MockERC20("Work Token", "WORK", 18);
@@ -143,6 +145,64 @@ contract BountyV1Test is Test {
     }
 
     // ==================================================================
+    // R1 -- window bound: an unbounded review/claim window would overflow
+    // submit()'s deadline math and brick a staked worker. propose() rejects it.
+    // ==================================================================
+
+    function test_R1_ProposeRejectsUnboundedWindow() public {
+        uint64 maxW = 365 days;
+
+        // The R1 attack value: a near-uint64.max reviewWindow that would overflow
+        // submit()'s `block.timestamp + reviewWindow` -- rejected at propose(), so the
+        // worker-stake brick can never be set up.
+        vm.prank(funder);
+        vm.expectRevert(abi.encodeWithSelector(IBountyV1.WindowTooLong.selector, type(uint64).max, maxW));
+        bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, type(uint64).max, "issue");
+
+        // Just-over-max claimWindow is likewise rejected (checked first).
+        vm.prank(funder);
+        vm.expectRevert(abi.encodeWithSelector(IBountyV1.WindowTooLong.selector, maxW + 1, maxW));
+        bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, maxW + 1, REVIEW, "issue");
+
+        // Exactly MAX_WINDOW is a legitimate long bounty and is accepted (no overflow).
+        vm.prank(funder);
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, maxW, maxW, "issue");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Open), "max window accepted");
+    }
+
+    // ==================================================================
+    // Review-window boundary: at t == reviewDeadline, dispute is last-open and
+    // finalize is not-yet-open -- exactly one exit live, no double-exit, no gap.
+    // ==================================================================
+
+    function test_ReviewBoundary_ExactDeadline_DisputeOpenFinalizeClosed() public {
+        vm.deal(funder, REWARD);
+        vm.deal(worker, STAKE);
+
+        vm.prank(funder);
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "issue");
+        vm.prank(funder);
+        bounty.fund{value: REWARD}(id);
+        vm.prank(worker);
+        bounty.claim{value: STAKE}(id);
+        vm.prank(worker);
+        bounty.submit(id, "PR");
+
+        uint64 deadline = bounty.bounties(id).reviewDeadline;
+
+        // At EXACTLY the deadline: finalize needs strictly-greater time -> reverts.
+        vm.warp(deadline);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(IBountyV1.ReviewWindowNotElapsed.selector, id, deadline));
+        bounty.finalize(id);
+
+        // ...and dispute (gated <= deadline) is still open at the exact tick.
+        vm.prank(funder);
+        bounty.dispute(id, "reason");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Disputed), "dispute open at exact deadline");
+    }
+
+    // ==================================================================
     // Happy path -- NATIVE -- full conservation
     // ==================================================================
 
@@ -154,7 +214,7 @@ contract BountyV1Test is Test {
 
         // Propose (funder) -- permissionless.
         vm.prank(funder);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, "ipfs://issue");
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "ipfs://issue");
         assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Open));
 
         // Fund (funder escrows reward).
@@ -199,7 +259,7 @@ contract BountyV1Test is Test {
         uint256 supply = token.totalSupply();
 
         vm.prank(funder);
-        uint256 id = bounty.propose(address(token), REWARD, STAKE, approver, arbiter, WINDOW, "issue");
+        uint256 id = bounty.propose(address(token), REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "issue");
 
         // Funder approves the ESCROW (escrow pulls), then funds.
         vm.prank(funder);
@@ -284,7 +344,7 @@ contract BountyV1Test is Test {
 
         vm.deal(funder, REWARD);
         vm.prank(funder);
-        uint256 id = b2.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, "issue");
+        uint256 id = b2.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "issue");
         vm.prank(funder);
         b2.fund{value: REWARD}(id);
         vm.deal(worker, STAKE);
@@ -391,7 +451,7 @@ contract BountyV1Test is Test {
 
     function test_CancelOpen_NoEscrow() public {
         vm.prank(funder);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, "issue");
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "issue");
         vm.prank(funder);
         bounty.cancel(id);
         assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Cancelled));
@@ -435,7 +495,7 @@ contract BountyV1Test is Test {
 
     function test_CannotClaimUnfunded() public {
         vm.prank(funder);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, "issue");
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "issue");
         vm.deal(worker, STAKE);
         vm.prank(worker);
         vm.expectRevert(
@@ -495,16 +555,16 @@ contract BountyV1Test is Test {
     function test_ProposeRejectsZeroRewardOrStake() public {
         vm.prank(funder);
         vm.expectRevert(IBountyV1.ZeroAmount.selector);
-        bounty.propose(NATIVE, 0, STAKE, approver, arbiter, WINDOW, "i");
+        bounty.propose(NATIVE, 0, STAKE, approver, arbiter, WINDOW, REVIEW, "i");
         vm.prank(funder);
         vm.expectRevert(IBountyV1.ZeroAmount.selector);
-        bounty.propose(NATIVE, REWARD, 0, approver, arbiter, WINDOW, "i");
+        bounty.propose(NATIVE, REWARD, 0, approver, arbiter, WINDOW, REVIEW, "i");
     }
 
     function test_ProposeRejectsZeroApprover() public {
         vm.prank(funder);
         vm.expectRevert(IBountyV1.InvalidApprover.selector);
-        bounty.propose(NATIVE, REWARD, STAKE, address(0), arbiter, WINDOW, "i");
+        bounty.propose(NATIVE, REWARD, STAKE, address(0), arbiter, WINDOW, REVIEW, "i");
     }
 
     // ==================================================================
@@ -513,7 +573,7 @@ contract BountyV1Test is Test {
 
     function test_FundNativeWrongValueReverts() public {
         vm.prank(funder);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, "i");
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "i");
         vm.deal(funder, REWARD);
         vm.prank(funder);
         vm.expectRevert(abi.encodeWithSelector(IBountyV1.StakeMismatch.selector, REWARD, 1 ether));
@@ -523,7 +583,7 @@ contract BountyV1Test is Test {
     function test_FundERC20WithNativeValueReverts() public {
         token.mint(funder, REWARD);
         vm.prank(funder);
-        uint256 id = bounty.propose(address(token), REWARD, STAKE, approver, arbiter, WINDOW, "i");
+        uint256 id = bounty.propose(address(token), REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "i");
         vm.prank(funder);
         token.approve(address(escrow), REWARD);
         vm.deal(funder, 1 ether);
@@ -558,26 +618,54 @@ contract BountyV1Test is Test {
         assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid));
     }
 
+    /// @dev finalize() shares the payout helper with accept(); prove the same reentrancy
+    /// guard + terminal-state protection holds on the permissionless finalize path.
+    function test_ReentrantWorkerCannotDoublePayOnFinalize() public {
+        ReentrantWorker attacker = new ReentrantWorker(bounty);
+        uint256 id = _proposeAndFundNative();
+
+        vm.deal(address(this), STAKE);
+        attacker.doClaim{value: STAKE}(id);
+        attacker.doSubmit(id, "deliverable");
+
+        // Warp past the review window; anyone may finalize. The attacker's receive() tries
+        // to reenter (accept) during its payout and is stopped by the guard + terminal state.
+        IBountyV1.Bounty memory b = bounty.bounties(id);
+        vm.warp(uint256(b.reviewDeadline) + 1);
+        uint256 escrowBefore = address(escrow).balance;
+        vm.prank(stranger);
+        bounty.finalize(id);
+
+        assertTrue(attacker.tried(), "attacker attempted reentry on receive");
+        assertEq(address(attacker).balance, REWARD + STAKE, "paid exactly once via finalize");
+        assertEq(address(escrow).balance, escrowBefore - (REWARD + STAKE), "escrow drained exactly");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid));
+    }
+
     // ==================================================================
-    // Contract signer (Safe / PQ-Safe) as funder + approver + arbiter
+    // Contract signer (Safe / PQ-Safe) as funder + separate approver/arbiter
     // ==================================================================
 
-    function test_SafeContractAsFunderApproverArbiter() public {
-        SafeLike safe = new SafeLike();
-        vm.deal(address(safe), REWARD);
+    function test_SafeContractAsFunderAndApprover() public {
+        // Two distinct Safe-like contracts: one funds (funder), one reviews (approver +
+        // arbiter). M2 forbids funder == approver/arbiter, so the roles are held by
+        // SEPARATE contract signers — proving the market never assumes an EOA while
+        // respecting the anti-self-dealing guard.
+        SafeLike funderSafe = new SafeLike();
+        SafeLike reviewSafe = new SafeLike();
+        vm.deal(address(funderSafe), REWARD);
 
-        // Safe proposes (funder = safe), funds, approver = safe, arbiter = safe.
-        bytes memory ret = safe.exec(
+        bytes memory ret = funderSafe.exec(
             address(bounty),
             0,
             abi.encodeCall(
                 IBountyV1.propose,
-                (NATIVE, REWARD, STAKE, address(safe), address(safe), WINDOW, "issue")
+                (NATIVE, REWARD, STAKE, address(reviewSafe), address(reviewSafe), WINDOW, REVIEW, "issue")
             )
         );
         uint256 id = abi.decode(ret, (uint256));
 
-        safe.exec(address(bounty), REWARD, abi.encodeCall(IBountyV1.fund, (id)));
+        funderSafe.exec(address(bounty), REWARD, abi.encodeCall(IBountyV1.fund, (id)));
 
         vm.deal(worker, STAKE);
         vm.prank(worker);
@@ -585,12 +673,201 @@ contract BountyV1Test is Test {
         vm.prank(worker);
         bounty.submit(id, "deliverable");
 
-        // Safe accepts (as approver) -- authorization is purely "caller == approver".
-        safe.exec(address(bounty), 0, abi.encodeCall(IBountyV1.accept, (id)));
+        // The review Safe accepts (as approver) -- authorization is purely "caller == approver".
+        reviewSafe.exec(address(bounty), 0, abi.encodeCall(IBountyV1.accept, (id)));
 
         assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid));
         assertEq(worker.balance, REWARD + STAKE, "worker paid by Safe-run market");
         assertEq(rep.completedOf(worker), 1);
+    }
+
+    // ==================================================================
+    // H1 -- LIVENESS: an idle approver can never lock a delivered worker
+    // ==================================================================
+
+    /// @dev THE invariant: from Submitted, if the approver ghosts (never accepts) and no
+    /// one disputes within the review window, ANYONE may finalize and the worker is paid
+    /// reward + stake. No reachable state locks a delivered worker's funds by inaction.
+    function test_Finalize_ApproverGhosts_WorkerAlwaysEscapes_Conserves() public {
+        uint256 id = _toSubmitted(NATIVE);
+        uint256 total = _sumNative();
+
+        // The approver never accepts; no dispute is raised. Before the window: no escape.
+        IBountyV1.Bounty memory b = bounty.bounties(id);
+        vm.expectRevert(abi.encodeWithSelector(IBountyV1.ReviewWindowNotElapsed.selector, id, b.reviewDeadline));
+        bounty.finalize(id);
+
+        // After the review window elapses, a STRANGER (permissionless) finalizes.
+        vm.warp(uint256(b.reviewDeadline) + 1);
+        vm.prank(stranger);
+        bounty.finalize(id);
+
+        // Worker paid reward + stake; escrow drained; completion recorded; conserved.
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "Paid via finalize");
+        assertEq(worker.balance, REWARD + STAKE, "worker paid reward + stake");
+        assertEq(address(escrow).balance, 0, "escrow drained");
+        assertEq(rep.completedOf(worker), 1, "completion recorded on finalize");
+        assertEq(_sumNative(), total, "native conserved across finalize");
+    }
+
+    function test_Finalize_RevertsBeforeSubmitted() public {
+        uint256 id = _proposeAndFundNative();
+        // Funded (not Submitted): finalize is an illegal transition.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IBountyV1.InvalidState.selector,
+                id,
+                IBountyV1.State.Funded,
+                IBountyV1.State.Submitted
+            )
+        );
+        bounty.finalize(id);
+    }
+
+    function test_AcceptStillWorksAfterWindow() public {
+        // The approver retains the ability to accept explicitly even after the window
+        // (accept and finalize both pay the worker; accept just attributes it).
+        uint256 id = _toSubmitted(NATIVE);
+        IBountyV1.Bounty memory b = bounty.bounties(id);
+        vm.warp(uint256(b.reviewDeadline) + 1);
+        vm.prank(approver);
+        bounty.accept(id);
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "approver can still accept");
+        assertEq(worker.balance, REWARD + STAKE, "worker paid");
+    }
+
+    function test_DisputeAfterReviewWindowReverts() public {
+        // Dispute is gated to the review window: once it elapses the worker's finalize
+        // escape cannot be retroactively pulled into arbitration by a sleeping funder.
+        uint256 id = _toSubmitted(NATIVE);
+        IBountyV1.Bounty memory b = bounty.bounties(id);
+        vm.warp(uint256(b.reviewDeadline) + 1);
+        vm.prank(funder);
+        vm.expectRevert(abi.encodeWithSelector(IBountyV1.ReviewWindowElapsed.selector, id, b.reviewDeadline));
+        bounty.dispute(id, "too late");
+    }
+
+    function test_DisputeWithinWindowStopsAutoAccept() public {
+        // The funder CAN still dispute before the window to route to the arbiter; once
+        // Disputed, finalize is an illegal transition (state != Submitted).
+        uint256 id = _toSubmitted(NATIVE);
+        vm.prank(funder);
+        bounty.dispute(id, "contest");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Disputed), "Disputed");
+
+        IBountyV1.Bounty memory b = bounty.bounties(id);
+        vm.warp(uint256(b.reviewDeadline) + 1);
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IBountyV1.InvalidState.selector,
+                id,
+                IBountyV1.State.Disputed,
+                IBountyV1.State.Submitted
+            )
+        );
+        bounty.finalize(id);
+    }
+
+    // ==================================================================
+    // M2 -- anti-self-dealing: funder cannot be its own approver/arbiter
+    // ==================================================================
+
+    /// @dev The self-dealing robbery (funder=approver=arbiter disputes its own bounty and
+    /// resolves workerAmount=0 + slash-to-self) is UNREACHABLE: it cannot even be proposed.
+    function test_SelfDealing_RobberyUnreachableAtPropose() public {
+        // funder == approver == arbiter: rejected at the approver check.
+        vm.prank(funder);
+        vm.expectRevert(IBountyV1.ApproverIsFunder.selector);
+        bounty.propose(NATIVE, REWARD, STAKE, funder, funder, WINDOW, REVIEW, "rob");
+        // funder == arbiter (distinct approver): rejected at the arbiter check.
+        vm.prank(funder);
+        vm.expectRevert(IBountyV1.ArbiterIsFunder.selector);
+        bounty.propose(NATIVE, REWARD, STAKE, approver, funder, WINDOW, REVIEW, "rob");
+    }
+
+    // ==================================================================
+    // L1 -- self-review earns no reputation (worker == approver)
+    // ==================================================================
+
+    /// @dev A worker who is also the approver (self-review) is PAID but earns no reputation,
+    /// so completions/earnings cannot be farmed with a single key. worker == approver is
+    /// allowed (M2 only forbids funder == approver); reputation is simply withheld.
+    function test_SelfReview_WorkerEqualsApprover_NoReputationButPaid() public {
+        vm.deal(funder, REWARD);
+        // approver = worker (distinct from funder, so M2 passes).
+        vm.prank(funder);
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, worker, arbiter, WINDOW, REVIEW, "self-review");
+        vm.prank(funder);
+        bounty.fund{value: REWARD}(id);
+        vm.deal(worker, STAKE);
+        vm.prank(worker);
+        bounty.claim{value: STAKE}(id);
+        vm.prank(worker);
+        bounty.submit(id, "deliverable");
+        // Worker is the approver: accepts its own work.
+        vm.prank(worker);
+        bounty.accept(id);
+
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "paid");
+        assertEq(worker.balance, REWARD + STAKE, "worker paid reward + stake");
+        assertEq(rep.completedOf(worker), 0, "no reputation farmed on self-review");
+        assertEq(rep.earnedOf(worker), 0, "no earnings farmed on self-review");
+    }
+
+    // ==================================================================
+    // funder == worker is allowed (only reputation independence differs)
+    // ==================================================================
+
+    /// @dev A funder may also be the worker (nothing forbids it). Distinct approver, so M2
+    /// passes and reputation IS credited (worker != approver). Conservation holds.
+    function test_FunderIsWorker_PaidAndConserves() public {
+        vm.deal(funder, REWARD + STAKE);
+        uint256 total = _sumNative();
+
+        vm.prank(funder);
+        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "self-work");
+        vm.prank(funder);
+        bounty.fund{value: REWARD}(id);
+        // Funder claims their own funded bounty as the worker.
+        vm.prank(funder);
+        bounty.claim{value: STAKE}(id);
+        vm.prank(funder);
+        bounty.submit(id, "deliverable");
+        vm.prank(approver);
+        bounty.accept(id);
+
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "paid");
+        assertEq(funder.balance, REWARD + STAKE, "funder-worker made whole (net-zero funding)");
+        assertEq(rep.completedOf(funder), 1, "completion credited (worker != approver)");
+        assertEq(_sumNative(), total, "conserved across funder-is-worker path");
+    }
+
+    // ==================================================================
+    // H2 -- fee-on-transfer token is rejected at fund; no lock
+    // ==================================================================
+
+    /// @dev Funding with a fee-on-transfer token reverts at the escrow deposit (the exact
+    /// nominal amount cannot arrive), so the whole fund() reverts: the bounty stays Open,
+    /// nothing is escrowed, and the funder keeps their tokens. No reward is ever stranded.
+    function test_FundFeeOnTransferToken_RevertsNoLock() public {
+        MockFeeOnTransferERC20 feeToken = new MockFeeOnTransferERC20("Fee", "FEE", 100); // 1% fee
+        feeToken.mint(funder, REWARD);
+
+        vm.prank(funder);
+        uint256 id = bounty.propose(address(feeToken), REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "fee");
+        vm.prank(funder);
+        feeToken.approve(address(escrow), REWARD);
+
+        uint256 fee = (REWARD * 100) / 10_000;
+        vm.prank(funder);
+        vm.expectRevert(abi.encodeWithSelector(IEscrowV1.DepositAmountMismatch.selector, REWARD, REWARD - fee));
+        bounty.fund(id);
+
+        // No lock: bounty still Open, escrow empty, funder still holds the full amount.
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Open), "still Open (fund reverted)");
+        assertEq(feeToken.balanceOf(address(escrow)), 0, "nothing escrowed");
+        assertEq(feeToken.balanceOf(funder), REWARD, "funder keeps tokens");
     }
 
     // ==================================================================
@@ -622,7 +899,7 @@ contract BountyV1Test is Test {
     function _proposeAndFundNative() internal returns (uint256 id) {
         vm.deal(funder, funder.balance + REWARD);
         vm.prank(funder);
-        id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, "issue");
+        id = bounty.propose(NATIVE, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "issue");
         vm.prank(funder);
         bounty.fund{value: REWARD}(id);
     }
@@ -637,7 +914,7 @@ contract BountyV1Test is Test {
             token.mint(funder, REWARD);
             token.mint(worker, STAKE);
             vm.prank(funder);
-            id = bounty.propose(tok, REWARD, STAKE, approver, arbiter, WINDOW, "issue");
+            id = bounty.propose(tok, REWARD, STAKE, approver, arbiter, WINDOW, REVIEW, "issue");
             vm.prank(funder);
             token.approve(address(escrow), REWARD);
             vm.prank(funder);
