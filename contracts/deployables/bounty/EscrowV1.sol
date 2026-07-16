@@ -31,7 +31,10 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
  * - Conservation: every payout is debited from a specific deposit's `remaining`,
  *   and a deposit can only be created by actually receiving funds, so total paid
  *   out per asset can never exceed total deposited. The escrow never mints or burns.
- * - Fee-on-transfer safe: ERC-20 deposits credit the exact observed balance delta.
+ * - Fee-on-transfer / rebasing tokens are REJECTED at deposit: an ERC-20 deposit
+ *   reverts unless the exact nominal amount is received, so a deposit's `amount`
+ *   always equals what the escrow actually holds and the controller's nominal
+ *   accounting can never strand reward or stake.
  *
  * `token == address(0)` denotes the native coin everywhere.
  *
@@ -199,27 +202,30 @@ contract EscrowV1 is
         Deposit storage d = $.deposits[depositId_];
         if (d.amount != 0) revert DepositExists(depositId_);
 
-        uint256 credited;
         if (token_ == address(0)) {
             // Native coin: the value sent IS the deposit.
             if (msg.value != amount_) revert NativeValueMismatch(amount_, msg.value);
-            credited = amount_;
         } else {
-            // ERC-20: no native value, pull from funder, credit exact delta received.
+            // ERC-20: no native value; pull from funder and require the EXACT nominal
+            // amount to arrive. Fee-on-transfer / rebasing tokens (received != amount)
+            // are rejected so the deposit is always credited its full nominal value —
+            // otherwise the controller's nominal releases would revert against a
+            // short `remaining` and permanently strand reward and stake. On mismatch the
+            // whole tx reverts (including the transferFrom), so no partial deposit lands.
             if (msg.value != 0) revert UnexpectedNativeValue();
             IERC20 erc20 = IERC20(token_);
             uint256 balBefore = erc20.balanceOf(address(this));
             erc20.safeTransferFrom(funder_, address(this), amount_);
-            credited = erc20.balanceOf(address(this)) - balBefore;
-            if (credited == 0) revert ZeroAmount();
+            uint256 received = erc20.balanceOf(address(this)) - balBefore;
+            if (received != amount_) revert DepositAmountMismatch(amount_, received);
         }
 
         d.token = token_;
         d.funder = funder_;
-        d.amount = credited;
-        d.remaining = credited;
+        d.amount = amount_;
+        d.remaining = amount_;
 
-        emit Deposited(depositId_, token_, funder_, credited);
+        emit Deposited(depositId_, token_, funder_, amount_);
     }
 
     /**

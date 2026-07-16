@@ -6,6 +6,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {EscrowV1} from "../contracts/deployables/bounty/EscrowV1.sol";
 import {IEscrowV1} from "../contracts/interfaces/dao/deployables/IEscrowV1.sol";
 import {MockERC20} from "../contracts/mocks/MockERC20.sol";
+import {MockFeeOnTransferERC20} from "../contracts/mocks/MockFeeOnTransferERC20.sol";
 
 /// @dev Reenters the escrow on native receipt. Because the escrow is onlyController,
 /// a reenter from the payout recipient can't move funds; this proves the recipient
@@ -166,6 +167,41 @@ contract EscrowV1Test is Test {
         vm.prank(controller);
         vm.expectRevert(IEscrowV1.UnexpectedNativeValue.selector);
         escrow.deposit{value: 1 wei}(K1, address(token), funder, 10 ether);
+    }
+
+    // --- Fee-on-transfer / rebasing tokens are REJECTED at deposit (H2) ---
+
+    /// @dev A deflationary (fee-on-transfer) token delivers less than the nominal amount.
+    /// The deposit must REVERT (not credit short), leaving NO deposit and NO funds moved —
+    /// so BountyV1's nominal accounting can never later strand reward or stake.
+    function test_RejectsFeeOnTransferDeposit_NoStateLeft() public {
+        MockFeeOnTransferERC20 feeToken = new MockFeeOnTransferERC20("Fee", "FEE", 250); // 2.5% fee
+        feeToken.mint(funder, 100 ether);
+        vm.prank(funder);
+        feeToken.approve(address(escrow), 100 ether);
+
+        uint256 fee = (100 ether * 250) / 10_000;
+        vm.prank(controller);
+        vm.expectRevert(abi.encodeWithSelector(IEscrowV1.DepositAmountMismatch.selector, 100 ether, 100 ether - fee));
+        escrow.deposit(K1, address(feeToken), funder, 100 ether);
+
+        // Clean revert: no deposit recorded, escrow holds nothing, funder keeps everything.
+        assertEq(escrow.remainingOf(K1), 0, "no deposit recorded");
+        (, , uint256 amount, ) = escrow.deposits(K1);
+        assertEq(amount, 0, "deposit slot empty");
+        assertEq(feeToken.balanceOf(address(escrow)), 0, "escrow holds nothing");
+        assertEq(feeToken.balanceOf(funder), 100 ether, "funder fully whole (tx reverted)");
+    }
+
+    /// @dev A conformant token (no fee) still deposits exactly its nominal amount.
+    function test_ConformantTokenDepositsExactNominal() public {
+        token.mint(funder, 40 ether);
+        vm.prank(funder);
+        token.approve(address(escrow), 40 ether);
+        vm.prank(controller);
+        escrow.deposit(K1, address(token), funder, 40 ether);
+        assertEq(escrow.remainingOf(K1), 40 ether, "exact nominal credited");
+        assertEq(token.balanceOf(address(escrow)), 40 ether, "escrow holds exactly nominal");
     }
 
     // --- Single-spend invariant ---

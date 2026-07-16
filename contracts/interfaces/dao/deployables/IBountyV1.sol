@@ -10,7 +10,8 @@ pragma solidity ^0.8.30;
  * single, enforced lifecycle:
  *
  *   Open -> Funded -> Claimed -> Submitted -> Accepted -> Paid
- *                 \-> Cancelled (refund)        \-> Disputed -> resolve (split/refund)
+ *                 \-> Cancelled (refund)     |  \-> Disputed -> resolve (split/refund)
+ *                                            \-> finalize (review window elapsed) -> Paid
  *
  * The market is PERMISSIONLESS: anyone may propose a bounty and anyone may claim an
  * open one — there is no allowlist of who may participate. Abuse is bounded by
@@ -21,6 +22,12 @@ pragma solidity ^0.8.30;
  *    economically costly without gating who may try.
  *  - A claim has a deadline; if the worker does not submit in time, anyone may
  *    reclaim the bounty (slashing the stuck stake), so claims cannot be squatted.
+ *  - A submission has a REVIEW window. If the approver never accepts and no one
+ *    disputes before it elapses, anyone may `finalize` and the worker is paid —
+ *    approver silence past the window counts as acceptance. This is the LIVENESS
+ *    guarantee: from Submitted a delivered worker's reward and stake can NEVER be
+ *    locked forever by counterparty inaction. A dispute is only accepted BEFORE the
+ *    window elapses, so once it lapses the sole exit is the worker's payout.
  *  - Illegal lifecycle transitions revert — a legitimate state invariant, not a
  *    discretionary gate.
  *
@@ -28,6 +35,9 @@ pragma solidity ^0.8.30;
  * reviewer address for small bounties, or the owning Safe/governance for large ones.
  * Either way authorization is cryptographic (the caller IS the approver address),
  * so a post-quantum-signed Safe can be funder and/or approver with no special-casing.
+ * The funder may NOT be the approver or the arbiter of its own bounty (a self-dealing
+ * funder=approver=arbiter could otherwise dispute and resolve a delivered worker to
+ * zero, robbing them).
  *
  * Funds are custodied in EscrowV1 keyed by bountyId for the reward and a separate
  * key for the worker's stake, so reward and stake accounting never cross. The escrow
@@ -78,6 +88,18 @@ interface IBountyV1 {
     /** @notice Thrown when the approver address is zero at proposal time */
     error InvalidApprover();
 
+    /** @notice Thrown when the funder tries to also be the approver of its own bounty */
+    error ApproverIsFunder();
+
+    /** @notice Thrown when the funder tries to also be the arbiter of its own bounty */
+    error ArbiterIsFunder();
+
+    /** @notice Thrown when finalize is called before the submission's review window elapsed */
+    error ReviewWindowNotElapsed(uint256 bountyId, uint64 reviewDeadline);
+
+    /** @notice Thrown when a dispute is raised after the review window already elapsed */
+    error ReviewWindowElapsed(uint256 bountyId, uint64 reviewDeadline);
+
     /** @notice Thrown when the claim deadline has not yet passed (for reclaim/slash) */
     error DeadlineNotPassed(uint256 bountyId, uint64 deadline);
 
@@ -92,6 +114,9 @@ interface IBountyV1 {
 
     /** @notice Thrown when the claim stake msg.value/allowance does not match the configured stake */
     error StakeMismatch(uint256 expected, uint256 provided);
+
+    /** @notice Thrown when a claim or review window exceeds MAX_WINDOW (R1: submit-overflow guard) */
+    error WindowTooLong(uint64 window, uint64 max);
 
     // --- Structs ---
 
@@ -109,6 +134,12 @@ interface IBountyV1 {
      * @param claimWindow Seconds granted to submit after claiming
      * @param claimNonce Number of times this bounty has been claimed (keys the stake
      *        escrow per attempt so a re-claim after a slash never collides)
+     * @param reviewWindow Seconds the approver has to accept/dispute after a submission
+     *        before anyone may finalize it to the worker (the liveness escape)
+     * @param reviewDeadline Timestamp after which the submission may be finalized to the
+     *        worker (0 until submitted; set to submit-time + reviewWindow)
+     * @dev Storage layout is APPEND-ONLY (EIP-7201): reviewWindow / reviewDeadline are
+     *      appended at the end; no existing field is reordered or resized.
      */
     struct Bounty {
         State state;
@@ -122,6 +153,8 @@ interface IBountyV1 {
         uint64 claimDeadline;
         uint64 claimWindow;
         uint64 claimNonce;
+        uint64 reviewWindow;
+        uint64 reviewDeadline;
     }
 
     // --- Events ---
@@ -229,6 +262,16 @@ interface IBountyV1 {
      */
     event StakeSlashed(uint256 indexed bountyId, address indexed worker, address indexed to, uint256 amount);
 
+    /**
+     * @notice Emitted when a submission is auto-accepted after its review window elapsed
+     * @dev Distinct from WorkAccepted so a "dework" UI can tell an explicit approval from
+     * a timeout finalization. The reward + stake payout is otherwise identical.
+     * @param bountyId The bounty id
+     * @param finalizer The permissionless caller that triggered finalization
+     * @param worker The worker paid
+     */
+    event BountyFinalized(uint256 indexed bountyId, address indexed finalizer, address indexed worker);
+
     // --- View Functions ---
 
     /**
@@ -275,13 +318,17 @@ interface IBountyV1 {
     /**
      * @notice Proposes a new bounty (permissionless)
      * @dev The reward is NOT escrowed yet; call fund() to escrow it. The caller
-     * becomes the funder. If `arbiter_` is zero, the approver also arbitrates.
+     * becomes the funder. If `arbiter_` is zero, the approver also arbitrates. The
+     * funder may not be the approver or the (effective) arbiter — reverts otherwise,
+     * so a self-dealing funder cannot dispute-and-slash a delivered worker.
      * @param token_ Reward/stake asset; address(0) for native coin
      * @param reward_ The reward amount (escrowed on fund)
      * @param stake_ The stake a worker must post to claim
      * @param approver_ The address that may accept submissions (EOA or Safe)
      * @param arbiter_ The address that may resolve disputes (zero => approver)
      * @param claimWindow_ Seconds a worker has to submit after claiming
+     * @param reviewWindow_ Seconds the approver has to accept/dispute a submission
+     *        before anyone may finalize it to the worker (the liveness escape)
      * @param issueRef_ A URI or content hash describing the work
      * @return bountyId The new bounty id
      */
@@ -292,6 +339,7 @@ interface IBountyV1 {
         address approver_,
         address arbiter_,
         uint64 claimWindow_,
+        uint64 reviewWindow_,
         string calldata issueRef_
     ) external returns (uint256 bountyId);
 
@@ -315,7 +363,8 @@ interface IBountyV1 {
 
     /**
      * @notice Submits a deliverable, moving Claimed -> Submitted
-     * @dev Worker-only, must be before the claim deadline.
+     * @dev Worker-only, must be before the claim deadline. Starts the review window:
+     * the submission may be finalized to the worker after now + reviewWindow.
      * @param bountyId The bounty
      * @param deliverableRef A URI or content hash of the deliverable
      */
@@ -325,13 +374,29 @@ interface IBountyV1 {
      * @notice Accepts the submitted work and pays out atomically, Submitted -> Paid
      * @dev Approver-only. Releases the reward to the worker, returns the worker's
      * stake, and records the completion in the reputation ledger — all in one call.
+     * A completion is NOT recorded if the worker is also the approver (self-review).
      * @param bountyId The bounty
      */
     function accept(uint256 bountyId) external;
 
     /**
+     * @notice Finalizes a submission the approver never acted on, Submitted -> Paid
+     * @dev PERMISSIONLESS — anyone may call once block.timestamp > reviewDeadline. Pays
+     * the worker the reward, returns the stake, and records completion (unless worker ==
+     * approver). This is the LIVENESS escape: approver silence past the review window
+     * counts as acceptance, so a delivered worker's funds can never be locked by
+     * counterparty inaction. The funder/approver can pre-empt it only by disputing
+     * BEFORE the window elapses.
+     * @param bountyId The bounty
+     */
+    function finalize(uint256 bountyId) external;
+
+    /**
      * @notice Raises a dispute over a submission, Submitted -> Disputed
-     * @dev Funder or approver only.
+     * @dev Funder or approver only, and only BEFORE the review window elapses (reverts
+     * with ReviewWindowElapsed afterwards). Gating dispute to the window guarantees the
+     * worker's finalize escape can never be retroactively yanked into arbitration by a
+     * funder/approver who slept through their review window.
      * @param bountyId The bounty
      * @param reasonRef A URI or content hash of the dispute reason
      */
