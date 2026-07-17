@@ -1,0 +1,24 @@
+{
+  "brand": "pars",
+  "chainId": 494949,
+  "deployer": "0x9011E888251AB053B7bD1cdB598Db4f9DEd94714",
+  "treasurySafe": "0x4CEA4ac1C874a340B06e0422E77a477463C3a542",
+  "script": "DeployDAO.s.sol (LP-040)",
+  "smokeGate": "passed",
+  "contracts": {
+    "safeSingleton": "0xDc384E006BAec602b0b2B2fe6f2712646EFb1e9D",
+    "safeFactory": "0x191067f88d61f9506555E88CEab9CF71deeD61A9",
+    "fallbackHandler": "0xDE3df926c7E0a380270B1F75F8dd1f238e16224b",
+    "votesErc20Master": "0x09fDF9b9dAeAc933fd55f9Bcc714c754C21bDc43",
+    "moduleGovernor": "0x62Ea1B27CDD922dbAaE0572f4CD4862Ca939C24c",
+    "moduleFractal": "0x0570b2c59976E87D37d3a9915750BFf131d295D6",
+    "strategy": "0xa24318F24739d92a2e1c2997C18F5103d0fD708e",
+    "votingWeight": "0xB6BdC625f4B2877418D7A9773F8A5763c93EfbaC",
+    "voteTracker": "0xFd57A578A0Ff600B5420D1964aC7A80f0E08B1ad",
+    "proposerAdapter": "0x905b1907d4b8262B220A7aF7ad0a375F3A2F05cb",
+    "systemDeployer": "0x7803f099cdA82732e98C9f82815e7Acf18CA02C8",
+    "bounty": "0x316B41c886c7D4B4e38cBB08a243776Ed977cf1F",
+    "escrow": "0xD5890D32d603a04E35ec7dBAbDCD0CA400f07E92",
+    "reputation": "0x155d1363c23467929FB709FCFa0afC51F3497aB6"
+  }
+}
