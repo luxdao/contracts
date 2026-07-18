@@ -3,8 +3,9 @@
   "chainId": 494949,
   "deployer": "0x9011E888251AB053B7bD1cdB598Db4f9DEd94714",
   "treasurySafe": "0x4CEA4ac1C874a340B06e0422E77a477463C3a542",
-  "script": "DeployDAO.s.sol (LP-040)",
+  "script": "DeployWorkMarket.s.sol (work-market superseded; DAO-factory masters from DeployDAO LP-040)",
   "smokeGate": "passed",
+  "smokeBounty": { "id": 0, "state": "Paid(6)", "karmaMinted": "10000000000000000000" },
   "contracts": {
     "safeSingleton": "0xDc384E006BAec602b0b2B2fe6f2712646EFb1e9D",
     "safeFactory": "0x191067f88d61f9506555E88CEab9CF71deeD61A9",
@@ -17,8 +18,10 @@
     "voteTracker": "0xFd57A578A0Ff600B5420D1964aC7A80f0E08B1ad",
     "proposerAdapter": "0x905b1907d4b8262B220A7aF7ad0a375F3A2F05cb",
     "systemDeployer": "0x7803f099cdA82732e98C9f82815e7Acf18CA02C8",
-    "bounty": "0x316B41c886c7D4B4e38cBB08a243776Ed977cf1F",
-    "escrow": "0xD5890D32d603a04E35ec7dBAbDCD0CA400f07E92",
-    "reputation": "0x155d1363c23467929FB709FCFa0afC51F3497aB6"
+    "bounty": "0x79254D4A9286FBd65E7177440Be20f00934c33c2",
+    "escrow": "0x82323cf625C3a6DE0f5fB75A2e7bD41BB8200075",
+    "reputation": "0xD7fe65BCb3Efd85AC1E132E8b74365498E034f13",
+    "karma": "0x81fBD8287571E83D2a834Ae5A8B859092C45b2EA",
+    "karmaController": "0x5228d2c8ca6b7D4e65193fed6d44f31eea870aAa"
   }
 }
