@@ -3,11 +3,12 @@ pragma solidity ^0.8.31;
 
 import { Test } from "forge-std/Test.sol";
 import { DeployDAO } from "../foundry-script/DeployDAO.s.sol";
-import { BountyV1 } from "../contracts/deployables/bounty/BountyV1.sol";
-import { EscrowV1 } from "../contracts/deployables/bounty/EscrowV1.sol";
-import { ReputationV1 } from "../contracts/deployables/bounty/ReputationV1.sol";
+import { Bounty } from "../contracts/deployables/bounty/Bounty.sol";
+import { Escrow } from "../contracts/deployables/bounty/Escrow.sol";
+import { Reputation } from "../contracts/deployables/bounty/Reputation.sol";
 import { WorkMarketDeployer } from "../contracts/deployables/bounty/WorkMarketDeployer.sol";
-import { IBountyV1 } from "../contracts/interfaces/dao/deployables/IBountyV1.sol";
+import { IBounty } from "../contracts/interfaces/dao/deployables/IBounty.sol";
+import { IEscrow } from "../contracts/interfaces/dao/deployables/IEscrow.sol";
 import { MockERC20 } from "../contracts/mocks/MockERC20.sol";
 import { SmokeApprover } from "../foundry-script/WorkMarketSmoke.s.sol";
 
@@ -17,40 +18,34 @@ import { ModuleGovernorV1 } from "@luxfi/standard/dao/deployables/modules/Module
 import { StrategyV1 } from "@luxfi/standard/dao/deployables/strategies/StrategyV1.sol";
 import { SystemDeployerV1 } from "@luxfi/standard/dao/singletons/SystemDeployerV1.sol";
 
+// Global Karma stack (the canonical reputation the work-market bridges into).
+import { Karma } from "@luxfi/standard/governance/Karma.sol";
+import { KarmaController } from "@luxfi/standard/governance/KarmaController.sol";
+
 /**
  * @title DeployDAOLive
  * @notice e2e proof for the canonical, brand-neutral luxdao platform deployment (LP-040).
- *         It runs the EXACT DeployDAO deployment logic (by inheriting the script and
- *         calling _deploy), then drives the COMPLETE two-sided work-market lifecycle
- *         against the live, wired contracts — proving the on-chain truth every brand's
- *         vote board depends on: create-DAO masters live -> post task -> claim -> deliver
- *         -> PAID on acceptance, escrow released, reputation recorded, value conserved.
+ *         It runs the EXACT DeployDAO deployment logic (by inheriting the script and calling
+ *         _deploy), then drives the COMPLETE two-sided work-market lifecycle against the live,
+ *         wired contracts — proving the on-chain truth every brand's vote board depends on:
+ *         create-DAO masters live -> post task -> claim -> deliver -> PAID on acceptance,
+ *         escrow released, reputation recorded, AND global Karma minted through the REAL
+ *         Karma + KarmaController the deployer stood up and handed to the org Safe.
  *
- *  This is the same deployment that ships to Lux (96368/96369), Zoo (200200), Hanzo
- *  (36963) and every future brand — no brand in bytecode, only the chain it runs on.
- *
- *  Coverage:
- *   - test_DeploysFullStack_Wired           — every factory master (incl. ModuleFractalV1
- *                                             sub-DAO primitive + SystemDeployerV1 create
- *                                             orchestrator) + work-market piece deployed,
- *                                             code-bearing, and correctly wired.
- *   - test_WorkMarket_ERC20_Conserves       — full happy path with a real MockERC20.
- *   - test_WorkMarket_Native_Conserves      — full happy path with native value.
- *   - test_WorkMarket_DisputeSplit_Conserves— dispute -> arbiter split, conservation.
- *
- *  The test contract inherits DeployDAO so _deploy() runs the IDENTICAL logic the script
- *  broadcasts. The work-market is stood up by WorkMarketDeployer, whose constructor deploys
- *  the 3 impls + 3 proxies, wires escrow.controller = reputation.writer = the BountyV1
- *  proxy, and VERIFIES that wiring on-chain — reverting the whole deploy if anything is
- *  mis-wired. No EOA-nonce prediction is trusted (M1), so this test is a genuine proof the
- *  atomic wiring holds. M1/M3/M4 fixes are exercised by their dedicated tests below.
+ *  The work-market is stood up by WorkMarketDeployer, whose constructor deploys Karma +
+ *  KarmaController + the 3 impls + 3 proxies, wires escrow.controller = reputation.writer =
+ *  the Bounty proxy AND reputation -> KarmaController (Reputation is the sole KARMA_SOURCE,
+ *  KarmaController is the sole Karma ATTESTOR), hands all governance to the org Safe, renounces
+ *  its own transient authority, and VERIFIES every fact on-chain — reverting the whole deploy
+ *  if anything is mis-wired.
  */
 contract DeployDAOLive is Test, DeployDAO {
     Deployment internal dep;
 
-    BountyV1 internal bounty;
-    EscrowV1 internal escrow;
-    ReputationV1 internal rep;
+    Bounty internal bounty;
+    Escrow internal escrow;
+    Reputation internal rep;
+    Karma internal karma;
     MockERC20 internal token;
 
     // Distinct actors so balance deltas are unambiguous.
@@ -67,32 +62,37 @@ contract DeployDAOLive is Test, DeployDAO {
     uint64 internal constant REVIEW = 3 days; // review window (liveness escape)
 
     function setUp() public {
-        // owner = this test (UUPS upgrade authority); slash treasury = address(0) so
-        // slashes route to the funder (the canonical "no treasury Safe yet" default).
-        // The work-market wiring no longer depends on the deployer's EOA nonce: the
-        // WorkMarketDeployer constructor deploys + verifies escrow.controller ==
-        // reputation.writer == the BountyV1 proxy ON-CHAIN (reverting the deploy if
-        // wrong), so this test drives the same atomic, self-verifying path the script
-        // broadcasts.
+        // owner = this test (the org-Safe stand-in: UUPS upgrade authority + Karma governance
+        // admin); slash treasury = address(0) so slashes route to the funder. The whole market
+        // + Karma stack is stood up and self-verified by the WorkMarketDeployer constructor.
         dep = _deploy(address(this), address(0));
 
-        bounty = BountyV1(dep.bounty);
-        escrow = EscrowV1(payable(dep.escrow));
-        rep = ReputationV1(dep.reputation);
+        bounty = Bounty(dep.bounty);
+        escrow = Escrow(payable(dep.escrow));
+        rep = Reputation(dep.reputation);
+        karma = Karma(dep.karma);
         token = new MockERC20("Work Token", "WORK", 18);
     }
 
+    // --- reward-spec helpers -------------------------------------------------
+
+    function _nativeReward(uint256 amount_) internal pure returns (IBounty.RewardSpec memory) {
+        return IBounty.RewardSpec({ kind: IEscrow.AssetKind.Native, token: address(0), tokenId: 0, amount: amount_ });
+    }
+
+    function _erc20Reward(address token_, uint256 amount_) internal pure returns (IBounty.RewardSpec memory) {
+        return IBounty.RewardSpec({ kind: IEscrow.AssetKind.ERC20, token: token_, tokenId: 0, amount: amount_ });
+    }
+
     // ==================================================================
-    // Deployment: factory masters + work-market all live and wired
+    // Deployment: factory masters + work-market + Karma all live and wired
     // ==================================================================
 
     function test_DeploysFullStack_Wired() public view {
-        // (A) Safe infra masters exist and bear code.
+        // (A) Safe infra + DAO module/voting masters exist and bear code.
         assertTrue(dep.safeSingleton.code.length > 0, "safe singleton has code");
         assertTrue(dep.safeFactory.code.length > 0, "safe factory has code");
         assertTrue(dep.fallbackHandler.code.length > 0, "fallback handler has code");
-
-        // (A) DAO module + voting masters exist and bear code (real master copies).
         assertTrue(dep.votesErc20Master.code.length > 0, "votes master has code");
         assertTrue(dep.moduleGovernorMaster.code.length > 0, "governor master has code");
         assertTrue(dep.moduleFractalMaster.code.length > 0, "fractal (sub-DAO) master has code");
@@ -100,12 +100,8 @@ contract DeployDAOLive is Test, DeployDAO {
         assertTrue(dep.votingWeightMaster.code.length > 0, "voting weight master has code");
         assertTrue(dep.voteTrackerMaster.code.length > 0, "vote tracker master has code");
         assertTrue(dep.proposerAdapterMaster.code.length > 0, "proposer adapter master has code");
-
-        // (A) Create-a-DAO orchestrator exists, bears code, and is the real impl.
         assertTrue(dep.systemDeployer.code.length > 0, "system deployer has code");
         assertEq(SystemDeployerV1(dep.systemDeployer).version(), 1, "system deployer version");
-
-        // A master copy must report its version (proves it is the real impl, init-disabled).
         assertEq(VotesERC20V1(dep.votesErc20Master).version(), 1, "votes master version");
         assertEq(ModuleGovernorV1(dep.moduleGovernorMaster).version(), 1, "governor master version");
         assertEq(StrategyV1(dep.strategyMaster).version(), 1, "strategy master version");
@@ -118,15 +114,28 @@ contract DeployDAOLive is Test, DeployDAO {
         assertEq(escrow.controller(), address(bounty), "escrow controller is bounty");
         assertEq(rep.writer(), address(bounty), "reputation writer is bounty");
         assertEq(bounty.bountyCount(), 0, "fresh ledger");
-        assertTrue(bounty.supportsInterface(type(IBountyV1).interfaceId), "IBountyV1");
+        assertTrue(bounty.supportsInterface(type(IBounty).interfaceId), "IBounty");
 
-        // All fourteen deployed addresses are distinct (no slot collision in the deploy).
-        address[14] memory all = [
+        // (C) Karma stack live + wired at least privilege, deployer renounced, Safe governs.
+        KarmaController controller = KarmaController(dep.karmaController);
+        assertTrue(dep.karma.code.length > 0, "karma has code");
+        assertTrue(dep.karmaController.code.length > 0, "karma controller has code");
+        assertEq(rep.karmaController(), dep.karmaController, "reputation -> controller");
+        assertEq(rep.karmaPerCompletion(), KARMA_PER_COMPLETION, "flat karma per completion");
+        // Reputation is the ONLY earn source; KarmaController is the ONLY Karma attestor.
+        assertTrue(controller.hasRole(controller.KARMA_SOURCE_ROLE(), address(rep)), "rep is KARMA_SOURCE");
+        assertTrue(karma.hasRole(karma.ATTESTOR_ROLE(), dep.karmaController), "controller is ATTESTOR");
+        // The org Safe (this test) governs; the deployer retained nothing.
+        assertTrue(karma.hasRole(0x00, address(this)), "safe is karma admin");
+        assertTrue(controller.hasRole(0x00, address(this)), "safe is controller admin");
+
+        // All sixteen deployed addresses are distinct (no slot collision in the deploy).
+        address[16] memory all = [
             dep.safeSingleton, dep.safeFactory, dep.fallbackHandler,
             dep.votesErc20Master, dep.moduleGovernorMaster, dep.moduleFractalMaster,
             dep.strategyMaster, dep.votingWeightMaster, dep.voteTrackerMaster,
             dep.proposerAdapterMaster, dep.systemDeployer,
-            dep.bounty, dep.escrow, dep.reputation
+            dep.bounty, dep.escrow, dep.reputation, dep.karma, dep.karmaController
         ];
         for (uint256 i = 0; i < all.length; i++) {
             assertTrue(all[i] != address(0), "no zero address");
@@ -137,8 +146,7 @@ contract DeployDAOLive is Test, DeployDAO {
     }
 
     // ==================================================================
-    // Work-market e2e — ERC-20 — full conservation
-    //   create-DAO member posts -> worker claims -> delivers -> reviewer PAYS
+    // Work-market e2e — ERC-20 — full conservation + Karma bridged
     // ==================================================================
 
     function test_WorkMarket_ERC20_Conserves() public {
@@ -146,55 +154,48 @@ contract DeployDAOLive is Test, DeployDAO {
         token.mint(worker, STAKE);
         uint256 supply = token.totalSupply();
 
-        // 1. A DAO member proposes a bounty (reward R, stake S, approver = reviewer).
         vm.prank(daoMember);
-        uint256 id = bounty.propose(address(token), REWARD, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Open), "Open");
+        uint256 id = bounty.propose(_erc20Reward(address(token), REWARD), address(token), STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Open), "Open");
 
-        // 2. Member funds it: escrow holds R; member spent exactly R.
         vm.prank(daoMember);
         token.approve(address(escrow), REWARD);
         vm.prank(daoMember);
         bounty.fund(id);
         assertEq(token.balanceOf(address(escrow)), REWARD, "reward escrowed");
         assertEq(token.balanceOf(daoMember), 0, "member paid R");
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Funded), "Funded");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Funded), "Funded");
 
-        // 3. A DIFFERENT address (worker) claims by staking S: escrow holds R + S.
         vm.prank(worker);
         token.approve(address(escrow), STAKE);
         vm.prank(worker);
-        bounty.claim(id);
+        bounty.claim(id, arbiter);
         assertEq(token.balanceOf(address(escrow)), REWARD + STAKE, "reward + stake escrowed");
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Claimed), "Claimed");
 
-        // 4. Worker submits the deliverable.
         vm.prank(worker);
         bounty.submit(id, "PR-1");
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Submitted), "Submitted");
-
-        // 5. Reviewer accepts -> atomic payout.
         vm.prank(reviewer);
         bounty.accept(id);
 
-        // Worker received reward + stake back; escrow drained; reputation credited.
         assertEq(token.balanceOf(worker), REWARD + STAKE, "worker got R + S back");
         assertEq(token.balanceOf(address(escrow)), 0, "escrow drained");
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "Paid");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Paid), "Paid");
         assertEq(rep.completedOf(worker), 1, "completion recorded");
         assertEq(rep.earnedOf(worker), REWARD, "earnings recorded");
+        // Global Karma bridged through the REAL controller: flat award, once.
+        assertEq(karma.karmaOf(worker), KARMA_PER_COMPLETION, "karma minted on completion");
 
-        // CONSERVATION: nothing minted or burned across the whole lifecycle.
+        // CONSERVATION: nothing minted or burned across the whole ERC-20 lifecycle.
         assertEq(token.totalSupply(), supply, "ERC20 supply conserved");
         assertEq(
             token.balanceOf(daoMember) + token.balanceOf(worker) + token.balanceOf(address(escrow)),
             supply,
-            "all tokens accounted (member + worker + escrow == supply)"
+            "all tokens accounted"
         );
     }
 
     // ==================================================================
-    // Work-market e2e — NATIVE — full conservation
+    // Work-market e2e — NATIVE — full conservation + Karma bridged
     // ==================================================================
 
     function test_WorkMarket_Native_Conserves() public {
@@ -203,38 +204,34 @@ contract DeployDAOLive is Test, DeployDAO {
         uint256 total = _sumNative();
 
         vm.prank(daoMember);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
+        uint256 id = bounty.propose(_nativeReward(REWARD), NATIVE, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
 
-        // Fund: escrow += R, member -= R.
         vm.prank(daoMember);
         bounty.fund{ value: REWARD }(id);
         assertEq(address(escrow).balance, REWARD, "reward escrowed");
         assertEq(daoMember.balance, 0, "member delta -R");
 
-        // Claim by a different address: escrow += S.
         vm.prank(worker);
-        bounty.claim{ value: STAKE }(id);
+        bounty.claim{ value: STAKE }(id, arbiter);
         assertEq(address(escrow).balance, REWARD + STAKE, "reward + stake escrowed");
 
         vm.prank(worker);
         bounty.submit(id, "PR-1");
-
-        // Accept -> PAID.
         vm.prank(reviewer);
         bounty.accept(id);
 
         assertEq(worker.balance, REWARD + STAKE, "worker paid R + stake returned");
         assertEq(address(escrow).balance, 0, "escrow drained");
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "Paid");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Paid), "Paid");
         assertEq(rep.completedOf(worker), 1, "completion recorded");
-        assertEq(rep.earnedOf(worker), REWARD, "earnings recorded");
+        assertEq(karma.karmaOf(worker), KARMA_PER_COMPLETION, "karma minted on completion");
 
         // CONSERVATION: sum of every actor + escrow native balance is unchanged.
         assertEq(_sumNative(), total, "native conserved across lifecycle");
     }
 
     // ==================================================================
-    // Work-market e2e — DISPUTE (arbiter split) — full conservation
+    // Work-market e2e — DISPUTE (arbiter split) — conservation + Karma
     // ==================================================================
 
     function test_WorkMarket_DisputeSplit_Conserves() public {
@@ -242,62 +239,100 @@ contract DeployDAOLive is Test, DeployDAO {
         vm.deal(worker, STAKE);
         uint256 total = _sumNative();
 
-        // Drive to Submitted.
         vm.prank(daoMember);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
+        uint256 id = bounty.propose(_nativeReward(REWARD), NATIVE, STAKE, reviewer, arbiter, WINDOW, REVIEW, "ISSUE-1");
         vm.prank(daoMember);
         bounty.fund{ value: REWARD }(id);
         vm.prank(worker);
-        bounty.claim{ value: STAKE }(id);
+        bounty.claim{ value: STAKE }(id, arbiter);
         vm.prank(worker);
         bounty.submit(id, "PR-1");
 
-        // Member disputes the submission.
         vm.prank(daoMember);
         bounty.dispute(id, "DISPUTE-1");
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Disputed), "Disputed");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Disputed), "Disputed");
 
         // Arbiter splits the reward 7 to worker / 3 back to the member; worker keeps stake.
         vm.prank(arbiter);
-        bounty.resolveDispute(id, 7 ether, 3 ether, true);
+        bounty.resolveDispute(id, 7 ether, 3 ether);
 
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "Paid");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Paid), "Paid");
         assertEq(worker.balance, 7 ether + STAKE, "worker: split + stake");
         assertEq(daoMember.balance, 3 ether, "member: refunded portion");
         assertEq(address(escrow).balance, 0, "escrow drained");
         assertEq(rep.completedOf(worker), 1, "nonzero payout => completion");
+        assertEq(karma.karmaOf(worker), KARMA_PER_COMPLETION, "karma minted on nonzero dispute payout");
 
-        // CONSERVATION across the dispute split.
         assertEq(_sumNative(), total, "native conserved across dispute split");
     }
 
     // ==================================================================
-    // M1 -- WorkMarketDeployer stands up a wired market atomically on-chain
+    // Karma bridge integration — once per completion through the real stack
     // ==================================================================
 
-    function test_M1_WorkMarketDeployer_WiresAtomically() public {
-        // A standalone WorkMarketDeployer produces a fully wired, code-bearing market and
-        // its on-chain require()s pass (a wrong prediction would have reverted the ctor).
-        WorkMarketDeployer wm = new WorkMarketDeployer(address(this), address(0));
-        assertTrue(wm.bounty().code.length > 0, "bounty proxy has code");
-        assertTrue(wm.escrow().code.length > 0, "escrow proxy has code");
-        assertTrue(wm.reputation().code.length > 0, "reputation proxy has code");
+    function test_Karma_MintedOncePerCompletion_ThroughRealController() public {
+        // Two separate completed bounties => karma minted twice, exactly the flat award each.
+        _completeNativeBounty();
+        assertEq(karma.karmaOf(worker), KARMA_PER_COMPLETION, "1st completion");
+        _completeNativeBounty();
+        assertEq(karma.karmaOf(worker), 2 * KARMA_PER_COMPLETION, "2nd completion");
 
-        BountyV1 b = BountyV1(wm.bounty());
-        assertEq(b.escrow(), wm.escrow(), "bounty.escrow wired");
-        assertEq(b.reputation(), wm.reputation(), "bounty.reputation wired");
-        assertEq(EscrowV1(payable(wm.escrow())).controller(), wm.bounty(), "escrow controller == bounty");
-        assertEq(ReputationV1(wm.reputation()).writer(), wm.bounty(), "reputation writer == bounty");
-        assertEq(b.owner(), address(this), "owner set");
+        // A random address can NOT mint karma directly through the controller (only the
+        // Reputation ledger holds KARMA_SOURCE_ROLE).
+        KarmaController controller = KarmaController(dep.karmaController);
+        vm.prank(stranger);
+        vm.expectRevert();
+        controller.earnKarma(worker, 1e18, bytes32("evil"));
+    }
 
-        // Two independent markets get independent, non-colliding proxies.
-        WorkMarketDeployer wm2 = new WorkMarketDeployer(address(this), address(0));
-        assertTrue(wm2.bounty() != wm.bounty(), "distinct bounty proxies");
-        assertTrue(wm2.escrow() != wm.escrow(), "distinct escrow proxies");
+    function _completeNativeBounty() internal {
+        vm.deal(daoMember, REWARD);
+        vm.deal(worker, worker.balance + STAKE);
+        vm.prank(daoMember);
+        uint256 id = bounty.propose(_nativeReward(REWARD), NATIVE, STAKE, reviewer, arbiter, WINDOW, REVIEW, "k");
+        vm.prank(daoMember);
+        bounty.fund{ value: REWARD }(id);
+        vm.prank(worker);
+        bounty.claim{ value: STAKE }(id, arbiter);
+        vm.prank(worker);
+        bounty.submit(id, "k");
+        vm.prank(reviewer);
+        bounty.accept(id);
     }
 
     // ==================================================================
-    // M3 -- production chains refuse an unset treasury Safe (no EOA rug)
+    // WorkMarketDeployer stands up a wired market atomically on-chain
+    // ==================================================================
+
+    function test_WorkMarketDeployer_WiresAtomically() public {
+        WorkMarketDeployer wm = new WorkMarketDeployer(
+            address(this), address(0), KARMA_PER_COMPLETION, address(new Escrow()), address(new Reputation()), address(new Bounty())
+        );
+        assertTrue(wm.bounty().code.length > 0, "bounty proxy has code");
+        assertTrue(wm.escrow().code.length > 0, "escrow proxy has code");
+        assertTrue(wm.reputation().code.length > 0, "reputation proxy has code");
+        assertTrue(wm.karma().code.length > 0, "karma has code");
+        assertTrue(wm.karmaController().code.length > 0, "karma controller has code");
+
+        Bounty b = Bounty(wm.bounty());
+        assertEq(b.escrow(), wm.escrow(), "bounty.escrow wired");
+        assertEq(b.reputation(), wm.reputation(), "bounty.reputation wired");
+        assertEq(Escrow(payable(wm.escrow())).controller(), wm.bounty(), "escrow controller == bounty");
+        assertEq(Reputation(wm.reputation()).writer(), wm.bounty(), "reputation writer == bounty");
+        assertEq(Reputation(wm.reputation()).karmaController(), wm.karmaController(), "rep -> controller");
+        assertEq(b.owner(), address(this), "owner set");
+
+        // Two independent markets get independent, non-colliding proxies + Karma stacks.
+        WorkMarketDeployer wm2 = new WorkMarketDeployer(
+            address(this), address(0), KARMA_PER_COMPLETION, address(new Escrow()), address(new Reputation()), address(new Bounty())
+        );
+        assertTrue(wm2.bounty() != wm.bounty(), "distinct bounty proxies");
+        assertTrue(wm2.escrow() != wm.escrow(), "distinct escrow proxies");
+        assertTrue(wm2.karma() != wm.karma(), "distinct karma instances");
+    }
+
+    // ==================================================================
+    // Production chains refuse an unset treasury Safe (no EOA rug)
     // ==================================================================
 
     /// @dev External wrapper so the internal pure guard can be probed with expectRevert.
@@ -309,7 +344,7 @@ contract DeployDAOLive is Test, DeployDAO {
         return _resolveOwnerAndTreasury(chainId_, safe_, deployer_);
     }
 
-    function test_M3_ProductionChainsRequireTreasurySafe() public {
+    function test_ProductionChainsRequireTreasurySafe() public {
         uint256[4] memory prod = [uint256(96369), uint256(200200), uint256(36963), uint256(494949)];
         for (uint256 i = 0; i < prod.length; i++) {
             vm.expectRevert(
@@ -319,8 +354,7 @@ contract DeployDAOLive is Test, DeployDAO {
         }
     }
 
-    function test_M3_TestnetAndLocalFallBackToDeployer() public {
-        // Lux testnet (96368) and localnet (1337) fall back to the deployer, slash-to-funder.
+    function test_TestnetAndLocalFallBackToDeployer() public view {
         (address o1, address s1) = this.exposed_resolveOwner(96368, address(0), address(0xBEEF));
         assertEq(o1, address(0xBEEF), "testnet: deployer owns");
         assertEq(s1, address(0), "testnet: slash-to-funder");
@@ -329,8 +363,7 @@ contract DeployDAOLive is Test, DeployDAO {
         assertEq(s2, address(0), "localnet: slash-to-funder");
     }
 
-    function test_M3_TreasurySafeOwnsWhenSet() public {
-        // With a Safe set, even a production chain is fine: the Safe owns + receives slashes.
+    function test_TreasurySafeOwnsWhenSet() public view {
         address safe = address(0x5AFE);
         (address o, address s) = this.exposed_resolveOwner(96369, safe, address(0xBEEF));
         assertEq(o, safe, "prod + safe: safe owns");
@@ -338,31 +371,26 @@ contract DeployDAOLive is Test, DeployDAO {
     }
 
     // ==================================================================
-    // M4 -- launch-gate lifecycle (the on-chain TSTORE smoke, run locally)
+    // Launch-gate lifecycle (the on-chain TSTORE smoke, run locally)
     // ==================================================================
 
-    /// @dev Exercises the SAME fund -> claim -> submit -> accept the on-chain launch gate
-    /// (WorkMarketSmoke) runs, using its SmokeApprover, and asserts the escrow drains and
-    /// the bounty reaches Paid. Locally this proves the gate's logic and that the
-    /// TSTORE-guarded payout path executes under Cancun; on --broadcast the same sequence
-    /// against a live node proves EIP-1153 transient storage works on that chain.
-    function test_M4_LaunchGate_NativeAcceptDrainsEscrow() public {
+    function test_LaunchGate_NativeAcceptDrainsEscrow() public {
         SmokeApprover appr = new SmokeApprover();
         vm.deal(daoMember, REWARD);
         vm.deal(worker, STAKE);
 
         vm.prank(daoMember);
-        uint256 id = bounty.propose(NATIVE, REWARD, STAKE, address(appr), address(appr), WINDOW, REVIEW, "gate");
+        uint256 id = bounty.propose(_nativeReward(REWARD), NATIVE, STAKE, address(appr), address(appr), WINDOW, REVIEW, "gate");
         uint256 escrowBaseline = address(escrow).balance;
         vm.prank(daoMember);
         bounty.fund{ value: REWARD }(id);
         vm.prank(worker);
-        bounty.claim{ value: STAKE }(id);
+        bounty.claim{ value: STAKE }(id, address(appr)); // arbiter defaulted to the approver
         vm.prank(worker);
         bounty.submit(id, "gate");
         appr.accept(bounty, id);
 
-        assertEq(uint8(bounty.stateOf(id)), uint8(IBountyV1.State.Paid), "gate: Paid");
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Paid), "gate: Paid");
         assertEq(address(escrow).balance, escrowBaseline, "gate: escrow drained to baseline");
         assertEq(worker.balance, REWARD + STAKE, "gate: worker paid reward + stake");
     }
@@ -371,8 +399,8 @@ contract DeployDAOLive is Test, DeployDAO {
     // helper
     // ==================================================================
 
-    /// @dev Sum of native held by every actor + the escrow + the bounty. The work
-    /// market mints/burns nothing, so this is invariant across every lifecycle path.
+    /// @dev Sum of native held by every actor + the escrow + the bounty. The work market
+    /// mints/burns nothing, so this is invariant across every native lifecycle path.
     function _sumNative() internal view returns (uint256) {
         return
             daoMember.balance +

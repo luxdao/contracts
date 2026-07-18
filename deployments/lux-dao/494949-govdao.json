@@ -1,0 +1,32 @@
+{
+  "brand": "pars",
+  "chainId": 494949,
+  "script": "LaunchParsDAO.s.sol",
+  "deployer": "0x9011E888251AB053B7bD1cdB598Db4f9DEd94714",
+  "featuredDAO": "0x8e19Ed3217a483CD0Db193978F0240b1d385ff12",
+  "proposalId": 0,
+  "totalProposalCount": 1,
+  "proposalState": "ACTIVE",
+  "token": { "name": "Pars Governance", "symbol": "vePARS", "maxTotalSupply": "100000000", "deployerVotes": "10000000", "treasuryBalance": "90000000" },
+  "contracts": {
+    "safe": "0x8e19Ed3217a483CD0Db193978F0240b1d385ff12",
+    "token": "0x9607F59f2377Dff9A56D0A76F0313040070c08CD",
+    "governor": "0x9BC44B0De1aBe2e436C8fA5Cd5cA519026b9D8fD",
+    "strategy": "0x38E71f39f3f46907E03C48983F6578F9a8c2e72e",
+    "votingWeight": "0xc8D756da46BCEaCB2c3FD05091709361886cd32E",
+    "voteTracker": "0x81703A74cfcdBfB4859417761DBEa54bb6E9CfEE",
+    "proposerAdapter": "0xdE5280a9306da7829A4Ba1fBf87B58e1bB4F4A53"
+  },
+  "reusedMasters": {
+    "systemDeployer": "0x7803f099cdA82732e98C9f82815e7Acf18CA02C8",
+    "votesErc20Master": "0x09fDF9b9dAeAc933fd55f9Bcc714c754C21bDc43",
+    "moduleGovernorMaster": "0x62Ea1B27CDD922dbAaE0572f4CD4862Ca939C24c",
+    "strategyMaster": "0xa24318F24739d92a2e1c2997C18F5103d0fD708e",
+    "votingWeightMaster": "0xB6BdC625f4B2877418D7A9773F8A5763c93EfbaC",
+    "voteTrackerMaster": "0xFd57A578A0Ff600B5420D1964aC7A80f0E08B1ad",
+    "proposerAdapterMaster": "0x905b1907d4b8262B220A7aF7ad0a375F3A2F05cb",
+    "safeSingleton": "0xDc384E006BAec602b0b2B2fe6f2712646EFb1e9D",
+    "safeFactory": "0x191067f88d61f9506555E88CEab9CF71deeD61A9",
+    "fallbackHandler": "0xDE3df926c7E0a380270B1F75F8dd1f238e16224b"
+  }
+}
