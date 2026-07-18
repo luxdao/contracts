@@ -148,7 +148,7 @@ const config: HardhatUserConfig = {
       type: 'http',
     },
     pars: {
-      chainId: 7070,
+      chainId: 494949,
       url: process.env.PARS_PROVIDER || 'https://rpc.pars.network',
       // The Pars treasury deployer is a single KMS-held private key (it does not
       // derive from the `light...energy` mnemonic). Prefer PRIVATE_KEY (array

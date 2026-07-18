@@ -2,39 +2,41 @@
 pragma solidity ^0.8.31;
 
 import {Script, console} from "forge-std/Script.sol";
-import {BountyV1} from "../contracts/deployables/bounty/BountyV1.sol";
-import {IBountyV1} from "../contracts/interfaces/dao/deployables/IBountyV1.sol";
+import {Bounty} from "../contracts/deployables/bounty/Bounty.sol";
+import {IBounty} from "../contracts/interfaces/dao/deployables/IBounty.sol";
+import {IEscrow} from "../contracts/interfaces/dao/deployables/IEscrow.sol";
 
 /**
  * @dev Minimal approver used by the smoke gate so the funder != approver self-dealing
- * guard (M2) is satisfied without a second signing key. It only forwards accept() to the
+ * guard is satisfied without a second signing key. It only forwards accept() to the
  * bounty as the configured approver.
  */
 contract SmokeApprover {
-    function accept(BountyV1 bounty_, uint256 id_) external {
+    function accept(Bounty bounty_, uint256 id_) external {
         bounty_.accept(id_);
     }
 }
 
 /**
  * @title WorkMarketSmoke
- * @notice MANDATORY post-deploy launch gate. Given a live BountyV1 (env BOUNTY_V1), it
- * runs the native lifecycle fund -> claim -> submit -> accept ON-CHAIN and asserts the
- * escrow drained and the bounty reached Paid.
+ * @notice MANDATORY post-deploy launch gate. Given a live Bounty (env BOUNTY), it runs the
+ * native lifecycle fund -> claim -> submit -> accept ON-CHAIN and asserts the escrow drained
+ * and the bounty reached Paid.
  *
- * @dev Why this is the launch gate: EscrowV1 and BountyV1 guard every state-changing
- * entrypoint with OpenZeppelin ReentrancyGuardTransient, which uses EIP-1153 transient
- * storage (TSTORE/TLOAD). The local Foundry simulation runs a Cancun EVM, so it CANNOT
- * prove the remote target chain actually executes transient storage. Only a real
- * `--broadcast` whose transactions MINE SUCCESSFULLY proves TSTORE works live: if the
- * target node's EVM predates Cancun/EIP-1153, `accept` reverts on-chain and the broadcast
- * fails — failing the gate. Run this before wiring any UI to a fresh deployment:
+ * @dev Why this is the launch gate: Escrow and Bounty guard every state-changing entrypoint
+ * with OpenZeppelin ReentrancyGuardTransient, which uses EIP-1153 transient storage
+ * (TSTORE/TLOAD). The local Foundry simulation runs a Cancun EVM, so it CANNOT prove the
+ * remote target chain actually executes transient storage. Only a real `--broadcast` whose
+ * transactions MINE SUCCESSFULLY proves TSTORE works live: if the target node's EVM predates
+ * Cancun/EIP-1153, `accept` reverts on-chain and the broadcast fails — failing the gate. Run
+ * this before wiring any UI to a fresh deployment:
  *
- *   BOUNTY_V1=0x... forge script foundry-script/WorkMarketSmoke.s.sol:WorkMarketSmoke \
+ *   BOUNTY=0x... forge script foundry-script/WorkMarketSmoke.s.sol:WorkMarketSmoke \
  *     --rpc-url <chain-rpc> --private-key "$DEPLOYER_KEY" --broadcast
  *
- * The broadcasting key must hold a little native coin (reward + stake = 3e-4 coin) and
- * the run leaves ONE net-zero completed bounty on-chain as the proof.
+ * The broadcasting key must hold a little native coin (reward + stake = 3e-4 coin) and the
+ * run leaves ONE net-zero completed bounty on-chain as the proof (bounty 0, stateOf==Paid),
+ * which the e2e suite asserts.
  */
 contract WorkMarketSmoke is Script {
     uint256 internal constant REWARD = 200_000 gwei; // 2e-4 native
@@ -43,9 +45,9 @@ contract WorkMarketSmoke is Script {
     uint64 internal constant REVIEW_WINDOW = 1 hours;
 
     function run() external {
-        address bountyAddr = vm.envAddress("BOUNTY_V1");
+        address bountyAddr = vm.envAddress("BOUNTY");
         vm.startBroadcast();
-        uint256 id = _smoke(BountyV1(payable(bountyAddr)));
+        uint256 id = _smoke(Bounty(payable(bountyAddr)));
         vm.stopBroadcast();
         console.log("SMOKE_OK_BOUNTY_ID", id);
     }
@@ -53,21 +55,27 @@ contract WorkMarketSmoke is Script {
     /**
      * @notice Drives the native happy path against `bounty` and asserts the payout.
      * @dev The broadcasting key is BOTH funder and worker (permitted); a throwaway
-     * SmokeApprover is the approver so funder != approver (M2). Reverts if the payout is
-     * wrong — on `--broadcast` that means the on-chain txs failed (e.g. TSTORE
-     * unsupported), which fails the gate. Assertions are escrow-balance / state based so
-     * they are independent of the gas the EOA pays.
-     * @param bounty The deployed BountyV1 to smoke-test.
+     * SmokeApprover is the approver so funder != approver. Reverts if the payout is wrong —
+     * on `--broadcast` that means the on-chain txs failed (e.g. TSTORE unsupported), which
+     * fails the gate. Assertions are escrow-balance / state based so they are independent of
+     * the gas the EOA pays.
+     * @param bounty The deployed Bounty to smoke-test.
      * @return id The bounty id created for the proof.
      */
-    function _smoke(BountyV1 bounty) internal returns (uint256 id) {
+    function _smoke(Bounty bounty) internal returns (uint256 id) {
         SmokeApprover approver = new SmokeApprover();
         address escrowAddr = bounty.escrow();
         uint256 escrowBefore = escrowAddr.balance;
 
+        IBounty.RewardSpec memory reward = IBounty.RewardSpec({
+            kind: IEscrow.AssetKind.Native,
+            token: address(0),
+            tokenId: 0,
+            amount: REWARD
+        });
         id = bounty.propose(
-            address(0),
-            REWARD,
+            reward,
+            address(0), // native stake
             STAKE,
             address(approver),
             address(approver),
@@ -76,13 +84,13 @@ contract WorkMarketSmoke is Script {
             "smoke"
         );
         bounty.fund{value: REWARD}(id);
-        bounty.claim{value: STAKE}(id);
+        bounty.claim{value: STAKE}(id, address(approver));
         bounty.submit(id, "smoke-deliverable");
         approver.accept(bounty, id);
 
         // Proof: accept fully executed on-chain (reward + stake released, TSTORE ran) so
         // the bounty is Paid and the escrow is back to its pre-smoke balance (net zero).
-        require(bounty.stateOf(id) == IBountyV1.State.Paid, "smoke: bounty not Paid (accept/TSTORE failed)");
+        require(bounty.stateOf(id) == IBounty.State.Paid, "smoke: bounty not Paid (accept/TSTORE failed)");
         require(escrowAddr.balance == escrowBefore, "smoke: escrow not drained (payout failed)");
     }
 }

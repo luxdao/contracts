@@ -1,0 +1,46 @@
+{
+  "lux-main": {
+    "chainId": "96369",
+    "rpc": "https://api.lux.network/ext/bc/C/rpc",
+    "aicoin": "0x83B92c742922e8c9A06b3AF0FB87B9Dfc0Fd9412",
+    "totalSupplyWei": "1000000000000000000000",
+    "status": "LIVE"
+  },
+  "lux-test": {
+    "chainId": "96368",
+    "rpc": "https://api.lux-test.network/ext/bc/C/rpc",
+    "aicoin": "0xf9fFf3611c7F06775c46349DaCd8E47c52B4b0cE",
+    "totalSupplyWei": "1000000000000000000000",
+    "status": "LIVE"
+  },
+  "lux-dev": {
+    "chainId": "96370",
+    "rpc": "https://api.lux-dev.network/ext/bc/C/rpc",
+    "aicoin": "0x7c05e692995e14994a5482dE3F97F712B72838C9",
+    "totalSupplyWei": "1000000000000000000000",
+    "status": "LIVE"
+  },
+  "zoo-test": {
+    "chainId": "200201",
+    "rpc": "https://api.zoo-test.network/ext/bc/C/rpc",
+    "aicoin": "0x62Ea1B27CDD922dbAaE0572f4CD4862Ca939C24c",
+    "totalSupplyWei": "1000000000000000000000",
+    "status": "LIVE"
+  },
+  "zoo-main": {
+    "chainId": "200200",
+    "rpc": "https://api.zoo.network/ext/bc/C/rpc",
+    "aicoin": "0xF034942c1140125b5c278aE9cEE1B488e915B2FE",
+    "totalSupplyWei": "1000000000000000000000",
+    "status": "LIVE"
+  },
+  "hanzo-localnet": {
+    "chainId": "36964",
+    "rpc": "http://127.0.0.1:9750/ext/bc/C/rpc",
+    "aicoin": "0xc65ea8882020Af7CDa7854d590C6Fcd34BF364ec",
+    "receiptRoots": "0x413e4A820635702Ec199bC5B62dCbCa1749851bf",
+    "miner": "0x9378b62fC172d2A4f715d7ecF49DE0362f1BB702",
+    "totalSupplyWei": "1000000000000000000000",
+    "status": "LIVE"
+  }
+}

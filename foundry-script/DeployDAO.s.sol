@@ -22,6 +22,9 @@ import { CompatibilityFallbackHandler } from "@safe-global/safe-smart-account/ha
 // The Escrow/Reputation/Bounty instance is stood up atomically + wired ON-CHAIN by a
 // single constructor (WorkMarketDeployer), so no EOA-nonce prediction is trusted here.
 import { WorkMarketDeployer } from "../contracts/deployables/bounty/WorkMarketDeployer.sol";
+import { Escrow } from "../contracts/deployables/bounty/Escrow.sol";
+import { Reputation } from "../contracts/deployables/bounty/Reputation.sol";
+import { Bounty } from "../contracts/deployables/bounty/Bounty.sol";
 
 /**
  * @title DeployDAO
@@ -60,13 +63,13 @@ import { WorkMarketDeployer } from "../contracts/deployables/bounty/WorkMarketDe
  *           flow.
  *
  *   (B) WORK-MARKET — the headline two-sided market (post a task -> claim -> deliver ->
- *       PAID on acceptance, escrow released, reputation recorded). Deployed as a single
- *       canonical instance for the deploying org using the predict-then-wire pattern:
- *       EscrowV1's controller and ReputationV1's writer must BOTH be the BountyV1 proxy,
- *       but BountyV1 needs the escrow + reputation addresses to initialize — a cycle.
- *       It is broken by predicting the BountyV1 proxy address (CREATE is deterministic in
- *       deployer + nonce), pointing escrow/reputation at the prediction, then deploying
- *       the BountyV1 proxy into exactly that slot. The app may later deploy additional
+ *       PAID on acceptance, escrow released, reputation recorded, global Karma minted).
+ *       Rewards may be native / ERC-20 / ERC-721 / ERC-1155. Deployed as a single canonical
+ *       instance (Bounty/Escrow/Reputation + Karma/KarmaController) for the deploying org by
+ *       the atomic, self-verifying WorkMarketDeployer: Escrow's controller and Reputation's
+ *       writer must BOTH be the Bounty proxy (a cycle broken by predicting the Bounty proxy
+ *       address and wiring escrow/reputation at the prediction), and Reputation is wired as
+ *       the sole KARMA_SOURCE on the KarmaController. The app may later deploy additional
  *       per-sub-DAO work-market instances the same way; this ships one live now.
  *
  *  Run against a target chain (deployer key from env / KMS — NEVER inline a live key):
@@ -99,11 +102,22 @@ contract DeployDAO is Script {
         address proposerAdapterMaster;
         // Create-a-DAO orchestrator (live singleton).
         address systemDeployer;
-        // Work-market live instance (proxies).
+        // Work-market live instance (proxies) + its global Karma stack.
         address bounty;
         address escrow;
         address reputation;
+        address karma;
+        address karmaController;
     }
+
+    /**
+     * @notice Flat global-Karma award minted per accepted bounty completion (18 decimals).
+     * @dev Decoupled from the reward amount (rewards span native/ERC-20/ERC-721/ERC-1155 with
+     *      incommensurable units). The org Safe retunes it post-deploy via
+     *      Reputation.setKarmaPerCompletion. 10 Karma/completion => ~100 completions to the
+     *      1000-Karma soft cap; a sane, Sybil-resistant default.
+     */
+    uint256 internal constant KARMA_PER_COMPLETION = 10e18;
 
     function run() external returns (Deployment memory d) {
         // owner = the work-market upgrade authority + default treasury route. The org
@@ -140,10 +154,12 @@ contract DeployDAO is Script {
         console.log("VOTE_TRACKER_MASTER", d.voteTrackerMaster); //    voteTrackerMaster
         console.log("PROPOSER_ADAPTER_MASTER", d.proposerAdapterMaster); // proposerAdapterMaster
         console.log("SYSTEM_DEPLOYER", d.systemDeployer); //           systemDeployer (create-flow)
-        // (B) Work-market live instance.
-        console.log("BOUNTY_V1", d.bounty);
-        console.log("ESCROW_V1", d.escrow);
-        console.log("REPUTATION_V1", d.reputation);
+        // (B) Work-market live instance + global Karma stack.
+        console.log("BOUNTY", d.bounty);
+        console.log("ESCROW", d.escrow);
+        console.log("REPUTATION", d.reputation);
+        console.log("KARMA", d.karma);
+        console.log("KARMA_CONTROLLER", d.karmaController);
     }
 
     /**
@@ -180,16 +196,28 @@ contract DeployDAO is Script {
         d.systemDeployer = address(new SystemDeployerV1());
 
         // ----------------------------------------------------------------
-        // (B) Work-market live instance — atomic, self-wiring, verified ON-CHAIN.
-        //     One constructor deploys the 3 impls + 3 proxies, wires escrow.controller =
-        //     reputation.writer = the BountyV1 proxy, and reverts if any wiring is wrong.
-        //     No EOA-nonce prediction is trusted (M1): the internal CREATEs are the
+        // (B) Work-market live instance + global Karma stack — atomic, self-wiring,
+        //     verified ON-CHAIN. One constructor deploys Karma + KarmaController + the 3
+        //     impls + 3 proxies, wires escrow.controller = reputation.writer = the Bounty
+        //     proxy AND reputation -> KarmaController (Reputation is the sole KARMA_SOURCE,
+        //     KarmaController is the sole Karma ATTESTOR), hands all governance to the org
+        //     Safe, renounces the deployer's transient authority, and reverts if any wiring
+        //     is wrong. No EOA-nonce prediction is trusted: the internal CREATEs are the
         //     deployer contract's, deterministic regardless of the outer EOA nonce.
         // ----------------------------------------------------------------
-        WorkMarketDeployer wm = new WorkMarketDeployer(owner_, slashTreasury_);
+        WorkMarketDeployer wm = new WorkMarketDeployer(
+            owner_,
+            slashTreasury_,
+            KARMA_PER_COMPLETION,
+            address(new Escrow()),
+            address(new Reputation()),
+            address(new Bounty())
+        );
         d.bounty = wm.bounty();
         d.escrow = wm.escrow();
         d.reputation = wm.reputation();
+        d.karma = wm.karma();
+        d.karmaController = wm.karmaController();
     }
 
     // ======================================================================
