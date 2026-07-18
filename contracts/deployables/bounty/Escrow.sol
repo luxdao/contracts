@@ -43,6 +43,11 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
  * - ERC-20 fee-on-transfer / deflationary tokens are rejected at deposit (received != nominal).
  *   Rebasing tokens are NOT caught (their balance drifts AFTER a conformant deposit) and are
  *   unsupported — accounting is nominal, not balance-tracking.
+ * - ERC-20 tokens whose `balanceOf` is UNVERIFIABLE (reverts, short-returns, or decreases on a
+ *   transfer-in) are rejected at deposit (UnsupportedToken), fail-closed. Delivery on the settlement
+ *   path is judged by balance delta, so a token that cannot be balance-read must never enter the
+ *   escrow: this closes both the delivered-check overflow class and the paid-AND-credited
+ *   double-withdraw class at the single entry point.
  * - ERC-721 is indivisible: amount fixed at 1, released/refunded only whole.
  *
  * `token == address(0)` denotes the native coin (AssetKind.Native) everywhere.
@@ -247,12 +252,20 @@ contract Escrow is
             if (msg.value != amount_) revert NativeValueMismatch(amount_, msg.value);
         } else if (kind_ == AssetKind.ERC20) {
             // ERC-20: no native value; pull the EXACT nominal amount (fee-on-transfer /
-            // deflationary tokens where received != amount are rejected).
+            // deflationary tokens where received != amount are rejected). BOTH balance reads go
+            // through {_tokenBalance} (staticcall): a token whose balanceOf reverts or short-returns
+            // (<32B) is UNVERIFIABLE and is fail-closed REJECTED here (UnsupportedToken) so it never
+            // enters the escrow. That entry guard is what keeps the settlement path safe — a
+            // hostile-balanceOf token can neither overflow the delivered-check nor be paid AND
+            // credited (double-withdraw). `received` is computed by subtraction only after asserting
+            // balAfter >= balBefore, so it can never under/overflow on an adversarial balance.
             if (msg.value != 0) revert UnexpectedNativeValue();
-            IERC20 erc20 = IERC20(token_);
-            uint256 balBefore = erc20.balanceOf(address(this));
-            erc20.safeTransferFrom(funder_, address(this), amount_);
-            uint256 received = erc20.balanceOf(address(this)) - balBefore;
+            (bool okBefore, uint256 balBefore) = _tokenBalance(token_);
+            if (!okBefore) revert UnsupportedToken(token_);
+            IERC20(token_).safeTransferFrom(funder_, address(this), amount_);
+            (bool okAfter, uint256 balAfter) = _tokenBalance(token_);
+            if (!okAfter || balAfter < balBefore) revert UnsupportedToken(token_);
+            uint256 received = balAfter - balBefore;
             if (received != amount_) revert DepositAmountMismatch(amount_, received);
         } else if (kind_ == AssetKind.ERC721) {
             // ERC-721: exactly one indivisible token. Pull it in under the receive guard so
@@ -516,9 +529,12 @@ contract Escrow is
             (bool called, ) = token_.call(abi.encodeCall(IERC20.transfer, (to_, amount_)));
             (bool okAfter, uint256 balAfter) = _tokenBalance(token_);
             // Delivered only if the transfer did not revert, BOTH balances were verifiable, and at
-            // least `amount` left. Any unverifiable balance (reverting / short-returning balanceOf)
-            // => credit, never a bubble.
-            ok = called && okBefore && okAfter && balAfter + amount_ <= balBefore;
+            // least `amount` left. The delta is computed by SUBTRACTION guarded by `balBefore >=
+            // balAfter` (short-circuit) — never an addition — so an adversarial balanceOf can neither
+            // overflow (a naive `balAfter + amount` with balAfter == uint256.max => Panic 0x11) nor
+            // underflow. A balance that did not decrease (balAfter > balBefore) or any unverifiable
+            // balance (reverting / short-returning balanceOf) => not delivered => credit, never a bubble.
+            ok = called && okBefore && okAfter && balBefore >= balAfter && (balBefore - balAfter) >= amount_;
         } else if (kind_ == AssetKind.ERC721) {
             try IERC721(token_).safeTransferFrom(address(this), to_, tokenId_) {
                 ok = true;
@@ -536,9 +552,10 @@ contract Escrow is
 
     /**
      * @dev Reads an ERC-20's balance of the escrow via low-level staticcall so a reverting or
-     * short-returning `balanceOf` can never bubble on the settlement path (R3-M1). Returns
-     * (false, 0) when the balance is UNVERIFIABLE (the view reverted or returned < 32 bytes), which
-     * the outbound path treats as a failed delivery -> credit.
+     * short-returning `balanceOf` can never bubble (R3-M1). Returns (false, 0) when the balance is
+     * UNVERIFIABLE (the view reverted or returned < 32 bytes). On the settlement path the outbound
+     * transfer treats that as a failed delivery -> credit; at DEPOSIT it is a fail-closed reject
+     * (UnsupportedToken), so an unverifiable-balance token can never enter the escrow in the first place.
      */
     function _tokenBalance(address token_) internal view returns (bool ok, uint256 balance) {
         (bool success, bytes memory ret) = token_.staticcall(

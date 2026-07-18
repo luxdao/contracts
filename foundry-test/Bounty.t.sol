@@ -14,6 +14,7 @@ import {MockERC1155} from "../contracts/mocks/MockERC1155.sol";
 import {MockBlocklistERC20} from "../contracts/mocks/MockBlocklistERC20.sol";
 import {MockMalformedERC20} from "../contracts/mocks/MockMalformedERC20.sol";
 import {MockRevertBalanceOfERC20} from "../contracts/mocks/MockRevertBalanceOfERC20.sol";
+import {MockHugeBalanceOfERC20} from "../contracts/mocks/MockHugeBalanceOfERC20.sol";
 import {Karma} from "@luxfi/standard/governance/Karma.sol";
 import {KarmaController} from "@luxfi/standard/governance/KarmaController.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -804,6 +805,88 @@ contract BountyTest is Test {
         );
         bounty.fund(id); // deposits while healthy
         vm.stopPrank();
+    }
+
+    // =====================================================================
+    // R4-HIGH — a reward token that returns balanceOf == uint256.max at settlement must NOT overflow
+    // the delivered-check (a naive checked `balAfter + amount` => Panic 0x11) and brick the
+    // settlement, locking the worker's native stake. The subtraction-only, overflow-safe check
+    // credits the undeliverable reward and settles; the stake is always returned.
+    // =====================================================================
+
+    function test_HugeBalanceOfReward_DoesNotBrick_Accept() public {
+        (uint256 id, MockHugeBalanceOfERC20 tok) = _fundHugeBalToken();
+        vm.deal(worker, STAKE);
+        vm.prank(worker);
+        bounty.claim{value: STAKE}(id, arbiter);
+        vm.prank(worker);
+        bounty.submit(id, "d");
+
+        tok.setHuge(true); // balanceOf now returns uint256.max (valid word); transfer moves nothing
+
+        // accept() must NOT overflow-bubble — it credits the reward and settles.
+        vm.prank(approver);
+        bounty.accept(id);
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Paid), "accept settled despite uint256.max balanceOf");
+        assertEq(worker.balance, STAKE, "stake returned (not locked)");
+        assertEq(
+            escrow.creditOf(worker, IEscrow.AssetKind.ERC20, address(tok), 0),
+            100e18,
+            "reward credited (undeliverable), never a bubble"
+        );
+    }
+
+    function test_HugeBalanceOfReward_DoesNotBrick_Finalize() public {
+        (uint256 id, MockHugeBalanceOfERC20 tok) = _fundHugeBalToken();
+        vm.deal(worker, STAKE);
+        vm.prank(worker);
+        bounty.claim{value: STAKE}(id, arbiter);
+        vm.prank(worker);
+        bounty.submit(id, "d");
+
+        tok.setHuge(true);
+        vm.warp(block.timestamp + REVIEW + 1);
+        // Permissionless finalize must also not overflow-bubble.
+        vm.prank(stranger);
+        bounty.finalize(id);
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Paid), "finalize settled despite uint256.max balanceOf");
+        assertEq(worker.balance, STAKE, "stake returned via finalize (not locked)");
+    }
+
+    function _fundHugeBalToken() internal returns (uint256 id, MockHugeBalanceOfERC20 tok) {
+        tok = new MockHugeBalanceOfERC20();
+        tok.mint(funder, 100e18);
+        vm.startPrank(funder);
+        tok.approve(address(escrow), 100e18);
+        id = bounty.propose(
+            IBounty.RewardSpec({kind: IEscrow.AssetKind.ERC20, token: address(tok), tokenId: 0, amount: 100e18}),
+            address(0), STAKE, approver, arbiter, WINDOW, REVIEW, "huge"
+        );
+        bounty.fund(id); // deposits while healthy (huge=false)
+        vm.stopPrank();
+    }
+
+    // =====================================================================
+    // Deposit-time balanceOf sanity guard — a token whose balanceOf is UNVERIFIABLE (reverts or
+    // short-returns) at deposit is fail-closed rejected (UnsupportedToken) so it never enters the
+    // escrow. Closing it at ENTRY also closes the credit-on-unverifiable double-withdraw residual.
+    // =====================================================================
+
+    function test_UnverifiableBalanceOfToken_RejectedAtDeposit() public {
+        MockRevertBalanceOfERC20 tok = new MockRevertBalanceOfERC20();
+        tok.mint(funder, 100e18);
+        tok.setBroken(true); // balanceOf reverts BEFORE any deposit is attempted
+        vm.startPrank(funder);
+        tok.approve(address(escrow), 100e18);
+        uint256 id = bounty.propose(
+            IBounty.RewardSpec({kind: IEscrow.AssetKind.ERC20, token: address(tok), tokenId: 0, amount: 100e18}),
+            address(0), STAKE, approver, arbiter, WINDOW, REVIEW, "rvb-deposit"
+        );
+        // fund() -> escrow.deposit() staticcalls balanceOf; it reverts -> UnsupportedToken, fail-closed.
+        vm.expectRevert(abi.encodeWithSelector(IEscrow.UnsupportedToken.selector, address(tok)));
+        bounty.fund(id);
+        vm.stopPrank();
+        assertEq(uint8(bounty.stateOf(id)), uint8(IBounty.State.Open), "hostile-balanceOf token never entered escrow");
     }
 
     // --- drive an NFT bounty to Disputed ---

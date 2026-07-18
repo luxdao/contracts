@@ -78,6 +78,17 @@ interface IEscrow {
      */
     error DepositAmountMismatch(uint256 expected, uint256 received);
 
+    /**
+     * @notice Thrown at deposit when an ERC-20's balanceOf is UNVERIFIABLE — it reverts, returns
+     * fewer than 32 bytes, or reports a lower balance after a transfer-in
+     * @dev Delivery on the settlement path is judged by the escrow's balance delta, so a token whose
+     * balance cannot be read reliably must never enter the escrow. Rejecting fail-closed at the single
+     * deposit entry point closes both the delivered-check overflow class and the paid-AND-credited
+     * double-withdraw class (a hostile-balanceOf token can never reach a payout).
+     * @param token The offending ERC-20
+     */
+    error UnsupportedToken(address token);
+
     /** @notice Thrown when a recipient address is zero */
     error InvalidRecipient();
 
