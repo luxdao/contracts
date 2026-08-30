@@ -7,7 +7,7 @@ import {AIApproval} from "@luxfi/standard/ai/governance/AIApproval.sol";
 import {AIGovernor} from "@luxfi/standard/ai/governance/AIGovernor.sol";
 import {AIParams} from "@luxfi/standard/ai/governance/AIParams.sol";
 import {IAIGovernor} from "@luxfi/standard/ai/interfaces/IAIGovernor.sol";
-import {KeyValuePairsV1} from "@luxfi/standard/dao/singletons/KeyValuePairsV1.sol";
+import {KeyValuePairsV1} from "../contracts/singletons/KeyValuePairsV1.sol";
 
 /// The arbitrary target consensus governs: a multi-arg method callable only by AIExecute.
 contract GovernedTarget {

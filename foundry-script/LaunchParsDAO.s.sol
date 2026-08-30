@@ -4,18 +4,18 @@ pragma solidity ^0.8.31;
 import { Script, console } from "forge-std/Script.sol";
 
 // --- DAO stack types (consumed from luxfi/standard via remappings) ----------
-import { VotesERC20V1 } from "@luxfi/standard/dao/deployables/erc20/VotesERC20V1.sol";
-import { IVotesERC20V1 } from "@luxfi/standard/dao/interfaces/deployables/IVotesERC20V1.sol";
-import { StrategyV1 } from "@luxfi/standard/dao/deployables/strategies/StrategyV1.sol";
-import { IStrategyV1 } from "@luxfi/standard/dao/interfaces/deployables/IStrategyV1.sol";
-import { VotingWeightERC20V1 } from "@luxfi/standard/dao/deployables/strategies/voting-weight/VotingWeightERC20V1.sol";
-import { VoteTrackerERC20V1 } from "@luxfi/standard/dao/deployables/strategies/vote-trackers/VoteTrackerERC20V1.sol";
-import { ProposerAdapterERC20V1 } from "@luxfi/standard/dao/deployables/strategies/proposer-adapters/ProposerAdapterERC20V1.sol";
-import { ModuleGovernorV1 } from "@luxfi/standard/dao/deployables/modules/ModuleGovernorV1.sol";
-import { IModuleGovernorV1 } from "@luxfi/standard/dao/interfaces/deployables/IModuleGovernorV1.sol";
-import { IVotingTypes } from "@luxfi/standard/dao/interfaces/deployables/IVotingTypes.sol";
-import { Transaction } from "@luxfi/standard/dao/interfaces/Module.sol";
-import { Enum } from "@gnosis.pm/safe-contracts/interfaces/Enum.sol";
+import { VotesERC20V1 } from "../contracts/deployables/erc20/VotesERC20V1.sol";
+import { IVotesERC20V1 } from "../contracts/interfaces/dao/deployables/IVotesERC20V1.sol";
+import { StrategyV1 } from "../contracts/deployables/strategies/StrategyV1.sol";
+import { IStrategyV1 } from "../contracts/interfaces/dao/deployables/IStrategyV1.sol";
+import { VotingWeightERC20V1 } from "../contracts/deployables/strategies/voting-weight/VotingWeightERC20V1.sol";
+import { VoteTrackerERC20V1 } from "../contracts/deployables/strategies/vote-trackers/VoteTrackerERC20V1.sol";
+import { ProposerAdapterERC20V1 } from "../contracts/deployables/strategies/proposer-adapters/ProposerAdapterERC20V1.sol";
+import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGovernorV1.sol";
+import { IModuleGovernorV1 } from "../contracts/interfaces/dao/deployables/IModuleGovernorV1.sol";
+import { IVotingTypes } from "../contracts/interfaces/dao/deployables/IVotingTypes.sol";
+import { Transaction } from "../contracts/interfaces/dao/Module.sol";
+import { Enum } from "../contracts/mocks/safe-smart-account/common/Enum.sol";
 
 // --- OZ proxy ---------------------------------------------------------------
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";

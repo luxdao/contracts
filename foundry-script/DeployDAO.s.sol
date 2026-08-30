@@ -4,14 +4,14 @@ pragma solidity ^0.8.31;
 import { Script, console } from "forge-std/Script.sol";
 
 // --- DAO stack masters (consumed from luxfi/standard via remappings) ---------
-import { VotesERC20V1 } from "@luxfi/standard/dao/deployables/erc20/VotesERC20V1.sol";
-import { StrategyV1 } from "@luxfi/standard/dao/deployables/strategies/StrategyV1.sol";
-import { VotingWeightERC20V1 } from "@luxfi/standard/dao/deployables/strategies/voting-weight/VotingWeightERC20V1.sol";
-import { VoteTrackerERC20V1 } from "@luxfi/standard/dao/deployables/strategies/vote-trackers/VoteTrackerERC20V1.sol";
-import { ProposerAdapterERC20V1 } from "@luxfi/standard/dao/deployables/strategies/proposer-adapters/ProposerAdapterERC20V1.sol";
-import { ModuleGovernorV1 } from "@luxfi/standard/dao/deployables/modules/ModuleGovernorV1.sol";
-import { ModuleFractalV1 } from "@luxfi/standard/dao/deployables/modules/ModuleFractalV1.sol";
-import { SystemDeployerV1 } from "@luxfi/standard/dao/singletons/SystemDeployerV1.sol";
+import { VotesERC20V1 } from "../contracts/deployables/erc20/VotesERC20V1.sol";
+import { StrategyV1 } from "../contracts/deployables/strategies/StrategyV1.sol";
+import { VotingWeightERC20V1 } from "../contracts/deployables/strategies/voting-weight/VotingWeightERC20V1.sol";
+import { VoteTrackerERC20V1 } from "../contracts/deployables/strategies/vote-trackers/VoteTrackerERC20V1.sol";
+import { ProposerAdapterERC20V1 } from "../contracts/deployables/strategies/proposer-adapters/ProposerAdapterERC20V1.sol";
+import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGovernorV1.sol";
+import { ModuleFractalV1 } from "../contracts/deployables/modules/ModuleFractalV1.sol";
+import { SystemDeployerV1 } from "../contracts/singletons/SystemDeployerV1.sol";
 
 // --- Safe infra (deployed fresh from the standard safe-smart-account lib) -----
 import { SafeL2 } from "@safe-global/safe-smart-account/SafeL2.sol";

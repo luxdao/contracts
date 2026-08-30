@@ -13,10 +13,10 @@ import { MockERC20 } from "../contracts/mocks/MockERC20.sol";
 import { SmokeApprover } from "../foundry-script/WorkMarketSmoke.s.sol";
 
 // DAO masters — to assert the factory masters are real, code-bearing implementations.
-import { VotesERC20V1 } from "@luxfi/standard/dao/deployables/erc20/VotesERC20V1.sol";
-import { ModuleGovernorV1 } from "@luxfi/standard/dao/deployables/modules/ModuleGovernorV1.sol";
-import { StrategyV1 } from "@luxfi/standard/dao/deployables/strategies/StrategyV1.sol";
-import { SystemDeployerV1 } from "@luxfi/standard/dao/singletons/SystemDeployerV1.sol";
+import { VotesERC20V1 } from "../contracts/deployables/erc20/VotesERC20V1.sol";
+import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGovernorV1.sol";
+import { StrategyV1 } from "../contracts/deployables/strategies/StrategyV1.sol";
+import { SystemDeployerV1 } from "../contracts/singletons/SystemDeployerV1.sol";
 
 // Global Karma stack (the canonical reputation the work-market bridges into).
 import { Karma } from "@luxfi/standard/governance/Karma.sol";

@@ -5,9 +5,9 @@ import "forge-std/Test.sol";
 
 // All DAO + Safe contracts are consumed FROM lux/standard via remappings.
 // Single source of truth — no local copies of these contracts in luxfi/dao.
-import { ModuleGovernorV1 } from "@luxfi/standard/dao/deployables/modules/ModuleGovernorV1.sol";
-import { ModuleFractalV1 } from "@luxfi/standard/dao/deployables/modules/ModuleFractalV1.sol";
-import { SystemDeployerV1 } from "@luxfi/standard/dao/singletons/SystemDeployerV1.sol";
+import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGovernorV1.sol";
+import { ModuleFractalV1 } from "../contracts/deployables/modules/ModuleFractalV1.sol";
+import { SystemDeployerV1 } from "../contracts/singletons/SystemDeployerV1.sol";
 
 import { SafeFactory } from "@luxfi/standard/safe/SafeFactory.sol";
 import { SafeMLDSASigner } from "@luxfi/standard/safe/SafeMLDSASigner.sol";
