@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {Enum} from "../../../mocks/safe-smart-account/common/Enum.sol";
+import {Enum} from "@luxfi/safe/interfaces/Enum.sol";
 import {IFreezeGuardBaseV1} from "./IFreezeGuardBaseV1.sol";
 
 /**

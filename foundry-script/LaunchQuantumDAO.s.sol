@@ -16,13 +16,13 @@ import { IModuleGovernorV1 } from "../contracts/interfaces/dao/deployables/IModu
 import { IVotingTypes } from "../contracts/interfaces/dao/deployables/IVotingTypes.sol";
 
 // --- PQ Safe-owner stack (consumed from luxfi/standard) ----------------------
-import { PQSigner } from "@luxfi/standard/safe/pq/PQSigner.sol";
-import { PQSchemes } from "@luxfi/standard/safe/pq/PQSchemes.sol";
+import { PQSigner } from "@luxfi/contracts/safe/pq/PQSigner.sol";
+import { PQSchemes } from "@luxfi/contracts/safe/pq/PQSchemes.sol";
 
 // --- Safe infra (deployed fresh from the standard safe-smart-account lib) ----
-import { SafeL2 } from "@safe-global/safe-smart-account/SafeL2.sol";
-import { SafeProxyFactory } from "@safe-global/safe-smart-account/proxies/SafeProxyFactory.sol";
-import { CompatibilityFallbackHandler } from "@safe-global/safe-smart-account/handler/CompatibilityFallbackHandler.sol";
+import { SafeL2 } from "@luxfi/safe/SafeL2.sol";
+import { SafeProxyFactory } from "@luxfi/safe/proxies/SafeProxyFactory.sol";
+import { CompatibilityFallbackHandler } from "@luxfi/safe/handler/CompatibilityFallbackHandler.sol";
 
 // --- OZ proxy ---------------------------------------------------------------
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";

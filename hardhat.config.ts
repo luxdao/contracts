@@ -29,7 +29,7 @@ function listSol(dir: string): string[] {
 const viaIROverrides = Object.fromEntries(
   listSol(thinkingDir).map((src) => [
     src,
-    { version: '0.8.30', settings: { viaIR: true, optimizer: { enabled: true, runs: 200 } } },
+    { version: '0.8.31', settings: { viaIR: true, optimizer: { enabled: true, runs: 200 } } },
   ]),
 );
 
@@ -46,7 +46,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: '0.8.30',
+        version: '0.8.31',
         settings: {
           optimizer: {
             enabled: true,

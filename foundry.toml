@@ -4,7 +4,7 @@ test = "foundry-test"
 script = "foundry-script"
 out = "out-foundry"
 libs = ["lib", "../../standard/lib", "../../standard/contracts"]
-allow_paths = ["../../standard"]
+allow_paths = ["../../standard", "../../safe", "../../zodiac"]
 optimizer = true
 optimizer_runs = 200
 via_ir = true
@@ -15,13 +15,13 @@ evm_version = "cancun"
 # Consume Safe + DAO + Quasar signers directly from luxfi/standard.
 # Single source of truth. No local copies of safe/dao contracts in this repo.
 remappings = [
-    "@luxfi/standard/=../../standard/contracts/",
+    "@luxfi/safe/=../../safe/contracts/",
+    "@safe-global/safe-smart-account/=../../safe/contracts/",
+    "@luxdao/zodiac/=../../zodiac/contracts/",
     "@luxfi/contracts/=../../standard/contracts/",
+    "@luxfi/standard/=../../standard/contracts/",
     "@account-abstraction/=../../standard/lib/account-abstraction/",
     "@prb/math/=../../standard/lib/prb-math/",
-    "@safe-global/safe-smart-account/=../../standard/lib/safe-smart-account/contracts/",
-    "@gnosis.pm/safe-contracts/=../../standard/lib/safe-smart-account/contracts/",
-    "safe-smart-account/=../../standard/lib/safe-smart-account/contracts/",
     "@openzeppelin/contracts/=../../standard/lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts-upgradeable/=../../standard/lib/openzeppelin-contracts-upgradeable/contracts/",
     "forge-std/=../../standard/lib/forge-std/src/",

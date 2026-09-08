@@ -2,11 +2,11 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AIExecute, IConsensusApproval} from "@luxfi/standard/ai/governance/AIExecute.sol";
-import {AIApproval} from "@luxfi/standard/ai/governance/AIApproval.sol";
-import {AIGovernor} from "@luxfi/standard/ai/governance/AIGovernor.sol";
-import {AIParams} from "@luxfi/standard/ai/governance/AIParams.sol";
-import {IAIGovernor} from "@luxfi/standard/ai/interfaces/IAIGovernor.sol";
+import {AIExecute, IConsensusApproval} from "@luxfi/contracts/ai/governance/AIExecute.sol";
+import {AIApproval} from "@luxfi/contracts/ai/governance/AIApproval.sol";
+import {AIGovernor} from "@luxfi/contracts/ai/governance/AIGovernor.sol";
+import {AIParams} from "@luxfi/contracts/ai/governance/AIParams.sol";
+import {IAIGovernor} from "@luxfi/contracts/ai/interfaces/IAIGovernor.sol";
 import {KeyValuePairsV1} from "../contracts/singletons/KeyValuePairsV1.sol";
 
 /// The arbitrary target consensus governs: a multi-arg method callable only by AIExecute.

@@ -9,11 +9,11 @@ import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGoverno
 import { ModuleFractalV1 } from "../contracts/deployables/modules/ModuleFractalV1.sol";
 import { SystemDeployerV1 } from "../contracts/singletons/SystemDeployerV1.sol";
 
-import { SafeFactory } from "@luxfi/standard/safe/SafeFactory.sol";
-import { SafeMLDSASigner } from "@luxfi/standard/safe/SafeMLDSASigner.sol";
-import { SafeCoronaSigner } from "@luxfi/standard/safe/SafeCoronaSigner.sol";
-import { SafePulsarSigner } from "@luxfi/standard/safe/SafePulsarSigner.sol";
-import { SafeMagnetarSigner } from "@luxfi/standard/safe/SafeMagnetarSigner.sol";
+import { SafeFactory } from "@luxfi/contracts/safe/SafeFactory.sol";
+import { SafeMLDSASigner } from "@luxfi/contracts/safe/SafeMLDSASigner.sol";
+import { SafeCoronaSigner } from "@luxfi/contracts/safe/SafeCoronaSigner.sol";
+import { SafePulsarSigner } from "@luxfi/contracts/safe/SafePulsarSigner.sol";
+import { SafeMagnetarSigner } from "@luxfi/contracts/safe/SafeMagnetarSigner.sol";
 
 /// @title ConsumeFromStandardTest
 /// @notice Verifies luxfi-dao can deploy DAO + Safe + Quasar signer contracts

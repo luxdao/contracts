@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.24;
 
-import { FHE, euint256 } from "@luxfi/standard/fhe/FHE.sol";
-import { TFHE } from "@luxfi/standard/fhe/threshold/TFHE.sol";
-import { TFHEApp } from "@luxfi/standard/fhe/threshold/TFHEApp.sol";
+import { FHE, euint256 } from "@luxfi/contracts/fhe/FHE.sol";
+import { TFHE } from "@luxfi/contracts/fhe/threshold/TFHE.sol";
+import { TFHEApp } from "@luxfi/contracts/fhe/threshold/TFHEApp.sol";
 import { ICharter } from "../../governance/interfaces/ICharter.sol";
 import { IVotingTypes } from "../../governance/interfaces/IVotingTypes.sol";
 import { IVotingWeight } from "../../governance/interfaces/IVotingWeight.sol";

@@ -14,14 +14,14 @@ import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGoverno
 import { IModuleGovernorV1 } from "../contracts/interfaces/dao/deployables/IModuleGovernorV1.sol";
 import { IVotingTypes } from "../contracts/interfaces/dao/deployables/IVotingTypes.sol";
 import { Transaction } from "../contracts/interfaces/dao/Module.sol";
-import { Enum } from "../contracts/mocks/safe-smart-account/common/Enum.sol";
+import { Enum } from "@luxfi/safe/interfaces/Enum.sol";
 
-import { PQSigner } from "@luxfi/standard/safe/pq/PQSigner.sol";
-import { PQSchemes } from "@luxfi/standard/safe/pq/PQSchemes.sol";
+import { PQSigner } from "@luxfi/contracts/safe/pq/PQSigner.sol";
+import { PQSchemes } from "@luxfi/contracts/safe/pq/PQSchemes.sol";
 
-import { SafeL2 } from "@safe-global/safe-smart-account/SafeL2.sol";
-import { SafeProxyFactory } from "@safe-global/safe-smart-account/proxies/SafeProxyFactory.sol";
-import { CompatibilityFallbackHandler } from "@safe-global/safe-smart-account/handler/CompatibilityFallbackHandler.sol";
+import { SafeL2 } from "@luxfi/safe/SafeL2.sol";
+import { SafeProxyFactory } from "@luxfi/safe/proxies/SafeProxyFactory.sol";
+import { CompatibilityFallbackHandler } from "@luxfi/safe/handler/CompatibilityFallbackHandler.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 

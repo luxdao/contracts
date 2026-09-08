@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {ISafe} from "../interfaces/safe/ISafe.sol";
-import {Enum} from "./safe-smart-account/common/Enum.sol";
+import {Enum} from "@luxfi/safe/interfaces/Enum.sol";
 
 contract MockSafe is ISafe {
     address private _owner;

@@ -14,8 +14,8 @@ import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
-import {Enum} from "../../mocks/safe-smart-account/common/Enum.sol";
-import {IGuard} from "../../interfaces/dao/IGuard.sol";
+import {Enum} from "@luxfi/safe/interfaces/Enum.sol";
+import {IGuard} from "@luxdao/zodiac/interfaces/IGuard.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {
     UUPSUpgradeable

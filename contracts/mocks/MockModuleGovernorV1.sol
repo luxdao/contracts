@@ -5,7 +5,7 @@ import {
     IModuleGovernorV1,
     Transaction
 } from "../interfaces/dao/deployables/IModuleGovernorV1.sol";
-import {Enum} from "./safe-smart-account/common/Enum.sol";
+import {Enum} from "@luxfi/safe/interfaces/Enum.sol";
 
 contract MockModuleGovernorV1 is IModuleGovernorV1 {
     address public currentStrategy;

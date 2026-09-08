@@ -15,7 +15,7 @@ import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGoverno
 import { IModuleGovernorV1 } from "../contracts/interfaces/dao/deployables/IModuleGovernorV1.sol";
 import { IVotingTypes } from "../contracts/interfaces/dao/deployables/IVotingTypes.sol";
 import { Transaction } from "../contracts/interfaces/dao/Module.sol";
-import { Enum } from "../contracts/mocks/safe-smart-account/common/Enum.sol";
+import { Enum } from "@luxfi/safe/interfaces/Enum.sol";
 
 // --- OZ proxy ---------------------------------------------------------------
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";

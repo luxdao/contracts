@@ -14,17 +14,17 @@ import { ModuleFractalV1 } from "../contracts/deployables/modules/ModuleFractalV
 import { SystemDeployerV1 } from "../contracts/singletons/SystemDeployerV1.sol";
 
 // --- Safe infra (deployed fresh from the standard safe-smart-account lib) -----
-import { SafeL2 } from "@safe-global/safe-smart-account/SafeL2.sol";
-import { SafeProxyFactory } from "@safe-global/safe-smart-account/proxies/SafeProxyFactory.sol";
-import { CompatibilityFallbackHandler } from "@safe-global/safe-smart-account/handler/CompatibilityFallbackHandler.sol";
+import { SafeL2 } from "@luxfi/safe/SafeL2.sol";
+import { SafeProxyFactory } from "@luxfi/safe/proxies/SafeProxyFactory.sol";
+import { CompatibilityFallbackHandler } from "@luxfi/safe/handler/CompatibilityFallbackHandler.sol";
 
 // --- Work market (lives in THIS repo, not in standard) ------------------------
 // The Escrow/Reputation/Bounty instance is stood up atomically + wired ON-CHAIN by a
 // single constructor (WorkMarketDeployer), so no EOA-nonce prediction is trusted here.
-import { WorkMarketDeployer } from "../contracts/deployables/bounty/WorkMarketDeployer.sol";
-import { Escrow } from "../contracts/deployables/bounty/Escrow.sol";
-import { Reputation } from "../contracts/deployables/bounty/Reputation.sol";
-import { Bounty } from "../contracts/deployables/bounty/Bounty.sol";
+import { WorkMarketDeployer } from "@luxfi/contracts/work/WorkMarketDeployer.sol";
+import { Escrow } from "@luxfi/contracts/work/Escrow.sol";
+import { Reputation } from "@luxfi/contracts/work/Reputation.sol";
+import { Bounty } from "@luxfi/contracts/work/Bounty.sol";
 
 /**
  * @title DeployDAO

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.30;
 
-import {IAvatar} from "../interfaces/dao/IAvatar.sol";
-import {Enum} from "./safe-smart-account/common/Enum.sol";
+import {IAvatar} from "@luxdao/zodiac/interfaces/IAvatar.sol";
+import {Enum} from "@luxfi/safe/interfaces/Enum.sol";
 
 contract MockAvatar is IAvatar {
     mapping(address => address) internal modules;

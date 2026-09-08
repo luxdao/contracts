@@ -2,7 +2,7 @@
 pragma solidity ^0.8.31;
 
 import { IVeto } from "../interfaces/IVeto.sol";
-import { ILRC20 } from "@luxfi/standard/tokens/interfaces/ILRC20.sol";
+import { ILRC20 } from "@luxfi/contracts/tokens/interfaces/ILRC20.sol";
 import { ERC165 } from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 

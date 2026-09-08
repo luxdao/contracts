@@ -12,7 +12,7 @@ import {
     DeploymentBlockInitializable
 } from "../../DeploymentBlockInitializable.sol";
 import {InitializerEventEmitter} from "../../InitializerEventEmitter.sol";
-import {GuardableModule} from "../../base/GuardableModule.sol";
+import {GuardableModule} from "@luxdao/zodiac/core/GuardableModule.sol";
 import {
     UUPSUpgradeable
 } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";

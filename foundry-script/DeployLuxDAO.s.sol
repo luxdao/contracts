@@ -4,24 +4,24 @@ pragma solidity ^0.8.31;
 import { Script, console } from "forge-std/Script.sol";
 
 // Safe stack (singleton + factory)
-import { Safe } from "@safe-global/safe-smart-account/Safe.sol";
-import { SafeFactory } from "@luxfi/standard/safe/SafeFactory.sol";
+import { Safe } from "@luxfi/safe/Safe.sol";
+import { SafeFactory } from "@luxfi/contracts/safe/SafeFactory.sol";
 
 // Quasar consensus signer triad + classical signer set
-import { SafeMLDSASigner } from "@luxfi/standard/safe/SafeMLDSASigner.sol";
-import { SafeLSSSigner } from "@luxfi/standard/safe/SafeLSSSigner.sol";
-import { SafeCGGMP21Signer } from "@luxfi/standard/safe/SafeCGGMP21Signer.sol";
-import { SafeFROSTSigner } from "@luxfi/standard/safe/SafeFROSTSigner.sol";
-import { SafeFROSTCoSigner } from "@luxfi/standard/safe/SafeFROSTCoSigner.sol";
-import { SafeCoronaSigner, SafeCoronaFactory } from "@luxfi/standard/safe/SafeCoronaSigner.sol";
-import { SafePulsarSigner, SafePulsarFactory } from "@luxfi/standard/safe/SafePulsarSigner.sol";
-import { SafeMagnetarSigner, SafeMagnetarFactory } from "@luxfi/standard/safe/SafeMagnetarSigner.sol";
+import { SafeMLDSASigner } from "@luxfi/contracts/safe/SafeMLDSASigner.sol";
+import { SafeLSSSigner } from "@luxfi/contracts/safe/SafeLSSSigner.sol";
+import { SafeCGGMP21Signer } from "@luxfi/contracts/safe/SafeCGGMP21Signer.sol";
+import { SafeFROSTSigner } from "@luxfi/contracts/safe/SafeFROSTSigner.sol";
+import { SafeFROSTCoSigner } from "@luxfi/contracts/safe/SafeFROSTCoSigner.sol";
+import { SafeCoronaSigner, SafeCoronaFactory } from "@luxfi/contracts/safe/SafeCoronaSigner.sol";
+import { SafePulsarSigner, SafePulsarFactory } from "@luxfi/contracts/safe/SafePulsarSigner.sol";
+import { SafeMagnetarSigner, SafeMagnetarFactory } from "@luxfi/contracts/safe/SafeMagnetarSigner.sol";
 
 // DAO governance modules + DAO singleton + Governor
 import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGovernorV1.sol";
 import { ModuleFractalV1 } from "../contracts/deployables/modules/ModuleFractalV1.sol";
 import { SystemDeployerV1 } from "../contracts/singletons/SystemDeployerV1.sol";
-import { Governor } from "@luxfi/standard/governance/Governor.sol";
+import { Governor } from "@luxfi/contracts/governance/Governor.sol";
 
 /**
  * @title DeployLuxDAO

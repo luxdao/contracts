@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.31;
 import "forge-std/Test.sol";
-import { LuxRolesV1 } from "../contracts/roles/LuxRolesV1.sol";
+import { LuxRolesV1 } from "@luxfi/contracts/roles/LuxRolesV1.sol";
 
 contract ProbeSlot is Test {
     LuxRolesV1 roles;

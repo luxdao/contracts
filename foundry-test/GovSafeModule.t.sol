@@ -4,14 +4,14 @@ pragma solidity ^0.8.30;
 import { Test } from "forge-std/Test.sol";
 
 // --- Canonical OSS Safe (v1.5.0 SafeL2 singleton) ---
-import { Safe } from "@safe-global/safe-smart-account/Safe.sol";
-import { SafeL2 } from "@safe-global/safe-smart-account/SafeL2.sol";
-import { SafeProxyFactory } from "@safe-global/safe-smart-account/proxies/SafeProxyFactory.sol";
-import { CompatibilityFallbackHandler } from "@safe-global/safe-smart-account/handler/CompatibilityFallbackHandler.sol";
-import { Enum } from "@safe-global/safe-smart-account/interfaces/Enum.sol";
+import { Safe } from "@luxfi/safe/Safe.sol";
+import { SafeL2 } from "@luxfi/safe/SafeL2.sol";
+import { SafeProxyFactory } from "@luxfi/safe/proxies/SafeProxyFactory.sol";
+import { CompatibilityFallbackHandler } from "@luxfi/safe/handler/CompatibilityFallbackHandler.sol";
+import { Enum } from "@luxfi/safe/interfaces/Enum.sol";
 // Transaction.operation is typed by this repo's own vendored copy of Safe's Enum, which solc
 // treats as a distinct type from the one above even though both declare { Call, DelegateCall }.
-import { Enum as Op } from "../contracts/mocks/safe-smart-account/common/Enum.sol";
+import { Enum as Op } from "@luxfi/safe/interfaces/Enum.sol";
 
 // --- Lux DAO Azorius/Zodiac governance stack (all real, no mocks) ---
 import { ModuleGovernorV1 } from "../contracts/deployables/modules/ModuleGovernorV1.sol";
